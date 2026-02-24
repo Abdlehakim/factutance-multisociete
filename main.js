@@ -62,6 +62,44 @@ const DEFAULT_COMPANY_TEMPLATE =
 const DEFAULT_COMPANY_NAME =
   (DEFAULT_COMPANY_TEMPLATE?.name && String(DEFAULT_COMPANY_TEMPLATE.name).trim()) ||
   "Facturance";
+let BUNDLED_COMPANY_GROUP = null;
+try {
+  BUNDLED_COMPANY_GROUP = require("./src/renderer/config/generated-company-group.js");
+} catch {
+  try {
+    const branding = require("./src/renderer/config/branding.js");
+    BUNDLED_COMPANY_GROUP = branding?.companyGroup || null;
+  } catch {
+    BUNDLED_COMPANY_GROUP = null;
+  }
+}
+
+function normalizeCompanyDisplayName(value) {
+  return String(value ?? "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 120);
+}
+
+function getBundledGroupCompanyNames() {
+  const group = BUNDLED_COMPANY_GROUP && typeof BUNDLED_COMPANY_GROUP === "object"
+    ? BUNDLED_COMPANY_GROUP
+    : null;
+  if (!group) return [];
+  if (String(group.mode || "").trim().toLowerCase() !== "group") return [];
+  const source = Array.isArray(group.companies) ? group.companies : [];
+  const seen = new Set();
+  const out = [];
+  source.forEach((entry) => {
+    const name = normalizeCompanyDisplayName(entry);
+    if (!name) return;
+    const key = name.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(name);
+  });
+  return out;
+}
 function companyNameSlug(name, fallback = "company") {
   const normalized = String(name || fallback)
     .normalize("NFKD")
@@ -510,8 +548,35 @@ function getFacturanceRootDir() {
   return cachedFacturanceRootDir;
 }
 
+function seedBundledGroupCompanies(rootDir) {
+  const bundledCompanyNames = getBundledGroupCompanyNames();
+  if (!bundledCompanyNames.length) return;
+  const root = rootDir || getFacturanceRootDir();
+  let companies = CompanyManager.listCompanies(root);
+  let safety = 0;
+  while (companies.length < bundledCompanyNames.length && safety < 256) {
+    const nextName = bundledCompanyNames[companies.length] || "";
+    CompanyManager.createCompany(root, {
+      setActive: false,
+      displayName: nextName
+    });
+    companies = CompanyManager.listCompanies(root);
+    safety += 1;
+  }
+  companies.forEach((company, index) => {
+    const name = bundledCompanyNames[index] || "";
+    if (!company?.id || !name) return;
+    try {
+      CompanyManager.setCompanyDisplayName(root, company.id, name, { ifEmpty: true });
+    } catch (err) {
+      console.warn("Unable to seed bundled company display name", company.id, err?.message || err);
+    }
+  });
+}
+
 function refreshActiveCompanyContext() {
   const rootDir = getFacturanceRootDir();
+  seedBundledGroupCompanies(rootDir);
   const nextPaths = CompanyManager.getActiveCompanyPaths(rootDir);
   activeCompanyPaths = nextPaths;
   FactDb.configure({
@@ -532,6 +597,7 @@ function getActiveCompanyPaths() {
         rootDir,
         activeCompanyId: "entreprise1",
         id: "entreprise1",
+        name: CompanyManager.getCompanyDisplayName(rootDir, "entreprise1") || "entreprise1",
         folder: "entreprise1",
         companyDir: path.join(rootDir, "entreprise1"),
         dbFileName: "entreprise1.db",
@@ -1215,6 +1281,21 @@ async function handleLanApiRequest(req, res, url, pathname) {
             if (!data) {
               await ensureEntrepriseDir();
             }
+            const active = getActiveCompanyPaths();
+            const profileName = normalizeCompanyDisplayName(data?.name || "");
+            if (profileName) {
+              CompanyManager.setCompanyDisplayName(getFacturanceRootDir(), active.id, profileName, {
+                ifEmpty: true
+              });
+            }
+            const fallbackName =
+              CompanyManager.getCompanyDisplayName(getFacturanceRootDir(), active.id) || active.id;
+            if ((!data || typeof data !== "object")) {
+              data = {};
+            }
+            if (!String(data?.name || "").trim() && fallbackName) {
+              data = { ...data, name: fallbackName };
+            }
             sendLanServerJson(res, 200, { ok: true, data });
             return;
           } catch (err) {
@@ -1228,6 +1309,11 @@ async function handleLanApiRequest(req, res, url, pathname) {
             const companySnapshot = { ...snapshot };
             delete companySnapshot.smtp;
             const saved = FactDb.saveCompanyProfile(companySnapshot);
+            const active = getActiveCompanyPaths();
+            const savedName = normalizeCompanyDisplayName(saved?.name || companySnapshot?.name || "");
+            if (savedName) {
+              CompanyManager.setCompanyDisplayName(getFacturanceRootDir(), active.id, savedName);
+            }
             sendLanServerJson(res, 200, { ok: true, data: saved });
             return;
           } catch (err) {
@@ -1255,7 +1341,8 @@ async function handleLanApiRequest(req, res, url, pathname) {
           try {
             const root = getFacturanceRootDir();
             const created = CompanyManager.createCompany(root, {
-              setActive: body?.setActive !== false
+              setActive: body?.setActive !== false,
+              displayName: body?.name || body?.displayName
             });
             if (body?.setActive !== false) {
               refreshActiveCompanyContext();
@@ -4599,6 +4686,20 @@ ipcMain.handle("company:load", async () => {
       await ensureEntrepriseDir();
     }
     const active = getActiveCompanyPaths();
+    const profileName = normalizeCompanyDisplayName(data?.name || "");
+    if (profileName) {
+      CompanyManager.setCompanyDisplayName(getFacturanceRootDir(), active.id, profileName, {
+        ifEmpty: true
+      });
+    }
+    const fallbackName =
+      CompanyManager.getCompanyDisplayName(getFacturanceRootDir(), active.id) || active.id;
+    if ((!data || typeof data !== "object")) {
+      data = {};
+    }
+    if (!String(data?.name || "").trim() && fallbackName) {
+      data = { ...data, name: fallbackName };
+    }
     return { ok: true, data, activeCompanyId: active.id, activeCompany: active };
   } catch (err) {
     console.error("[company:load] error:", err);
@@ -4613,6 +4714,10 @@ ipcMain.handle("company:save", async (_evt, payload = {}) => {
     delete companySnapshot.smtp;
     const saved = FactDb.saveCompanyProfile(companySnapshot);
     const active = getActiveCompanyPaths();
+    const savedName = normalizeCompanyDisplayName(saved?.name || companySnapshot?.name || "");
+    if (savedName) {
+      CompanyManager.setCompanyDisplayName(getFacturanceRootDir(), active.id, savedName);
+    }
     return { ok: true, data: saved, activeCompanyId: active.id, activeCompany: active };
   } catch (err) {
     console.error("[company:save] error:", err);
@@ -4636,7 +4741,8 @@ ipcMain.handle("companies:create", async (_evt, payload = {}) => {
   try {
     const root = getFacturanceRootDir();
     const created = CompanyManager.createCompany(root, {
-      setActive: payload?.setActive !== false
+      setActive: payload?.setActive !== false,
+      displayName: payload?.name || payload?.displayName
     });
     const active = payload?.setActive === false ? getActiveCompanyPaths() : refreshActiveCompanyContext();
     return { ok: true, company: created, activeCompanyId: active.id, activeCompany: active };

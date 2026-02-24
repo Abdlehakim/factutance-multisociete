@@ -8,6 +8,7 @@ const COMPANY_FOLDER_REGEX = /^entreprise(\d+)$/i;
 const LEGACY_REGISTRY_FILE_NAME = "companies.json";
 const LEGACY_ACTIVE_POINTER_FILE_NAME = ".active-company";
 const USERDATA_ACTIVE_FILE_NAME = "active-company.json";
+const COMPANY_SETTINGS_FILE_NAME = "company.settings.json";
 const LEGACY_DB_BASENAMES = ["facturance", "facturance.db"];
 const GENERIC_DB_BASENAMES = ["database", "database.db", "sqlite", "sqlite.db", "db"];
 const LEGACY_DB_SIDE_CAR_SUFFIXES = ["-wal", "-shm", "-journal"];
@@ -74,6 +75,85 @@ function listCompanyFolders(rootDir) {
     .map((entry) => normalizeCompanyId(entry.name))
     .filter(Boolean)
     .sort(compareCompanyIds);
+}
+
+function normalizeCompanyDisplayName(value) {
+  const normalized = String(value ?? "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 120);
+  return normalized;
+}
+
+function resolveCompanyDir(rootDir, companyId) {
+  const root = normalizeRootDir(rootDir);
+  const normalizedId = normalizeCompanyId(companyId);
+  if (!root || !normalizedId) return "";
+  return path.join(root, normalizedId);
+}
+
+function getCompanySettingsPath(rootDir, companyId) {
+  const companyDir = resolveCompanyDir(rootDir, companyId);
+  return companyDir ? path.join(companyDir, COMPANY_SETTINGS_FILE_NAME) : "";
+}
+
+function readCompanySettings(rootDir, companyId) {
+  const filePath = getCompanySettingsPath(rootDir, companyId);
+  if (!filePath || !fs.existsSync(filePath)) return {};
+  try {
+    const raw = fs.readFileSync(filePath, "utf8");
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeCompanySettings(rootDir, companyId, payload = {}) {
+  const normalizedId = normalizeCompanyId(companyId);
+  if (!normalizedId) throw new Error("Invalid company id.");
+  const companyDir = resolveCompanyDir(rootDir, normalizedId);
+  if (!companyDir) throw new Error("Invalid company directory.");
+  fs.mkdirSync(companyDir, { recursive: true });
+  const filePath = getCompanySettingsPath(rootDir, normalizedId);
+  const safePayload = payload && typeof payload === "object" ? payload : {};
+  const tempPath = `${filePath}.tmp`;
+  fs.writeFileSync(tempPath, `${JSON.stringify(safePayload, null, 2)}\n`, "utf8");
+  fs.renameSync(tempPath, filePath);
+}
+
+function getCompanyDisplayName(rootDir, companyId) {
+  const normalizedId = normalizeCompanyId(companyId);
+  if (!normalizedId) return "";
+  const settings = readCompanySettings(rootDir, normalizedId);
+  const fromName = normalizeCompanyDisplayName(
+    settings.name ?? settings.companyName ?? settings.displayName
+  );
+  return fromName || "";
+}
+
+function setCompanyDisplayName(rootDir, companyId, displayName, options = {}) {
+  const root = ensureRootDir(rootDir);
+  const normalizedId = normalizeCompanyId(companyId);
+  if (!normalizedId) throw new Error("Invalid company id.");
+  ensureCompanyDbFile(root, normalizedId);
+
+  const normalizedDisplayName = normalizeCompanyDisplayName(displayName);
+  if (!normalizedDisplayName) {
+    return { id: normalizedId, name: getCompanyDisplayName(root, normalizedId) || normalizedId };
+  }
+
+  const existing = getCompanyDisplayName(root, normalizedId);
+  const shouldTreatAsEmpty =
+    !existing || existing.toLowerCase() === normalizedId.toLowerCase();
+  if (options?.ifEmpty && !shouldTreatAsEmpty) {
+    return { id: normalizedId, name: existing };
+  }
+
+  const settings = readCompanySettings(root, normalizedId);
+  const nextSettings = { ...settings, name: normalizedDisplayName };
+  writeCompanySettings(root, normalizedId, nextSettings);
+  return { id: normalizedId, name: normalizedDisplayName };
 }
 
 function getLegacyRegistryPath(rootDir) {
@@ -479,7 +559,10 @@ function ensureStorageInitialized(rootDir) {
 
 function listCompanies(rootDir) {
   const state = ensureStorageInitialized(rootDir);
-  return state.companies.map((id) => ({ id }));
+  return state.companies.map((id) => ({
+    id,
+    name: getCompanyDisplayName(state.root, id) || id
+  }));
 }
 
 function createCompany(rootDir, options = {}) {
@@ -488,10 +571,15 @@ function createCompany(rootDir, options = {}) {
   const maxIdx = Math.max(0, ...state.companies.map((id) => parseFolderIndex(id) || 0));
   const nextId = `${COMPANY_FOLDER_PREFIX}${maxIdx + 1}`;
   ensureCompanyDbFile(root, nextId);
+  const displayName =
+    normalizeCompanyDisplayName(options?.displayName ?? options?.name ?? "");
+  if (displayName) {
+    setCompanyDisplayName(root, nextId, displayName, { ifEmpty: true });
+  }
   if (options?.setActive !== false) {
     writeUserDataActiveCompanyId(nextId);
   }
-  return { id: nextId };
+  return { id: nextId, name: getCompanyDisplayName(root, nextId) || nextId };
 }
 
 function setActiveCompany(rootDir, companyId) {
@@ -506,7 +594,7 @@ function setActiveCompany(rootDir, companyId) {
   }
   ensureCompanyDbFile(root, normalized);
   writeUserDataActiveCompanyId(normalized);
-  return { id: normalized };
+  return { id: normalized, name: getCompanyDisplayName(root, normalized) || normalized };
 }
 
 function getActiveCompanyId(rootDir) {
@@ -514,7 +602,9 @@ function getActiveCompanyId(rootDir) {
 }
 
 function getActiveCompany(rootDir) {
-  return { id: getActiveCompanyId(rootDir) };
+  const root = ensureRootDir(rootDir);
+  const id = getActiveCompanyId(root);
+  return { id, name: getCompanyDisplayName(root, id) || id };
 }
 
 function getActiveCompanyPaths(rootDir) {
@@ -529,6 +619,7 @@ function getActiveCompanyPaths(rootDir) {
     rootDir: root,
     activeCompanyId,
     id: activeCompanyId,
+    name: getCompanyDisplayName(root, activeCompanyId) || activeCompanyId,
     folder: activeCompanyId,
     companyDir,
     dbFileName,
@@ -551,10 +642,12 @@ module.exports = {
   USERDATA_ACTIVE_FILE_NAME,
   configure,
   createCompany,
+  getCompanyDisplayName,
   getActiveCompany,
   getActiveCompanyId,
   getActiveCompanyPaths,
   listCompanies,
+  setCompanyDisplayName,
   setActiveCompany
 };
 

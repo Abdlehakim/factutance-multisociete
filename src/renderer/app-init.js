@@ -11,6 +11,13 @@
     return String(raw.folder || "").trim();
   }
 
+  function normalizeCompanyName(raw, fallback = "") {
+    const normalized = String(raw ?? "")
+      .replace(/\s+/g, " ")
+      .trim();
+    return normalized || fallback || "";
+  }
+
   function parseCompaniesList(raw) {
     const source = Array.isArray(raw)
       ? raw
@@ -23,7 +30,12 @@
       const id = normalizeCompanyId(item);
       if (!id || seen.has(id)) return;
       seen.add(id);
-      out.push({ id });
+      const nameCandidate =
+        item && typeof item === "object"
+          ? item.name ?? item.displayName ?? item.companyName
+          : "";
+      const name = normalizeCompanyName(nameCandidate, id);
+      out.push({ id, name });
     });
     out.sort((a, b) => {
       const an = Number(String(a.id).replace(/[^\d]/g, "")) || 0;
@@ -86,7 +98,9 @@
       const id = String(value || "").trim();
       if (!id) return;
       if (sel.value !== id) sel.value = id;
-      setDisplayText(id);
+      const selectedOption = Array.from(sel.options || []).find((option) => option.value === id);
+      const label = normalizeCompanyName(selectedOption?.textContent, id);
+      setDisplayText(label);
       syncPanelSelection(id);
       if (emitChange) {
         sel.dispatchEvent(new Event("change", { bubbles: true }));
@@ -142,7 +156,7 @@
       companies.forEach((company) => {
         const opt = document.createElement("option");
         opt.value = company.id;
-        opt.textContent = company.id;
+        opt.textContent = company.name || company.id;
         sel.appendChild(opt);
 
         if (panel) {
@@ -152,7 +166,7 @@
           btn.setAttribute("role", "option");
           btn.setAttribute("data-value", company.id);
           btn.setAttribute("aria-selected", "false");
-          btn.textContent = company.id;
+          btn.textContent = company.name || company.id;
           btn.addEventListener("click", () => {
             chooseCompany(company.id, true);
             menu?.removeAttribute("open");
