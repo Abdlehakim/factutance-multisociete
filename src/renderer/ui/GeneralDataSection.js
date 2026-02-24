@@ -18,32 +18,34 @@ export function renderGeneralDataSection() {
           <div class="company-info-summary">
             <div class="company-info-summary__row">
               <span class="company-info-summary__label" id="companySwitchLabel">Nom de l'entreprise</span>
-              <span class="company-info-summary__value">
-                <details
-                  id="companySwitchSelectMenu"
-                  class="field-toggle-menu model-select-menu"
-                  data-model-select-managed="false"
-                  aria-label="Changer de société"
-                >
-                  <summary
-                    class="btn success field-toggle-trigger"
-                    role="button"
-                    aria-haspopup="listbox"
-                    aria-expanded="false"
-                    aria-labelledby="companySwitchLabel companySwitchSelectDisplay"
+              <span class="company-info-summary__value company-switch-field">
+                <span class="company-switch-anchor">
+                  <details
+                    id="companySwitchSelectMenu"
+                    class="field-toggle-menu model-select-menu"
+                    data-model-select-managed="false"
+                    aria-label="Changer de société"
                   >
-                    <span id="companySwitchSelectDisplay" class="model-select-display">Sélectionner une société</span>
-                    <svg class="chevron" aria-hidden="true" focusable="false" stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="none" d="M0 0h24v24H0V0z"></path><path d="M12 4c4.41 0 8 3.59 8 8s-3.59 8-8 8-8-3.59-8-8 3.59-8 8-8m0-2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 13-4-4h8z"></path></svg>
-                  </summary>
+                    <summary
+                      class="btn success field-toggle-trigger"
+                      role="button"
+                      aria-haspopup="listbox"
+                      aria-expanded="false"
+                      aria-labelledby="companySwitchLabel companySwitchSelectDisplay"
+                    >
+                      <span id="companySwitchSelectDisplay" class="model-select-display">Sélectionner une société</span>
+                      <svg class="chevron" aria-hidden="true" focusable="false" stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="none" d="M0 0h24v24H0V0z"></path><path d="M12 4c4.41 0 8 3.59 8 8s-3.59 8-8 8-8-3.59-8-8 3.59-8 8-8m0-2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 13-4-4h8z"></path></svg>
+                    </summary>
 
-                  <div
-                    id="companySwitchSelectPanel"
-                    class="field-toggle-panel model-select-panel"
-                    role="listbox"
-                    aria-labelledby="companySwitchLabel"
-                  ></div>
-                </details>
-                <select id="companySwitchSelect" class="model-select" aria-hidden="true" tabindex="-1">
+                    <div
+                      id="companySwitchSelectPanel"
+                      class="field-toggle-panel model-select-panel"
+                      role="listbox"
+                      aria-labelledby="companySwitchLabel"
+                    ></div>
+                  </details>
+                </span>
+                <select id="companySwitchSelect" class="model-select" aria-hidden="true" tabindex="-1" hidden>
                   <option value="">Sélectionner une société</option>
                 </select>
               </span>
@@ -1370,4 +1372,5 @@ export function renderGeneralDataSection() {
     </div>
   `);
 }
+
 

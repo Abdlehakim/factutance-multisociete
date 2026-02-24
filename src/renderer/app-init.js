@@ -97,6 +97,26 @@
       menu.addEventListener("toggle", () => {
         trigger.setAttribute("aria-expanded", menu.open ? "true" : "false");
       });
+
+      const closeMenu = () => {
+        if (!menu.open) return;
+        menu.open = false;
+        trigger.setAttribute("aria-expanded", "false");
+      };
+
+      document.addEventListener("click", (event) => {
+        if (!menu.open) return;
+        if (menu.contains(event.target)) return;
+        closeMenu();
+      });
+
+      menu.addEventListener("keydown", (event) => {
+        if (event.key !== "Escape") return;
+        if (!menu.open) return;
+        event.preventDefault();
+        closeMenu();
+        trigger.focus();
+      });
     }
 
     const api = resolveCompaniesApi();
