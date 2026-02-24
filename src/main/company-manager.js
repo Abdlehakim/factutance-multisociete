@@ -3,21 +3,26 @@
 const fs = require("fs");
 const path = require("path");
 
-const REGISTRY_FILE_NAME = "companies.json";
 const COMPANY_FOLDER_PREFIX = "entreprise";
 const COMPANY_FOLDER_REGEX = /^entreprise(\d+)$/i;
+const LEGACY_REGISTRY_FILE_NAME = "companies.json";
+const LEGACY_ACTIVE_POINTER_FILE_NAME = ".active-company";
+const USERDATA_ACTIVE_FILE_NAME = "active-company.json";
 const LEGACY_DB_BASENAMES = ["facturance", "facturance.db"];
+const GENERIC_DB_BASENAMES = ["database", "database.db", "sqlite", "sqlite.db", "db"];
 const LEGACY_DB_SIDE_CAR_SUFFIXES = ["-wal", "-shm", "-journal"];
-const ROOT_SKIP_FILE_NAMES = new Set([REGISTRY_FILE_NAME.toLowerCase()]);
+const ROOT_SKIP_FILE_NAMES = new Set([
+  LEGACY_REGISTRY_FILE_NAME.toLowerCase(),
+  LEGACY_ACTIVE_POINTER_FILE_NAME.toLowerCase()
+]);
 
-const registryCache = new Map();
+let getUserDataDir = null;
 
-function nowIso() {
-  return new Date().toISOString();
-}
-
-function deepClone(value) {
-  return JSON.parse(JSON.stringify(value));
+function configure(options = {}) {
+  const accessor = options?.getUserDataDir;
+  if (typeof accessor === "function") {
+    getUserDataDir = accessor;
+  }
 }
 
 function normalizeRootDir(rootDir) {
@@ -31,10 +36,6 @@ function ensureRootDir(rootDir) {
   return normalized;
 }
 
-function getRegistryPath(rootDir) {
-  return path.join(normalizeRootDir(rootDir), REGISTRY_FILE_NAME);
-}
-
 function parseFolderIndex(folderName) {
   const match = String(folderName || "").trim().match(COMPANY_FOLDER_REGEX);
   if (!match) return null;
@@ -42,29 +43,21 @@ function parseFolderIndex(folderName) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
-function normalizeFolderName(value) {
-  const match = String(value || "").trim().match(COMPANY_FOLDER_REGEX);
-  if (!match) return "";
-  const idx = Number.parseInt(match[1], 10);
-  if (!Number.isFinite(idx) || idx <= 0) return "";
-  return `${COMPANY_FOLDER_PREFIX}${idx}`;
+function normalizeCompanyId(value) {
+  const idx = parseFolderIndex(value);
+  return Number.isFinite(idx) ? `${COMPANY_FOLDER_PREFIX}${idx}` : "";
 }
 
-function defaultCompanyNameForFolder(folder) {
-  const idx = parseFolderIndex(folder);
-  return Number.isFinite(idx) ? `Entreprise ${idx}` : "Entreprise";
+function companyDbFileName(companyId) {
+  const normalized = normalizeCompanyId(companyId);
+  return normalized ? `${normalized}.db` : "";
 }
 
-function normalizeCompanyName(value, fallback = "") {
-  const trimmed = typeof value === "string" ? value.trim() : "";
-  return trimmed || fallback;
-}
-
-function compareCompanyFolders(a, b) {
-  const aIdx = parseFolderIndex(a.folder);
-  const bIdx = parseFolderIndex(b.folder);
-  if (Number.isFinite(aIdx) && Number.isFinite(bIdx)) return aIdx - bIdx;
-  return String(a.folder || "").localeCompare(String(b.folder || ""));
+function compareCompanyIds(a, b) {
+  const aIdx = parseFolderIndex(a) || 0;
+  const bIdx = parseFolderIndex(b) || 0;
+  if (aIdx !== bIdx) return aIdx - bIdx;
+  return String(a || "").localeCompare(String(b || ""));
 }
 
 function listCompanyFolders(rootDir) {
@@ -78,95 +71,93 @@ function listCompanyFolders(rootDir) {
   }
   return entries
     .filter((entry) => entry && entry.isDirectory() && COMPANY_FOLDER_REGEX.test(entry.name || ""))
-    .map((entry) => normalizeFolderName(entry.name))
+    .map((entry) => normalizeCompanyId(entry.name))
     .filter(Boolean)
-    .sort((a, b) => {
-      const aIdx = parseFolderIndex(a) || 0;
-      const bIdx = parseFolderIndex(b) || 0;
-      return aIdx - bIdx;
-    });
+    .sort(compareCompanyIds);
 }
 
-function normalizeRegistryRecord(rawRecord) {
-  const record = rawRecord && typeof rawRecord === "object" ? rawRecord : {};
-  const folder = normalizeFolderName(record.folder || record.id || record.companyId || "");
-  if (!folder) return null;
-  const fallbackName = defaultCompanyNameForFolder(folder);
-  const createdAtRaw = String(record.createdAt || "").trim();
-  const createdAt = createdAtRaw && !Number.isNaN(Date.parse(createdAtRaw)) ? createdAtRaw : nowIso();
-  return {
-    id: folder,
-    folder,
-    companyName: normalizeCompanyName(record.companyName, fallbackName),
-    createdAt
-  };
+function getLegacyRegistryPath(rootDir) {
+  return path.join(normalizeRootDir(rootDir), LEGACY_REGISTRY_FILE_NAME);
 }
 
-function readRegistryFromDisk(rootDir) {
-  const registryPath = getRegistryPath(rootDir);
-  if (!fs.existsSync(registryPath)) return null;
-  try {
-    const text = fs.readFileSync(registryPath, "utf8");
-    if (!text.trim()) return null;
-    const parsed = JSON.parse(text);
-    if (Array.isArray(parsed)) {
-      return { companies: parsed, activeCompanyId: "" };
+function getLegacyActivePointerPath(rootDir) {
+  return path.join(normalizeRootDir(rootDir), LEGACY_ACTIVE_POINTER_FILE_NAME);
+}
+
+function resolveUserDataDir() {
+  if (typeof getUserDataDir === "function") {
+    const resolved = path.resolve(String(getUserDataDir() || ""));
+    if (resolved) {
+      fs.mkdirSync(resolved, { recursive: true });
+      return resolved;
     }
-    if (parsed && typeof parsed === "object") return parsed;
-    return null;
+  }
+  throw new Error("Company manager userData accessor is not configured.");
+}
+
+function getUserDataActiveStatePath() {
+  return path.join(resolveUserDataDir(), USERDATA_ACTIVE_FILE_NAME);
+}
+
+function readUserDataActiveCompanyId() {
+  const activePath = getUserDataActiveStatePath();
+  if (!fs.existsSync(activePath)) return "";
+  try {
+    const raw = fs.readFileSync(activePath, "utf8");
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return "";
+    return normalizeCompanyId(parsed.activeCompanyId || "");
   } catch {
-    return null;
+    return "";
   }
 }
 
-function sanitizeRegistry(rawRegistry, rootDir) {
-  const raw = rawRegistry && typeof rawRegistry === "object" ? rawRegistry : {};
-  const sourceCompanies = Array.isArray(raw.companies)
-    ? raw.companies
-    : Array.isArray(raw)
-      ? raw
-      : [];
-  const dedup = new Map();
-  sourceCompanies.forEach((rawRecord) => {
-    const normalized = normalizeRegistryRecord(rawRecord);
-    if (!normalized) return;
-    if (!dedup.has(normalized.id)) dedup.set(normalized.id, normalized);
-  });
-
-  listCompanyFolders(rootDir).forEach((folder) => {
-    if (dedup.has(folder)) return;
-    dedup.set(folder, {
-      id: folder,
-      folder,
-      companyName: defaultCompanyNameForFolder(folder),
-      createdAt: nowIso()
-    });
-  });
-
-  const companies = Array.from(dedup.values()).sort(compareCompanyFolders);
-  const activeRaw = String(raw.activeCompanyId || "").trim();
-  const activeNormalized = normalizeFolderName(activeRaw);
-  const activeRecord =
-    companies.find((entry) => entry.id === activeRaw) ||
-    companies.find((entry) => entry.id === activeNormalized || entry.folder === activeNormalized) ||
-    companies[0] ||
-    null;
-  return {
-    companies,
-    activeCompanyId: activeRecord ? activeRecord.id : ""
-  };
+function writeUserDataActiveCompanyId(companyId) {
+  const normalized = normalizeCompanyId(companyId);
+  if (!normalized) throw new Error("Invalid company id.");
+  const activePath = getUserDataActiveStatePath();
+  const payload = { activeCompanyId: normalized };
+  const tempPath = `${activePath}.tmp`;
+  fs.writeFileSync(tempPath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+  fs.renameSync(tempPath, activePath);
+  return normalized;
 }
 
-function writeRegistryToDisk(rootDir, registry) {
-  const root = ensureRootDir(rootDir);
-  const registryPath = getRegistryPath(root);
-  const payload = {
-    companies: Array.isArray(registry.companies) ? registry.companies : [],
-    activeCompanyId: String(registry.activeCompanyId || "")
-  };
-  const tempPath = `${registryPath}.tmp`;
-  fs.writeFileSync(tempPath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
-  fs.renameSync(tempPath, registryPath);
+function removeFileIfExists(filePath) {
+  try {
+    if (filePath && fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+      return true;
+    }
+  } catch {
+    // ignore cleanup errors
+  }
+  return false;
+}
+
+function readLegacyActiveFromPointer(rootDir) {
+  const pointerPath = getLegacyActivePointerPath(rootDir);
+  if (!fs.existsSync(pointerPath)) return "";
+  try {
+    const raw = fs.readFileSync(pointerPath, "utf8").trim();
+    return normalizeCompanyId(raw);
+  } catch {
+    return "";
+  }
+}
+
+function readLegacyActiveFromRegistry(rootDir) {
+  const registryPath = getLegacyRegistryPath(rootDir);
+  if (!fs.existsSync(registryPath)) return "";
+  try {
+    const raw = fs.readFileSync(registryPath, "utf8").trim();
+    if (!raw) return "";
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return "";
+    return normalizeCompanyId(parsed.activeCompanyId || "");
+  } catch {
+    return "";
+  }
 }
 
 function copyDirMergeSync(sourceDir, targetDir) {
@@ -188,6 +179,30 @@ function copyDirMergeSync(sourceDir, targetDir) {
       fs.copyFileSync(sourcePath, targetPath);
     }
   });
+}
+
+function moveFileOrCopy(sourcePath, targetPath) {
+  if (!sourcePath || !targetPath) return;
+  if (!fs.existsSync(sourcePath)) return;
+  if (fs.existsSync(targetPath)) return;
+  try {
+    fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+    fs.renameSync(sourcePath, targetPath);
+    return;
+  } catch {
+    // fallback below
+  }
+  fs.copyFileSync(sourcePath, targetPath);
+}
+
+function movePathOrCopy(sourcePath, targetPath, isDirectory) {
+  if (!sourcePath || !targetPath) return;
+  if (!fs.existsSync(sourcePath)) return;
+  if (isDirectory) {
+    copyDirMergeSync(sourcePath, targetPath);
+    return;
+  }
+  moveFileOrCopy(sourcePath, targetPath);
 }
 
 function isLegacyDbNameOrSideCar(fileName) {
@@ -213,8 +228,116 @@ function resolveLegacyDbPath(dirPath) {
   return "";
 }
 
-function copyLegacyDbToCompany(rootDir, companyDir, dbBaseName) {
-  const targetDbPath = path.join(companyDir, dbBaseName);
+function isSideCarFileName(fileName) {
+  const lower = String(fileName || "").toLowerCase();
+  return LEGACY_DB_SIDE_CAR_SUFFIXES.some((suffix) => lower.endsWith(suffix));
+}
+
+function isSqliteFilePath(filePath) {
+  try {
+    const stat = fs.statSync(filePath);
+    if (!stat.isFile()) return false;
+    if (stat.size === 0) return true;
+    if (stat.size < 16) return false;
+    const fd = fs.openSync(filePath, "r");
+    try {
+      const header = Buffer.alloc(16);
+      const bytesRead = fs.readSync(fd, header, 0, header.length, 0);
+      if (bytesRead < 16) return false;
+      return header.toString("utf8", 0, 15) === "SQLite format 3";
+    } finally {
+      fs.closeSync(fd);
+    }
+  } catch {
+    return false;
+  }
+}
+
+function moveDbSideCars(sourceDbPath, targetDbPath) {
+  LEGACY_DB_SIDE_CAR_SUFFIXES.forEach((suffix) => {
+    const sourceSideCar = `${sourceDbPath}${suffix}`;
+    if (!fs.existsSync(sourceSideCar)) return;
+    const targetSideCar = `${targetDbPath}${suffix}`;
+    moveFileOrCopy(sourceSideCar, targetSideCar);
+  });
+}
+
+function resolveCompanyDbSourcePath(companyDir, companyId) {
+  const targetDbFile = companyDbFileName(companyId);
+  const targetDbPath = path.join(companyDir, targetDbFile);
+  try {
+    if (fs.existsSync(targetDbPath) && fs.statSync(targetDbPath).isFile()) {
+      return targetDbPath;
+    }
+  } catch {
+    // ignore invalid target path
+  }
+
+  const preferredNames = [companyId, `${companyId}.db`, ...LEGACY_DB_BASENAMES, ...GENERIC_DB_BASENAMES];
+  for (const preferredName of preferredNames) {
+    const candidate = path.join(companyDir, preferredName);
+    try {
+      if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
+        return candidate;
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  let entries = [];
+  try {
+    entries = fs.readdirSync(companyDir, { withFileTypes: true });
+  } catch {
+    return "";
+  }
+  const files = entries
+    .filter((entry) => entry && entry.isFile())
+    .map((entry) => String(entry.name || ""))
+    .filter(Boolean)
+    .filter((name) => name !== companyId && name !== targetDbFile)
+    .filter((name) => !isSideCarFileName(name));
+
+  const sqliteByHeader = files.find((name) => isSqliteFilePath(path.join(companyDir, name)));
+  if (sqliteByHeader) return path.join(companyDir, sqliteByHeader);
+
+  const sqliteByExt = files.find((name) => /\.db$/i.test(name));
+  if (sqliteByExt) return path.join(companyDir, sqliteByExt);
+  return "";
+}
+
+function createEmptyFileIfMissing(filePath) {
+  if (!filePath || fs.existsSync(filePath)) return;
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  const fd = fs.openSync(filePath, "a");
+  fs.closeSync(fd);
+}
+
+function ensureCompanyDbFile(rootDir, companyId) {
+  const normalizedId = normalizeCompanyId(companyId);
+  if (!normalizedId) return "";
+  const companyDir = path.join(rootDir, normalizedId);
+  fs.mkdirSync(companyDir, { recursive: true });
+
+  const targetDbPath = path.join(companyDir, companyDbFileName(normalizedId));
+  const sourceDbPath = resolveCompanyDbSourcePath(companyDir, normalizedId);
+  if (sourceDbPath && path.resolve(sourceDbPath) !== path.resolve(targetDbPath)) {
+    moveFileOrCopy(sourceDbPath, targetDbPath);
+    moveDbSideCars(sourceDbPath, targetDbPath);
+  }
+
+  createEmptyFileIfMissing(targetDbPath);
+  return targetDbPath;
+}
+
+function normalizeAllCompanyDbFiles(rootDir, companyIds = []) {
+  companyIds.forEach((companyId) => {
+    ensureCompanyDbFile(rootDir, companyId);
+  });
+}
+
+function migrateLegacyDbToCompany(rootDir, companyDir, dbFileName) {
+  const targetDbPath = path.join(companyDir, dbFileName);
   if (fs.existsSync(targetDbPath)) return targetDbPath;
 
   let sourceDbPath = resolveLegacyDbPath(rootDir);
@@ -223,14 +346,9 @@ function copyLegacyDbToCompany(rootDir, companyDir, dbBaseName) {
   }
   if (!sourceDbPath) return "";
 
-  fs.copyFileSync(sourceDbPath, targetDbPath);
-  LEGACY_DB_SIDE_CAR_SUFFIXES.forEach((suffix) => {
-    const sourceSideCar = `${sourceDbPath}${suffix}`;
-    if (!fs.existsSync(sourceSideCar)) return;
-    const targetSideCar = `${targetDbPath}${suffix}`;
-    if (fs.existsSync(targetSideCar)) return;
-    fs.copyFileSync(sourceSideCar, targetSideCar);
-  });
+  movePathOrCopy(sourceDbPath, targetDbPath, false);
+  moveDbSideCars(sourceDbPath, targetDbPath);
+  createEmptyFileIfMissing(targetDbPath);
   return targetDbPath;
 }
 
@@ -252,8 +370,8 @@ function hasLegacyRootEntries(rootDir) {
 }
 
 function migrateLegacyRootIntoEntreprise1(rootDir) {
-  const companyFolder = `${COMPANY_FOLDER_PREFIX}1`;
-  const companyDir = path.join(rootDir, companyFolder);
+  const companyId = `${COMPANY_FOLDER_PREFIX}1`;
+  const companyDir = path.join(rootDir, companyId);
   fs.mkdirSync(companyDir, { recursive: true });
 
   let entries = [];
@@ -275,174 +393,148 @@ function migrateLegacyRootIntoEntreprise1(rootDir) {
     const targetPath = path.join(companyDir, name);
 
     try {
-      if (entry.isDirectory()) {
-        copyDirMergeSync(sourcePath, targetPath);
-        return;
-      }
-      if (entry.isFile() && !fs.existsSync(targetPath)) {
-        fs.copyFileSync(sourcePath, targetPath);
-      }
+      movePathOrCopy(sourcePath, targetPath, entry.isDirectory());
     } catch (err) {
       console.warn("Unable to copy legacy company entry:", sourcePath, err?.message || err);
     }
   });
 
-  copyLegacyDbToCompany(rootDir, companyDir, companyFolder);
+  migrateLegacyDbToCompany(rootDir, companyDir, companyDbFileName(companyId));
 }
 
-function ensureRegistryInitialized(rootDir) {
-  const root = ensureRootDir(rootDir);
-  const cacheKey = root;
-  const cached = registryCache.get(cacheKey);
-  if (cached) return deepClone(cached);
+function resolveLegacyImportedActive(rootDir, companyIds = []) {
+  const pointerCandidate = readLegacyActiveFromPointer(rootDir);
+  const registryCandidate = readLegacyActiveFromRegistry(rootDir);
 
-  const existing = readRegistryFromDisk(root);
-  if (existing) {
-    const normalized = sanitizeRegistry(existing, root);
-    if (!normalized.companies.length) {
-      const companyFolder = `${COMPANY_FOLDER_PREFIX}1`;
-      fs.mkdirSync(path.join(root, companyFolder), { recursive: true });
-      normalized.companies = [
-        {
-          id: companyFolder,
-          folder: companyFolder,
-          companyName: defaultCompanyNameForFolder(companyFolder),
-          createdAt: nowIso()
-        }
-      ];
-      normalized.activeCompanyId = companyFolder;
-    }
-    writeRegistryToDisk(root, normalized);
-    registryCache.set(cacheKey, deepClone(normalized));
-    return deepClone(normalized);
+  let imported = "";
+  if (pointerCandidate && companyIds.includes(pointerCandidate)) {
+    imported = pointerCandidate;
+  } else if (registryCandidate && companyIds.includes(registryCandidate)) {
+    imported = registryCandidate;
   }
 
+  removeFileIfExists(getLegacyActivePointerPath(rootDir));
+  removeFileIfExists(getLegacyRegistryPath(rootDir));
+
+  return imported;
+}
+
+function ensureStorageInitialized(rootDir) {
+  const root = ensureRootDir(rootDir);
+
+  let companyIds = listCompanyFolders(root);
   const hasLegacyDb = !!resolveLegacyDbPath(root);
   const hasLegacyEntries = hasLegacyRootEntries(root);
-  if (hasLegacyDb || hasLegacyEntries) {
+  if (!companyIds.length && (hasLegacyDb || hasLegacyEntries)) {
     migrateLegacyRootIntoEntreprise1(root);
+    companyIds = listCompanyFolders(root);
   }
 
-  let next = sanitizeRegistry({ companies: [], activeCompanyId: "" }, root);
-  if (!next.companies.length) {
-    const companyFolder = `${COMPANY_FOLDER_PREFIX}1`;
-    fs.mkdirSync(path.join(root, companyFolder), { recursive: true });
-    next = {
-      companies: [
-        {
-          id: companyFolder,
-          folder: companyFolder,
-          companyName: defaultCompanyNameForFolder(companyFolder),
-          createdAt: nowIso()
-        }
-      ],
-      activeCompanyId: companyFolder
-    };
+  if (hasLegacyDb) {
+    const legacyTargetId = `${COMPANY_FOLDER_PREFIX}1`;
+    const legacyTargetDir = path.join(root, legacyTargetId);
+    fs.mkdirSync(legacyTargetDir, { recursive: true });
+    migrateLegacyDbToCompany(root, legacyTargetDir, companyDbFileName(legacyTargetId));
+    companyIds = listCompanyFolders(root);
   }
 
-  if (hasLegacyDb || (hasLegacyEntries && next.companies.some((entry) => entry.id === "entreprise1"))) {
-    const entreprise1 = next.companies.find((entry) => entry.id === "entreprise1");
-    if (entreprise1) next.activeCompanyId = entreprise1.id;
+  if (!companyIds.length) {
+    const firstId = `${COMPANY_FOLDER_PREFIX}1`;
+    fs.mkdirSync(path.join(root, firstId), { recursive: true });
+    companyIds = [firstId];
+    if (hasLegacyDb || hasLegacyEntries) {
+      migrateLegacyDbToCompany(root, path.join(root, firstId), companyDbFileName(firstId));
+    }
   }
 
-  writeRegistryToDisk(root, next);
-  registryCache.set(cacheKey, deepClone(next));
-  return deepClone(next);
-}
+  normalizeAllCompanyDbFiles(root, companyIds);
 
-function saveRegistry(rootDir, registry) {
-  const root = ensureRootDir(rootDir);
-  const normalized = sanitizeRegistry(registry, root);
-  writeRegistryToDisk(root, normalized);
-  registryCache.set(root, deepClone(normalized));
-  return deepClone(normalized);
+  const userDataActive = readUserDataActiveCompanyId();
+  const legacyImportedActive = resolveLegacyImportedActive(root, companyIds);
+
+  let activeCompanyId = "";
+  if (userDataActive && companyIds.includes(userDataActive)) {
+    activeCompanyId = userDataActive;
+  } else if (legacyImportedActive && companyIds.includes(legacyImportedActive)) {
+    activeCompanyId = legacyImportedActive;
+  }
+
+  if (!activeCompanyId || !companyIds.includes(activeCompanyId)) {
+    const defaultId = `${COMPANY_FOLDER_PREFIX}1`;
+    if (!companyIds.includes(defaultId)) {
+      fs.mkdirSync(path.join(root, defaultId), { recursive: true });
+      companyIds = listCompanyFolders(root);
+    }
+    activeCompanyId = companyIds.includes(defaultId) ? defaultId : companyIds[0];
+  }
+
+  writeUserDataActiveCompanyId(activeCompanyId);
+
+  return {
+    root,
+    companies: companyIds,
+    activeCompanyId
+  };
 }
 
 function listCompanies(rootDir) {
-  const registry = ensureRegistryInitialized(rootDir);
-  return registry.companies.map((entry) => ({ ...entry }));
+  const state = ensureStorageInitialized(rootDir);
+  return state.companies.map((id) => ({ id }));
 }
 
 function createCompany(rootDir, options = {}) {
   const root = ensureRootDir(rootDir);
-  const registry = ensureRegistryInitialized(root);
-  const physicalFolders = listCompanyFolders(root);
-  const maxIdx = Math.max(
-    0,
-    ...registry.companies.map((entry) => parseFolderIndex(entry.folder) || 0),
-    ...physicalFolders.map((folder) => parseFolderIndex(folder) || 0)
-  );
-  const nextIdx = maxIdx + 1;
-  const folder = `${COMPANY_FOLDER_PREFIX}${nextIdx}`;
-  const record = {
-    id: folder,
-    folder,
-    companyName: normalizeCompanyName(options.companyName, defaultCompanyNameForFolder(folder)),
-    createdAt: nowIso()
-  };
-  fs.mkdirSync(path.join(root, folder), { recursive: true });
-  registry.companies.push(record);
-  registry.companies.sort(compareCompanyFolders);
-  if (options.setActive !== false || !registry.activeCompanyId) {
-    registry.activeCompanyId = record.id;
+  const state = ensureStorageInitialized(root);
+  const maxIdx = Math.max(0, ...state.companies.map((id) => parseFolderIndex(id) || 0));
+  const nextId = `${COMPANY_FOLDER_PREFIX}${maxIdx + 1}`;
+  ensureCompanyDbFile(root, nextId);
+  if (options?.setActive !== false) {
+    writeUserDataActiveCompanyId(nextId);
   }
-  saveRegistry(root, registry);
-  return { ...record };
+  return { id: nextId };
 }
 
 function setActiveCompany(rootDir, companyId) {
   const root = ensureRootDir(rootDir);
-  const registry = ensureRegistryInitialized(root);
-  const requested = normalizeFolderName(companyId) || String(companyId || "").trim();
-  const target =
-    registry.companies.find((entry) => entry.id === requested) ||
-    registry.companies.find((entry) => entry.folder === requested);
-  if (!target) {
+  const normalized = normalizeCompanyId(companyId);
+  if (!normalized) {
+    throw new Error("Invalid company id.");
+  }
+  const companyDir = path.join(root, normalized);
+  if (!fs.existsSync(companyDir) || !fs.statSync(companyDir).isDirectory()) {
     throw new Error("Company not found.");
   }
-  registry.activeCompanyId = target.id;
-  saveRegistry(root, registry);
-  return { ...target };
+  ensureCompanyDbFile(root, normalized);
+  writeUserDataActiveCompanyId(normalized);
+  return { id: normalized };
 }
 
-function getActiveCompanyRecord(registry) {
-  if (!registry || !Array.isArray(registry.companies) || !registry.companies.length) return null;
-  return (
-    registry.companies.find((entry) => entry.id === registry.activeCompanyId) ||
-    registry.companies[0] ||
-    null
-  );
+function getActiveCompanyId(rootDir) {
+  return ensureStorageInitialized(rootDir).activeCompanyId;
+}
+
+function getActiveCompany(rootDir) {
+  return { id: getActiveCompanyId(rootDir) };
 }
 
 function getActiveCompanyPaths(rootDir) {
   const root = ensureRootDir(rootDir);
-  const registry = ensureRegistryInitialized(root);
-  const active = getActiveCompanyRecord(registry);
-  if (!active) throw new Error("No active company available.");
-
-  if (registry.activeCompanyId !== active.id) {
-    registry.activeCompanyId = active.id;
-    saveRegistry(root, registry);
-  }
-
-  const companyDir = path.join(root, active.folder);
-  fs.mkdirSync(companyDir, { recursive: true });
-
-  const dbFileName = active.folder;
+  const activeCompanyId = getActiveCompanyId(root);
+  const companyDir = path.join(root, activeCompanyId);
+  ensureCompanyDbFile(root, activeCompanyId);
+  const dbFileName = companyDbFileName(activeCompanyId);
   const dbPath = path.join(companyDir, dbFileName);
+
   return {
     rootDir: root,
-    registryPath: getRegistryPath(root),
-    activeCompanyId: active.id,
-    id: active.id,
-    folder: active.folder,
-    companyName: active.companyName,
-    createdAt: active.createdAt,
+    activeCompanyId,
+    id: activeCompanyId,
+    folder: activeCompanyId,
     companyDir,
     dbFileName,
     dbPath,
     paths: {
-      root: root,
+      root,
       company: companyDir,
       db: dbPath,
       pdf: path.join(companyDir, "pdf"),
@@ -453,31 +545,16 @@ function getActiveCompanyPaths(rootDir) {
   };
 }
 
-function updateActiveCompanyName(rootDir, companyName) {
-  const root = ensureRootDir(rootDir);
-  const registry = ensureRegistryInitialized(root);
-  const active = getActiveCompanyRecord(registry);
-  if (!active) return null;
-  const nextName = normalizeCompanyName(companyName, active.companyName || defaultCompanyNameForFolder(active.folder));
-  if (!nextName || active.companyName === nextName) return { ...active };
-  const target = registry.companies.find((entry) => entry.id === active.id);
-  if (!target) return null;
-  target.companyName = nextName;
-  saveRegistry(root, registry);
-  return { ...target };
-}
-
-function getRegistrySnapshot(rootDir) {
-  const registry = ensureRegistryInitialized(rootDir);
-  return deepClone(registry);
-}
-
 module.exports = {
-  REGISTRY_FILE_NAME,
+  LEGACY_REGISTRY_FILE_NAME,
+  LEGACY_ACTIVE_POINTER_FILE_NAME,
+  USERDATA_ACTIVE_FILE_NAME,
+  configure,
   createCompany,
-  listCompanies,
-  setActiveCompany,
+  getActiveCompany,
+  getActiveCompanyId,
   getActiveCompanyPaths,
-  getRegistrySnapshot,
-  updateActiveCompanyName
+  listCompanies,
+  setActiveCompany
 };
+

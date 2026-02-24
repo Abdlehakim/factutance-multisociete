@@ -8,7 +8,6 @@
 
 
 function getBrandedCompanyName() {
-  // 1) If branding was loaded as a browser script
   try {
     const n = w?.__FACTURANCE_BRANDING__?.companyName;
     if (typeof n === "string" && n.trim()) return n.trim();

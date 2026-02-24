@@ -149,6 +149,9 @@ if (!app.isPackaged) {
   const devData = path.join(programData, "Facturance", `${DEFAULT_COMPANY_SLUG}DevData`);
   app.setPath("userData", devData);
 }
+CompanyManager.configure({
+  getUserDataDir: () => app.getPath("userData")
+});
 app.commandLine.appendSwitch("disable-gpu-shader-disk-cache");
 
 const isSquirrel =
@@ -527,23 +530,20 @@ function getActiveCompanyPaths() {
       console.error("Unable to refresh active company context", err);
       activeCompanyPaths = {
         rootDir,
-        registryPath: path.join(rootDir, "companies.json"),
-        activeCompanyId: "facturance",
-        id: "facturance",
-        folder: "facturance",
-        companyName: DEFAULT_COMPANY_NAME || "Facturance",
-        createdAt: "",
-        companyDir: rootDir,
-        dbFileName: "facturance.db",
-        dbPath: path.join(rootDir, "facturance.db"),
+        activeCompanyId: "entreprise1",
+        id: "entreprise1",
+        folder: "entreprise1",
+        companyDir: path.join(rootDir, "entreprise1"),
+        dbFileName: "entreprise1.db",
+        dbPath: path.join(rootDir, "entreprise1", "entreprise1.db"),
         paths: {
           root: rootDir,
-          company: rootDir,
-          db: path.join(rootDir, "facturance.db"),
-          pdf: path.join(rootDir, "pdf"),
-          xml: path.join(rootDir, "xml"),
-          exportedData: path.join(rootDir, "exportedData"),
-          factures: path.join(rootDir, "Factures")
+          company: path.join(rootDir, "entreprise1"),
+          db: path.join(rootDir, "entreprise1", "entreprise1.db"),
+          pdf: path.join(rootDir, "entreprise1", "pdf"),
+          xml: path.join(rootDir, "entreprise1", "xml"),
+          exportedData: path.join(rootDir, "entreprise1", "exportedData"),
+          factures: path.join(rootDir, "entreprise1", "Factures")
         }
       };
     }
@@ -563,7 +563,10 @@ try {
   refreshActiveCompanyContext();
 } catch (err) {
   console.error("Unable to initialize multi-company storage context", err);
-  FactDb.configure({ getRootDir: getFacturanceRootDir });
+  FactDb.configure({
+    getRootDir: () => path.join(getFacturanceRootDir(), "entreprise1"),
+    filename: "entreprise1.db"
+  });
 }
 function formatMonthYearSegment(dateLike) {
   const fallback = new Date();
@@ -1211,8 +1214,6 @@ async function handleLanApiRequest(req, res, url, pathname) {
             let data = FactDb.loadCompanyProfile();
             if (!data) {
               await ensureEntrepriseDir();
-            } else if (data && typeof data.name === "string" && data.name.trim()) {
-              CompanyManager.updateActiveCompanyName(getFacturanceRootDir(), data.name);
             }
             sendLanServerJson(res, 200, { ok: true, data });
             return;
@@ -1227,9 +1228,6 @@ async function handleLanApiRequest(req, res, url, pathname) {
             const companySnapshot = { ...snapshot };
             delete companySnapshot.smtp;
             const saved = FactDb.saveCompanyProfile(companySnapshot);
-            if (saved && typeof saved.name === "string" && saved.name.trim()) {
-              CompanyManager.updateActiveCompanyName(getFacturanceRootDir(), saved.name);
-            }
             sendLanServerJson(res, 200, { ok: true, data: saved });
             return;
           } catch (err) {
@@ -1241,11 +1239,11 @@ async function handleLanApiRequest(req, res, url, pathname) {
           try {
             const root = getFacturanceRootDir();
             const companies = CompanyManager.listCompanies(root);
-            const active = CompanyManager.getActiveCompanyPaths(root);
+            const activeCompanyId = getActiveCompanyId();
             sendLanServerJson(res, 200, {
               ok: true,
               companies,
-              activeCompanyId: active.id
+              activeCompanyId
             });
             return;
           } catch (err) {
@@ -1257,7 +1255,6 @@ async function handleLanApiRequest(req, res, url, pathname) {
           try {
             const root = getFacturanceRootDir();
             const created = CompanyManager.createCompany(root, {
-              companyName: body?.companyName,
               setActive: body?.setActive !== false
             });
             if (body?.setActive !== false) {
@@ -4600,8 +4597,6 @@ ipcMain.handle("company:load", async () => {
     let data = FactDb.loadCompanyProfile();
     if (!data) {
       await ensureEntrepriseDir();
-    } else if (typeof data.name === "string" && data.name.trim()) {
-      CompanyManager.updateActiveCompanyName(getFacturanceRootDir(), data.name);
     }
     const active = getActiveCompanyPaths();
     return { ok: true, data, activeCompanyId: active.id, activeCompany: active };
@@ -4617,9 +4612,6 @@ ipcMain.handle("company:save", async (_evt, payload = {}) => {
     const companySnapshot = { ...snapshot };
     delete companySnapshot.smtp;
     const saved = FactDb.saveCompanyProfile(companySnapshot);
-    if (saved && typeof saved.name === "string" && saved.name.trim()) {
-      CompanyManager.updateActiveCompanyName(getFacturanceRootDir(), saved.name);
-    }
     const active = getActiveCompanyPaths();
     return { ok: true, data: saved, activeCompanyId: active.id, activeCompany: active };
   } catch (err) {
@@ -4632,8 +4624,8 @@ ipcMain.handle("companies:list", async () => {
   try {
     const root = getFacturanceRootDir();
     const companies = CompanyManager.listCompanies(root);
-    const active = CompanyManager.getActiveCompanyPaths(root);
-    return { ok: true, companies, activeCompanyId: active.id };
+    const activeCompanyId = getActiveCompanyId();
+    return { ok: true, companies, activeCompanyId };
   } catch (err) {
     console.error("[companies:list] error:", err);
     return { ok: false, error: String(err?.message || err), companies: [] };
@@ -4644,7 +4636,6 @@ ipcMain.handle("companies:create", async (_evt, payload = {}) => {
   try {
     const root = getFacturanceRootDir();
     const created = CompanyManager.createCompany(root, {
-      companyName: payload?.companyName,
       setActive: payload?.setActive !== false
     });
     const active = payload?.setActive === false ? getActiveCompanyPaths() : refreshActiveCompanyContext();

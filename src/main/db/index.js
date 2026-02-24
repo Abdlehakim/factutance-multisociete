@@ -10,7 +10,8 @@ const {
   alignSchema
 } = require("./schema-definition");
 
-const DEFAULT_DB_FILENAME = "facturance.db";
+const DEFAULT_DB_FILENAME = "entreprise1.db";
+const COMPANY_DB_FILENAME_REGEX = /^entreprise\d+$/i;
 const CLIENT_BALANCE_DOC_TABLE = DOC_TYPE_TABLES.facture;
 const CLIENT_BALANCE_MIGRATION_KEY = "migration_client_balance_rebuild_v4";
 const CLIENT_PATH_PREFIX = "sqlite://clients/";
@@ -34,7 +35,7 @@ const DOC_LOCK_TTL_MS = 300000;
 const INSTANCE_ID = `${(crypto.randomUUID && crypto.randomUUID()) || crypto.randomBytes(16).toString("hex")}:${process.pid}`;
 
 let getRootDir = null;
-let dbFileName = DEFAULT_DB_FILENAME;
+let dbFileName = "";
 let dbInstance = null;
 let currentDbPath = "";
 
@@ -50,7 +51,13 @@ const getDatabasePath = () => {
   if (!root) {
     throw new Error("Unable to resolve Facturance root directory.");
   }
-  return path.join(root, dbFileName);
+  const configuredName = typeof dbFileName === "string" ? dbFileName.trim() : "";
+  const fallbackFromRoot = (() => {
+    const base = path.basename(String(root || ""));
+    return COMPANY_DB_FILENAME_REGEX.test(base) ? `${base}.db` : DEFAULT_DB_FILENAME;
+  })();
+  const fileName = configuredName || fallbackFromRoot;
+  return path.join(root, fileName);
 };
 
 const initDatabase = () => {
@@ -4857,7 +4864,7 @@ module.exports = {
       throw new Error("Facturance DB requires a getRootDir accessor.");
     }
     getRootDir = accessor;
-    dbFileName = typeof filename === "string" && filename.trim() ? filename.trim() : DEFAULT_DB_FILENAME;
+    dbFileName = typeof filename === "string" && filename.trim() ? filename.trim() : "";
   },
   getDatabasePath,
   getPaymentHistory,
