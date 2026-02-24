@@ -41,7 +41,7 @@
     sheetName: "Clients",
     baseName: "clients",
     locationSaved:
-      "Le fichier des clients sera enregistre dans FacturanceData\\exportedData\\clientData.",
+      "Le fichier des clients sera enregistre dans FacturanceData\\entrepriseN\\exportedData\\clientData.",
     locationDownload: "Le fichier des clients sera telecharge sur cet appareil."
   };
 

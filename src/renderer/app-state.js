@@ -2,11 +2,7 @@
   const SEM = (w.SEM = w.SEM || {});
 
   const DEF = w.DEFAULTS || {};
-  const COMPANY = DEF.company || w.DEFAULT_COMPANY || {};
-  const DEFAULT_COMPANY_NAME =
-    w.DEFAULT_COMPANY && typeof w.DEFAULT_COMPANY.name === "string"
-      ? w.DEFAULT_COMPANY.name
-      : "";
+  const COMPANY = DEF.company || w.DEFAULT_COMPANY_TEMPLATE || w.DEFAULT_COMPANY || {};
   const CLIENT  = DEF.client  || w.DEFAULT_CLIENT  || { type: "societe" };
   const META    = DEF.meta    || w.DEFAULT_META    || {};
   const NOTES   = typeof DEF.notes === "string" ? DEF.notes : (w.DEFAULT_NOTES || "");
@@ -424,9 +420,7 @@
   SEM.loadCompanyFromLocal = async function () {
     const apply = (data) => {
       if (data && typeof data === "object") {
-        const incoming = { ...data };
-        if (DEFAULT_COMPANY_NAME) incoming.name = DEFAULT_COMPANY_NAME;
-        SEM.state.company = { ...SEM.state.company, ...incoming };
+        SEM.state.company = { ...SEM.state.company, ...data };
       }
     };
     if (window.electronAPI?.loadCompanyData) {
@@ -452,9 +446,6 @@
       } catch (err) {
         console.warn("smtp/loadSmtpSettings failed", err);
       }
-    }
-    if (DEFAULT_COMPANY_NAME) {
-      SEM.state.company.name = DEFAULT_COMPANY_NAME;
     }
   };
 

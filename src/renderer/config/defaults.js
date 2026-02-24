@@ -23,10 +23,8 @@ function getBrandedCompanyName() {
   } catch (_) {}
 }
 
-
-
-  const DEFAULT_COMPANY = {
-      name: getBrandedCompanyName(),
+  const DEFAULT_COMPANY_TEMPLATE = {
+    name: getBrandedCompanyName(),
     type: "societe",
     vat: "",
     customsCode: "",
@@ -149,7 +147,7 @@ function getBrandedCompanyName() {
   const DEFAULT_ITEMS = [];
 
   const DEFAULTS = {
-    company: DEFAULT_COMPANY,
+    company: DEFAULT_COMPANY_TEMPLATE,
     client:  DEFAULT_CLIENT,
     meta:    DEFAULT_META,
     notes:   DEFAULT_NOTES,
@@ -161,7 +159,8 @@ function getBrandedCompanyName() {
 
   w.APP_NAME = APP_NAME;
   w.APP_VERSION = APP_VERSION;
-  w.DEFAULT_COMPANY = DEFAULT_COMPANY;
+  w.DEFAULT_COMPANY_TEMPLATE = DEFAULT_COMPANY_TEMPLATE;
+  w.DEFAULT_COMPANY = DEFAULT_COMPANY_TEMPLATE;
   w.DEFAULT_CLIENT = DEFAULT_CLIENT;
   w.DEFAULT_ARTICLE_FIELD_VISIBILITY = DEFAULT_ARTICLE_FIELD_VISIBILITY;
   w.DEFAULT_CLIENT_FIELD_VISIBILITY = DEFAULT_CLIENT_FIELD_VISIBILITY;
@@ -175,7 +174,8 @@ function getBrandedCompanyName() {
     module.exports = {
       APP_NAME,
       APP_VERSION,
-      DEFAULT_COMPANY,
+      DEFAULT_COMPANY_TEMPLATE,
+      DEFAULT_COMPANY: DEFAULT_COMPANY_TEMPLATE,
       DEFAULT_CLIENT,
       DEFAULT_ARTICLE_FIELD_VISIBILITY,
       DEFAULT_CLIENT_FIELD_VISIBILITY,

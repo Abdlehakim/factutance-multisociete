@@ -1,7 +1,7 @@
 // app-export.js (Electron-first, dialog like the screenshot)
 (function () {
   const defaultCompanyApiKey = (() => {
-    const nameRaw = window.DEFAULT_COMPANY?.name;
+    const nameRaw = window.DEFAULT_COMPANY_TEMPLATE?.name || window.DEFAULT_COMPANY?.name;
     if (typeof nameRaw !== "string") return "";
     const trimmed = nameRaw.trim();
     if (!trimmed) return "";

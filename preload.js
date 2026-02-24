@@ -14,7 +14,9 @@ function companyApiKey(name) {
   if (!normalized) return "";
   return /^[A-Za-z_$]/.test(normalized) ? normalized : `_${normalized}`;
 }
-const DEFAULT_COMPANY_API_KEY = companyApiKey(defaults?.DEFAULT_COMPANY?.name || "");
+const DEFAULT_COMPANY_TEMPLATE =
+  defaults?.DEFAULT_COMPANY_TEMPLATE || defaults?.DEFAULT_COMPANY || {};
+const DEFAULT_COMPANY_API_KEY = companyApiKey(DEFAULT_COMPANY_TEMPLATE?.name || "");
 
 function toFileURL(p) {
   if (!p) return null;
@@ -199,6 +201,13 @@ const api = {
     ipcRenderer.invoke("withholding-fa-settings:save", payload),
 
   // Company coordinates
+  listCompanies: () => ipcRenderer.invoke("companies:list"),
+  createCompany: (payload = {}) => ipcRenderer.invoke("companies:create", payload || {}),
+  setActiveCompany: (payload = {}) => {
+    if (typeof payload === "string") return ipcRenderer.invoke("companies:setActive", { id: payload });
+    return ipcRenderer.invoke("companies:setActive", payload || {});
+  },
+  getActiveCompanyPaths: () => ipcRenderer.invoke("companies:getActivePaths"),
   loadCompanyData: () => ipcRenderer.invoke("company:load"),
   saveCompanyData: (payload) => ipcRenderer.invoke("company:save", payload || {}),
   saveSealFile: (payload) => ipcRenderer.invoke("company:saveSealFile", payload || {}),
@@ -227,6 +236,9 @@ const api = {
 };
 
 contextBridge.exposeInMainWorld("electronAPI", api);
+if (DEFAULT_COMPANY_API_KEY) {
+  contextBridge.exposeInMainWorld("DEFAULT_COMPANY_API_KEY", DEFAULT_COMPANY_API_KEY);
+}
 if (DEFAULT_COMPANY_API_KEY && DEFAULT_COMPANY_API_KEY !== "electronAPI") {
   contextBridge.exposeInMainWorld(DEFAULT_COMPANY_API_KEY, api);
 }

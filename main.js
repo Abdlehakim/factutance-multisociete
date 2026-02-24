@@ -48,12 +48,19 @@ const { saveWithholdingXml } = require("./src/main/withholding-xml");
 const { buildUnsignedTeifXml } = require("./src/main/teif-xml");
 const { signTeifXml } = require("./src/main/idtrust-signer");
 const FactDb = require("./src/main/db");
+const CompanyManager = require("./src/main/company-manager");
 const APP_VERSION =
   typeof defaults?.APP_VERSION === "string" ? defaults.APP_VERSION.trim() : "";
 const NORMALIZED_APP_VERSION =
   APP_VERSION && APP_VERSION.replace(/^v/i, "");
+const DEFAULT_COMPANY_TEMPLATE =
+  (defaults?.DEFAULT_COMPANY_TEMPLATE && typeof defaults.DEFAULT_COMPANY_TEMPLATE === "object")
+    ? defaults.DEFAULT_COMPANY_TEMPLATE
+    : (defaults?.DEFAULT_COMPANY && typeof defaults.DEFAULT_COMPANY === "object")
+      ? defaults.DEFAULT_COMPANY
+      : {};
 const DEFAULT_COMPANY_NAME =
-  (defaults?.DEFAULT_COMPANY?.name && String(defaults.DEFAULT_COMPANY.name).trim()) ||
+  (DEFAULT_COMPANY_TEMPLATE?.name && String(DEFAULT_COMPANY_TEMPLATE.name).trim()) ||
   "Facturance";
 function companyNameSlug(name, fallback = "company") {
   const normalized = String(name || fallback)
@@ -391,6 +398,7 @@ const LAN_MDNS_DEFAULT_NAME = "facturance";
 const LAN_HTTP_REDIRECT_PORT = 80;
 
 let cachedFacturanceRootDir = null;
+let activeCompanyPaths = null;
 const blockedFacturanceRoots = new Set();
 function normalizeFacturanceDir(dir) {
   try {
@@ -464,6 +472,7 @@ async function relocateFacturanceRootDir(failedRoot) {
   const current = failedRoot || cachedFacturanceRootDir;
   if (current) markFacturanceRootAsBlocked(current);
   cachedFacturanceRootDir = null;
+  activeCompanyPaths = null;
   const nextRoot = getFacturanceRootDir();
   if (nextRoot && current && nextRoot !== current) {
     try {
@@ -471,6 +480,11 @@ async function relocateFacturanceRootDir(failedRoot) {
     } catch {
       // best-effort copy; continue even if it fails
     }
+  }
+  try {
+    refreshActiveCompanyContext();
+  } catch (err) {
+    console.warn("Unable to refresh active company context after root relocation", err);
   }
   return nextRoot;
 }
@@ -493,7 +507,64 @@ function getFacturanceRootDir() {
   return cachedFacturanceRootDir;
 }
 
-FactDb.configure({ getRootDir: getFacturanceRootDir });
+function refreshActiveCompanyContext() {
+  const rootDir = getFacturanceRootDir();
+  const nextPaths = CompanyManager.getActiveCompanyPaths(rootDir);
+  activeCompanyPaths = nextPaths;
+  FactDb.configure({
+    getRootDir: () => nextPaths.companyDir,
+    filename: nextPaths.dbFileName
+  });
+  return nextPaths;
+}
+
+function getActiveCompanyPaths() {
+  const rootDir = getFacturanceRootDir();
+  if (!activeCompanyPaths || activeCompanyPaths.rootDir !== rootDir) {
+    try {
+      return refreshActiveCompanyContext();
+    } catch (err) {
+      console.error("Unable to refresh active company context", err);
+      activeCompanyPaths = {
+        rootDir,
+        registryPath: path.join(rootDir, "companies.json"),
+        activeCompanyId: "facturance",
+        id: "facturance",
+        folder: "facturance",
+        companyName: DEFAULT_COMPANY_NAME || "Facturance",
+        createdAt: "",
+        companyDir: rootDir,
+        dbFileName: "facturance.db",
+        dbPath: path.join(rootDir, "facturance.db"),
+        paths: {
+          root: rootDir,
+          company: rootDir,
+          db: path.join(rootDir, "facturance.db"),
+          pdf: path.join(rootDir, "pdf"),
+          xml: path.join(rootDir, "xml"),
+          exportedData: path.join(rootDir, "exportedData"),
+          factures: path.join(rootDir, "Factures")
+        }
+      };
+    }
+  }
+  return activeCompanyPaths;
+}
+
+function getActiveCompanyDataDir() {
+  return getActiveCompanyPaths()?.companyDir || getFacturanceRootDir();
+}
+
+function getActiveCompanyId() {
+  return getActiveCompanyPaths()?.id || "";
+}
+
+try {
+  refreshActiveCompanyContext();
+} catch (err) {
+  console.error("Unable to initialize multi-company storage context", err);
+  FactDb.configure({ getRootDir: getFacturanceRootDir });
+}
 function formatMonthYearSegment(dateLike) {
   const fallback = new Date();
   let dt = fallback;
@@ -537,7 +608,7 @@ function resolveWithholdingPdfDir(meta = {}) {
     return dir;
   } catch (err) {
     console.error("Unable to prepare withholding pdf directory:", err);
-    return getFacturanceRootDir();
+    return getActiveCompanyDataDir();
   }
 }
 function ensureDocTypeBaseDir(docType = "facture", extraSegments = []) {
@@ -546,13 +617,13 @@ function ensureDocTypeBaseDir(docType = "facture", extraSegments = []) {
   const segments = Array.isArray(extraSegments)
     ? extraSegments.filter(Boolean)
     : (extraSegments ? [extraSegments] : []);
-  const dir = path.join(getFacturanceRootDir(), ...segments, sub);
+  const dir = path.join(getActiveCompanyDataDir(), ...segments, sub);
   try {
     fs.mkdirSync(dir, { recursive: true });
     return dir;
   } catch (err) {
     console.error("Unable to prepare doc-type base directory:", err);
-    return getFacturanceRootDir();
+    return getActiveCompanyDataDir();
   }
 }
 function resolveDocPeriodKey(dateLike) {
@@ -574,7 +645,7 @@ function ensureDocTypeDirSync(meta = {}, extraSegments = []) {
     return dir;
   } catch (err) {
     console.error("Unable to prepare doc-type directory:", err);
-    return getFacturanceRootDir();
+    return getActiveCompanyDataDir();
   }
 }
 function resolveSaveDir(meta = {}) {
@@ -592,25 +663,25 @@ function resolveSaveDir(meta = {}) {
 }
 
 async function ensureEntrepriseDir() {
-  const dir = path.join(getFacturanceRootDir(), ENTREPRISE_DIR_NAME);
+  const dir = path.join(getActiveCompanyDataDir(), ENTREPRISE_DIR_NAME);
   await fsp.mkdir(dir, { recursive: true });
   return dir;
 }
 
 function getClientExportDir() {
-  return path.join(getFacturanceRootDir(), "exportedData", "clientData");
+  return path.join(getActiveCompanyDataDir(), "exportedData", "clientData");
 }
 
 function getDocumentExportDir() {
-  return path.join(getFacturanceRootDir(), "exportedData", "documentData");
+  return path.join(getActiveCompanyDataDir(), "exportedData", "documentData");
 }
 
 function getPurchaseInvoiceExportDir() {
-  return path.join(getFacturanceRootDir(), "exportedData", "facture-achat");
+  return path.join(getActiveCompanyDataDir(), "exportedData", "facture-achat");
 }
 
 function getModelExportDir() {
-  return path.join(getFacturanceRootDir(), "exportedData", "modeles");
+  return path.join(getActiveCompanyDataDir(), "exportedData", "modeles");
 }
 
 function sanitizeCompanyPayload(payload = {}) {
@@ -1140,6 +1211,8 @@ async function handleLanApiRequest(req, res, url, pathname) {
             let data = FactDb.loadCompanyProfile();
             if (!data) {
               await ensureEntrepriseDir();
+            } else if (data && typeof data.name === "string" && data.name.trim()) {
+              CompanyManager.updateActiveCompanyName(getFacturanceRootDir(), data.name);
             }
             sendLanServerJson(res, 200, { ok: true, data });
             return;
@@ -1154,7 +1227,70 @@ async function handleLanApiRequest(req, res, url, pathname) {
             const companySnapshot = { ...snapshot };
             delete companySnapshot.smtp;
             const saved = FactDb.saveCompanyProfile(companySnapshot);
+            if (saved && typeof saved.name === "string" && saved.name.trim()) {
+              CompanyManager.updateActiveCompanyName(getFacturanceRootDir(), saved.name);
+            }
             sendLanServerJson(res, 200, { ok: true, data: saved });
+            return;
+          } catch (err) {
+            sendLanServerJson(res, 200, { ok: false, error: String(err?.message || err) });
+            return;
+          }
+        }
+        case "/api/companies/list": {
+          try {
+            const root = getFacturanceRootDir();
+            const companies = CompanyManager.listCompanies(root);
+            const active = CompanyManager.getActiveCompanyPaths(root);
+            sendLanServerJson(res, 200, {
+              ok: true,
+              companies,
+              activeCompanyId: active.id
+            });
+            return;
+          } catch (err) {
+            sendLanServerJson(res, 200, { ok: false, error: String(err?.message || err) });
+            return;
+          }
+        }
+        case "/api/companies/create": {
+          try {
+            const root = getFacturanceRootDir();
+            const created = CompanyManager.createCompany(root, {
+              companyName: body?.companyName,
+              setActive: body?.setActive !== false
+            });
+            if (body?.setActive !== false) {
+              refreshActiveCompanyContext();
+            }
+            sendLanServerJson(res, 200, { ok: true, company: created });
+            return;
+          } catch (err) {
+            sendLanServerJson(res, 200, { ok: false, error: String(err?.message || err) });
+            return;
+          }
+        }
+        case "/api/companies/set-active": {
+          try {
+            const root = getFacturanceRootDir();
+            const activeRaw = body?.id ?? body?.companyId ?? body?.activeCompanyId;
+            CompanyManager.setActiveCompany(root, activeRaw);
+            const activePaths = refreshActiveCompanyContext();
+            sendLanServerJson(res, 200, {
+              ok: true,
+              activeCompanyId: activePaths.id,
+              active: activePaths
+            });
+            return;
+          } catch (err) {
+            sendLanServerJson(res, 200, { ok: false, error: String(err?.message || err) });
+            return;
+          }
+        }
+        case "/api/companies/active-paths": {
+          try {
+            const active = getActiveCompanyPaths();
+            sendLanServerJson(res, 200, { ok: true, active });
             return;
           } catch (err) {
             sendLanServerJson(res, 200, { ok: false, error: String(err?.message || err) });
@@ -1564,7 +1700,7 @@ async function handleLanApiRequest(req, res, url, pathname) {
       case "/api/articles/adjust-stock": {
         const targetPath = body?.path;
         if (targetPath && !FactDb.parseArticleIdFromPath(targetPath)) {
-          const rootDir = getFacturanceRootDir();
+          const rootDir = getActiveCompanyDataDir();
           if (!isPathInside(rootDir, targetPath)) {
             sendLanServerJson(res, 200, { ok: false, error: "Chemin introuvable." });
             return;
@@ -2088,7 +2224,7 @@ function normalizeClientEntityType(value) {
 function getClientsSystemFolder(entityType) {
   const normalized = normalizeClientEntityType(entityType);
   const dirName = normalized === "vendor" ? VENDORS_DIR_NAME : CLIENTS_DIR_NAME;
-  return path.join(getFacturanceRootDir(), dirName);
+  return path.join(getActiveCompanyDataDir(), dirName);
 }
 async function canWriteTo(dir) {
   try {
@@ -2131,13 +2267,14 @@ const clientsFolderCache = new Map();
 const ensuringClientsFolderPromise = new Map();
 async function ensureClientsSystemFolder(entityType) {
   const normalized = normalizeClientEntityType(entityType);
+  const cacheKey = `${getActiveCompanyId()}:${normalized}`;
   if (!CLIENTS_FS_ENABLED) {
     return { ok: true, path: getClientsSystemFolder(normalized), skipped: true, disabled: true };
   }
-  const cached = clientsFolderCache.get(normalized);
+  const cached = clientsFolderCache.get(cacheKey);
   if (cached) return { ...cached };
-  if (ensuringClientsFolderPromise.has(normalized)) {
-    const pending = await ensuringClientsFolderPromise.get(normalized);
+  if (ensuringClientsFolderPromise.has(cacheKey)) {
+    const pending = await ensuringClientsFolderPromise.get(cacheKey);
     return pending && typeof pending === "object" ? { ...pending } : pending;
   }
 
@@ -2154,14 +2291,14 @@ async function ensureClientsSystemFolder(entityType) {
       return { ok: false, error: String(e?.message || e), path: dir };
     }
   })();
-  ensuringClientsFolderPromise.set(normalized, promise);
+  ensuringClientsFolderPromise.set(cacheKey, promise);
 
   try {
     const result = await promise;
-    if (result?.ok) clientsFolderCache.set(normalized, result);
+    if (result?.ok) clientsFolderCache.set(cacheKey, result);
     return result && typeof result === "object" ? { ...result } : result;
   } finally {
-    ensuringClientsFolderPromise.delete(normalized);
+    ensuringClientsFolderPromise.delete(cacheKey);
   }
 }
 function isPathInside(baseDir, candidatePath) {
@@ -2721,14 +2858,14 @@ ipcMain.handle("open-invoice-folder", async (_evt, payload = {}) => {
     const scope = String(payload?.scope || "").toLowerCase();
     const normalized = String(docType || "facture").toLowerCase();
     if (normalized === "rapporttv" && scope === "pdf") {
-      const dir = path.join(getFacturanceRootDir(), "pdf", "rapportTV");
+      const dir = path.join(getActiveCompanyDataDir(), "pdf", "rapportTV");
       fs.mkdirSync(dir, { recursive: true });
       const result = await shell.openPath(dir);
       if (result && result.trim()) throw new Error(result);
       return { ok: true, path: dir };
     }
     if (normalized === "rapportclient" && scope === "pdf") {
-      const dir = path.join(getFacturanceRootDir(), "pdf", "ReleveClients");
+      const dir = path.join(getActiveCompanyDataDir(), "pdf", "ReleveClients");
       fs.mkdirSync(dir, { recursive: true });
       const result = await shell.openPath(dir);
       if (result && result.trim()) throw new Error(result);
@@ -2784,7 +2921,7 @@ ipcMain.handle("models:openExportDir", async () => {
 
 ipcMain.handle("facturance:getReportTaxPdfDir", async () => {
   try {
-    const dir = path.join(getFacturanceRootDir(), "pdf", "rapportTV");
+    const dir = path.join(getActiveCompanyDataDir(), "pdf", "rapportTV");
     await fsp.mkdir(dir, { recursive: true });
     return { ok: true, path: dir };
   } catch (err) {
@@ -2794,7 +2931,7 @@ ipcMain.handle("facturance:getReportTaxPdfDir", async () => {
 
 ipcMain.handle("facturance:getClientStatementPdfDir", async () => {
   try {
-    const dir = path.join(getFacturanceRootDir(), "pdf", "ReleveClients");
+    const dir = path.join(getActiveCompanyDataDir(), "pdf", "ReleveClients");
     await fsp.mkdir(dir, { recursive: true });
     return { ok: true, path: dir };
   } catch (err) {
@@ -2804,7 +2941,7 @@ ipcMain.handle("facturance:getClientStatementPdfDir", async () => {
 
 ipcMain.handle("withholding:openXmlFile", async () => {
   try {
-    const baseDir = path.join(getFacturanceRootDir(), "xml");
+    const baseDir = path.join(getActiveCompanyDataDir(), "xml");
     await fsp.mkdir(baseDir, { recursive: true });
     const { canceled, filePaths } = await dialog.showOpenDialog({
       title: "Ouvrir un fichier XML",
@@ -2824,7 +2961,7 @@ ipcMain.handle("withholding:openXmlFile", async () => {
 
 ipcMain.handle("withholding:saveXml", async (_evt, payload = {}) => {
   try {
-    const baseDir = getFacturanceRootDir();
+    const baseDir = getActiveCompanyDataDir();
     const normalizeSubDir = (value) => {
       if (typeof value !== "string") return "";
       const trimmed = value.trim();
@@ -2891,7 +3028,7 @@ ipcMain.handle("withholding:saveXml", async (_evt, payload = {}) => {
       const xml = buildUnsignedTeifXml(resolvedPayload);
     if (!xml || !String(xml).trim()) return { ok: false, error: "XML vide." };
 
-    const baseDir = path.join(getFacturanceRootDir(), "xml", "factures");
+    const baseDir = path.join(getActiveCompanyDataDir(), "xml", "factures");
     await fsp.mkdir(baseDir, { recursive: true });
     const metaNumber =
       factureData?.meta?.number || factureData?.number || FactDb.parseDocumentNumberFromPath(historyPath) || "";
@@ -2965,7 +3102,7 @@ ipcMain.handle("xml:readFile", async (_evt, payload = {}) => {
   try {
     const targetPath = String(payload?.path || "").trim();
     if (!targetPath) return { ok: false, error: "Missing XML path." };
-    const baseDir = path.join(getFacturanceRootDir(), "xml");
+    const baseDir = path.join(getActiveCompanyDataDir(), "xml");
     const resolved = path.resolve(targetPath);
     if (!isPathInside(baseDir, resolved)) {
       return { ok: false, error: "Le fichier XML est en dehors du dossier autorise." };
@@ -2996,7 +3133,7 @@ ipcMain.handle("list-pdf-documents", async (_evt, payload = {}) => {
     let baseDir = "";
     let jsonBaseDir = "";
     if (isReportTax) {
-      baseDir = path.join(getFacturanceRootDir(), "pdf", "rapportTV");
+      baseDir = path.join(getActiveCompanyDataDir(), "pdf", "rapportTV");
       jsonBaseDir = "";
       fs.mkdirSync(baseDir, { recursive: true });
     } else {
@@ -3142,7 +3279,7 @@ ipcMain.handle("list-pdf-documents", async (_evt, payload = {}) => {
 
 ipcMain.handle("list-xml-documents", async (_evt, payload = {}) => {
   try {
-    const baseRoot = path.join(getFacturanceRootDir(), "xml");
+    const baseRoot = path.join(getActiveCompanyDataDir(), "xml");
     const normalizeSubDir = (value) => {
       if (typeof value !== "string") return "";
       const trimmed = value.trim();
@@ -3665,7 +3802,7 @@ ipcMain.handle("delete-invoice-file", async (_evt, payload = {}) => {
   return await deleteInvoiceFile(payload, { enforceRoot: false });
 });
 
-/* ---------- Logo picker (stores in Facturance Data/Entreprise) ---------- */
+/* ---------- Logo picker (stores in active company /Entreprise) ---------- */
 ipcMain.handle("app:pickLogo", async () => {
   const { canceled, filePaths } = await dialog.showOpenDialog({
     title: "Choisir un logo",
@@ -3691,7 +3828,7 @@ ipcMain.handle("app:pickLogo", async () => {
     return { dataUrl: `data:${mime};base64,${buffer.toString("base64")}`, path: targetPath };
   } catch (err) {
     console.error("app:pickLogo failed", err);
-    dialog.showErrorBox("Logo", "Impossible d'enregistrer le logo dans Facturance Data.");
+    dialog.showErrorBox("Logo", "Impossible d'enregistrer le logo dans le dossier de l'entreprise active.");
     try {
       const fallbackExt = path.extname(sourcePath).slice(1).toLowerCase();
       const buffer = await fsp.readFile(sourcePath);
@@ -3962,7 +4099,7 @@ function ensureSafeName(s = "article") {
   return String(s).trim().replace(/[\/\\:*?"<>|]/g, "-").replace(/\s+/g, " ").substring(0, 60) || "article";
 }
 function getArticlesDir() {
-  return path.join(getFacturanceRootDir(), "Articles");
+  return path.join(getActiveCompanyDataDir(), "Articles");
 }
 async function ensureArticlesDir() {
   const dir = getArticlesDir();
@@ -4255,14 +4392,15 @@ function sanitizeModelPresetName(rawName) {
 }
 
 function getModelsDir() {
-  return path.join(getFacturanceRootDir(), "Models");
+  return path.join(getActiveCompanyDataDir(), "Models");
 }
 
-let legacyModelsMigrated = false;
+const legacyModelsMigrated = new Set();
 
 async function migrateLegacyModelsToDb() {
-  if (legacyModelsMigrated) return;
-  legacyModelsMigrated = true;
+  const companyKey = getActiveCompanyId() || "entreprise0";
+  if (legacyModelsMigrated.has(companyKey)) return;
+  legacyModelsMigrated.add(companyKey);
   const dir = getModelsDir();
   if (!dir || !fs.existsSync(dir)) return;
   let files = [];
@@ -4462,8 +4600,11 @@ ipcMain.handle("company:load", async () => {
     let data = FactDb.loadCompanyProfile();
     if (!data) {
       await ensureEntrepriseDir();
+    } else if (typeof data.name === "string" && data.name.trim()) {
+      CompanyManager.updateActiveCompanyName(getFacturanceRootDir(), data.name);
     }
-    return { ok: true, data };
+    const active = getActiveCompanyPaths();
+    return { ok: true, data, activeCompanyId: active.id, activeCompany: active };
   } catch (err) {
     console.error("[company:load] error:", err);
     return { ok: false, error: String(err?.message || err) };
@@ -4476,9 +4617,63 @@ ipcMain.handle("company:save", async (_evt, payload = {}) => {
     const companySnapshot = { ...snapshot };
     delete companySnapshot.smtp;
     const saved = FactDb.saveCompanyProfile(companySnapshot);
-    return { ok: true, data: saved };
+    if (saved && typeof saved.name === "string" && saved.name.trim()) {
+      CompanyManager.updateActiveCompanyName(getFacturanceRootDir(), saved.name);
+    }
+    const active = getActiveCompanyPaths();
+    return { ok: true, data: saved, activeCompanyId: active.id, activeCompany: active };
   } catch (err) {
     console.error("[company:save] error:", err);
+    return { ok: false, error: String(err?.message || err) };
+  }
+});
+
+ipcMain.handle("companies:list", async () => {
+  try {
+    const root = getFacturanceRootDir();
+    const companies = CompanyManager.listCompanies(root);
+    const active = CompanyManager.getActiveCompanyPaths(root);
+    return { ok: true, companies, activeCompanyId: active.id };
+  } catch (err) {
+    console.error("[companies:list] error:", err);
+    return { ok: false, error: String(err?.message || err), companies: [] };
+  }
+});
+
+ipcMain.handle("companies:create", async (_evt, payload = {}) => {
+  try {
+    const root = getFacturanceRootDir();
+    const created = CompanyManager.createCompany(root, {
+      companyName: payload?.companyName,
+      setActive: payload?.setActive !== false
+    });
+    const active = payload?.setActive === false ? getActiveCompanyPaths() : refreshActiveCompanyContext();
+    return { ok: true, company: created, activeCompanyId: active.id, activeCompany: active };
+  } catch (err) {
+    console.error("[companies:create] error:", err);
+    return { ok: false, error: String(err?.message || err) };
+  }
+});
+
+ipcMain.handle("companies:setActive", async (_evt, payload = {}) => {
+  try {
+    const root = getFacturanceRootDir();
+    const companyId = payload?.id ?? payload?.companyId ?? payload?.activeCompanyId;
+    CompanyManager.setActiveCompany(root, companyId);
+    const active = refreshActiveCompanyContext();
+    return { ok: true, activeCompanyId: active.id, activeCompany: active };
+  } catch (err) {
+    console.error("[companies:setActive] error:", err);
+    return { ok: false, error: String(err?.message || err) };
+  }
+});
+
+ipcMain.handle("companies:getActivePaths", async () => {
+  try {
+    const active = getActiveCompanyPaths();
+    return { ok: true, activeCompanyId: active.id, activeCompany: active };
+  } catch (err) {
+    console.error("[companies:getActivePaths] error:", err);
     return { ok: false, error: String(err?.message || err) };
   }
 });

@@ -1001,7 +1001,7 @@ export function renderGeneralDataSection() {
               </table>
             </div>
           </div>
-          <div id="articlesExportSummary" class="client-export-modal__summary">Le fichier sera enregistre dans FacturanceData\\exportedData\\articleData.</div>
+          <div id="articlesExportSummary" class="client-export-modal__summary">Le fichier sera enregistre dans FacturanceData\\entrepriseN\\exportedData\\articleData.</div>
           <label class="client-export-modal__checkbox">
             <input id="articlesExportOpenLocation" type="checkbox" />
             <span>Ouvrir l&apos;emplacement apres export</span>

@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("TeifSigner")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+31c3160805640064f303b6d6db257c41f4d01429")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+53ac42b830c1d64cfb82b0271ed7d8047d46fd58")]
 [assembly: System.Reflection.AssemblyProductAttribute("TeifSigner")]
 [assembly: System.Reflection.AssemblyTitleAttribute("TeifSigner")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -47,7 +47,7 @@
     sheetName: "Fournisseurs",
     baseName: "fournisseurs",
     locationSaved:
-      "Le fichier des fournisseurs sera enregistre dans FacturanceData\\exportedData\\clientData.",
+      "Le fichier des fournisseurs sera enregistre dans FacturanceData\\entrepriseN\\exportedData\\clientData.",
     locationDownload: "Le fichier des fournisseurs sera telecharge sur cet appareil."
   };
 

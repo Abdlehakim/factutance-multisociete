@@ -61,7 +61,13 @@
       const appVer = w.APP_VERSION ? ` ${w.APP_VERSION}` : "";
       const companyName =
         (st.company && typeof st.company.name === "string" && st.company.name.trim()) ||
-        (w.DEFAULT_COMPANY && typeof w.DEFAULT_COMPANY.name === "string" && w.DEFAULT_COMPANY.name.trim()) ||
+        (
+          ((w.DEFAULT_COMPANY_TEMPLATE && typeof w.DEFAULT_COMPANY_TEMPLATE.name === "string")
+            ? w.DEFAULT_COMPANY_TEMPLATE.name
+            : (w.DEFAULT_COMPANY && typeof w.DEFAULT_COMPANY.name === "string")
+              ? w.DEFAULT_COMPANY.name
+              : "") || ""
+        ).trim() ||
         "";
       const brandDisplay = `${appName}${appVer}${companyName ? ` ${companyName}` : ""}`;
       if (h1) h1.textContent = brandDisplay;
@@ -159,7 +165,7 @@
       }
 
       try {
-        const DC = w.DEFAULT_COMPANY || {};
+        const DC = w.DEFAULT_COMPANY_TEMPLATE || w.DEFAULT_COMPANY || {};
         const companyNameEl = getEl("companyName");
         if (companyNameEl && DC.name) companyNameEl.placeholder = String(DC.name);
       } catch {}
