@@ -13,6 +13,49 @@
     "retenue"
   ];
   let initialized = false;
+  let appReadyNotified = false;
+
+  function resolveBootOverlay() {
+    if (typeof document === "undefined") return null;
+    return document.getElementById("bootOverlay") || document.getElementById("app-loader");
+  }
+
+  function setBootOverlayLabel(value) {
+    const overlay = resolveBootOverlay();
+    if (!overlay) return;
+    const textEl = overlay.querySelector(".app-loader__text");
+    if (!textEl) return;
+    const label = String(value || "").trim();
+    if (label) textEl.textContent = label;
+  }
+
+  function showBootOverlay(label) {
+    const body = document.body;
+    if (body) body.classList.remove("app-loaded");
+    if (label) setBootOverlayLabel(label);
+    const overlay = resolveBootOverlay();
+    if (!overlay) return;
+    overlay.removeAttribute("hidden");
+    overlay.setAttribute("aria-hidden", "false");
+  }
+
+  function hideBootOverlay() {
+    const body = document.body;
+    if (body) body.classList.add("app-loaded");
+    const overlay = resolveBootOverlay();
+    if (!overlay) return;
+    overlay.setAttribute("aria-hidden", "true");
+  }
+
+  function notifyAppReadyOnce() {
+    if (appReadyNotified) return;
+    appReadyNotified = true;
+    try {
+      w.electronAPI?.notifyAppReady?.();
+    } catch {
+      // ignore bridge issues
+    }
+  }
 
   function ensureCompanySwitchOverlay() {
     if (typeof document === "undefined") return null;
@@ -534,7 +577,7 @@
     }
   }
 
-  async function init() {
+  async function runCriticalInit() {
     if (typeof SEM.loadCompanyFromLocal === "function") {
       try {
         await SEM.loadCompanyFromLocal();
@@ -546,7 +589,10 @@
     SEM.bind?.();
     SEM.wireLiveBindings?.();
     SEM.setSubmitMode?.("add");
+    endCompanySwitchLoading();
+  }
 
+  async function runNonCriticalInit() {
     AppInit.ensurePdfWorker?.();
     AppInit.wireSignatureModal?.();
 
@@ -576,14 +622,22 @@
       focus,
       forms: SEM.forms
     });
-
     AppInit.__runtime = {
       numbering,
       history,
       focus,
       forms: SEM.forms
     };
-    endCompanySwitchLoading();
+  }
+
+  async function init() {
+    showBootOverlay("Chargement de Facturance...");
+    await runCriticalInit();
+    hideBootOverlay();
+    notifyAppReadyOnce();
+    void runNonCriticalInit().catch((err) => {
+      console.error("Non-critical startup failed", err);
+    });
   }
 
   w.onReady(() => {
@@ -591,6 +645,7 @@
     initialized = true;
     Promise.resolve(init()).catch((err) => {
       console.error("App init error", err);
+      setBootOverlayLabel("Echec du demarrage...");
       endCompanySwitchLoading();
     });
   });

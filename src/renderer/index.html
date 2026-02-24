@@ -18,6 +18,13 @@
       "
     />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      #bootOverlay {
+        position: fixed;
+        inset: 0;
+        z-index: 999;
+      }
+    </style>
     <title>Facturance – Gestionnaire de société</title>
 
     <link rel="stylesheet" href="./styles/core.css" />
@@ -71,7 +78,7 @@
   </head>
 
   <body>
-    <div id="app-loader" class="app-loader" role="status" aria-live="polite">
+    <div id="bootOverlay" class="app-loader" role="status" aria-live="polite" aria-hidden="false">
       <div class="app-loader__content">
         <img src="./assets/icon.png" alt="Facturance" class="app-loader__logo" />
         <div class="app-loader__dots" aria-hidden="true">

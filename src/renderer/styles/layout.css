@@ -21,7 +21,7 @@ body:not(.app-loaded) {
   margin: 0;
 }
 
-body:not(.app-loaded) > :not(#app-loader) {
+body:not(.app-loaded) > :not(#bootOverlay) {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
@@ -38,7 +38,7 @@ body.splash-only {
   justify-content: center;
 }
 
-body.splash-only #app-loader {
+body.splash-only #bootOverlay {
   position: static;
   inset: auto;
   transform: none;
