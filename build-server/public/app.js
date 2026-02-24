@@ -1,10 +1,12 @@
 let currentJobId = null;
 
 let companies = [];
+let companyGroups = [];
 let selectedCompanies = [];
 let menuOpen = false;
 let activeIndex = -1;
 let renderedMenuItems = [];
+let buildMode = "single";
 
 let progressTimer = null;
 let fakeProgress = 0;
@@ -91,6 +93,30 @@ function getComboEls() {
     menu: document.getElementById("companyMenu"),
     toggle: document.getElementById("companyToggle"),
   };
+}
+
+function getModeEls() {
+  return {
+    modeSingle: document.getElementById("modeSingle"),
+    modeGroup: document.getElementById("modeGroup"),
+    groupControls: document.getElementById("groupControls"),
+    groupSelect: document.getElementById("groupSelect"),
+    saveGroupBtn: document.getElementById("saveGroupBtn"),
+  };
+}
+
+function getSelectedBuildMode() {
+  const selected = document.querySelector('input[name="buildMode"]:checked');
+  return selected?.value === "group" ? "group" : "single";
+}
+
+function setBuildMode(mode) {
+  buildMode = mode === "group" ? "group" : "single";
+  const { modeSingle, modeGroup, groupControls } = getModeEls();
+
+  if (modeSingle) modeSingle.checked = buildMode === "single";
+  if (modeGroup) modeGroup.checked = buildMode === "group";
+  if (groupControls) groupControls.hidden = buildMode !== "group";
 }
 
 function normalizeCompanyName(value) {
@@ -301,6 +327,47 @@ function tryAddCurrentInputCompany() {
   return added;
 }
 
+function renderGroupOptions(selectedId = "") {
+  const { groupSelect } = getModeEls();
+  if (!groupSelect) return;
+
+  const previousValue = selectedId || groupSelect.value || "";
+  groupSelect.innerHTML = "";
+
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = "Select a group...";
+  groupSelect.appendChild(placeholder);
+
+  for (const group of companyGroups) {
+    if (!group?.id) continue;
+    const option = document.createElement("option");
+    option.value = group.id;
+    option.textContent = group.name || group.id;
+    groupSelect.appendChild(option);
+  }
+
+  if (previousValue && companyGroups.some((group) => group.id === previousValue)) {
+    groupSelect.value = previousValue;
+  } else {
+    groupSelect.value = "";
+  }
+}
+
+function applyGroupCompanies(groupId) {
+  const group = companyGroups.find((item) => item.id === groupId);
+  if (!group) return;
+
+  selectedCompanies = Array.isArray(group.companies)
+    ? group.companies.map((name) => normalizeCompanyName(name)).filter(Boolean)
+    : [];
+
+  renderSelectedChips();
+
+  const { input } = getComboEls();
+  renderCompanyMenu(filterCompanies(input?.value || ""), input?.value || "");
+}
+
 async function loadCompanies() {
   const res = await fetch("/api/companies");
 
@@ -318,15 +385,99 @@ async function loadCompanies() {
   renderCompanyMenu(filterCompanies(""), "");
 }
 
+async function loadCompanyGroups(selectedId = "") {
+  const res = await fetch("/api/company-groups");
+
+  if (res.status === 401) {
+    redirectToLogin();
+    return;
+  }
+
+  const data = await res.json().catch(() => []);
+  companyGroups = Array.isArray(data)
+    ? data
+      .filter((group) => group && typeof group === "object")
+      .map((group) => ({
+        id: String(group.id || "").trim(),
+        name: normalizeCompanyName(group.name || group.id || ""),
+        companies: Array.isArray(group.companies)
+          ? group.companies.map((name) => normalizeCompanyName(name)).filter(Boolean)
+          : [],
+      }))
+      .filter((group) => group.id && group.name && group.companies.length)
+    : [];
+
+  renderGroupOptions(selectedId);
+}
+
+async function saveCurrentSelectionAsGroup() {
+  const names = collectCompanyNamesForBuild();
+  if (!names.length) {
+    alert("Please select at least one company before saving a group.");
+    return;
+  }
+
+  const defaultName = `Group ${new Date().toISOString().slice(0, 10)}`;
+  const typedName = window.prompt("Group name", defaultName);
+  if (typedName == null) return;
+
+  const name = normalizeCompanyName(typedName);
+  if (!name || name.length < 2) {
+    alert("Please enter a valid group name (min 2 characters).");
+    return;
+  }
+
+  const { saveGroupBtn } = getModeEls();
+  if (saveGroupBtn) saveGroupBtn.disabled = true;
+
+  try {
+    const res = await fetch("/api/company-groups/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, companies: names }),
+    });
+
+    if (res.status === 401) {
+      redirectToLogin();
+      return;
+    }
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data?.ok) {
+      throw new Error(data?.error || "Unable to save group");
+    }
+
+    const selectedId = String(data?.group?.id || "").trim();
+    await loadCompanyGroups(selectedId);
+
+    if (selectedId) {
+      applyGroupCompanies(selectedId);
+      const { groupSelect } = getModeEls();
+      if (groupSelect) groupSelect.value = selectedId;
+    }
+
+    setStatus(`Group saved: ${data?.group?.name || name}`, "status-idle");
+  } catch (err) {
+    alert(String(err?.message || "Unable to save group"));
+  } finally {
+    if (saveGroupBtn) saveGroupBtn.disabled = false;
+  }
+}
+
 function setBuildUiBusy(isBusy) {
   const buildBtn = document.getElementById("buildBtn");
   const variant = document.getElementById("buildVariant");
   const { combo, input, toggle } = getComboEls();
+  const { modeSingle, modeGroup, groupSelect, saveGroupBtn } = getModeEls();
 
   if (buildBtn) buildBtn.disabled = isBusy;
   if (variant) variant.disabled = isBusy;
   if (input) input.disabled = isBusy;
   if (toggle) toggle.disabled = isBusy;
+  if (modeSingle) modeSingle.disabled = isBusy;
+  if (modeGroup) modeGroup.disabled = isBusy;
+  if (groupSelect) groupSelect.disabled = isBusy;
+  if (saveGroupBtn) saveGroupBtn.disabled = isBusy;
   if (combo) combo.classList.toggle("is-disabled", isBusy);
 
   if (isBusy) closeCompanyMenu();
@@ -385,7 +536,7 @@ async function createBuildJob(companyName, buildVariant, index, total) {
     res = await fetch("/api/build", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ companyName, buildVariant }),
+      body: JSON.stringify({ mode: "single", companyName, buildVariant }),
     });
   } catch {
     throw new Error("Cannot reach build server. Is server.js running?");
@@ -403,6 +554,47 @@ async function createBuildJob(companyName, buildVariant, index, total) {
   }
 
   return data.jobId;
+}
+
+async function createGroupBuildJob(groupId, buildVariant, companiesForBuild = []) {
+  const companies = Array.isArray(companiesForBuild)
+    ? companiesForBuild.map((name) => normalizeCompanyName(name)).filter(Boolean)
+    : [];
+
+  let res;
+  try {
+    res = await fetch("/api/build", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "group", groupId, companies, buildVariant }),
+    });
+  } catch {
+    throw new Error("Cannot reach build server. Is server.js running?");
+  }
+
+  if (res.status === 401) {
+    const unauthorized = new Error("Unauthorized");
+    unauthorized.code = "UNAUTHORIZED";
+    throw unauthorized;
+  }
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.error || "Unable to start group build");
+  }
+
+  const jobId = String(data?.jobId || "").trim();
+  if (!jobId) {
+    throw new Error("No build job was created for this group");
+  }
+
+  return {
+    jobId,
+    groupName: normalizeCompanyName(data.groupName || groupId),
+    companies: Array.isArray(data.companies)
+      ? data.companies.map((name) => normalizeCompanyName(name)).filter(Boolean)
+      : companies,
+  };
 }
 
 function setProgressForState(state, companyName, index, total) {
@@ -477,32 +669,53 @@ async function monitorBuildJob(jobId, companyName, index, total) {
 
 async function startBuild() {
   const buildVariant = document.getElementById("buildVariant")?.value || "both";
-  const companyNames = collectCompanyNamesForBuild();
+  const mode = getSelectedBuildMode();
+  const { groupSelect } = getModeEls();
 
-  if (!companyNames.length) {
-    alert("Please select at least one company.");
+  const singleCompanies = mode === "single" ? collectCompanyNamesForBuild() : [];
+  const selectedGroupId = mode === "group" ? String(groupSelect?.value || "").trim() : "";
+
+  if (mode === "single" && singleCompanies.length !== 1) {
+    alert("Single mode requires exactly 1 company.");
     return;
   }
+
+  if (mode === "group" && !selectedGroupId) {
+    alert("Please select a group, or save the current selection as a group first.");
+    return;
+  }
+
+  let jobToMonitor = null;
 
   setBuildUiBusy(true);
   clearBuildOutputs();
 
   startFakeProgress();
-  setStatus(`Starting ${companyNames.length} build(s)...`, "status-queued");
+  setStatus("Starting build(s)...", "status-queued");
   setProgress(8, "Starting build jobs...");
 
   try {
-    for (let i = 0; i < companyNames.length; i++) {
-      const companyName = companyNames[i];
-      const index = i + 1;
+    if (mode === "single") {
+      const companyName = singleCompanies[0];
+      setStatus(`Starting single build: ${companyName}`, "status-queued");
+      const jobId = await createBuildJob(companyName, buildVariant, 1, 1);
+      jobToMonitor = { jobId, label: companyName };
+    } else {
+      const group = companyGroups.find((item) => item.id === selectedGroupId);
+      const groupLabel = group?.name || selectedGroupId;
+      const groupCompanies = collectCompanyNamesForBuild();
+      setStatus(`Starting group build: ${groupLabel}`, "status-queued");
 
-      const jobId = await createBuildJob(companyName, buildVariant, index, companyNames.length);
-      await monitorBuildJob(jobId, companyName, index, companyNames.length);
+      const response = await createGroupBuildJob(selectedGroupId, buildVariant, groupCompanies);
+      const finalLabel = response.groupName || groupLabel;
+      jobToMonitor = { jobId: response.jobId, label: finalLabel };
     }
+
+    await monitorBuildJob(jobToMonitor.jobId, jobToMonitor.label, 1, 1);
 
     stopFakeProgress();
     setProgress(100, "Completed");
-    setStatus(`Done (${companyNames.length}/${companyNames.length})`, "status-done");
+    setStatus("Done (1/1)", "status-done");
   } catch (err) {
     stopFakeProgress();
 
@@ -528,6 +741,7 @@ window.addEventListener("DOMContentLoaded", () => {
   if (buildBtn) buildBtn.addEventListener("click", startBuild);
 
   const { combo, field, input, menu, toggle } = getComboEls();
+  const { modeSingle, modeGroup, groupSelect, saveGroupBtn } = getModeEls();
 
   if (field && input) {
     field.addEventListener("mousedown", (e) => {
@@ -610,6 +824,36 @@ window.addEventListener("DOMContentLoaded", () => {
     if (!combo.contains(e.target)) closeCompanyMenu();
   });
 
+  if (modeSingle) {
+    modeSingle.addEventListener("change", () => {
+      if (modeSingle.checked) setBuildMode("single");
+    });
+  }
+
+  if (modeGroup) {
+    modeGroup.addEventListener("change", () => {
+      if (modeGroup.checked) setBuildMode("group");
+    });
+  }
+
+  if (groupSelect) {
+    groupSelect.addEventListener("change", () => {
+      const selectedId = String(groupSelect.value || "").trim();
+      if (!selectedId) return;
+      applyGroupCompanies(selectedId);
+    });
+  }
+
+  if (saveGroupBtn) {
+    saveGroupBtn.addEventListener("click", saveCurrentSelectionAsGroup);
+  }
+
   renderSelectedChips();
-  loadCompanies();
+  setBuildMode(getSelectedBuildMode());
+
+  Promise.all([loadCompanies(), loadCompanyGroups()]).catch((err) => {
+    const message = String(err?.message || err || "Unable to initialize admin panel");
+    setStatus("Error", "status-error");
+    alert(message);
+  });
 });

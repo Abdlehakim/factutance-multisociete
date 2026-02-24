@@ -30,6 +30,20 @@
         </div>
 
         <div class="formRow">
+          <label class="label">Build mode</label>
+          <div class="inputRow" id="buildModeRow">
+            <label class="label">
+              <input id="modeSingle" type="radio" name="buildMode" value="single" checked />
+              Single company
+            </label>
+            <label class="label">
+              <input id="modeGroup" type="radio" name="buildMode" value="group" />
+              Group (multiple)
+            </label>
+          </div>
+        </div>
+
+        <div class="formRow">
           <label class="label" for="companyName">Company names</label>
 
           <!-- Custom searchable dropdown (type OR select) -->
@@ -103,6 +117,33 @@
             </button>
           </div>
         </div>
+
+        <div id="groupControls" class="formRow" hidden>
+          <label class="label" for="groupSelect">Select group</label>
+          <div class="inputRow">
+            <div class="selectWrap">
+              <select id="groupSelect" class="select" aria-label="Select group">
+                <option value="">Select a group...</option>
+              </select>
+              <span class="selectIcon" aria-hidden="true">
+                <svg
+                  stroke="currentColor"
+                  fill="currentColor"
+                  stroke-width="0"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path fill="none" d="M0 0h24v24H0V0z"></path>
+                  <path
+                    d="M12 4c4.41 0 8 3.59 8 8s-3.59 8-8 8-8-3.59-8-8 3.59-8 8-8m0-2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 13-4-4h8z"
+                  ></path>
+                </svg>
+              </span>
+            </div>
+            <button id="saveGroupBtn" class="btn" type="button">Save current selection as group</button>
+          </div>
+        </div>
+
         <div id="progressWrap" class="progressWrap" aria-hidden="false">
   <div class="progressTop">
     <div class="progressLabel">Build progress</div>

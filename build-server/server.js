@@ -1,31 +1,58 @@
-const express = require("express");
-require("dotenv").config();
-const path = require("path");
-const fsp = require("fs/promises");
-const { spawn } = require("child_process");
-const crypto = require("crypto");
+"use strict";
 
+const path = require("path");
+require("dotenv").config({ path: path.join(__dirname, ".env") });
+
+const fs = require("fs");
+const fsp = require("fs/promises");
+const express = require("express");
 const session = require("express-session");
 const bcrypt = require("bcrypt");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
+const { spawn } = require("child_process");
+const crypto = require("crypto");
 
 const app = express();
+
+// ------------------------------------------------------------------
+// Basic middleware
+// ------------------------------------------------------------------
 app.use(express.json({ limit: "100kb" }));
 app.use(helmet());
 
-// --- CONFIG (à mettre via variables d’environnement sur o2switch) ---
-const ADMIN_USER = process.env.ADMIN_USER || "admin";
-const ADMIN_PASS_HASH = process.env.ADMIN_PASS_HASH || ""; // bcrypt hash obligatoire
-const SESSION_SECRET = process.env.SESSION_SECRET || "CHANGE_ME_PLEASE";
-const NODE_ENV = process.env.NODE_ENV || "development";
-const DEFAULT_SESSION_MAX_AGE_MS = 8 * 60 * 60 * 1000;
-const REMEMBER_SESSION_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+// IMPORTANT for o2switch/cPanel / reverse proxy
+app.set("trust proxy", 1);
 
-// IMPORTANT pour o2switch/cPanel: utiliser PORT fourni
+// ------------------------------------------------------------------
+// CONFIG (set via environment variables)
+// ------------------------------------------------------------------
+const ADMIN_USER = String(process.env.ADMIN_USER || "admin").trim();
+const ADMIN_PASS_HASH = String(process.env.ADMIN_PASS_HASH || "").trim(); // MUST be bcrypt hash ($2a$ / $2b$ / $2y$)
+const SESSION_SECRET = String(process.env.SESSION_SECRET || "CHANGE_ME_PLEASE");
+const NODE_ENV = String(process.env.NODE_ENV || "development").trim().toLowerCase();
 const PORT = Number(process.env.PORT || 5050);
 
-app.set("trust proxy", 1); // utile derrière proxy (o2switch / nginx)
+const DEFAULT_SESSION_MAX_AGE_MS = 8 * 60 * 60 * 1000; // 8h
+const REMEMBER_SESSION_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30d
+
+function isBcryptHash(value) {
+  // Typical bcrypt hashes start with $2a$, $2b$ or $2y$ and are ~60 chars.
+  return typeof value === "string" && /^\$2[aby]\$\d{2}\$/.test(value);
+}
+
+if (NODE_ENV === "production" && SESSION_SECRET === "CHANGE_ME_PLEASE") {
+  console.warn("[WARN] SESSION_SECRET is still default. Set a strong SESSION_SECRET in production!");
+}
+if (ADMIN_PASS_HASH && !isBcryptHash(ADMIN_PASS_HASH)) {
+  console.warn(
+    "[WARN] ADMIN_PASS_HASH does not look like a bcrypt hash. It should start with $2a$ / $2b$ / $2y$."
+  );
+}
+
+// ------------------------------------------------------------------
+// Sessions
+// ------------------------------------------------------------------
 app.use(
   session({
     name: "facturance_admin",
@@ -35,18 +62,26 @@ app.use(
     cookie: {
       httpOnly: true,
       sameSite: "lax",
-      secure: NODE_ENV === "production", 
+      // In production you typically run behind HTTPS -> secure cookie
+      secure: NODE_ENV === "production",
       maxAge: DEFAULT_SESSION_MAX_AGE_MS,
     },
   })
 );
 
-// Limite brute force sur login
+// ------------------------------------------------------------------
+// Rate limit brute force on login
+// ------------------------------------------------------------------
 const loginLimiter = rateLimit({
   windowMs: 5 * 60 * 1000,
   max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
+// ------------------------------------------------------------------
+// Helpers
+// ------------------------------------------------------------------
 function openInDefaultBrowser(url) {
   try {
     let command = "";
@@ -63,15 +98,8 @@ function openInDefaultBrowser(url) {
       args = [url];
     }
 
-    const child = spawn(command, args, {
-      detached: true,
-      stdio: "ignore",
-    });
-
-    child.on("error", (err) => {
-      console.warn(`Could not auto-open browser: ${err.message}`);
-    });
-
+    const child = spawn(command, args, { detached: true, stdio: "ignore" });
+    child.on("error", (err) => console.warn(`Could not auto-open browser: ${err.message}`));
     child.unref();
   } catch (err) {
     console.warn(`Could not auto-open browser: ${err.message}`);
@@ -81,35 +109,44 @@ function openInDefaultBrowser(url) {
 function requireAdmin(req, res, next) {
   if (req.session?.isAdmin) return next();
 
-  // API requests should return 401
   if (req.originalUrl.startsWith("/api/")) {
     return res.status(401).json({ error: "Unauthorized" });
   }
-
-  // Browser pages: redirect to login
   return res.redirect("/");
 }
 
-// Pages statiques: on sert login.html publiquement
+function getNpmCmd() {
+  return process.platform === "win32" ? "npm.cmd" : "npm";
+}
+
+// ------------------------------------------------------------------
+// Static pages
+// ------------------------------------------------------------------
 const PUBLIC_DIR = path.join(__dirname, "public");
+
 app.get("/", (req, res) => {
   if (req.session?.isAdmin) return res.redirect("/app");
   return res.sendFile(path.join(PUBLIC_DIR, "login.html"));
 });
 
-// Page admin protégée
-app.get("/app", requireAdmin, (_req, res) =>
-  res.sendFile(path.join(PUBLIC_DIR, "app.html"))
-);
+app.get("/app", requireAdmin, (_req, res) => res.sendFile(path.join(PUBLIC_DIR, "app.html")));
 
-// Optionnel: assets publics (si besoin) -> à toi de gérer
+// public assets if needed
 app.use("/public", express.static(PUBLIC_DIR));
 
-// --- API AUTH ---
+// ------------------------------------------------------------------
+// AUTH API
+// ------------------------------------------------------------------
 app.post("/api/login", loginLimiter, async (req, res) => {
   if (!ADMIN_PASS_HASH) {
     return res.status(500).json({ error: "ADMIN_PASS_HASH is not set on server." });
   }
+  if (!isBcryptHash(ADMIN_PASS_HASH)) {
+    return res.status(500).json({
+      error: "ADMIN_PASS_HASH must be a bcrypt hash (should start with $2a$ / $2b$ / $2y$).",
+    });
+  }
+
   const username = String(req.body?.username || "").trim();
   const password = String(req.body?.password || "");
   const remember = Boolean(req.body?.remember);
@@ -121,7 +158,7 @@ app.post("/api/login", loginLimiter, async (req, res) => {
 
   req.session.isAdmin = true;
   req.session.cookie.maxAge = remember ? REMEMBER_SESSION_MAX_AGE_MS : DEFAULT_SESSION_MAX_AGE_MS;
-  res.json({ ok: true });
+  return res.json({ ok: true });
 });
 
 app.post("/api/logout", (req, res) => {
@@ -129,23 +166,108 @@ app.post("/api/logout", (req, res) => {
 });
 
 // ------------------------------------------------------------------
-// --- BUILD LOGIC (ta logique existante, mais protégée) -------------
+// BUILD LOGIC (protected)
 // ------------------------------------------------------------------
-
 const REPO_ROOT = path.resolve(__dirname, "..");
 const DIST_DIR = path.join(REPO_ROOT, "dist");
 const BRANDING_FILE = path.join(REPO_ROOT, "src/renderer/config/branding.js");
+const GENERATED_GROUP_JSON_FILE = path.join(REPO_ROOT, "build", "generated-company-group.json");
+const GENERATED_GROUP_MODULE_FILE = path.join(REPO_ROOT, "src/renderer/config/generated-company-group.js");
 const BUILDS_ROOT = path.join(__dirname, "builds");
 const COMPANIES_FILE = path.join(__dirname, "companies.json");
+const MULTICOMPANIES_FILE = path.join(__dirname, "multicompanies.js");
 
-function sanitizeForFileName(value, fallback = "Company") {
-  const src = String(value || fallback)
+function normalizeCompanyName(value) {
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function sanitizeGroupId(value, fallback = "group") {
+  const normalized = String(value || fallback)
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[<>:"/\\|?*]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  return src || fallback;
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
+  return normalized || fallback;
+}
+
+function sanitizeGroupName(value) {
+  return normalizeCompanyName(value).slice(0, 80);
+}
+
+function sanitizeCompanyList(value) {
+  const list = Array.isArray(value) ? value : [];
+  const seen = new Set();
+  const out = [];
+  for (const item of list) {
+    const name = normalizeCompanyName(item);
+    if (!name) continue;
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(name);
+  }
+  return out;
+}
+
+function buildGroupPayload(input = {}) {
+  const mode = String(input?.mode || "single").trim().toLowerCase() === "group" ? "group" : "single";
+  const groupId = mode === "group" ? sanitizeGroupId(input?.groupId || "default") : "";
+  const groupName = mode === "group" ? sanitizeGroupName(input?.groupName || input?.name || groupId) : "";
+  const companies = mode === "group" ? sanitizeCompanyList(input?.companies) : [];
+  return {
+    mode,
+    groupId,
+    groupName,
+    companies,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+function ensureUniqueGroupId(baseId, groups = [], excludeId = "") {
+  const normalizedBase = sanitizeGroupId(baseId, "group");
+  let candidate = normalizedBase;
+  let i = 2;
+  while (groups.some((g) => g.id === candidate && g.id !== excludeId)) {
+    candidate = `${normalizedBase}-${i}`;
+    i += 1;
+  }
+  return candidate;
+}
+
+function sanitizeGroups(rawGroups) {
+  const source = Array.isArray(rawGroups) ? rawGroups : [];
+  const out = [];
+
+  for (const item of source) {
+    const name = sanitizeGroupName(item?.name || item?.id || "");
+    const companies = sanitizeCompanyList(item?.companies);
+    if (!name || !companies.length) continue;
+
+    const id = ensureUniqueGroupId(item?.id || name, out);
+    out.push({ id, name, companies });
+  }
+  return out;
+}
+
+async function readCompanyGroups() {
+  try {
+    if (!fs.existsSync(MULTICOMPANIES_FILE)) return [];
+    const resolved = require.resolve(MULTICOMPANIES_FILE);
+    delete require.cache[resolved];
+    const loaded = require(resolved);
+    return sanitizeGroups(loaded?.groups);
+  } catch {
+    return [];
+  }
+}
+
+async function writeCompanyGroups(groups = []) {
+  const sanitized = sanitizeGroups(groups);
+  const content = `module.exports = {\n  groups: ${JSON.stringify(sanitized, null, 2)}\n};\n`;
+  await fsp.writeFile(MULTICOMPANIES_FILE, content, "utf8");
+  return sanitized;
 }
 
 async function ensureDir(dir) {
@@ -153,7 +275,6 @@ async function ensureDir(dir) {
 }
 
 async function cleanDistDirectory() {
-  // Remove all previous build outputs to guarantee a fresh build.
   await fsp.rm(DIST_DIR, { recursive: true, force: true });
   await ensureDir(DIST_DIR);
 }
@@ -170,18 +291,64 @@ function pushLog(jobId, line) {
 }
 
 async function writeBranding(companyName) {
-  const payload = { companyName: String(companyName || "").trim() };
-
+  const normalizedCompanyName = normalizeCompanyName(companyName);
+  const payload = {
+    companyName: normalizedCompanyName,
+    companyGroup: buildGroupPayload({ mode: "single" }),
+  };
   const content =
     `// AUTO-GENERATED. Do not commit.\n` +
     `(function(g){\n` +
     `  g.__FACTURANCE_BRANDING__ = ${JSON.stringify(payload)};\n` +
     `  if (typeof module !== "undefined" && module.exports) module.exports = g.__FACTURANCE_BRANDING__;\n` +
     `})(typeof window !== "undefined" ? window : (typeof global !== "undefined" ? global : this));\n`;
-
   await fsp.writeFile(BRANDING_FILE, content, "utf8");
 }
 
+async function writeGeneratedCompanyGroup(payloadInput = {}) {
+  const payload = buildGroupPayload(payloadInput);
+
+  await ensureDir(path.dirname(GENERATED_GROUP_JSON_FILE));
+  await fsp.writeFile(GENERATED_GROUP_JSON_FILE, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+
+  const moduleContent =
+    `// AUTO-GENERATED. Do not commit.\n` +
+    `(function(g){\n` +
+    `  g.__FACTURANCE_BUILD_COMPANY_GROUP__ = ${JSON.stringify(payload)};\n` +
+    `  if (typeof module !== "undefined" && module.exports) module.exports = g.__FACTURANCE_BUILD_COMPANY_GROUP__;\n` +
+    `})(typeof window !== "undefined" ? window : (typeof global !== "undefined" ? global : this));\n`;
+  await fsp.writeFile(GENERATED_GROUP_MODULE_FILE, moduleContent, "utf8");
+
+  return payload;
+}
+
+async function writeBuildContextForJob(job = {}) {
+  if (job.mode === "group") {
+    const payload = await writeGeneratedCompanyGroup({
+      mode: "group",
+      groupId: job.groupId,
+      groupName: job.groupName,
+      companies: job.companies,
+    });
+
+    const brandingPayload = {
+      companyName: "",
+      companyGroup: payload,
+    };
+    const content =
+      `// AUTO-GENERATED. Do not commit.\n` +
+      `(function(g){\n` +
+      `  g.__FACTURANCE_BRANDING__ = ${JSON.stringify(brandingPayload)};\n` +
+      `  if (typeof module !== "undefined" && module.exports) module.exports = g.__FACTURANCE_BRANDING__;\n` +
+      `})(typeof window !== "undefined" ? window : (typeof global !== "undefined" ? global : this));\n`;
+    await fsp.writeFile(BRANDING_FILE, content, "utf8");
+    return payload;
+  }
+
+  await writeGeneratedCompanyGroup({ mode: "single" });
+  await writeBranding(job.companyName || job.name || "");
+  return buildGroupPayload({ mode: "single" });
+}
 
 async function listExeArtifacts() {
   try {
@@ -196,13 +363,36 @@ async function copyArtifactsToJob(jobId, exeFiles) {
   await ensureDir(BUILDS_ROOT);
   const jobDir = path.join(BUILDS_ROOT, jobId);
   await ensureDir(jobDir);
+  const job = jobs.get(jobId) || {};
+
+  const usedNames = new Set();
+  function buildGroupArtifactName(sourceFile) {
+    const arch = /ia32/i.test(sourceFile) ? "ia32" : "x64";
+    const gid = sanitizeGroupId(job.groupId || "multi-societe", "multi-societe");
+    return `Facturance MultiSociete-${gid}-${arch}.exe`;
+  }
+  function ensureUniqueName(fileName) {
+    if (!usedNames.has(fileName)) {
+      usedNames.add(fileName);
+      return fileName;
+    }
+    const parsed = path.parse(fileName);
+    let i = 2;
+    while (usedNames.has(`${parsed.name} (${i})${parsed.ext}`)) i += 1;
+    const next = `${parsed.name} (${i})${parsed.ext}`;
+    usedNames.add(next);
+    return next;
+  }
 
   const copied = [];
   for (const file of exeFiles) {
+    const outputFile = ensureUniqueName(
+      job.mode === "group" ? buildGroupArtifactName(file) : file
+    );
     const src = path.join(DIST_DIR, file);
-    const dst = path.join(jobDir, file);
+    const dst = path.join(jobDir, outputFile);
     await fsp.copyFile(src, dst);
-    copied.push(file);
+    copied.push(outputFile);
   }
   return copied;
 }
@@ -224,7 +414,7 @@ async function runBuildJob(jobId) {
   pushLog(jobId, `== Building for: ${job.name}\n`);
 
   try {
-    await writeBranding(job.name);
+    await writeBuildContextForJob(job);
 
     pushLog(jobId, "== Cleaning dist directory...\n");
     await cleanDistDirectory();
@@ -232,9 +422,13 @@ async function runBuildJob(jobId) {
     const scriptName = job.buildVariant === "ia32" ? "dist:win:ia32" : "dist:win:both";
     pushLog(jobId, `== Using script: npm run ${scriptName}\n`);
 
-    await runCommand(jobId, "npm", ["run", scriptName], {
+    await runCommand(jobId, getNpmCmd(), ["run", scriptName], {
       cwd: REPO_ROOT,
-      env: { ...process.env, FACTURANCE_COMPANY_NAME: job.name },
+      env: {
+        ...process.env,
+        FACTURANCE_COMPANY_NAME: job.mode === "single" ? String(job.companyName || job.name || "") : "",
+        FACTURANCE_COMPANY_GROUP_ID: job.mode === "group" ? String(job.groupId || "") : "",
+      },
     });
 
     const exeFiles = await listExeArtifacts();
@@ -264,7 +458,51 @@ async function processQueue() {
   }
 }
 
+function enqueueBuildJob(name, buildVariant) {
+  const jobId = crypto.randomUUID();
+  jobs.set(jobId, {
+    state: "queued",
+    mode: "single",
+    name,
+    companyName: name,
+    buildVariant,
+    groupId: "",
+    groupName: "",
+    companies: [],
+    log: [],
+    files: [],
+  });
+  queue.push(jobId);
+  processQueue();
+  return jobId;
+}
 
+function enqueueGroupBuildJob({ groupId, groupName, companies, buildVariant }) {
+  const jobId = crypto.randomUUID();
+  const normalizedGroupId = sanitizeGroupId(groupId || groupName || "group");
+  const normalizedGroupName = sanitizeGroupName(groupName || normalizedGroupId);
+  const normalizedCompanies = sanitizeCompanyList(companies);
+
+  jobs.set(jobId, {
+    state: "queued",
+    mode: "group",
+    name: `Group ${normalizedGroupName}`,
+    companyName: "",
+    buildVariant,
+    groupId: normalizedGroupId,
+    groupName: normalizedGroupName,
+    companies: normalizedCompanies,
+    log: [],
+    files: [],
+  });
+  queue.push(jobId);
+  processQueue();
+  return jobId;
+}
+
+// ------------------------------------------------------------------
+// API (protected)
+// ------------------------------------------------------------------
 app.get("/api/companies", requireAdmin, async (_req, res) => {
   try {
     const raw = await fsp.readFile(COMPANIES_FILE, "utf8");
@@ -272,32 +510,92 @@ app.get("/api/companies", requireAdmin, async (_req, res) => {
     if (!Array.isArray(list)) return res.json([]);
     res.json(list.filter((x) => typeof x === "string").map((x) => x.trim()).filter(Boolean));
   } catch {
-    // if file doesn't exist yet, return empty list
     res.json([]);
   }
 });
 
-// --- API protégées ---
-app.post("/api/build", requireAdmin, async (req, res) => {
-  const name = String(req.body?.companyName || "").trim();
-  const buildVariant = String(req.body?.buildVariant || "both").trim();
+app.get("/api/company-groups", requireAdmin, async (_req, res) => {
+  const groups = await readCompanyGroups();
+  res.json(groups);
+});
 
-  if (!name || name.length < 2) return res.status(400).json({ error: "companyName required (min 2 chars)" });
-  if (name.length > 80) return res.status(400).json({ error: "companyName too long (max 80)" });
+app.post("/api/company-groups/save", requireAdmin, async (req, res) => {
+  const name = sanitizeGroupName(req.body?.name);
+  const companies = sanitizeCompanyList(req.body?.companies);
+
+  if (!name || name.length < 2) return res.status(400).json({ error: "Group name required (min 2 chars)" });
+  if (!companies.length) return res.status(400).json({ error: "companies[] required (at least 1 company)" });
+
+  const groups = await readCompanyGroups();
+  const candidateId = sanitizeGroupId(name);
+  const existingIndex = groups.findIndex(
+    (g) => g.id === candidateId || g.name.toLowerCase() === name.toLowerCase()
+  );
+
+  let savedGroup = null;
+  if (existingIndex >= 0) {
+    const previous = groups[existingIndex];
+    const id = ensureUniqueGroupId(candidateId, groups, previous.id);
+    savedGroup = { id, name, companies };
+    groups[existingIndex] = savedGroup;
+  } else {
+    const id = ensureUniqueGroupId(candidateId, groups);
+    savedGroup = { id, name, companies };
+    groups.push(savedGroup);
+  }
+
+  const written = await writeCompanyGroups(groups);
+  const finalGroup = written.find((g) => g.id === savedGroup.id) || savedGroup;
+  res.json({ ok: true, group: finalGroup, groups: written });
+});
+
+app.post("/api/build", requireAdmin, async (req, res) => {
+  const mode = String(req.body?.mode || "single").trim().toLowerCase();
+  const companyName = normalizeCompanyName(req.body?.companyName);
+  const groupId = sanitizeGroupId(req.body?.groupId || "", "");
+  const requestedCompanies = sanitizeCompanyList(req.body?.companies);
+  const buildVariant = String(req.body?.buildVariant || "both").trim();
 
   const allowed = new Set(["both", "ia32"]);
   if (!allowed.has(buildVariant)) {
     return res.status(400).json({ error: "Invalid buildVariant. Use 'both' or 'ia32'." });
   }
 
-  const jobId = crypto.randomUUID();
-  jobs.set(jobId, { state: "queued", name, buildVariant, log: [], files: [] });
-  queue.push(jobId);
-  processQueue();
+  if (mode === "group") {
+    if (!groupId) return res.status(400).json({ error: "groupId required for group mode" });
 
-  res.json({ jobId });
+    const groups = await readCompanyGroups();
+    const group = groups.find((g) => g.id === groupId);
+    if (!group) return res.status(404).json({ error: "Group not found" });
+
+    const companiesForJob = requestedCompanies.length
+      ? requestedCompanies
+      : sanitizeCompanyList(group.companies);
+    if (!companiesForJob.length) return res.status(400).json({ error: "Group has no companies" });
+
+    const jobId = enqueueGroupBuildJob({
+      groupId: group.id,
+      groupName: group.name,
+      companies: companiesForJob,
+      buildVariant,
+    });
+
+    return res.json({
+      mode: "group",
+      jobId,
+      groupId: group.id,
+      groupName: group.name,
+      companies: companiesForJob,
+    });
+  }
+
+  const singleName = companyName;
+  if (!singleName || singleName.length < 2) return res.status(400).json({ error: "companyName required (min 2 chars)" });
+  if (singleName.length > 80) return res.status(400).json({ error: "companyName too long (max 80)" });
+
+  const jobId = enqueueBuildJob(singleName, buildVariant);
+  return res.json({ mode: "single", jobId, jobs: [{ jobId, companyName: singleName }] });
 });
-
 
 app.get("/api/status/:jobId", requireAdmin, (req, res) => {
   const job = jobs.get(req.params.jobId);
@@ -320,6 +618,9 @@ app.get("/download/:jobId/:file", requireAdmin, (req, res) => {
   res.download(abs, file);
 });
 
+// ------------------------------------------------------------------
+// Start
+// ------------------------------------------------------------------
 app.listen(PORT, () => {
   const url = `http://localhost:${PORT}/`;
   console.log(`Build server running on port ${PORT}`);

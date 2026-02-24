@@ -62,7 +62,7 @@
       "target": [
         "nsis"
       ],
-      "artifactName": "Facturance v${version} SmartWebify-${arch}.exe",
+      "artifactName": "Facturance v${version} ProDisplay-${arch}.exe",
       "publisherName": "smartwebify",
       "rfc3161TimeStampServer": "http://timestamp.digicert.com",
       "requestedExecutionLevel": "requireAdministrator"

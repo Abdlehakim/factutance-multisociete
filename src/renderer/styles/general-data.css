@@ -91,6 +91,29 @@
   white-space: pre-line;
   word-break: break-word;
 }
+#companySwitchSelect {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  border: 0;
+  clip: rect(0 0 0 0);
+  overflow: hidden;
+  white-space: nowrap;
+  pointer-events: none;
+}
+#companyBox #companySwitchSelectMenu {
+  min-width: 340px;
+  flex: 0 0 auto;
+}
+#companyBox #companySwitchSelectMenu .field-toggle-trigger {
+  border-radius: 5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 38px;
+}
 .company-info-summary__value.is-empty {
   color: #9ca3af;
   font-style: italic;

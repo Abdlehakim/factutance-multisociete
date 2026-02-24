@@ -201,11 +201,20 @@ const api = {
     ipcRenderer.invoke("withholding-fa-settings:save", payload),
 
   // Company coordinates
-  listCompanies: () => ipcRenderer.invoke("companies:list"),
+  listCompanies: async () => {
+    const res = await ipcRenderer.invoke("companies:list");
+    if (Array.isArray(res)) return res;
+    if (res && Array.isArray(res.companies)) return res.companies;
+    return [];
+  },
   createCompany: (payload = {}) => ipcRenderer.invoke("companies:create", payload || {}),
   setActiveCompany: (payload = {}) => {
     if (typeof payload === "string") return ipcRenderer.invoke("companies:setActive", { id: payload });
     return ipcRenderer.invoke("companies:setActive", payload || {});
+  },
+  getActiveCompanyId: async () => {
+    const res = await ipcRenderer.invoke("companies:getActivePaths");
+    return String(res?.activeCompanyId || res?.activeCompany?.id || "").trim();
   },
   getActiveCompanyPaths: () => ipcRenderer.invoke("companies:getActivePaths"),
   loadCompanyData: () => ipcRenderer.invoke("company:load"),
