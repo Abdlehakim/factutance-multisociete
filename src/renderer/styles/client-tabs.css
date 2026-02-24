@@ -1,0 +1,63 @@
+#clientBoxMainscreen.section-box > legend {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 400;
+}
+
+#clientBoxMainscreen > legend .client-tabs__list {
+  margin-bottom: 29px;
+}
+
+.client-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-top: -1px;
+}
+
+.client-tabs__list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 6px;
+  margin-bottom: -1px;
+}
+
+.client-tab {
+  border: 2px solid var(--success);
+  border-radius: 8px 8px 0 0;
+    border-radius: 8px 8px 0 0;
+    background: #cbcbcb;
+    color: #ffffff;
+    padding: 6px 12px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.client-tab.is-active {
+    background: #edf2f1;
+    border-bottom-color: #edf2f1;
+    color: #0f172a;
+}
+
+.client-tab:focus-visible {
+  outline: 2px solid rgba(21, 51, 94, 0.35);
+  outline-offset: 2px;
+}
+
+.client-tab-panel[hidden] {
+  display: none !important;
+}
+
+.client-tab-panel .client-search {
+  margin-bottom: 0;
+}
+
+.client-tab-panel .client-tabs__panel-grid {
+  gap: 12px;
+}

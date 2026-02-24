@@ -1,0 +1,132 @@
+/* Client box for new document modal (clientBoxNewDoc) */
+#clientBoxNewDoc #clientFormPopover,
+#FournisseurBoxNewDoc #fournisseurFormPopover,
+#clientSavedModal #clientFormPopover,
+#clientSavedModalNv #clientFormPopover,
+#fournisseurSavedModal #fournisseurFormPopover,
+#fournisseurSavedModalNv #fournisseurFormPopover,
+#articleSavedModal #articleFormPopover,
+#articleFormPopover {
+  position: fixed;
+  inset: auto;
+  left: 50%;
+  top: 50%;
+  width: 100vw;
+  height: 100vh;
+  transform: translate(-50vw, -50vh);
+  z-index: 100004;
+}
+
+#articleFormPopover .add-item-row--ref-product {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 12px;
+}
+
+#articleFormPopover .add-item-row--ref-product .add-item-field:first-child {
+  flex: 0 1 30%;
+  min-width: 0;
+}
+
+#articleFormPopover .add-item-row--ref-product .add-item-field:last-child {
+  flex: 1 1 70%;
+  min-width: 0;
+}
+
+#clientBoxNewDoc #clientFormPopover .client-form-modal__panel,
+#FournisseurBoxNewDoc #fournisseurFormPopover .client-form-modal__panel,
+#clientSavedModal #clientFormPopover .client-form-modal__panel,
+#clientSavedModalNv #clientFormPopover .client-form-modal__panel,
+#fournisseurSavedModal #fournisseurFormPopover .client-form-modal__panel,
+#fournisseurSavedModalNv #fournisseurFormPopover .client-form-modal__panel,
+#articleSavedModal #articleFormPopover .client-form-modal__panel,
+#articleFormPopover .client-form-modal__panel {
+  width: min(880px, calc(100vw - 40px));
+  max-height: calc(100vh - 40px);
+  display: flex;
+  flex-direction: column;
+}
+
+#clientBoxNewDoc #clientFormPopover .client-form-modal__body,
+#FournisseurBoxNewDoc #fournisseurFormPopover .client-form-modal__body,
+#clientSavedModal #clientFormPopover .client-form-modal__body,
+#clientSavedModalNv #clientFormPopover .client-form-modal__body,
+#fournisseurSavedModal #fournisseurFormPopover .client-form-modal__body,
+#fournisseurSavedModalNv #fournisseurFormPopover .client-form-modal__body,
+#articleSavedModal #articleFormPopover .client-form-modal__body,
+#articleFormPopover .client-form-modal__body {
+  background: #f8fafc;
+  max-height: calc(100vh - 240px);
+  overflow: auto;
+}
+
+#clientBoxNewDoc #clientFormPopover .client-form-modal__actions,
+#FournisseurBoxNewDoc #fournisseurFormPopover .client-form-modal__actions,
+#clientSavedModal #clientFormPopover .client-form-modal__actions,
+#clientSavedModalNv #clientFormPopover .client-form-modal__actions,
+#fournisseurSavedModal #fournisseurFormPopover .client-form-modal__actions,
+#fournisseurSavedModalNv #fournisseurFormPopover .client-form-modal__actions,
+#articleSavedModal #articleFormPopover .client-form-modal__actions,
+#articleFormPopover .client-form-modal__actions {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  align-items: center;
+}
+
+#clientBoxNewDoc #clientFormToggleBtn[aria-expanded="true"],
+#FournisseurBoxNewDoc #clientFormToggleBtn[aria-expanded="true"],
+#clientSavedModal #clientFormToggleBtn[aria-expanded="true"],
+#clientSavedModalNv #clientFormToggleBtn[aria-expanded="true"],
+#fournisseurSavedModal #clientFormToggleBtn[aria-expanded="true"],
+#fournisseurSavedModalNv #clientFormToggleBtn[aria-expanded="true"],
+#articleSavedModal #articleFormToggleBtn[aria-expanded="true"],
+#itemsSection #articleFormToggleBtn[aria-expanded="true"] {
+  background: #15335e;
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(21, 51, 94, 0.25);
+}
+
+#articleFormPopover[data-article-action-mode="add-save"] .swbDialog__group--right {
+  flex-wrap: wrap;
+  white-space: normal;
+}
+
+@media (max-width: 640px) {
+  #clientBoxNewDoc #clientFormPopover .client-form-modal__panel,
+  #FournisseurBoxNewDoc #fournisseurFormPopover .client-form-modal__panel,
+  #clientSavedModal #clientFormPopover .client-form-modal__panel,
+  #clientSavedModalNv #clientFormPopover .client-form-modal__panel,
+  #fournisseurSavedModal #fournisseurFormPopover .client-form-modal__panel,
+  #fournisseurSavedModalNv #fournisseurFormPopover .client-form-modal__panel,
+  #articleSavedModal #articleFormPopover .client-form-modal__panel,
+  #articleFormPopover .client-form-modal__panel {
+    width: calc(100vw - 24px);
+    max-height: calc(100vh - 24px);
+  }
+
+  #clientBoxNewDoc #clientFormPopover .swbDialog__group--right,
+  #FournisseurBoxNewDoc #fournisseurFormPopover .swbDialog__group--right,
+  #clientSavedModal #clientFormPopover .swbDialog__group--right,
+  #clientSavedModalNv #clientFormPopover .swbDialog__group--right,
+  #fournisseurSavedModal #fournisseurFormPopover .swbDialog__group--right,
+  #fournisseurSavedModalNv #fournisseurFormPopover .swbDialog__group--right,
+  #articleSavedModal #articleFormPopover .swbDialog__group--right,
+  #articleFormPopover .swbDialog__group--right {
+    flex-wrap: wrap;
+    white-space: normal;
+    justify-content: center;
+  }
+
+  #clientBoxNewDoc #clientFormPopover .client-form-modal__actions,
+  #FournisseurBoxNewDoc #fournisseurFormPopover .client-form-modal__actions,
+  #clientSavedModal #clientFormPopover .client-form-modal__actions,
+  #clientSavedModalNv #clientFormPopover .client-form-modal__actions,
+  #fournisseurSavedModal #fournisseurFormPopover .client-form-modal__actions,
+  #fournisseurSavedModalNv #fournisseurFormPopover .client-form-modal__actions,
+  #articleSavedModal #articleFormPopover .client-form-modal__actions,
+  #articleFormPopover .client-form-modal__actions {
+    justify-content: center;
+  }
+}
+

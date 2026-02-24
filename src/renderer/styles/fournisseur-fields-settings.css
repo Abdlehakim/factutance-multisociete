@@ -1,0 +1,94 @@
+.fournisseur-fields-modal .model-field-toggles .field-toggle-menu__title {
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.fournisseur-fields-modal .model-field-toggles .field-toggle-panel {
+  position: static;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+  padding: 8px 0;
+  box-shadow: none;
+  border: 0;
+  background: transparent;
+}
+
+.fournisseur-fields-modal .model-field-toggles .field-toggle-menu__subtitle {
+  margin-top: 6px;
+  font-size: 12px;
+  color: inherit;
+  font-weight: 600;
+}
+
+.fournisseur-fields-modal .model-field-toggles .fournisseur-field-label-option {
+  display: grid;
+  gap: 6px;
+}
+
+.fournisseur-fields-modal .model-field-toggles .fournisseur-field-label-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 10px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.fournisseur-fields-modal .model-field-toggles .fournisseur-field-label-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.fournisseur-fields-modal .model-field-toggles .fournisseur-field-label-reset {
+  border: 1px solid #e6ebf5;
+  background: #fff;
+  color: inherit;
+  border-radius: 6px;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+}
+
+.fournisseur-fields-modal .model-field-toggles .fournisseur-field-label-reset:hover {
+  background: var(--primary);
+  color: #fff;
+}
+
+.fournisseur-fields-modal .model-field-toggles .fournisseur-field-label-reset svg {
+  width: 14px;
+  height: 14px;
+}
+
+.fournisseur-fields-modal .model-field-toggles .toggle-option {
+  height: auto;
+  padding: 6px 8px;
+  font-size: 10px;
+  border: 1px solid #e6ebf5;
+  border-radius: 6px;
+  background: #fff;
+  display: grid;
+  grid-template-columns: 16px 1fr;
+  gap: 6px;
+  align-items: center;
+}
+
+.fournisseur-fields-modal .model-field-toggles .toggle-option:hover {
+  background: #f7f9ff;
+}
+
+.fournisseur-fields-modal .model-field-toggles .fournisseur-field-label-input {
+  width: 100%;
+  border: 1px solid #e6ebf5;
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 12px;
+  background: #fff;
+  height: 30px;
+  box-sizing: border-box;
+}

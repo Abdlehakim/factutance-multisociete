@@ -1,0 +1,73 @@
+.model-transfer-modal__panel {
+  max-width: 560px;
+}
+
+.model-transfer-modal__body {
+  display: grid;
+  gap: 14px;
+}
+
+.model-transfer-modal__hint {
+  margin: 0;
+}
+
+.model-transfer-modal__picker {
+  margin: 0;
+}
+
+.model-transfer-modal__picker .doc-dialog-model-picker__field {
+  max-width: 100%;
+}
+
+.model-transfer-modal__menu {
+  width: 100%;
+}
+
+.model-transfer-modal__menu .field-toggle-trigger {
+  width: 100%;
+  justify-content: space-between;
+}
+
+.model-transfer-modal__menu[data-disabled="true"] .field-toggle-trigger {
+  opacity: 0.65;
+}
+
+.model-transfer-modal__panel-list {
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.model-transfer-modal__open-folder-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+}
+
+.model-transfer-modal__open-folder-label {
+  font-size: 12px;
+  color: #0f172a;
+}
+
+.model-transfer-modal__open-folder-btn {
+  justify-self: start;
+}
+
+.model-transfer-modal__errors {
+  margin: 0;
+}
+
+.model-transfer-modal__empty {
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+.model-transfer-modal__file {
+  margin: 0;
+}
+
+@media (max-width: 720px) {
+  .model-transfer-modal__panel {
+    width: min(96vw, 560px);
+  }
+}

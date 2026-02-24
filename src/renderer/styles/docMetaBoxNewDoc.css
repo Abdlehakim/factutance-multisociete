@@ -1,0 +1,788 @@
+/* Doc meta box for new document modal (docMetaBoxNewDoc) */
+.section-box legend .for-fa,
+.section-box legend .for-avoir,
+.section-box legend .for-devis,
+.section-box legend .for-bl,
+.section-box legend .for-bc,
+.section-box legend .for-be,
+.section-box legend .for-bs { display: none; }
+#invNumberLabel .for-fa,
+#invNumberLabel .for-avoir,
+#invNumberLabel .for-devis,
+#invNumberLabel .for-bl,
+#invNumberLabel .for-bc,
+#invNumberLabel .for-be,
+#invNumberLabel .for-bs { display: none; }
+
+/* Invoice number + length selector */
+.inv-number-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.doc-meta-grid__item--number {
+  display: flex;
+  flex-direction: column;
+}
+.inv-number-field__controls {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  align-items: flex-start;
+}
+.inv-number-input {
+  flex: 1 1 220px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.inv-number-input--split {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+.inv-number-input--split input[type="text"],
+.inv-number-input--split input:not([type]) {
+      padding: 10px 6px;
+    min-height: 42px;
+}
+.inv-number-input--single {
+  display: none;
+}
+.inv-number-input__full {
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 12px;
+}
+
+.inv-number-input__prefix {
+  min-width: 60px;
+}
+.inv-number-input__date {
+  min-width: 82px;
+  background: #f4f6fb;
+  color: #4b5565;
+  border: 1px dashed #cbd5f5;
+}
+.inv-number-input__suffix {
+  min-width: 70px;
+}
+.inv-number-input__suffix::-webkit-outer-spin-button,
+.inv-number-input__suffix::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.inv-number-input__suffix[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.inv-number-field[data-number-format="prefix_counter"] .inv-number-input__date,
+.inv-number-field[data-number-format="counter"] .inv-number-input__date {
+  display: none;
+}
+.inv-number-field[data-number-format="counter"] .inv-number-input__prefix {
+  display: none;
+}
+.inv-length-select {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  border: 0;
+  clip: rect(0 0 0 0);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .inv-number-field__controls {
+    flex-wrap: wrap;
+  }
+}
+
+/* Doc type selector */
+#docMetaBoxNewDoc .doc-meta-grid {
+  display: grid;
+  gap: 12px;
+  align-items: flex-start;
+}
+#docMetaBoxNewDoc .doc-meta-grid__item {
+  min-width: 0;
+}
+#docMetaBoxNewDoc .doc-meta-grid--stacked {
+  grid-template-columns: 1fr;
+}
+#docMetaBoxNewDoc .doc-meta-grid--stacked .doc-meta-grid__row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+#docMetaBoxNewDoc.doc-meta-box--new-mode:has(#docType option[value="facture"]:checked)
+  .doc-meta-grid--stacked
+  .doc-meta-grid__row--top {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+}
+#docMetaBoxNewDoc.doc-meta-box--new-mode:has(#docType option[value="facture"]:checked)
+  .doc-meta-grid--stacked
+  .doc-meta-grid__row--bottom {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+}
+#docMetaBoxNewDoc .doc-meta-grid--stacked .doc-meta-grid__row .doc-meta-grid__item {
+  min-width: 0;
+}
+.doc-type-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.doc-type-field__controls {
+  display: flex;
+  position: relative;
+}
+.doc-type-menu {
+  width: 100%;
+}
+.doc-type-menu .field-toggle-trigger {
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 12px;
+  gap: 8px;
+  border: 1px solid #caddff;
+  border-radius: 5px;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.2;
+  background: #fff;
+  color: var(--text);
+  justify-content: space-between;
+}
+.doc-type-panel {
+  min-width: 100%;
+}
+.doc-type-select {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  border: 0;
+  clip: rect(0 0 0 0);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.doc-model-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.doc-model-field__controls {
+  display: flex;
+  position: relative;
+}
+.doc-model-field__controls .doc-dialog-model-menu {
+  width: 100%;
+}
+.doc-model-field__controls .doc-dialog-model-menu .field-toggle-trigger {
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 12px;
+  gap: 8px;
+  border: 1px solid #caddff;
+  border-radius: 5px;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.2;
+  background: #fff;
+  color: var(--text);
+  justify-content: space-between;
+}
+.doc-model-field__controls .doc-dialog-model-menu .field-toggle-trigger[aria-disabled="true"] {
+  background: #f4f6fb;
+  color: #6b7280;
+  cursor: default;
+}
+.doc-model-field__controls .doc-dialog-model-menu .model-select-display {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.doc-model-field__controls .doc-dialog-model-menu .chevron {
+  margin-left: auto;
+}
+.doc-model-select-native {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  border: 0;
+  clip: rect(0 0 0 0);
+  overflow: hidden;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.doc-model-select-native:disabled {
+  pointer-events: none;
+}
+
+.currency-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.currency-field__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+.currency-field__column {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.currency-field__controls {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.currency-menu .field-toggle-trigger {
+  width: 100%;
+  min-height: 42px;
+  padding: 8px 10px;
+  gap: 2px;
+  border: 1px solid #caddff;
+  border-radius: 5px;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.2;
+  background: #fff;
+  color: var(--text);
+  justify-content: space-between;
+}
+.currency-panel {
+  min-width: 100%;
+}
+.currency-select {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  border: 0;
+  clip: rect(0 0 0 0);
+  overflow: hidden;
+  white-space: nowrap;
+}
+.doc-date-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.doc-date-field .swb-date-picker {
+  width: 100%;
+  min-height: 42px;
+  padding: 0;
+  border: 1px solid #caddff;
+  border-radius: 5px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+.doc-date-field .swb-date-picker input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  padding: 10px 12px;
+  height: 42px;
+  line-height: 1.2;
+  font-size: 14px;
+}
+.doc-date-field .swb-date-picker__toggle {
+  width: 42px;
+  min-width: 42px;
+  height: 42px;
+  border: none;
+  border-left: 1px solid #caddff;
+  border-radius: 0 5px 5px 0;
+  background: #f8fafc;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (max-width: 640px) {
+  #docMetaBoxNewDoc .doc-meta-grid--stacked .doc-meta-grid__row {
+    grid-template-columns: 1fr;
+  }
+  .inv-number-field__controls {
+    flex-wrap: wrap;
+  }
+  .inv-length-menu {
+    flex-basis: 160px;
+  }
+}
+
+@media (max-width: 640px) {
+  #docMetaBoxNewDoc.doc-meta-box--new-mode:has(#docType option[value="facture"]:checked)
+    .doc-meta-grid--stacked
+    .doc-meta-grid__row--top,
+  #docMetaBoxNewDoc.doc-meta-box--new-mode:has(#docType option[value="facture"]:checked)
+    .doc-meta-grid--stacked
+    .doc-meta-grid__row--bottom {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Doc type-driven legends */
+.section-box:has(#docType option[value="fa"]:checked) legend .for-facture,
+.section-box:has(#docType option[value="fa"]:checked) legend .for-avoir,
+.section-box:has(#docType option[value="fa"]:checked) legend .for-devis,
+.section-box:has(#docType option[value="fa"]:checked) legend .for-bl,
+.section-box:has(#docType option[value="fa"]:checked) legend .for-bc,
+.section-box:has(#docType option[value="fa"]:checked) legend .for-be,
+.section-box:has(#docType option[value="fa"]:checked) legend .for-bs { display: none; }
+.section-box:has(#docType option[value="fa"]:checked) legend .for-fa { display: inline; }
+.section-box:has(#docType option[value="fa"]:checked) #invNumberLabel .for-facture,
+.section-box:has(#docType option[value="fa"]:checked) #invNumberLabel .for-avoir,
+.section-box:has(#docType option[value="fa"]:checked) #invNumberLabel .for-devis,
+.section-box:has(#docType option[value="fa"]:checked) #invNumberLabel .for-bl,
+.section-box:has(#docType option[value="fa"]:checked) #invNumberLabel .for-bc,
+.section-box:has(#docType option[value="fa"]:checked) #invNumberLabel .for-be,
+.section-box:has(#docType option[value="fa"]:checked) #invNumberLabel .for-bs { display: none; }
+.section-box:has(#docType option[value="fa"]:checked) #invNumberLabel .for-fa { display: inline; }
+.section-box:has(#docType option[value="fa"]:checked) .inv-number-input--split { display: none; }
+.section-box:has(#docType option[value="fa"]:checked) .inv-number-input--single { display: flex; }
+
+.section-box:has(#docType option[value="avoir"]:checked) legend .for-facture,
+.section-box:has(#docType option[value="avoir"]:checked) legend .for-fa,
+.section-box:has(#docType option[value="avoir"]:checked) legend .for-devis,
+.section-box:has(#docType option[value="avoir"]:checked) legend .for-bl,
+.section-box:has(#docType option[value="avoir"]:checked) legend .for-bc,
+.section-box:has(#docType option[value="avoir"]:checked) legend .for-be,
+.section-box:has(#docType option[value="avoir"]:checked) legend .for-bs { display: none; }
+.section-box:has(#docType option[value="avoir"]:checked) legend .for-avoir { display: inline; }
+.section-box:has(#docType option[value="avoir"]:checked) #invNumberLabel .for-facture,
+.section-box:has(#docType option[value="avoir"]:checked) #invNumberLabel .for-fa,
+.section-box:has(#docType option[value="avoir"]:checked) #invNumberLabel .for-devis,
+.section-box:has(#docType option[value="avoir"]:checked) #invNumberLabel .for-bl,
+.section-box:has(#docType option[value="avoir"]:checked) #invNumberLabel .for-bc,
+.section-box:has(#docType option[value="avoir"]:checked) #invNumberLabel .for-be,
+.section-box:has(#docType option[value="avoir"]:checked) #invNumberLabel .for-bs { display: none; }
+.section-box:has(#docType option[value="avoir"]:checked) #invNumberLabel .for-avoir { display: inline; }
+
+.section-box:has(#docType option[value="devis"]:checked) legend .for-facture { display: none; }
+.section-box:has(#docType option[value="devis"]:checked) legend .for-avoir { display: none; }
+.section-box:has(#docType option[value="devis"]:checked) legend .for-devis { display: inline; }
+.section-box:has(#docType option[value="devis"]:checked) #invNumberLabel .for-facture { display: none; }
+.section-box:has(#docType option[value="devis"]:checked) #invNumberLabel .for-avoir { display: none; }
+.section-box:has(#docType option[value="devis"]:checked) #invNumberLabel .for-devis { display: inline; }
+
+.section-box:has(#docType option[value="bl"]:checked) legend .for-facture,
+.section-box:has(#docType option[value="bl"]:checked) legend .for-avoir,
+.section-box:has(#docType option[value="bl"]:checked) legend .for-devis { display: none; }
+.section-box:has(#docType option[value="bl"]:checked) legend .for-bl { display: inline; }
+.section-box:has(#docType option[value="bl"]:checked) #invNumberLabel .for-facture,
+.section-box:has(#docType option[value="bl"]:checked) #invNumberLabel .for-avoir,
+.section-box:has(#docType option[value="bl"]:checked) #invNumberLabel .for-devis { display: none; }
+.section-box:has(#docType option[value="bl"]:checked) #invNumberLabel .for-bl { display: inline; }
+
+.section-box:has(#docType option[value="bc"]:checked) legend .for-facture,
+.section-box:has(#docType option[value="bc"]:checked) legend .for-avoir,
+.section-box:has(#docType option[value="bc"]:checked) legend .for-devis,
+.section-box:has(#docType option[value="bc"]:checked) legend .for-bl { display: none; }
+.section-box:has(#docType option[value="bc"]:checked) legend .for-bc { display: inline; }
+.section-box:has(#docType option[value="bc"]:checked) #invNumberLabel .for-facture,
+.section-box:has(#docType option[value="bc"]:checked) #invNumberLabel .for-avoir,
+.section-box:has(#docType option[value="bc"]:checked) #invNumberLabel .for-devis,
+.section-box:has(#docType option[value="bc"]:checked) #invNumberLabel .for-bl { display: none; }
+.section-box:has(#docType option[value="bc"]:checked) #invNumberLabel .for-bc { display: inline; }
+
+.section-box:has(#docType option[value="be"]:checked) legend .for-facture,
+.section-box:has(#docType option[value="be"]:checked) legend .for-fa,
+.section-box:has(#docType option[value="be"]:checked) legend .for-avoir,
+.section-box:has(#docType option[value="be"]:checked) legend .for-devis,
+.section-box:has(#docType option[value="be"]:checked) legend .for-bl,
+.section-box:has(#docType option[value="be"]:checked) legend .for-bc,
+.section-box:has(#docType option[value="be"]:checked) legend .for-bs { display: none; }
+.section-box:has(#docType option[value="be"]:checked) legend .for-be { display: inline; }
+.section-box:has(#docType option[value="be"]:checked) #invNumberLabel .for-facture,
+.section-box:has(#docType option[value="be"]:checked) #invNumberLabel .for-fa,
+.section-box:has(#docType option[value="be"]:checked) #invNumberLabel .for-avoir,
+.section-box:has(#docType option[value="be"]:checked) #invNumberLabel .for-devis,
+.section-box:has(#docType option[value="be"]:checked) #invNumberLabel .for-bl,
+.section-box:has(#docType option[value="be"]:checked) #invNumberLabel .for-bc,
+.section-box:has(#docType option[value="be"]:checked) #invNumberLabel .for-bs { display: none; }
+.section-box:has(#docType option[value="be"]:checked) #invNumberLabel .for-be { display: inline; }
+
+.section-box:has(#docType option[value="bs"]:checked) legend .for-facture,
+.section-box:has(#docType option[value="bs"]:checked) legend .for-fa,
+.section-box:has(#docType option[value="bs"]:checked) legend .for-avoir,
+.section-box:has(#docType option[value="bs"]:checked) legend .for-devis,
+.section-box:has(#docType option[value="bs"]:checked) legend .for-bl,
+.section-box:has(#docType option[value="bs"]:checked) legend .for-bc,
+.section-box:has(#docType option[value="bs"]:checked) legend .for-be { display: none; }
+.section-box:has(#docType option[value="bs"]:checked) legend .for-bs { display: inline; }
+.section-box:has(#docType option[value="bs"]:checked) #invNumberLabel .for-facture,
+.section-box:has(#docType option[value="bs"]:checked) #invNumberLabel .for-fa,
+.section-box:has(#docType option[value="bs"]:checked) #invNumberLabel .for-avoir,
+.section-box:has(#docType option[value="bs"]:checked) #invNumberLabel .for-devis,
+.section-box:has(#docType option[value="bs"]:checked) #invNumberLabel .for-bl,
+.section-box:has(#docType option[value="bs"]:checked) #invNumberLabel .for-bc,
+.section-box:has(#docType option[value="bs"]:checked) #invNumberLabel .for-be { display: none; }
+.section-box:has(#docType option[value="bs"]:checked) #invNumberLabel .for-bs { display: inline; }
+
+/* Doc history */
+.doc-history-block {
+  margin-top: 16px;
+}
+.doc-history__controls {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+.doc-history__input-group {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex: 1 1 auto;
+  width: 100%;
+  position: relative;
+}
+.doc-history__label {
+  margin: 0;
+  font-weight: 600;
+  color: #0b1220;
+}
+.doc-history__select.is-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  border: 0;
+  clip: rect(0 0 0 0);
+  overflow: hidden;
+  white-space: nowrap;
+}
+.doc-history__display {
+  flex: 1 1 auto;
+  min-width: 160px;
+  max-width: calc(100% - 52px);
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid #caddff;
+  border-radius: 5px;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.2;
+  background: #fff;
+  color: var(--text);
+  pointer-events: none;
+}
+.doc-history__saved {
+  flex: 0 0 auto;
+}
+.doc-history__heading {
+  display: block;
+  font-weight: 700;
+  font-size: 14px;
+  color: #0b1220;
+  margin-bottom: 2px;
+}
+.doc-history-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.doc-history-meta .client-search__meta {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  font-size: 12px;
+  color: #4b5563;
+  white-space: nowrap;
+  overflow: hidden;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+.doc-history-meta .client-search__meta-label {
+  font-weight: 600;
+  margin-right: 4px;
+  flex: 0 0 auto;
+}
+.doc-history-meta .client-search__meta-value {
+  display: block;
+  flex: 1 1 auto;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.doc-history-status-menu {
+  position: relative;
+  display: inline-flex;
+  align-items: stretch;
+  z-index: 20;
+  height: auto;
+}
+.doc-history-status-menu.field-toggle-menu {
+  width: 170px;
+  min-width: 0;
+}
+.doc-history-status-menu .field-toggle-trigger {
+  min-height: 32px;
+}
+.doc-history-status-menu .doc-history__status {
+  height: 100%;
+  flex: 1 1 auto;
+}
+.doc-history-actions-menu.field-toggle-menu,
+.doc-history-export-menu.field-toggle-menu {
+  width: 170px;
+  min-width: 0;
+}
+.doc-history-actions-menu .field-toggle-trigger,
+.doc-history-export-menu .field-toggle-trigger {
+  min-height: 32px;
+}
+.doc-history-actions-menu.field-toggle-menu .doc-history-actions-trigger,
+.doc-history-export-menu.field-toggle-menu .doc-history-export-trigger {
+  width: 100%;
+  min-width: 150px;
+  max-width: 200px;
+  min-height: 32px;
+  padding: 4px 12px;
+  border-radius: 4px;
+  border: 1px solid rgba(91, 214, 159, 0.9);
+  background-color: #ecfdf5;
+  color: #065f46;
+  font-weight: 600;
+  font-size: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+  box-shadow: 0 1px 2px rgba(6, 95, 70, 0.12);
+}
+.doc-history-actions-menu[open] .doc-history-actions-trigger,
+.doc-history-export-menu[open] .doc-history-export-trigger {
+  border-color: #0a8f5c;
+  background-color: #d1fae5;
+}
+.doc-history-actions-menu .doc-history-actions-trigger .chevron,
+.doc-history-export-menu .doc-history-export-trigger .chevron {
+  margin-left: 8px;
+  border-color: currentColor;
+}
+.doc-history-status-popover,
+.doc-history-actions-popover,
+.doc-history-export-popover {
+  position: fixed;
+  display: none;
+}
+.doc-history-status-popover {
+  z-index: 99999;
+}
+.doc-history-actions-popover,
+.doc-history-export-popover {
+  z-index: 100060;
+}
+.doc-history-status-popover.is-open,
+.doc-history-actions-popover.is-open,
+.doc-history-export-popover.is-open {
+  display: block;
+}
+.doc-history-actions-menu[open] .doc-history-actions-panel,
+.doc-history-export-menu[open] .doc-history-export-panel {
+  display: none;
+}
+.doc-history__status {
+  width: 100%;
+  min-width: 150px;
+  max-width: 200px;
+  min-height: 32px;
+  padding: 4px 12px;
+  border-radius: 4px;
+  border: 1px solid rgba(91, 214, 159, 0.9);
+  background-color: #ecfdf5;
+  color: #065f46;
+  font-weight: 600;
+  font-size: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+  box-shadow: 0 1px 2px rgba(6, 95, 70, 0.12);
+}
+.doc-history__status .chevron,
+.doc-history-actions-trigger .chevron,
+.doc-history-export-trigger .chevron {
+  margin-left: 8px;
+  width: 16px;
+  height: 16px;
+  display: inline-block;
+  flex: 0 0 auto;
+  border: none;
+  padding: 0;
+  transform: rotate(0deg);
+}
+.doc-history-status-menu.is-open .doc-history__status {
+  border-color: #0a8f5c;
+  background-color: #d1fae5;
+}
+.doc-history-status-menu.is-open .field-toggle-trigger .chevron,
+.doc-history-actions-menu[open] .doc-history-actions-trigger .chevron,
+.doc-history-export-menu[open] .doc-history-export-trigger .chevron {
+  transform: rotate(180deg);
+}
+.doc-history-status-panel,
+.doc-history-actions-popover .doc-history-actions-panel,
+.doc-history-export-popover .doc-history-export-panel {
+  position: static;
+  width: auto;
+  min-width: 150px;
+  padding: 4px;
+  gap: 4px;
+  z-index: 15;
+  box-shadow: 0 16px 30px rgba(15, 23, 42, 0.18);
+  border: 1px solid rgba(21, 51, 94, 0.12);
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  border-radius: 5px;
+}
+.doc-history-status-option {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: #0b1220;
+  font-size: 10px;
+  font-weight: 500;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+.doc-history-status-option:hover {
+  background: rgba(21, 51, 94, 0.08);
+}
+.doc-history-status-option--active {
+  background: #dbeafe;
+  font-weight: 600;
+  color: #15335e;
+}
+
+#docHistoryModal {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0);
+  opacity: 0;
+  pointer-events: none;
+  transition: background-color 260ms ease-out, opacity 260ms ease-out;
+}
+
+#docHistoryModal[hidden] {
+  display: flex !important;
+}
+
+#docHistoryModal.is-open {
+  opacity: 1;
+  background-color: rgba(0, 0, 0, 0.35);
+  pointer-events: auto;
+}
+
+#docHistoryModal .doc-history-modal__panel {
+  transform-origin: center;
+  will-change: transform, opacity;
+  opacity: 0;
+  transform: scale(0.96);
+  transition: opacity 420ms cubic-bezier(0.2, 0.9, 0.2, 1),
+    transform 420ms cubic-bezier(0.2, 0.9, 0.2, 1);
+}
+
+#docHistoryModal.is-open .doc-history-modal__panel {
+  opacity: 1;
+  transform: scale(1);
+}
+
+#itemsDocOptionsModal {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0);
+  opacity: 0;
+  pointer-events: none;
+  transition: background-color 260ms ease-out, opacity 260ms ease-out;
+}
+
+#itemsDocOptionsModal[hidden] {
+  display: flex !important;
+}
+
+#itemsDocOptionsModal.is-open {
+  opacity: 1;
+  background-color: rgba(0, 0, 0, 0.35);
+  pointer-events: auto;
+      padding-right: 78px;
+}
+
+#itemsDocOptionsModal .items-options-modal__panel {
+  width: min(98%, calc(100vw - 12px));
+  max-height: calc(100vh - 12px);
+  display: flex;
+  flex-direction: column;
+}
+
+#itemsDocOptionsModal.is-open .items-options-modal__panel {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.items-options-modal__body {
+  max-height: calc(100vh - 180px);
+  overflow: auto;
+  background: #f8fafc;
+      padding: 15px 52px 15px 52px;
+}
+
+.items-options-modal__content {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.items-options-modal__content > * {
+  flex: 1 1 520px;
+  min-width: 480px;
+}
+
+.items-options-modal__content .section-row {
+  margin-top: 0;
+  flex: 1 1 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #docHistoryModal,
+  #docHistoryModal .doc-history-modal__panel,
+  #itemsDocOptionsModal,
+  #itemsDocOptionsModal .items-options-modal__panel {
+    transition: none;
+  }
+}

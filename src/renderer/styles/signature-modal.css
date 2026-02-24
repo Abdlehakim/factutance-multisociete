@@ -1,0 +1,55 @@
+.signature-modal__body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+}
+.signature-modal__body.swbDialog__msg {
+  padding: 16px 18px 8px;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  color: #0b1220;
+  max-height: none;
+}
+.signature-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 6px;
+  margin-bottom: -1px;
+}
+.signature-tab {
+  border: 1px solid #caddff;
+  border-bottom: 1px solid #caddff;
+  border-radius: 8px 8px 0 0;
+  background: #eaf1ff;
+  color: #15335e;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+.signature-tab.is-active {
+  background: #ffffff;
+  border-bottom-color: #ffffff;
+  color: #0f172a;
+}
+.signature-tab:focus-visible {
+  outline: 2px solid rgba(21, 51, 94, 0.35);
+  outline-offset: 2px;
+}
+.signature-tab-panel {
+  border: 1px solid #caddff;
+  border-radius: 0 8px 8px 8px;
+  padding: 12px;
+  background: #ffffff;
+  margin-top: -1px;
+}
+.signature-tab-panel__text {
+  margin: 0;
+  font-size: 13px;
+  color: #475569;
+}

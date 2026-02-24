@@ -1,0 +1,505 @@
+#docBulkExportModal {
+  --doc-bulk-export-filter-height: 42px;
+}
+
+#docBulkExportModal .doc-bulk-export-modal__panel {
+  width: min(980px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 10px);
+}
+
+#docBulkExportModal .doc-bulk-export-modal__body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1 1 auto;
+  min-height: 560px;
+  max-height: min(78vh, 860px);
+  overflow: hidden;
+}
+
+#docBulkExportModal .doc-bulk-export-modal__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+#docBulkExportModal .doc-bulk-export-modal__filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+  flex: 1 1 460px;
+  min-width: 280px;
+}
+
+#docBulkExportModal .doc-bulk-export-modal__search {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1 1 250px;
+  min-width: 220px;
+  max-width: 340px;
+}
+
+#docBulkExportModal .doc-bulk-export-modal__year {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 0 0 130px;
+  min-width: 120px;
+}
+
+#docBulkExportModal .doc-bulk-export-modal__year .doc-dialog-model-picker__field {
+  width: 100%;
+}
+
+#docBulkExportModal .doc-bulk-export-modal__search-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+#docBulkExportModal .doc-bulk-export-modal__search-input {
+  min-height: var(--doc-bulk-export-filter-height);
+  border: 1px solid #caddff;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: #0f172a;
+  background: #ffffff;
+  box-sizing: border-box;
+}
+
+#docBulkExportModal .doc-bulk-export-modal__year .doc-history-model-menu .field-toggle-trigger {
+  min-height: var(--doc-bulk-export-filter-height);
+  box-sizing: border-box;
+}
+
+#docBulkExportModal .doc-bulk-export-modal__search-input:focus {
+  outline: none;
+  border-color: #93b6ed;
+  box-shadow: 0 0 0 2px rgba(20, 70, 160, 0.12);
+}
+
+#docBulkExportModal .doc-bulk-export-modal__selection-tools {
+  display: grid;
+  gap: 8px;
+}
+
+#docBulkExportModal .doc-bulk-export-modal__selection-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+#docBulkExportModal .doc-bulk-export-modal__selection-buttons .client-search__edit {
+  min-width: 126px;
+}
+
+#docBulkExportModal .doc-bulk-export-modal__selection-buttons .client-search__add {
+  min-width: 126px;
+}
+
+#docBulkExportModal .doc-bulk-export-modal__post-body-tools {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 0 14px 10px;
+}
+
+#docBulkExportModal .doc-bulk-export-modal__post-body-main-action {
+  display: flex;
+  align-items: center;
+  order: 2;
+  margin-right: 0;
+}
+
+#docBulkExportModal .doc-bulk-export-modal__post-body-main-action .client-search__add {
+  min-width: 140px;
+}
+
+#docBulkExportModal .doc-bulk-export-modal__post-body-secondary {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 16px;
+  order: 1;
+}
+
+#docBulkExportModal .doc-bulk-export-modal__folder-tools {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  min-height: 24px;
+}
+
+#docBulkExportModal .doc-bulk-export-modal__email-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+}
+
+#docBulkExportModal .doc-bulk-export-modal__send-email-toggle {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 7px;
+  font-size: 12px;
+  color: #1e293b;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+#docBulkExportModal .doc-bulk-export-modal__send-email-toggle > span {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+#docBulkExportModal .doc-bulk-export-modal__send-email-toggle input[type="checkbox"] {
+  margin: 0;
+  width: 15px;
+  height: 15px;
+}
+
+#docBulkExportModal .doc-bulk-export-modal__open-location {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 7px;
+  font-size: 12px;
+  color: #1e293b;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+#docBulkExportModal .doc-bulk-export-modal__open-location > span {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+#docBulkExportModal .doc-bulk-export-modal__open-location input[type="checkbox"] {
+  margin: 0;
+  width: 15px;
+  height: 15px;
+}
+
+#docBulkExportModal .doc-bulk-export-modal__grid.doc-history-modal__list {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  align-content: center;
+  margin: 0;
+  padding: 2px;
+  min-height: 430px;
+  max-height: min(70vh, 760px);
+  overflow: auto;
+}
+
+#docBulkExportModal .doc-bulk-export-modal__card {
+  border: 1px solid #cfe0ff;
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  height: fit-content;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+#docBulkExportModal .doc-bulk-export-modal__card:hover {
+  border-color: #9ab7eb;
+  box-shadow: 0 4px 14px rgba(21, 51, 94, 0.14);
+  background: #f9fcff;
+}
+
+#docBulkExportModal .doc-bulk-export-modal__checkbox {
+  margin: 0;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+#docBulkExportModal .doc-bulk-export-modal__card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+#docBulkExportModal .doc-bulk-export-modal__card-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+#docBulkExportModal .doc-bulk-export-modal__card-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0b1220;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+#docBulkExportModal .doc-bulk-export-modal__card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+#docBulkExportModal .doc-bulk-export-modal__meta-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid #caddff;
+  background: #f3f8ff;
+  color: #15335e;
+  font-size: 10px;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#docBulkExportModal .doc-bulk-export-modal__status {
+  margin-top: 0;
+}
+
+:is(#docBulkExportEmailModal, #docHistoryExportEmailModal) .doc-bulk-export-email-modal__panel {
+  width: min(910px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 24px);
+}
+
+:is(#docBulkExportEmailModal, #docHistoryExportEmailModal) .doc-bulk-export-email-modal__body {
+  display: grid;
+  gap: 10px;
+  flex: 1 1 auto;
+  min-height: 460px;
+  max-height: min(64vh, 640px);
+}
+
+:is(#docBulkExportEmailModal, #docHistoryExportEmailModal) .doc-bulk-export-email-modal__field {
+  display: grid;
+  gap: 4px;
+}
+
+:is(#docBulkExportEmailModal, #docHistoryExportEmailModal) .doc-bulk-export-email-modal__field span {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+:is(#docBulkExportEmailModal, #docHistoryExportEmailModal) .doc-bulk-export-email-modal__field input,
+:is(#docBulkExportEmailModal, #docHistoryExportEmailModal) .doc-bulk-export-email-modal__field textarea {
+  border: 1px solid #caddff;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: #0f172a;
+  background: #fff;
+  box-sizing: border-box;
+}
+
+:is(#docBulkExportEmailModal, #docHistoryExportEmailModal) .doc-bulk-export-email-modal__field input {
+  min-height: 40px;
+}
+
+:is(#docBulkExportEmailModal, #docHistoryExportEmailModal) .doc-bulk-export-email-modal__field input:focus,
+:is(#docBulkExportEmailModal, #docHistoryExportEmailModal) .doc-bulk-export-email-modal__field textarea:focus {
+  outline: none;
+  border-color: #93b6ed;
+  box-shadow: 0 0 0 2px rgba(20, 70, 160, 0.12);
+}
+
+:is(#docBulkExportEmailModal, #docHistoryExportEmailModal) .doc-bulk-export-email-modal__field textarea {
+  resize: vertical;
+  min-height: 120px;
+}
+
+:is(#docBulkExportEmailModal, #docHistoryExportEmailModal) .doc-bulk-export-email-modal__attachments-block {
+  display: grid;
+  gap: 5px;
+}
+
+:is(#docBulkExportEmailModal, #docHistoryExportEmailModal) .doc-bulk-export-email-modal__attachments-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+:is(#docBulkExportEmailModal, #docHistoryExportEmailModal) .doc-bulk-export-email-modal__attachments {
+  border: 1px solid #caddff;
+  border-radius: 8px;
+  padding: 8px 10px;
+  min-height: 120px;
+  max-height: 180px;
+  overflow: auto;
+  background: #f8fbff;
+}
+
+:is(#docBulkExportEmailModal, #docHistoryExportEmailModal) .doc-bulk-export-email-modal__attachments-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+:is(#docBulkExportEmailModal, #docHistoryExportEmailModal) .doc-bulk-export-email-modal__attachments-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #fff;
+  width: fit-content;
+  max-width: 100%;
+  min-width: 0;
+}
+
+:is(#docBulkExportEmailModal, #docHistoryExportEmailModal) .doc-bulk-export-email-modal__attachment-name {
+  font-size: 12px;
+  color: #15335e;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.25;
+}
+
+:is(#docBulkExportEmailModal, #docHistoryExportEmailModal) .doc-bulk-export-email-modal__attachments-item .email-compose-modal__attachment-remove {
+  flex: 0 0 auto;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+}
+
+:is(#docBulkExportEmailModal, #docHistoryExportEmailModal) .doc-bulk-export-email-modal__attachments-empty {
+  font-size: 12px;
+  color: #64748b;
+}
+
+:is(#docBulkExportEmailModal, #docHistoryExportEmailModal) .doc-bulk-export-email-modal__status {
+  margin: 0;
+  font-size: 12px;
+  color: #334155;
+}
+
+:is(#docBulkExportEmailModal, #docHistoryExportEmailModal) .doc-bulk-export-email-modal__status.is-warning {
+  color: #b42318;
+}
+
+:is(#docBulkExportEmailModal, #docHistoryExportEmailModal) .doc-bulk-export-email-modal__status.is-success {
+  color: #067647;
+}
+
+@media (max-width: 720px) {
+  #docBulkExportModal .doc-bulk-export-modal__panel {
+    width: min(96vw, 980px);
+    max-height: calc(100vh - 8px);
+  }
+
+  #docBulkExportModal .doc-bulk-export-modal__filters {
+    width: 100%;
+  }
+
+  #docBulkExportModal .doc-bulk-export-modal__search {
+    max-width: none;
+    min-width: 100%;
+  }
+
+  #docBulkExportModal .doc-bulk-export-modal__year {
+    flex: 1 1 130px;
+  }
+
+  #docBulkExportModal .doc-bulk-export-modal__selection-tools {
+    width: 100%;
+  }
+
+  #docBulkExportModal .doc-bulk-export-modal__selection-buttons .client-search__edit,
+  #docBulkExportModal .doc-bulk-export-modal__selection-buttons .client-search__add {
+    flex: 1 1 140px;
+  }
+
+  #docBulkExportModal .doc-bulk-export-modal__folder-tools {
+    justify-content: flex-start;
+  }
+
+  #docBulkExportModal .doc-bulk-export-modal__email-tools {
+    align-items: flex-start;
+  }
+
+  #docBulkExportModal .doc-bulk-export-modal__post-body-tools {
+    width: 100%;
+    padding: 0 14px 10px;
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  #docBulkExportModal .doc-bulk-export-modal__post-body-main-action {
+    width: auto;
+    margin-right: 0;
+    margin-left: 0;
+  }
+
+  #docBulkExportModal .doc-bulk-export-modal__post-body-main-action .client-search__add {
+    width: auto;
+  }
+
+  #docBulkExportModal .doc-bulk-export-modal__post-body-secondary {
+    width: auto;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    align-items: center;
+    order: 1;
+  }
+
+  #docBulkExportModal .doc-bulk-export-modal__body {
+    min-height: 420px;
+    max-height: min(72vh, 720px);
+  }
+
+  :is(#docBulkExportEmailModal, #docHistoryExportEmailModal) .doc-bulk-export-email-modal__panel {
+    width: min(96vw, 980px);
+    max-height: calc(100vh - 16px);
+  }
+
+  :is(#docBulkExportEmailModal, #docHistoryExportEmailModal) .doc-bulk-export-email-modal__body {
+    min-height: 360px;
+    max-height: min(66vh, 560px);
+  }
+
+  #docBulkExportModal .doc-bulk-export-modal__grid.doc-history-modal__list {
+    grid-template-columns: 1fr;
+    min-height: 320px;
+    max-height: min(64vh, 620px);
+  }
+}

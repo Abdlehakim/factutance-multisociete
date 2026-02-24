@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Facturance Builder - Admin</title>
+
+    <!-- External CSS (CSP-safe) -->
+    <link rel="stylesheet" href="/public/app.css" />
+  </head>
+
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo">F</div>
+        <div class="brandText">
+          <div class="title">Facturance Builder</div>
+          <div class="subtitle">Admin panel</div>
+        </div>
+      </div>
+
+      <button id="logoutBtn" class="btn btn-ghost" type="button">Logout</button>
+    </header>
+
+    <main class="container">
+      <section class="card">
+        <div class="cardHeader">
+          <h2 class="cardTitle">Build a new installer</h2>
+          <div id="status" class="status status-idle">Ready</div>
+        </div>
+
+        <div class="formRow">
+          <label class="label" for="companyName">Company names</label>
+
+          <!-- Custom searchable dropdown (type OR select) -->
+          <div class="inputRow">
+            <div class="combo" id="companyCombo">
+              <div class="comboWrap">
+                <div class="comboField">
+                  <div id="companyChips" class="comboChips" aria-live="polite"></div>
+                  <input
+                  id="companyName"
+                  class="input comboInput"
+                  placeholder="Type or select companies..."
+                  autocomplete="off"
+                  aria-expanded="false"
+                />
+                </div>
+
+                <button
+                  id="companyToggle"
+                  class="comboBtn"
+                  type="button"
+                  aria-label="Show companies"
+                >
+                  <svg
+                    stroke="currentColor"
+                    fill="currentColor"
+                    stroke-width="0"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path fill="none" d="M0 0h24v24H0V0z"></path>
+                    <path
+                      d="M12 4c4.41 0 8 3.59 8 8s-3.59 8-8 8-8-3.59-8-8 3.59-8 8-8m0-2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 13-4-4h8z"
+                    ></path>
+                  </svg>
+                </button>
+              </div>
+
+              <ul id="companyMenu" class="comboMenu" role="listbox" aria-multiselectable="true"></ul>
+            </div>
+
+            <!-- Styled select with icon -->
+            <div class="selectWrap">
+              <select
+                id="buildVariant"
+                class="select"
+                aria-label="Select build variant"
+              >
+                <option value="both" selected>Standard (x64 + 32-bit)</option>
+                <option value="ia32">32 bit only (ia32)</option>
+              </select>
+
+              <span class="selectIcon" aria-hidden="true">
+                <svg
+                  stroke="currentColor"
+                  fill="currentColor"
+                  stroke-width="0"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path fill="none" d="M0 0h24v24H0V0z"></path>
+                  <path
+                    d="M12 4c4.41 0 8 3.59 8 8s-3.59 8-8 8-8-3.59-8-8 3.59-8 8-8m0-2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 13-4-4h8z"
+                  ></path>
+                </svg>
+              </span>
+            </div>
+
+            <button id="buildBtn" class="btn btn-primary" type="button">
+              Build
+            </button>
+          </div>
+        </div>
+        <div id="progressWrap" class="progressWrap" aria-hidden="false">
+  <div class="progressTop">
+    <div class="progressLabel">Build progress</div>
+    <div id="progressText" class="progressText">0%</div>
+  </div>
+
+  <div class="progressBar" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+    <div id="progressFill" class="progressFill" style="width: 0%"></div>
+  </div>
+
+  <div class="progressHint" id="progressHint">Preparing...</div>
+</div>
+
+      </section>
+
+      <section class="grid">
+        <section class="card">
+          <div class="cardHeader">
+            <h3 class="cardTitle">Logs</h3>
+            <span class="pill">Live output</span>
+          </div>
+          <pre id="logs" class="console" aria-label="Build logs"></pre>
+        </section>
+
+        <section class="card">
+          <div class="cardHeader">
+            <h3 class="cardTitle">Downloads</h3>
+            <span class="pill">Installers</span>
+          </div>
+          <ul id="downloads" class="downloads"></ul>
+
+          <div class="emptyNote">
+            When the build finishes, download links will appear here.
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <!-- External JS (CSP-safe) -->
+    <script src="/public/app.js" defer></script>
+  </body>
+</html>
+

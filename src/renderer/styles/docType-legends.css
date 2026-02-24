@@ -1,0 +1,117 @@
+/* Hide all by default */
+.section-box legend .for-fa,
+.section-box legend .for-avoir,
+.section-box legend .for-devis,
+.section-box legend .for-bl,
+.section-box legend .for-bc,
+.section-box legend .for-be,
+.section-box legend .for-bs { display: none; }
+#invNumberLabel .for-fa,
+#invNumberLabel .for-avoir,
+#invNumberLabel .for-devis,
+#invNumberLabel .for-bl,
+#invNumberLabel .for-bc,
+#invNumberLabel .for-be,
+#invNumberLabel .for-bs { display: none; }
+
+/* Facture d'achat */
+.section-box:has(#docType option[value="fa"]:checked) legend .for-facture,
+.section-box:has(#docType option[value="fa"]:checked) legend .for-avoir,
+.section-box:has(#docType option[value="fa"]:checked) legend .for-devis,
+.section-box:has(#docType option[value="fa"]:checked) legend .for-bl,
+.section-box:has(#docType option[value="fa"]:checked) legend .for-bc,
+.section-box:has(#docType option[value="fa"]:checked) legend .for-be,
+.section-box:has(#docType option[value="fa"]:checked) legend .for-bs { display: none; }
+.section-box:has(#docType option[value="fa"]:checked) legend .for-fa { display: inline; }
+.section-box:has(#docType option[value="fa"]:checked) #invNumberLabel .for-facture,
+.section-box:has(#docType option[value="fa"]:checked) #invNumberLabel .for-avoir,
+.section-box:has(#docType option[value="fa"]:checked) #invNumberLabel .for-devis,
+.section-box:has(#docType option[value="fa"]:checked) #invNumberLabel .for-bl,
+.section-box:has(#docType option[value="fa"]:checked) #invNumberLabel .for-bc,
+.section-box:has(#docType option[value="fa"]:checked) #invNumberLabel .for-be,
+.section-box:has(#docType option[value="fa"]:checked) #invNumberLabel .for-bs { display: none; }
+.section-box:has(#docType option[value="fa"]:checked) #invNumberLabel .for-fa { display: inline; }
+
+/* Facture d'avoir */
+.section-box:has(#docType option[value="avoir"]:checked) legend .for-facture,
+.section-box:has(#docType option[value="avoir"]:checked) legend .for-fa,
+.section-box:has(#docType option[value="avoir"]:checked) legend .for-devis,
+.section-box:has(#docType option[value="avoir"]:checked) legend .for-bl,
+.section-box:has(#docType option[value="avoir"]:checked) legend .for-bc,
+.section-box:has(#docType option[value="avoir"]:checked) legend .for-be,
+.section-box:has(#docType option[value="avoir"]:checked) legend .for-bs { display: none; }
+.section-box:has(#docType option[value="avoir"]:checked) legend .for-avoir { display: inline; }
+.section-box:has(#docType option[value="avoir"]:checked) #invNumberLabel .for-facture,
+.section-box:has(#docType option[value="avoir"]:checked) #invNumberLabel .for-fa,
+.section-box:has(#docType option[value="avoir"]:checked) #invNumberLabel .for-devis,
+.section-box:has(#docType option[value="avoir"]:checked) #invNumberLabel .for-bl,
+.section-box:has(#docType option[value="avoir"]:checked) #invNumberLabel .for-bc,
+.section-box:has(#docType option[value="avoir"]:checked) #invNumberLabel .for-be,
+.section-box:has(#docType option[value="avoir"]:checked) #invNumberLabel .for-bs { display: none; }
+.section-box:has(#docType option[value="avoir"]:checked) #invNumberLabel .for-avoir { display: inline; }
+
+/* Devis */
+.section-box:has(#docType option[value="devis"]:checked) legend .for-facture { display: none; }
+.section-box:has(#docType option[value="devis"]:checked) legend .for-avoir { display: none; }
+.section-box:has(#docType option[value="devis"]:checked) legend .for-devis { display: inline; }
+.section-box:has(#docType option[value="devis"]:checked) #invNumberLabel .for-facture { display: none; }
+.section-box:has(#docType option[value="devis"]:checked) #invNumberLabel .for-avoir { display: none; }
+.section-box:has(#docType option[value="devis"]:checked) #invNumberLabel .for-devis { display: inline; }
+
+/* Bon de livraison */
+.section-box:has(#docType option[value="bl"]:checked) legend .for-facture,
+.section-box:has(#docType option[value="bl"]:checked) legend .for-avoir,
+.section-box:has(#docType option[value="bl"]:checked) legend .for-devis { display: none; }
+.section-box:has(#docType option[value="bl"]:checked) legend .for-bl { display: inline; }
+.section-box:has(#docType option[value="bl"]:checked) #invNumberLabel .for-facture,
+.section-box:has(#docType option[value="bl"]:checked) #invNumberLabel .for-avoir,
+.section-box:has(#docType option[value="bl"]:checked) #invNumberLabel .for-devis { display: none; }
+.section-box:has(#docType option[value="bl"]:checked) #invNumberLabel .for-bl { display: inline; }
+
+/* Bon de commande */
+.section-box:has(#docType option[value="bc"]:checked) legend .for-facture,
+.section-box:has(#docType option[value="bc"]:checked) legend .for-avoir,
+.section-box:has(#docType option[value="bc"]:checked) legend .for-devis,
+.section-box:has(#docType option[value="bc"]:checked) legend .for-bl { display: none; }
+.section-box:has(#docType option[value="bc"]:checked) legend .for-bc { display: inline; }
+.section-box:has(#docType option[value="bc"]:checked) #invNumberLabel .for-facture,
+.section-box:has(#docType option[value="bc"]:checked) #invNumberLabel .for-avoir,
+.section-box:has(#docType option[value="bc"]:checked) #invNumberLabel .for-devis,
+.section-box:has(#docType option[value="bc"]:checked) #invNumberLabel .for-bl { display: none; }
+.section-box:has(#docType option[value="bc"]:checked) #invNumberLabel .for-bc { display: inline; }
+
+/* Bon d'entree */
+.section-box:has(#docType option[value="be"]:checked) legend .for-facture,
+.section-box:has(#docType option[value="be"]:checked) legend .for-fa,
+.section-box:has(#docType option[value="be"]:checked) legend .for-avoir,
+.section-box:has(#docType option[value="be"]:checked) legend .for-devis,
+.section-box:has(#docType option[value="be"]:checked) legend .for-bl,
+.section-box:has(#docType option[value="be"]:checked) legend .for-bc,
+.section-box:has(#docType option[value="be"]:checked) legend .for-bs { display: none; }
+.section-box:has(#docType option[value="be"]:checked) legend .for-be { display: inline; }
+.section-box:has(#docType option[value="be"]:checked) #invNumberLabel .for-facture,
+.section-box:has(#docType option[value="be"]:checked) #invNumberLabel .for-fa,
+.section-box:has(#docType option[value="be"]:checked) #invNumberLabel .for-avoir,
+.section-box:has(#docType option[value="be"]:checked) #invNumberLabel .for-devis,
+.section-box:has(#docType option[value="be"]:checked) #invNumberLabel .for-bl,
+.section-box:has(#docType option[value="be"]:checked) #invNumberLabel .for-bc,
+.section-box:has(#docType option[value="be"]:checked) #invNumberLabel .for-bs { display: none; }
+.section-box:has(#docType option[value="be"]:checked) #invNumberLabel .for-be { display: inline; }
+
+/* Bon de sortie */
+.section-box:has(#docType option[value="bs"]:checked) legend .for-facture,
+.section-box:has(#docType option[value="bs"]:checked) legend .for-fa,
+.section-box:has(#docType option[value="bs"]:checked) legend .for-avoir,
+.section-box:has(#docType option[value="bs"]:checked) legend .for-devis,
+.section-box:has(#docType option[value="bs"]:checked) legend .for-bl,
+.section-box:has(#docType option[value="bs"]:checked) legend .for-bc,
+.section-box:has(#docType option[value="bs"]:checked) legend .for-be { display: none; }
+.section-box:has(#docType option[value="bs"]:checked) legend .for-bs { display: inline; }
+.section-box:has(#docType option[value="bs"]:checked) #invNumberLabel .for-facture,
+.section-box:has(#docType option[value="bs"]:checked) #invNumberLabel .for-fa,
+.section-box:has(#docType option[value="bs"]:checked) #invNumberLabel .for-avoir,
+.section-box:has(#docType option[value="bs"]:checked) #invNumberLabel .for-devis,
+.section-box:has(#docType option[value="bs"]:checked) #invNumberLabel .for-bl,
+.section-box:has(#docType option[value="bs"]:checked) #invNumberLabel .for-bc,
+.section-box:has(#docType option[value="bs"]:checked) #invNumberLabel .for-be { display: none; }
+.section-box:has(#docType option[value="bs"]:checked) #invNumberLabel .for-bs { display: inline; }

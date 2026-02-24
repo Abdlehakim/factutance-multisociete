@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<DeclarationsRS VersionSchema="1.0">
+  <Declarant>
+    <TypeIdentifiant>1</TypeIdentifiant>
+    <Identifiant>1234567A</Identifiant>
+    <CategorieContribuable>PM</CategorieContribuable>
+  </Declarant>
+  <ReferenceDeclaration>
+    <ActeDepot>0</ActeDepot>
+    <AnneeDepot>2025</AnneeDepot>
+    <MoisDepot>02</MoisDepot>
+  </ReferenceDeclaration>
+  <AjouterCertificats>
+    <Certificat>
+      <Beneficiaire>
+        <IdTaxpayer>
+          <MatriculeFiscal>
+            <TypeIdentifiant>1</TypeIdentifiant>
+            <Identifiant>7654321B</Identifiant>
+            <CategorieContribuable>PM</CategorieContribuable>
+          </MatriculeFiscal>
+        </IdTaxpayer>
+        <Resident>1</Resident>
+        <NometprenonOuRaisonsociale>ACME SARL</NometprenonOuRaisonsociale>
+        <Adresse>10 MAIN STREET</Adresse>
+        <Activite>CONSULTING</Activite>
+        <InfosContact>
+          <AdresseMail>contact@example.com</AdresseMail>
+          <NumTel>21123456</NumTel>
+        </InfosContact>
+      </Beneficiaire>
+      <DatePayement>05/02/2025</DatePayement>
+      <Ref_certif_chez_declarant>FACT-2025-0001</Ref_certif_chez_declarant>
+      <ListeOperations>
+        <Operation IdTypeOperation="RS7_000001">
+          <AnneeFacturation>2025</AnneeFacturation>
+          <CNPC>0</CNPC>
+          <P_Charge>0</P_Charge>
+          <MontantHT>1786500</MontantHT>
+          <TauxRS>1.50</TauxRS>
+          <TauxTVA>19.00</TauxTVA>
+          <MontantTVA>339435</MontantTVA>
+          <MontantTTC>2125935</MontantTTC>
+          <MontantRS>31889</MontantRS>
+          <MontantNetServi>2094046</MontantNetServi>
+        </Operation>
+      </ListeOperations>
+      <TotalPayement>
+        <TotalMontantHT>1786500</TotalMontantHT>
+        <TotalMontantTVA>339435</TotalMontantTVA>
+        <TotalMontantTTC>2125935</TotalMontantTTC>
+        <TotalMontantRS>31889</TotalMontantRS>
+        <TotalMontantNetServi>2094046</TotalMontantNetServi>
+      </TotalPayement>
+    </Certificat>
+  </AjouterCertificats>
+</DeclarationsRS>

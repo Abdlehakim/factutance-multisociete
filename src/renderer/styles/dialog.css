@@ -1,0 +1,387 @@
+.swbDialog {
+  position: fixed;
+  inset: 0;
+  backdrop-filter: saturate(110%) blur(2px);
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+  background: rgba(0, 0, 0, 0);
+  opacity: 0;
+  pointer-events: none;
+  transition: background-color 260ms ease-out, opacity 260ms ease-out;
+}
+.swbDialog[hidden] {
+  display: flex !important;
+}
+.swbDialog#swbDialog {
+  z-index: 100020;
+}
+.swbDialog#swbDialog.swbDialog--above-popover {
+  z-index: 100006;
+}
+.swbDialog.is-open,
+.swbDialog:not([aria-hidden="true"]) {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.35);
+  pointer-events: auto;
+}
+
+.swbDialog__panel {
+  width: min(760px, calc(100vw - 40px));
+  background: #fff;
+  color: #0f172a;
+  border-radius: 12px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25), 0 4px 16px rgba(0, 0, 0, 0.12);
+  overflow: visible;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  font-family: var(
+    --font-sans,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    Helvetica,
+    Arial,
+    "Noto Sans",
+    "Liberation Sans",
+    sans-serif
+  );
+  transform-origin: center;
+  will-change: transform, opacity;
+  opacity: 0;
+  transform: scale(0.96);
+  transition: opacity 420ms cubic-bezier(0.2, 0.9, 0.2, 1),
+    transform 420ms cubic-bezier(0.2, 0.9, 0.2, 1);
+}
+.swbDialog__panel.client-import-modal__panel {
+  width: min(80%, calc(100vw - 40px));
+}
+.swbDialog__panel.client-export-modal__panel {
+  width: min(80%, calc(100vw - 40px));
+}
+.swbDialog.is-open .swbDialog__panel,
+.swbDialog:not([aria-hidden="true"]) .swbDialog__panel {
+  opacity: 1;
+  transform: scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .swbDialog,
+  .swbDialog .swbDialog__panel {
+    transition: none;
+  }
+}
+
+.swbDialog__header {
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  background: #f8fafc;
+}
+
+.swbDialog__title {
+  display: flex;
+  gap: 4px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: #0b1220;
+    align-items: center;
+}
+
+.swbDialog__close {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  font-size: 18px;
+  line-height: 1;
+  color: #334155;
+  padding: 2px 6px;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+.swbDialog__close svg {
+      width: 24px;
+  height: 24px;
+  display: block;
+  border-radius: 9999px;
+}
+.swbDialog__close svg:hover {
+  color: #fff;
+  background-color: red;
+}
+
+.swbDialog__msg {
+  display: flex;
+    flex-direction: column;
+    gap: 10px;
+  padding: 14px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: #1f2937;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  max-height: 40vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  position: relative;
+  width: 100%;
+  box-sizing: border-box;
+}
+.swbDialog__msg .swbDialogMsg__filename {
+  font-weight: 700;
+  color: #0b1220;
+}
+.swbDialog__confirm-summary {
+  margin: 0;
+  font-weight: 600;
+  color: #0b1220;
+}
+.swbDialog__confirm-field {
+  display: grid;
+  gap: 6px;
+  margin-top: 4px;
+}
+.swbDialog__confirm-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1f2937;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  white-space: nowrap;
+      flex-direction: row;
+}
+.swbDialog__confirm-label-note {
+  font-weight: 400;
+  color: #475569;
+}
+.swbDialog__confirm-field input {
+  width: 100%;
+  border: 1px solid #c7d2fe;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: #0f172a;
+  background: #ffffff;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.swbDialog__confirm-field input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.swbDialog__panel .swb-date-picker__panel {
+  z-index: 100010;
+}
+
+/* Actions: left & right groups */
+.swbDialog__actions {
+  border-radius: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px 14px;
+  background: #f9fafb;
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+}
+.swbDialog__group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.swbDialog__group--left {
+  justify-content: flex-start;
+}
+.swbDialog__group--right {
+  display: flex;
+  gap: 8px;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  justify-content: flex-end;
+  align-items: center;
+}
+.swbDialog__options {
+  width: 97%;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
+  gap: 8px;
+  margin: auto;
+  margin-bottom: 16px;
+  align-items: center;
+  grid-auto-flow: row;
+}
+
+@media (max-width: 720px) {
+  .swbDialog__options {
+    grid-template-columns: repeat(2, minmax(120px, 1fr));
+  }
+}
+
+@media (max-width: 420px) {
+  .swbDialog__options {
+    grid-template-columns: 1fr;
+  }
+}
+
+.swbDialog__options .btn:disabled,
+.swbDialog__options .btn[disabled] {
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+  color: #94a3b8;
+  opacity: 1;
+  pointer-events: none;
+}
+.swbDialog__options .btn.is-selected {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #ffffff;
+}
+.swbDialog__options .btn:disabled:hover,
+.swbDialog__options .btn[disabled]:hover {
+  background: #f1f5f9;
+  color: #94a3b8;
+  border-color: #e2e8f0;
+}
+
+.doc-dialog-model-picker {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.doc-dialog-model-picker__row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+.doc-dialog-model-picker__group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.doc-dialog-model-picker__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+  display: block;
+}
+.doc-dialog-model-picker__field {
+  position: relative;
+  width: 100%;
+}
+.doc-dialog-model-picker__select {
+  width: 100%;
+  min-height: 34px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 14px;
+  color: #0f172a;
+  background: #fff;
+}
+.doc-dialog-model-picker__select:focus {
+  outline: none;
+  border-color: #15335e;
+  box-shadow: 0 0 0 2px rgba(21, 51, 94, 0.18);
+}
+.doc-dialog-model-menu {
+  width: 100%;
+}
+.doc-dialog-model-menu[open] {
+  position: relative;
+  z-index: 10;
+}
+.doc-dialog-model-menu[open] .field-toggle-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 220px;
+  overflow-y: auto;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.14);
+}
+.doc-dialog-question {
+  margin: 6px 0 6px;
+  font-weight: 600;
+}
+
+.doc-dialog-model-select {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  border: 0;
+  clip: rect(0 0 0 0);
+  overflow: hidden;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* Buttons inside dialog (shared look) */
+.swbDialog__ok,
+.swbDialog__cancel,
+#swbDialogExtra {
+  appearance: none;
+  background: #fff;
+  color: #0b1220;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 5px;
+  padding: 8px 14px;
+  font-weight: 600;
+  font-size: 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.swbDialog__ok:disabled,
+.swbDialog__ok[disabled],
+#swbDialogExtra:disabled,
+#swbDialogExtra[disabled] {
+  background: #f1f5f9;
+  color: #94a3b8;
+  border-color: #e2e8f0;
+  cursor: not-allowed;
+}
+.swbDialog__ok:hover,
+.swbDialog__cancel:hover,
+#swbDialogExtra:hover,
+.swbDialog__ok:active,
+.swbDialog__cancel:active,
+#swbDialogExtra:active {
+  background: #15335e;
+  color: #fff;
+  border-color: #15335e;
+}
+.swbDialog__ok:disabled:hover,
+.swbDialog__ok[disabled]:hover,
+#swbDialogExtra:disabled:hover,
+#swbDialogExtra[disabled]:hover {
+  background: #f1f5f9;
+  color: #94a3b8;
+  border-color: #e2e8f0;
+}
+
+#docHistoryExportModal .report-tax-date-range {
+  width: 50%;
+  margin: auto;
+}
+
+#docHistoryExportModal #docHistoryExportStep1 .field-toggle-menu__title,
+#docHistoryExportModal #docHistoryExportStep1 .report-tax-date-range__intro,
+#docHistoryExportModal #docHistoryExportStep2 .field-toggle-menu__title {
+  margin: 0 auto;
+  width: 100%;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: #334155;
+  text-align: center;
+}

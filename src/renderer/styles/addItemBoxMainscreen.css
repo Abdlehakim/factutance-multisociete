@@ -1,0 +1,87 @@
+#addItemBoxMainscreen,
+#addItemBox {
+  width: 100%;
+}
+
+#addItemBoxMainscreen.section-box > legend {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 400;
+}
+
+#addItemBoxMainscreen > legend .client-tabs__list {
+  margin-bottom: 29px;
+}
+
+#addItemBoxMainscreen .grid {
+  gap: 12px;
+}
+
+#addItemBoxMainscreen .grid.four {
+  gap: 12px;
+}
+
+#addItemBoxMainscreen .add-item-row--ref-product {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+#addItemBoxMainscreen .add-item-row--ref-product .add-item-field {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+
+#addItemBoxMainscreen .add-item-row--ref-product .add-item-field:first-child {
+  flex: 0 1 180px;
+}
+
+#addItemBoxMainscreen .add-item-row--ref-product .add-item-field--product {
+  flex: 1 1 320px;
+}
+
+#addItemBoxMainscreen .add-toolbar,
+#addItemBox .add-toolbar {
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+#addItemBoxMainscreen .add-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+#addItemBoxMainscreen .add-actions {
+  justify-content: flex-start;
+}
+
+#addItemBoxMainscreen .add-actions .btn {
+  min-width: 150px;
+}
+
+.section-row > #addItemBoxMainscreen,
+.section-row > #addItemBox {
+  flex: 1 1 100%;
+  min-width: 100%;
+}
+
+@media (max-width: 900px) {
+  #addItemBoxMainscreen .add-actions {
+    justify-content: flex-start;
+  }
+
+  .section-row > #addItemBoxMainscreen,
+  .section-row > #addItemBox {
+    min-width: 0;
+    flex-basis: auto;
+    width: 100%;
+  }
+}

@@ -1,0 +1,114 @@
+{
+  "name": "facturance",
+  "version": "2.2.0",
+  "description": "Facturance Maker (Windows) – create, save and export invoices to PDF for development, marketing, graphics and design services.",
+  "main": "main.js",
+  "author": "Adelhakim Sabkhi",
+  "license": "MIT",
+  "scripts": {
+    "dev:site": "http-server ./site -p 8080 -c-1",
+    "dev:site:localhost": "http-server ./site -p 8080 -a localhost -c-1",
+    "dev:renderer": "http-server ./src/renderer -p 8081 -c-1",
+    "start": "electron .",
+    "dist:win:ia32": "node scripts/sync-version.cjs && electron-builder --win nsis --ia32",
+    "dist:win:both": "node scripts/sync-version.cjs && electron-builder --win nsis --x64 --ia32",
+    "dist:mac": "node scripts/sync-version.cjs && electron-builder --mac dmg,zip",
+    "dist:mac:arm64": "node scripts/sync-version.cjs && electron-builder --mac dmg,zip --arm64",
+    "dist:mac:x64": "node scripts/sync-version.cjs && electron-builder --mac dmg,zip --x64",
+    "copy:pdfjs": "node scripts/copy-pdfjs.cjs",
+    "postinstall": "npm run copy:pdfjs"
+  },
+  "devDependencies": {
+    "chokidar": "^4.0.3",
+    "copyfiles": "^2.4.1",
+    "electron": "^31.2.0",
+    "electron-builder": "^24.13.3",
+    "electron-rebuild": "^3.2.9",
+    "electronmon": "^2.0.3",
+    "http-server": "^14.1.1",
+    "vite-plugin-mkcert": "^1.17.9"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.5.0",
+    "bonjour-service": "^1.3.0",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^3.0.3",
+    "keytar": "^7.9.0",
+    "nodemailer": "^6.10.1",
+    "pdfjs-dist": "^3.11.174",
+    "sudo-prompt": "^9.2.1",
+    "xlsx-js-style": "^1.2.0"
+  },
+  "build": {
+    "appId": "com.smartwebify.facturance",
+    "productName": "Facturance",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/main/**",
+      "src/renderer/**",
+      "package.json"
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "**/*.node",
+      "src/renderer/lib/pdfs/**"
+    ],
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        "nsis"
+      ],
+      "artifactName": "Facturance v${version} SmartWebify-${arch}.exe",
+      "publisherName": "smartwebify",
+      "rfc3161TimeStampServer": "http://timestamp.digicert.com",
+      "requestedExecutionLevel": "requireAdministrator"
+    },
+    "mac": {
+      "icon": "build/icon.icns",
+      "category": "public.app-category.productivity",
+      "hardenedRuntime": true,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ]
+    },
+    "dmg": {
+      "sign": true
+    },
+    "nsis": {
+      "installerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "oneClick": false,
+      "perMachine": true,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "displayLanguageSelector": true,
+      "installerLanguages": [
+        "fr_FR"
+      ],
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Facturance"
+    },
+    "compression": "maximum"
+  }
+}

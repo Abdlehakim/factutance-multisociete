@@ -1,0 +1,23 @@
+.section-box {
+    border: 2px solid var(--success);
+    border-radius: 5px;
+    padding: 0px 14px 14px;
+    background: #edf2f1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+.section-box > legend {
+  border-radius: 4px;
+    background: white;
+border: none ;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--primary);
+  padding: 0 8px;
+  margin-left: 8px;
+}
+.section-box .grid {
+  margin-top: 10px;
+}

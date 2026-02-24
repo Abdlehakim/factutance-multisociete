@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="
+        default-src 'self' data: blob:;
+        script-src 'self' 'unsafe-eval' blob:;
+        worker-src 'self' blob: data:;
+        style-src 'self' 'unsafe-inline';
+        img-src 'self' data: blob: file:;
+        font-src 'self' data: file:;
+        connect-src 'self';
+        object-src 'none';
+        base-uri 'none';
+        frame-src 'self' blob: file:;
+      "
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Facturance – Gestionnaire de société</title>
+
+    <link rel="stylesheet" href="./styles/core.css" />
+    <link rel="stylesheet" href="./styles/layout.css" />
+    <link rel="stylesheet" href="./styles/itemsSectionPreview.css" />
+    <link rel="stylesheet" href="./styles/buttons.css" />
+    <link rel="stylesheet" href="./styles/client-search.css" />
+    <link rel="stylesheet" href="./styles/article-fields-settings-modal.css" />
+    <link rel="stylesheet" href="./styles/fournisseur-fields-settings.css" />
+    <link rel="stylesheet" href="./styles/section-cards.css" />
+    <link rel="stylesheet" href="./styles/table-and-totals.css" />
+    <link rel="stylesheet" href="./styles/docType-legends.css" />
+    <link rel="stylesheet" href="./styles/column-toggles.css" />
+    <link rel="stylesheet" href="./styles/extras-wh-fodec.css" />
+    <link rel="stylesheet" href="./styles/wh-pdf-note.css" />
+    <link rel="stylesheet" href="./styles/footer-note.css" />
+    <link rel="stylesheet" href="./styles/dialog.css" />
+    <link rel="stylesheet" href="./styles/helpers.css" />
+    <link rel="stylesheet" href="./styles/dev-toast.css" />
+    <link rel="stylesheet" href="./styles/docMetaBoxMainscreen.css" />
+    <link rel="stylesheet" href="./styles/document-bulk-delete.css" />
+    <link rel="stylesheet" href="./styles/document-bulk-export.css" />
+    <link rel="stylesheet" href="./styles/docMetaBoxNewDoc.css" />
+    <link rel="stylesheet" href="./styles/clientBoxNewDoc.css" />
+    <link rel="stylesheet" href="./styles/clientBoxMainscreen.css" />
+    <link rel="stylesheet" href="./styles/client-tabs.css" />
+    <link rel="stylesheet" href="./styles/addItemBoxMainscreen.css" />
+    <link rel="stylesheet" href="./styles/DocOptions.css" />
+    <link rel="stylesheet" href="./styles/general-data.css" />
+    <link rel="stylesheet" href="./styles/signature-modal.css" />
+    <link rel="stylesheet" href="./styles/withholding-xml-fa.css" />
+    <link rel="stylesheet" href="./styles/report-tax.css" />
+    <link rel="stylesheet" href="./styles/items.css" />
+    <link rel="stylesheet" href="./styles/notes.css" />
+    <link rel="stylesheet" href="./styles/modelActionsModal.css" />
+    <link rel="stylesheet" href="./styles/model-transfer-modals.css" />
+    <link
+      rel="stylesheet"
+      id="template1Css"
+      href="./template/templateStyle/template1.css"
+    />
+    <link
+      rel="stylesheet"
+      id="template2Css"
+      href="./template/templateStyle/template2.css"
+      disabled
+    />
+    <link rel="stylesheet" id="pdf-view-css" href="./styles/pdf-view.css" />
+    <link rel="stylesheet" id="pdf-wh-css" href="./styles/pdf-wh.css" />
+    <link rel="stylesheet" href="./styles/responsive.css" />
+  </head>
+
+  <body>
+    <div id="pdfRoot" aria-hidden="true" style="display: none"></div>
+    <div class="app" id="app"></div>
+    <script src="./config/branding.js"></script>
+
+    <script src="./lib/xlsx.full.min.js" defer></script>
+    <script src="./lib/pdfs/pdf.min.js" defer></script>
+    <script src="./init/pdf-worker-init.js" defer></script>
+
+    <script src="./pdf-view/pdfView.js" defer></script>
+    <script src="./pdf-view/pdfWH.js" defer></script>
+    <script src="./lib/html2canvas.min.js" defer></script>
+    <script src="./lib/jspdf.umd.min.js" defer></script>
+
+    <script src="./config/defaults.js" defer></script>
+    <script src="./config/message-data.js" defer></script>
+    <script src="./config/dialog-messages.js" defer></script>
+
+    <script type="module" src="./ui/clientFormPopover.js"></script>
+    <script type="module" src="./ui/fournisseurFormPopover.js"></script>
+    <script type="module" src="./ui/clientFieldsSettingsModal.js"></script>
+    <script type="module" src="./ui/app-shell.js"></script>
+
+    <script src="./helpers.js" defer></script>
+    <script src="./helpers/Notification.js" defer></script>
+    <script src="./helpers/dom.js" defer></script>
+    <script src="./helpers/history-numbering.js" defer></script>
+    <script src="./helpers/dialogs.js" defer></script>
+    <script src="./helpers/confirm-delete.js" defer></script>
+    <script src="./helpers/file.js" defer></script>
+    <script src="./helpers/withholding-xml.js" defer></script>
+    <script src="./modules/constants.js" defer></script>
+    <script src="./modules/forms.js" defer></script>
+    <script src="./ui/focus.js" defer></script>
+    <script src="./init/lan-api.js" defer></script>
+    <script src="./app-state.js" defer></script>
+    <script src="./app-bindings/client.js" defer></script>
+    <script src="./app-bindings/fournisseur.js" defer></script>
+    <script src="./app-bindings/fournisseur-fields-settings.js" defer></script>
+    <script src="./app-bindings/items.js" defer></script>
+    <script src="./app-bindings/models.js" defer></script>
+    <script src="./models/model-actions.js" defer></script>
+    <script src="./app-bindings/bindings/shared.js" defer></script>
+    <script src="./app-bindings/bindings/wh-pdf-note-component.js" defer></script>
+    <script src="./app-bindings/bindings/footer-note-component.js" defer></script>
+    <script src="./app-bindings/bindings/bind-init.js" defer></script>
+    <script src="./app-bindings/bindings/live-bindings.js" defer></script>
+    <script src="./app-bindings/bindings/live-bindings/core.js" defer></script>
+    <script src="./app-bindings/bindings/live-bindings/core/bootstrap.js" defer></script>
+    <script src="./app-bindings/bindings/live-bindings/core/bootstrap/context.js" defer></script>
+    <script src="./app-bindings/bindings/live-bindings/core/bootstrap/state-init.js" defer></script>
+    <script src="./app-bindings/bindings/live-bindings/core/bootstrap/formatting-summary.js" defer></script>
+    <script src="./app-bindings/bindings/live-bindings/core/bootstrap/messages.js" defer></script>
+    <script src="./app-bindings/bindings/live-bindings/core/bootstrap/guards.js" defer></script>
+    <script src="./app-bindings/bindings/live-bindings/core/bootstrap/runtime.js" defer></script>
+    <script src="./app-bindings/bindings/live-bindings/core/bootstrap/runtime/main.js" defer></script>
+    <script src="./app-bindings/bindings/live-bindings/core/bootstrap/runtime/shared.js" defer></script>
+    <script src="./app-bindings/bindings/live-bindings/core/bootstrap/runtime/saved-modals.js" defer></script>
+    <script src="./app-bindings/bindings/live-bindings/core/bootstrap/runtime/imports-exports.js" defer></script>
+    <script src="./app-bindings/bindings/live-bindings/core/bootstrap/runtime/models.js" defer></script>
+    <script src="./app-bindings/bindings/live-bindings/core/bootstrap/runtime/stock-alerts.js" defer></script>
+    <script src="./app-bindings/bindings/live-bindings/core/bootstrap/runtime/finalize.js" defer></script>
+    <script src="./app-bindings/bindings/live-bindings/core/document-ui.js" defer></script>
+    <script src="./app-bindings/bindings/live-bindings/company.js" defer></script>
+    <script src="./app-bindings/bindings/live-bindings/financial.js" defer></script>
+    <script src="./app-bindings/bindings.js" defer></script>
+    <script src="./app-bindings/fournisseur-import.js" defer></script>
+    <script src="./app-bindings/client-export.js" defer></script>
+    <script src="./app-bindings/fournisseur-export.js" defer></script>
+    <script src="./app-bindings/document-export-wizard.js" defer></script>
+    <script src="./app-export.js" defer></script>
+    <script src="./init/loading-screen.js" defer></script>
+    <script src="./app-init/pdf-setup.js" defer></script>
+    <script src="./app-init/fodec-auto.js" defer></script>
+    <script src="./app-init/date-picker.js" defer></script>
+    <script src="./app-init/document-numbering.js" defer></script>
+    <script src="./app-init/document-conversion.js" defer></script>
+    <script src="./app-init/document-history-signer-service.js" defer></script>
+    <script src="./app-init/document-history-signer-dialog.js" defer></script>
+    <script src="./app-init/document-history-purchase-model-choice.js" defer></script>
+    <script src="./app-init/document-history-purchase-converter.js" defer></script>
+    <script src="./app-init/document-history-purchase-download.js" defer></script>
+    <script src="./app-init/document-history-purchase-export.js" defer></script>
+    <script src="./app-init/document-history-purchase-import.js" defer></script>
+    <script src="./app-init/model-transfer-validation.js" defer></script>
+    <script src="./app-init/model-transfer-export.js" defer></script>
+    <script src="./app-init/model-transfer-import.js" defer></script>
+    <script src="./app-init/document-history.js" defer></script>
+    <script src="./ui/docMetaBoxNewDoc.js" defer></script>
+    <script src="./ui/clientBoxNewDoc.js" defer></script>
+    <script src="./ui/fournisseurBoxNewDoc.js" defer></script>
+    <script src="./app-init/document-actions/NewDocument.js" defer></script>
+    <script src="./app-init/document-actions/delete-documents.js" defer></script>
+    <script src="./app-init/document-actions/export-documents.js" defer></script>
+    <script src="./app-init/document-actions/documents.js" defer></script>
+    <script
+      src="./app-init/document-actions/withholding-xml-fa.js"
+      defer
+    ></script>
+    <script src="./app-init/document-actions/items.js" defer></script>
+    <script src="./app-init/document-actions/columns.js" defer></script>
+    <script src="./app-init/document-actions/records.js" defer></script>
+    <script src="./app-init/document-actions/payments.js" defer></script>
+    <script
+      src="./app-init/document-actions/client-statements.js"
+      defer
+    ></script>
+    <script src="./app-init/document-actions/client-ledger.js" defer></script>
+    <script
+      src="./app-init/document-actions/report-sales-tax.js"
+      defer
+    ></script>
+    <script
+      src="./app-init/document-actions/report-purchase-tax.js"
+      defer
+    ></script>
+    <script
+      src="./app-init/document-actions/report-client-statement.js"
+      defer
+    ></script>
+    <script src="./app-init/document-actions.js" defer></script>
+    <script src="./app-init/signature-modal-init.js" defer></script>
+    <script src="./app-init.js" defer></script>
+  </body>
+</html>

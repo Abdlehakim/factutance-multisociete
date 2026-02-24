@@ -1,0 +1,67 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v10.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v10.0": {
+      "TeifSigner/1.0.0": {
+        "dependencies": {
+          "System.Security.Cryptography.Xml": "10.0.2"
+        },
+        "runtime": {
+          "TeifSigner.dll": {}
+        }
+      },
+      "System.Security.Cryptography.Pkcs/10.0.2": {
+        "runtime": {
+          "lib/net10.0/System.Security.Cryptography.Pkcs.dll": {
+            "assemblyVersion": "10.0.0.0",
+            "fileVersion": "10.0.225.61305"
+          }
+        },
+        "runtimeTargets": {
+          "runtimes/win/lib/net10.0/System.Security.Cryptography.Pkcs.dll": {
+            "rid": "win",
+            "assetType": "runtime",
+            "assemblyVersion": "10.0.0.0",
+            "fileVersion": "10.0.225.61305"
+          }
+        }
+      },
+      "System.Security.Cryptography.Xml/10.0.2": {
+        "dependencies": {
+          "System.Security.Cryptography.Pkcs": "10.0.2"
+        },
+        "runtime": {
+          "lib/net10.0/System.Security.Cryptography.Xml.dll": {
+            "assemblyVersion": "10.0.0.0",
+            "fileVersion": "10.0.225.61305"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "TeifSigner/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "System.Security.Cryptography.Pkcs/10.0.2": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-TVb4L6atqzRB33qBy4FVdmQMmDGzzBGwiwqI6u5WnJ6ag275pPLJgPWIVzYzT5hqTACrWyfHbttqylbexvur9w==",
+      "path": "system.security.cryptography.pkcs/10.0.2",
+      "hashPath": "system.security.cryptography.pkcs.10.0.2.nupkg.sha512"
+    },
+    "System.Security.Cryptography.Xml/10.0.2": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-S2ngJA5778rvrgmP+eVarLR0kIXBrwDT/A25nFMSf5t7SEKKw+SOhukyfHQ9dnKdrQ1Z3mdRI1lvzzDaE93RFg==",
+      "path": "system.security.cryptography.xml/10.0.2",
+      "hashPath": "system.security.cryptography.xml.10.0.2.nupkg.sha512"
+    }
+  }
+}

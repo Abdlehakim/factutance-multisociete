@@ -1,0 +1,33 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Admin Login - Facturance Builder</title>
+  <style>
+    body { font-family: system-ui, Arial; max-width: 520px; margin: 60px auto; padding: 0 16px; }
+    input, button { width: 100%; padding: 12px; font-size: 16px; margin: 8px 0; }
+    input[type="checkbox"] { width: auto; margin: 0; padding: 0; }
+    button { cursor: pointer; }
+    .pwRow { display: flex; gap: 10px; align-items: center; }
+    .pwRow #p { flex: 1; margin: 8px 0; }
+    .rememberWrap { display: flex; align-items: center; gap: 6px; white-space: nowrap; font-size: 14px; }
+    .err { color: #b00020; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <h2>Connexion Admin</h2>
+  <input id="u" name="username" placeholder="Username" value="admin" autocomplete="username" />
+  <div class="pwRow">
+    <input id="p" name="password" placeholder="Password" type="password" autocomplete="current-password" />
+    <label class="rememberWrap" for="rememberMe">
+      <input id="rememberMe" type="checkbox" />
+      Remember me / Save password
+    </label>
+  </div>
+  <button id="btn" type="button">Se connecter</button>
+  <div class="err" id="err"></div>
+
+  <!-- Load JS from same origin (allowed by CSP) -->
+  <script src="/public/login.js" defer></script>
+</body>
+</html>

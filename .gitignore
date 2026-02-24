@@ -1,0 +1,55 @@
+# --- Node / Electron ---
+node_modules/
+dist/
+out/
+tmp/
+temp/
+.cache/
+.parcel-cache/
+.turbo/
+.eslintcache
+
+# Logs & pids
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+*.pid
+*.pid.lock
+
+# Electron builder artifacts (redundant with dist/, but safe)
+**/*.exe
+**/*.msi
+**/*.dmg
+**/*.AppImage
+**/*.snap
+**/*.deb
+**/*.rpm
+**/*.asar
+**/*.zip
+
+# App exports you might accidentally commit
+*.pdf
+
+# Env / local config
+.env
+.env.*.local
+
+# OS / editors
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+*.iml
+*.swp
+*.swo
+*.orig
+
+# Vercel local project folder (if you ever use the CLI)
+.vercel/
+# build-server
+build-server/.env
+
+# Facturance dynamic branding (auto-generated)
+src/renderer/config/branding.js

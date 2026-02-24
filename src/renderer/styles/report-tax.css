@@ -1,0 +1,220 @@
+.report-tax-date-range {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.report-tax-date-range__intro {
+  margin: 0;
+  font-size: 13px;
+  color: #334155;
+}
+.report-tax-date-range__selectors {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+.report-tax-date-range__selectors--single {
+  grid-template-columns: 1fr;
+}
+.report-tax-date-range__selectors--triple {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.report-tax-date-range__selector {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #0f172a;
+}
+.report-tax-date-range__selector--client {
+  position: relative;
+}
+.report-tax-date-range__controls {
+  display: flex;
+  position: relative;
+}
+.report-tax-date-range__selector > input,
+.report-tax-date-range__selector > select {
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid #caddff;
+  border-radius: 5px;
+  font-size: 14px;
+  line-height: 1.2;
+  background: #fff;
+  color: var(--text);
+  box-sizing: border-box;
+}
+.report-tax-date-range__field .swb-date-picker input,
+.report-tax-date-range__selector .swb-date-picker input {
+  min-height: 42px;
+  padding: 10px 12px;
+  padding-right: 34px;
+  border: 1px solid #caddff;
+  border-radius: 5px;
+  font-size: 14px;
+  line-height: 1.2;
+  background: #fff;
+  color: var(--text);
+  box-sizing: border-box;
+}
+.report-tax-date-range__menu {
+  width: 100%;
+}
+.report-tax-date-range__menu .field-toggle-trigger {
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 12px;
+  gap: 8px;
+  border: 1px solid #caddff;
+  border-radius: 5px;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.2;
+  background: #fff;
+  color: var(--text);
+  justify-content: space-between;
+}
+.report-tax-date-range__panel {
+  min-width: 100%;
+}
+.report-tax-date-range__select {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  border: 0;
+  clip: rect(0 0 0 0);
+  overflow: hidden;
+  white-space: nowrap;
+}
+.report-tax-date-range__fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.report-tax-date-range__fields.is-disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+.report-tax-date-range__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #0f172a;
+}
+.report-tax-date-range__hint {
+  margin: 0;
+  font-size: 12px;
+  color: #b45309;
+}
+.report-tax-modal__content {
+  align-items: flex-start;
+}
+.report-tax-modal__buttons {
+  width: 100%;
+}
+.report-tax-modal__buttons #salesTaxReportModalPrint,
+.report-tax-modal__buttons #purchaseTaxReportModalPrint,
+.report-tax-modal__buttons #clientStatementDetailPrint {
+  margin-left: auto;
+}
+.report-tax-preview__root {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+.report-tax-preview__page {
+  height: auto;
+  min-height: 0;
+}
+.report-tax-preview__heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+.report-tax-preview__title {
+  margin: 0;
+}
+.report-tax-preview__meta {
+  margin-bottom: 10px;
+}
+.report-tax-preview__company-name {
+  margin: 0;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+.report-tax-preview__period {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+}
+.client-statement-summary-wrap {
+  min-width: 340px;
+  max-width: 420px;
+  width: 100%;
+}
+.client-statement-summary.tva-breakdown__table th,
+.client-statement-summary.tva-breakdown__table td {
+  text-align: right;
+  white-space: nowrap;
+}
+.report-tax-preview__table {
+  display: flex;
+  justify-content: flex-start;
+}
+.report-tax-preview__table .tva-breakdown {
+  max-width: none;
+  width: 100%;
+}
+.report-tax-preview__status {
+  color: #e2e8f0;
+  font-weight: 600;
+  padding: 24px;
+  text-align: center;
+  width: 100%;
+}
+.report-tax-preview__status--error {
+  color: #fecaca;
+}
+#clientStatementReportModal .swbDialog__msg {
+  overflow: visible;
+}
+#clientStatementReportModal .doc-dialog-model-menu[open] {
+  position: relative;
+  z-index: 100020;
+}
+#clientStatementReportModal .doc-dialog-model-menu[open] .field-toggle-panel {
+  z-index: 100030;
+}
+#clientStatementReportModal #clientStatementReportClientPanel.is-open {
+  z-index: 100030;
+}
+#clientStatementReportModal .doc-dialog-model-picker__field {
+  width: 200px;
+}
+@media (max-width: 720px) {
+  .report-tax-date-range__selectors {
+    grid-template-columns: 1fr;
+  }
+  .report-tax-date-range__fields {
+    grid-template-columns: 1fr;
+  }
+  .report-tax-preview__period {
+    align-items: flex-start;
+  }
+  .client-statement-summary-wrap {
+    min-width: 100%;
+    max-width: 100%;
+  }
+}

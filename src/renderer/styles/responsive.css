@@ -1,0 +1,264 @@
+/* ≤1200px — large tablets */
+@media (max-width: 1200px) {
+  .grid.three {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .grid.three .section-box:first-child {
+    grid-column: 1 / -1;
+  }
+  .logo-wrap img {
+    width: 148px;
+    height: 40px;
+  }
+  .header {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .actions {
+    flex-wrap: wrap;
+  }
+}
+
+/* ≤900px — tablets / small laptops */
+@media (max-width: 900px) {
+  .app {
+    padding: 12px;
+  }
+  .paper {
+    padding: 14px;
+  }
+  .grid.two,
+  .grid.three {
+    grid-template-columns: 1fr;
+  }
+  .grid.four {
+    grid-template-columns: 1fr;
+  }
+  .brand h1 {
+    font-size: 16px;
+  }
+  .logo-wrap img {
+    width: 138px;
+    height: 38px;
+  }
+
+  .actions {
+    width: 100%;
+    justify-content: center;
+    gap: 8px;
+    row-gap: 8px;
+    flex-wrap: wrap;
+  }
+  .actions--sticky {
+    flex-direction: column;
+    align-items: center;
+  }
+  .actions__brand {
+    justify-content: center;
+  }
+  .actions__buttons {
+    justify-content: center;
+    width: 100%;
+  }
+  .actions-menu .field-toggle-panel {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+  }
+  .btn {
+    padding: 0.3rem 0.8rem;
+    font-size: 0.85rem;
+  }
+
+  input,
+  select,
+  textarea {
+    font-size: 10px;
+    padding: 9px;
+  }
+  label {
+    font-size: 12px;
+  }
+
+  .table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  #items {
+    min-width: 1100px;
+  }
+  #items th,
+  #items td {
+    padding: 6px;
+    font-size: 10px;
+  }
+
+  .totals-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .tva-breakdown {
+    max-width: 100%;
+    width: 100%;
+  }
+  .mini-sum {
+    margin-left: 0;
+    max-width: 100%;
+    width: 100%;
+  }
+  .mini-sum th,
+  .mini-sum td {
+    padding: 8px;
+    font-size: 10px;
+  }
+  .tva-breakdown__table th,
+  .tva-breakdown__table td {
+    padding: 8px;
+    font-size: 10px;
+  }
+
+  /* Extras/WH stacking */
+  #whBox #whFields {
+    grid-template-columns: 1fr 1fr;
+  }
+  #whFields label.full {
+    grid-column: 1 / -1;
+  }
+  #acompteBox #acompteFields {
+    grid-template-columns: 1fr 1fr;
+  }
+  #reglementBox #reglementFields {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* ≤720px — phones */
+@media (max-width: 720px) {
+  .brand {
+    gap: 10px;
+  }
+  .brand h1 {
+    font-size: 12px;
+  }
+  .logo-wrap img {
+    width: 124px;
+    height: 34px;
+  }
+
+  .section-box {
+    padding: 12px;
+  }
+  .section-box > legend {
+    margin-left: 4px;
+    font-size: 12px;
+  }
+
+  .btn {
+    padding: 0.28rem 0.7rem;
+    font-size: 0.82rem;
+  }
+
+  input,
+  select,
+  textarea {
+    font-size: 12.5px;
+    padding: 8px;
+  }
+
+  #items {
+    min-width: 1100px;
+  }
+  #items th,
+  #items td {
+    padding: 5px;
+    font-size: 12.5px;
+  }
+
+  .footer {
+    flex-direction: column;
+    gap: 6px;
+    align-items: flex-start;
+  }
+
+  /* Extras stacking to single column */
+  #extrasBox #shipFields,
+  #extrasBox #dossierFields,
+  #extrasBox #deplacementFields,
+  #extrasBox #stampFields,
+  #extrasBoxModal #shipFieldsModal,
+  #extrasBoxModal #dossierFieldsModal,
+  #extrasBoxModal #deplacementFieldsModal {
+    grid-template-columns: 1fr;
+  }
+  .add-fodec-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* ≤420px — small phones */
+@media (max-width: 420px) {
+  .app {
+    padding: 10px;
+  }
+  .paper {
+    padding: 12px;
+    border-radius: 6px;
+  }
+  .logo-wrap img {
+    width: 112px;
+    height: 30px;
+  }
+  .brand h1 {
+    font-size: 12px;
+  }
+  .header {
+    justify-content: center;
+  }
+  .btn {
+    padding: 0.26rem 0.6rem;
+    font-size: 0.8rem;
+    border-radius: 4px;
+  }
+
+  #items {
+    min-width: 1100px;
+  }
+  #items th,
+  #items td {
+    padding: 4px;
+    font-size: 12px;
+  }
+  .mini-sum th,
+  .mini-sum td {
+    padding: 7px;
+    font-size: 12.5px;
+  }
+  .tva-breakdown__table th,
+  .tva-breakdown__table td {
+    padding: 7px;
+    font-size: 12.5px;
+  }
+
+  .swbDialog__panel {
+    width: min(92vw, 520px);
+    padding: 14px 12px 10px;
+  }
+  .swbDialog__panel.client-import-modal__panel {
+    width: min(92vw, 720px);
+  }
+  .swbDialog__msg {
+    font-size: 15px;
+  }
+  .swbDialog__actions {
+    flex-direction: column-reverse;
+    align-items: center;
+    gap: 10px;
+  }
+  .swbDialog__group {
+    justify-content: space-between;
+  }
+  .swbDialog__group--right {
+    justify-content: flex-end;
+    gap: 8px;
+  }
+}

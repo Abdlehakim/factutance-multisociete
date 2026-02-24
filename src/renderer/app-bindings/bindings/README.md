@@ -1,0 +1,24 @@
+# bindings modules
+
+- `shared.js`: shared helpers, DOM/state utility functions, and summary sync methods exported through `SEM.__bindingShared`.
+- `bind-init.js`: initial page-state hydration (`SEM.bind`) using `SEM.__bindingShared`.
+- `live-bindings.js`: thin runtime orchestrator that registers and executes live binding sets.
+- `live-bindings/core.js`: thin core registry/orchestrator that runs registered core binding modules.
+- `live-bindings/core/bootstrap.js`: thin bootstrap registry/orchestrator for core bootstrap modules.
+- `live-bindings/core/bootstrap/context.js`: core context creation (`helpers`, `state`, and `bindingShared`).
+- `live-bindings/core/bootstrap/state-init.js`: bootstrap runtime state defaults (search/page/init markers).
+- `live-bindings/core/bootstrap/formatting-summary.js`: formatting and summary utility wiring.
+- `live-bindings/core/bootstrap/messages.js`: message lookup + toast utility wiring.
+- `live-bindings/core/bootstrap/guards.js`: global bootstrap guards for one-time wiring.
+- `live-bindings/core/bootstrap/runtime.js`: thin runtime registry/orchestrator.
+- `live-bindings/core/bootstrap/runtime/main.js`: runtime source orchestrator (executes ordered runtime source handlers directly with shared `ctx`).
+- `live-bindings/core/bootstrap/runtime/shared.js`: shared runtime context/helpers block.
+- `live-bindings/core/bootstrap/runtime/saved-modals.js`: saved-client/saved-article modal blocks (state, wiring, search handlers).
+- `live-bindings/core/bootstrap/runtime/imports-exports.js`: client/article import-export modal blocks.
+- `live-bindings/core/bootstrap/runtime/models.js`: model workflows/actions/dirty tracking block.
+- `live-bindings/core/bootstrap/runtime/stock-alerts.js`: stock-alert prelude + interaction block.
+- `live-bindings/core/bootstrap/runtime/finalize.js`: stable ctx export/accessor block.
+- `live-bindings/core/document-ui.js`: document UI handlers that run against the shared core runtime context.
+- `live-bindings/company.js`: company contact + SMTP + LAN server modal wiring and company profile edit listeners.
+- `live-bindings/financial.js`: withholding/acompte/financing/extras/pdf option wiring and add-form FODEC wiring.
+- `../bindings.js`: lightweight bootstrap guard that validates module registration.

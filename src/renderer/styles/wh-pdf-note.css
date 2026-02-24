@@ -1,0 +1,120 @@
+.wh-note-box.wh-pdf-note-box .note-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.wh-note-box.wh-pdf-note-box .note-field-label {
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.wh-note-box.wh-pdf-note-box .note-toolbar {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.wh-note-box.wh-pdf-note-box .note-size-control {
+  display: inline-flex;
+  align-items: center;
+  flex-direction: row;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #15335e;
+}
+
+.wh-note-box.wh-pdf-note-box .note-size-label {
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.wh-note-box.wh-pdf-note-box .note-size-select {
+  padding: 4px 8px;
+  min-width: 64px;
+  font-weight: 600;
+}
+
+.wh-note-box.wh-pdf-note-box .note-tool {
+  min-height: fit-content;
+  border: 1px solid #15335e;
+  background: #f6f9ff;
+  color: #15335e;
+  font-weight: 700;
+  border-radius: 4px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 12px;
+  min-width: 36px;
+  line-height: 1.2;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.wh-note-box.wh-pdf-note-box .note-tool:hover {
+  background: #e1ecff;
+}
+
+.wh-note-box.wh-pdf-note-box .note-tool em {
+  font-style: italic;
+}
+
+.wh-note-box.wh-pdf-note-box .note-editor {
+  border: 1px solid #caddff;
+  border-radius: 5px;
+  padding: 10px;
+  min-height: 90px;
+  font-size: 12px;
+  line-height: 1.35;
+  background: #fff;
+}
+
+.wh-note-box.wh-pdf-note-box .note-editor ul,
+.wh-note-box.wh-pdf-note-box .note-editor ol {
+  margin-top: 0;
+  margin-bottom: 0.4em;
+  padding-left: 1.2em;
+}
+
+.wh-note-box.wh-pdf-note-box .note-editor p {
+  margin-top: 0;
+  margin-bottom: 0.4em;
+}
+
+.wh-note-box.wh-pdf-note-box .note-editor > *:first-child {
+  margin-top: 0;
+}
+
+.wh-note-box.wh-pdf-note-box .note-editor [data-size="10"] {
+  font-size: 10px;
+}
+
+.wh-note-box.wh-pdf-note-box .note-editor [data-size="12"] {
+  font-size: 12px;
+}
+
+.wh-note-box.wh-pdf-note-box .note-editor [data-size="14"] {
+  font-size: 14px;
+}
+
+.wh-note-box.wh-pdf-note-box .note-editor [data-size][data-size-root="true"] {
+  display: block;
+}
+
+.wh-note-box.wh-pdf-note-box .note-editor[data-empty="true"]::before {
+  content: attr(data-placeholder);
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+#noteInterneBox .note-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+#noteInterneBox .note-field-label {
+  font-weight: 600;
+  font-size: 12px;
+}

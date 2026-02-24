@@ -1,0 +1,21 @@
+#itemsSectionHost {
+  width: min(1800px, 100%);
+  margin: 0 auto;
+}
+
+.section-row > #itemsSection {
+  flex: 1 1 780px;
+  min-width: 780px; /* keep the table's base layout intact before wrapping to a new row */
+}
+
+@media (max-width: 1200px) {
+  #itemsSection {
+    order: 0;
+  }
+
+  .section-row > #itemsSection {
+    min-width: 0;
+    flex-basis: auto;
+    width: 100%;
+  }
+}

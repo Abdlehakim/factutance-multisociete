@@ -1,0 +1,21 @@
+#pdfRoot { display: none; }
+.flex { display: flex; }
+.gap-8 { gap: 8px; }
+.gap-12 { gap: 12px; }
+.align-center { align-items: center; }
+.mt-8 { margin-top: 8px; }
+.mb-6 { margin-bottom: 6px; }
+.mt-05 { margin-top: 0.5rem; }
+
+.model-save-dot {
+  display: inline-flex;
+  gap: 4px;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.label-text.model-save-dot {
+  flex-direction: row;
+  align-items: center;
+  font-size: 13px;
+}

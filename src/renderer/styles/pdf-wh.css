@@ -1,0 +1,97 @@
+:root{
+  --font: var(--font-sans, Arial, "Helvetica Neue", Helvetica, "Liberation Sans", Roboto, "Noto Sans", sans-serif);
+  --line: #8ea5ba;
+  --bandTop: #dfe7f0;
+  --bandBot: #c3d0df;
+  --cellBg: #f7f9fc;
+  --totalBg: #eef3f9;
+}
+html,body{margin:0;padding:0}
+body.printing, body.print-mode { background:#ffffff !important; }
+body.printing #pdfRoot, body.print-mode #pdfRoot { display:block !important; position:fixed; inset:0; background:#fff; }
+
+/* Page */
+@page { size:A4; margin:0; }
+.wh-page{
+  position:relative;
+  width:210mm;
+  height:297mm;
+  padding:13mm 13.5mm 15mm;  /* slightly tighter L/R to match scan */
+  box-sizing:border-box;
+  background:#fff; color:#000;
+  font-family:var(--font);
+  -webkit-print-color-adjust:exact; print-color-adjust:exact;
+}
+
+/* Header */
+.topbar{
+  display:grid; grid-template-columns: 1fr auto; align-items:start;
+  column-gap:6mm;
+}
+.govtext{
+  font-size:12.5px; line-height:1.25; font-weight:700; text-transform:uppercase; color:#000; margin-top:1mm;
+}
+.govlogo{ width:36mm; height:auto; object-fit:contain; margin-top:1mm; }
+
+/* Optional QR (top-left like photo) */
+.qr{
+  position:absolute; left:6mm; top:6mm; width:10mm; height:10mm; object-fit:contain;
+}
+
+/* Center titles */
+.center-titles{
+  margin-top:11.2mm;          /* slightly lower to match sample */
+  text-align:center; line-height:1.18; letter-spacing:.02em; color:#000;
+}
+.center-titles .l1{ font-size:13.2px; font-weight:700; text-transform:uppercase; }
+.center-titles .l2, .center-titles .l3{ font-size:10.9px; font-weight:700; text-transform:uppercase; margin-top:2.2mm; }
+
+/* Référence block */
+.ref-wrap{ margin-top:8mm; }
+.ref-table, .ref-grid{ width:100%; border-collapse:separate; border-spacing:0; color:#000; table-layout:fixed; font-size:11px; }
+.ref-table th, .ref-table td{ border:1px solid var(--line); padding:5.8px 8px; background:#fff; }
+.ref-table th{ width:32%; font-weight:700; text-align:center; background:linear-gradient(var(--bandTop), var(--bandBot)); }
+.ref-table thead th{ border-bottom:0; }
+.ref-table thead th:first-child{ border-top-left-radius:6px; }
+.ref-table thead th + th{ border-top-right-radius:6px; text-align:left; font-weight:600; }
+.ref-grid th, .ref-grid td{ border:1px solid var(--line); padding:6.8px 8px; background:#fff; }
+.ref-grid th{ background:linear-gradient(var(--bandTop), var(--bandBot)); font-weight:700; text-align:center; }
+.ref-grid td{ text-align:center; }
+.ref-grid tr:last-child td:first-child{ border-bottom-left-radius:6px; }
+.ref-grid tr:last-child td:last-child{ border-bottom-right-radius:6px; }
+
+/* Sections (Payeur / Bénéficiaire) */
+.section{ margin-top:8mm; border:1px solid var(--line); border-radius:4px; overflow:hidden; }
+.section .band{
+  background:linear-gradient(var(--bandTop), var(--bandBot));
+  border-bottom:1px solid var(--line);
+  text-align:center; font-weight:700; font-size:11.8px; padding:5.6px 8px; color:#000;
+}
+.kv-table{ width:100%; border-collapse:collapse; table-layout:fixed; font-size:11px; }
+.kv-table th, .kv-table td{ border:1px solid var(--line); padding:6.2px 8px; background:#fff; }
+.kv-table th{ width:33.8%; font-weight:700; background:var(--cellBg); text-align:left; }
+
+/* Retenues table */
+.retenues{ margin-top:8mm; border:1px solid var(--line); border-radius:4px; overflow:hidden; }
+.retenues .band{
+  background:linear-gradient(var(--bandTop), var(--bandBot));
+  border-bottom:1px solid var(--line); text-align:left; padding:5.6px 10px; font-weight:700; font-size:11.8px;
+}
+.wh-table{ width:100%; border-collapse:collapse; table-layout:fixed; font-size:11px; }
+.wh-table colgroup col.c1{ width:34%; }  /* libellé */
+.wh-table colgroup col.c2,
+.wh-table colgroup col.c3,
+.wh-table colgroup col.c4,
+.wh-table colgroup col.c5,
+.wh-table colgroup col.c6,
+.wh-table colgroup col.c7,
+.wh-table colgroup col.c8{ width:8.285%; } /* 7 numeric columns */
+.wh-table th, .wh-table td{ border:1px solid var(--line); padding:7.2px 8.6px; background:#fff; color:#000; vertical-align:top; }
+.wh-table thead th{ background:var(--cellBg); font-weight:700; }
+.wh-table .num{ text-align:right; }
+.wh-table .label{ height:26px; line-height:1.16; }
+.wh-table tfoot th{ background:var(--totalBg); font-weight:700; }
+
+/* Small tweaks for printed crispness */
+.kv-table td, .ref-grid td, .wh-table td{ line-height:1.18; }
+  

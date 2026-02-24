@@ -1,0 +1,169 @@
+:root {
+  --field-toggle-width: 60px;
+}
+
+.label-inline { display: inline-flex; align-items: center; gap: 0.5rem; }
+.label-text { cursor: default; user-select: text; white-space: nowrap; font-size: 13px; font-weight: 600 }
+.col-toggle { cursor: pointer; }
+
+.add-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  margin-bottom: 12px;
+  position: relative;
+  z-index: 2;
+  min-width: 0;
+}
+
+.add-toolbar .article-search {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.field-toggle-menu {
+  position: relative;
+  display: inline-block;
+  flex: 0 0 auto;
+}
+
+.field-toggle-menu summary {
+  list-style: none;
+}
+
+.field-toggle-menu summary::-webkit-details-marker { display: none; }
+
+.field-toggle-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.35rem 0.9rem;
+  font-weight: 600;
+  width: 100%;
+  min-height: 44px;
+}
+
+.field-toggle-trigger .chevron {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  border: none;
+  padding: 0;
+  transform: rotate(0deg);
+  transition: transform 0.2s ease;
+}
+
+.field-toggle-menu[open] .field-toggle-trigger .chevron {
+  transform: rotate(180deg);
+}
+
+.field-toggle-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 100%;
+  padding: 5px;
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  border-radius: 5px;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  box-shadow: 0 20px 35px rgba(14, 18, 32, 0.3);
+  z-index: 10;
+}
+
+.field-toggle-menu[open] .field-toggle-panel { display: flex; }
+
+.toggle-option {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 6px;
+  cursor: pointer;
+  font-size: 10px;
+  color: var(--text);
+  transition: background 0.2s ease;
+}
+
+.toggle-option:hover {
+  background: rgba(21, 51, 94, 0.08);
+}
+
+.toggle-option input {
+  margin: 0;
+  width: 16px;
+  height: 16px;
+}
+
+.toggle-option span {
+  flex: 1;
+}
+
+/* keep these headers on one line (always visible case) */
+#items thead th.cell-purchase-tva,
+#items thead th.cell-fodec-sale,
+#items thead th.cell-fodec-purchase,
+#items thead th.cell-fodec,
+#items thead th.cell-tva,
+#items thead th.cell-discount {
+  white-space: nowrap;
+}
+
+/* hide-column flags: only hide, don't format */
+.hide-col-ref #items thead th.cell-ref,
+.hide-col-ref #items tbody td.cell-ref { display: none; }
+
+.hide-col-product #items thead th.cell-product,
+.hide-col-product #items tbody td.cell-product { display: none; }
+
+.hide-col-desc #items thead th.cell-desc,
+.hide-col-desc #items tbody td.cell-desc { display: none; }
+
+.hide-col-qty #items thead th.cell-qty,
+.hide-col-qty #items tbody td.cell-qty { display: none; }
+
+.hide-col-unit #items thead th.cell-unit,
+.hide-col-unit #items tbody td.cell-unit { display: none; }
+
+.hide-col-purchase-price #items thead th.cell-purchase-price,
+.hide-col-purchase-price #items tbody td.cell-purchase-price { display: none; }
+
+.hide-col-purchase-tva #items thead th.cell-purchase-tva,
+.hide-col-purchase-tva #items tbody td.cell-purchase-tva { display: none; }
+
+.hide-col-price #items thead th.cell-price,
+.hide-col-price #items tbody td.cell-price { display: none; }
+
+.hide-col-fodec-sale #items thead th.cell-fodec-sale,
+.hide-col-fodec-sale #items tbody td.cell-fodec-sale { display: none; }
+
+.hide-col-fodec-purchase #items thead th.cell-fodec-purchase,
+.hide-col-fodec-purchase #items tbody td.cell-fodec-purchase { display: none; }
+
+.hide-col-fodec #items thead th.cell-fodec,
+.hide-col-fodec #items tbody td.cell-fodec { display: none; }
+
+.hide-col-tva #items thead th.cell-tva,
+.hide-col-tva #items tbody td.cell-tva { display: none; }
+
+.hide-col-discount #items thead th.cell-discount,
+.hide-col-discount #items tbody td.cell-discount { display: none; }
+
+.hide-col-total-purchase-ht #items thead th.cell-total-purchase-ht,
+.hide-col-total-purchase-ht #items tbody td.cell-total-purchase-ht { display: none; }
+
+.hide-col-total-purchase-ttc #items thead th.cell-total-purchase-ttc,
+.hide-col-total-purchase-ttc #items tbody td.cell-total-purchase-ttc { display: none; }
+
+.hide-col-total-ht #items thead th.cell-total-ht,
+.hide-col-total-ht #items tbody td.cell-total-ht { display: none; }
+
+.hide-col-ttc #items thead th.cell-ttc,
+.hide-col-ttc #items tbody td.cell-ttc { display: none; }
