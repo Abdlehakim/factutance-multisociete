@@ -586,6 +586,89 @@ function refreshActiveCompanyContext() {
   return nextPaths;
 }
 
+function resolveRequestedCompanyId(payload = {}) {
+  if (typeof payload === "string") return String(payload).trim();
+  if (!payload || typeof payload !== "object") return "";
+  return String(payload.id ?? payload.companyId ?? payload.activeCompanyId ?? "").trim();
+}
+
+function buildCompanySwitchSnapshot(activePaths) {
+  const active =
+    activePaths && typeof activePaths === "object" ? activePaths : getActiveCompanyPaths();
+  const root = getFacturanceRootDir();
+  let profile = null;
+  try {
+    profile = FactDb.loadCompanyProfile();
+  } catch (err) {
+    console.warn("Unable to load company profile during company switch", err);
+  }
+  const profileData = profile && typeof profile === "object" ? profile : {};
+  const profileName = normalizeCompanyDisplayName(profileData?.name || "");
+  if (profileName) {
+    CompanyManager.setCompanyDisplayName(root, active.id, profileName, {
+      ifEmpty: true
+    });
+  }
+  const fallbackName = CompanyManager.getCompanyDisplayName(root, active.id) || active.id;
+  const company =
+    !String(profileData?.name || "").trim() && fallbackName
+      ? { ...profileData, name: fallbackName }
+      : profileData;
+  let smtpProfiles = {};
+  try {
+    const loaded = FactDb.loadSmtpSettings();
+    smtpProfiles = loaded && typeof loaded === "object" ? loaded : {};
+  } catch (err) {
+    console.warn("Unable to load SMTP profiles during company switch", err);
+  }
+  return {
+    activeCompanyId: active.id,
+    activeCompany: active,
+    company,
+    smtpProfiles
+  };
+}
+
+function switchActiveCompanyRuntime(payload = {}) {
+  const root = getFacturanceRootDir();
+  const requestedId = resolveRequestedCompanyId(payload);
+  if (!requestedId) {
+    throw new Error("Invalid company id.");
+  }
+
+  const previous = getActiveCompanyPaths();
+  const previousId = String(previous?.id || "").trim();
+  const targetId = requestedId;
+  const isSameTarget = previousId && previousId === targetId;
+  try {
+    if (typeof FactDb.resetConnection === "function") {
+      FactDb.resetConnection();
+    }
+    if (!isSameTarget) {
+      CompanyManager.setActiveCompany(root, targetId);
+    }
+    const active = refreshActiveCompanyContext();
+    const snapshot = buildCompanySwitchSnapshot(active);
+    return {
+      switched: !isSameTarget,
+      ...snapshot
+    };
+  } catch (err) {
+    if (previousId && previousId !== targetId) {
+      try {
+        if (typeof FactDb.resetConnection === "function") {
+          FactDb.resetConnection();
+        }
+        CompanyManager.setActiveCompany(root, previousId);
+        refreshActiveCompanyContext();
+      } catch (rollbackErr) {
+        console.error("Unable to rollback company switch after failure", rollbackErr);
+      }
+    }
+    throw err;
+  }
+}
+
 function getActiveCompanyPaths() {
   const rootDir = getFacturanceRootDir();
   if (!activeCompanyPaths || activeCompanyPaths.rootDir !== rootDir) {
@@ -1356,14 +1439,31 @@ async function handleLanApiRequest(req, res, url, pathname) {
         }
         case "/api/companies/set-active": {
           try {
-            const root = getFacturanceRootDir();
-            const activeRaw = body?.id ?? body?.companyId ?? body?.activeCompanyId;
-            CompanyManager.setActiveCompany(root, activeRaw);
-            const activePaths = refreshActiveCompanyContext();
+            const switched = switchActiveCompanyRuntime(body || {});
             sendLanServerJson(res, 200, {
               ok: true,
-              activeCompanyId: activePaths.id,
-              active: activePaths
+              switched: !!switched.switched,
+              activeCompanyId: switched.activeCompanyId,
+              active: switched.activeCompany
+            });
+            return;
+          } catch (err) {
+            sendLanServerJson(res, 200, { ok: false, error: String(err?.message || err) });
+            return;
+          }
+        }
+        case "/api/companies/switch": {
+          try {
+            const switched = switchActiveCompanyRuntime(body || {});
+            sendLanServerJson(res, 200, {
+              ok: true,
+              switched: !!switched.switched,
+              activeCompanyId: switched.activeCompanyId,
+              active: switched.activeCompany,
+              snapshot: {
+                company: switched.company || {},
+                smtpProfiles: switched.smtpProfiles || {}
+              }
             });
             return;
           } catch (err) {
@@ -4754,13 +4854,34 @@ ipcMain.handle("companies:create", async (_evt, payload = {}) => {
 
 ipcMain.handle("companies:setActive", async (_evt, payload = {}) => {
   try {
-    const root = getFacturanceRootDir();
-    const companyId = payload?.id ?? payload?.companyId ?? payload?.activeCompanyId;
-    CompanyManager.setActiveCompany(root, companyId);
-    const active = refreshActiveCompanyContext();
-    return { ok: true, activeCompanyId: active.id, activeCompany: active };
+    const switched = switchActiveCompanyRuntime(payload);
+    return {
+      ok: true,
+      switched: !!switched.switched,
+      activeCompanyId: switched.activeCompanyId,
+      activeCompany: switched.activeCompany
+    };
   } catch (err) {
     console.error("[companies:setActive] error:", err);
+    return { ok: false, error: String(err?.message || err) };
+  }
+});
+
+ipcMain.handle("companies:switch", async (_evt, payload = {}) => {
+  try {
+    const switched = switchActiveCompanyRuntime(payload);
+    return {
+      ok: true,
+      switched: !!switched.switched,
+      activeCompanyId: switched.activeCompanyId,
+      activeCompany: switched.activeCompany,
+      snapshot: {
+        company: switched.company || {},
+        smtpProfiles: switched.smtpProfiles || {}
+      }
+    };
+  } catch (err) {
+    console.error("[companies:switch] error:", err);
     return { ok: false, error: String(err?.message || err) };
   }
 });

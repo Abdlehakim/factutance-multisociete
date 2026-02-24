@@ -212,6 +212,10 @@ const api = {
     if (typeof payload === "string") return ipcRenderer.invoke("companies:setActive", { id: payload });
     return ipcRenderer.invoke("companies:setActive", payload || {});
   },
+  switchCompany: (payload = {}) => {
+    if (typeof payload === "string") return ipcRenderer.invoke("companies:switch", { id: payload });
+    return ipcRenderer.invoke("companies:switch", payload || {});
+  },
   getActiveCompanyId: async () => {
     const res = await ipcRenderer.invoke("companies:getActivePaths");
     return String(res?.activeCompanyId || res?.activeCompany?.id || "").trim();

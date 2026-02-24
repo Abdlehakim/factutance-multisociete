@@ -440,6 +440,11 @@
   w.addPaymentHistoryEntry = addPaymentHistoryEntry;
   w.hasPaymentHistoryForInvoice = hasPaymentHistoryForInvoice;
   w.removePaymentHistoryForInvoice = removePaymentHistoryForInvoice;
+  w.resetPaymentHistoryCache = () => {
+    paymentHistoryCache = [];
+    paymentHistoryLoaded = false;
+    paymentHistoryLoadPromise = null;
+  };
   w.hydratePaymentHistory = async (options = {}) => {
     await hydratePaymentHistory();
     if (!options || options.skipInvoiceSync !== true) {

@@ -12,7 +12,7 @@
 
 body:not(.app-loaded) {
   overflow: hidden;
-  background: transparent;
+  background: var(--bg, #f3f4f6);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -102,6 +102,61 @@ body.app-loaded .app-loader {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
+}
+
+body.company-switch-loading {
+  overflow: hidden;
+}
+body.company-switch-loading .app {
+  filter: blur(6px);
+  pointer-events: none;
+  user-select: none;
+  transition: filter 0.2s ease;
+}
+
+.company-switch-loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100500;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.28);
+}
+.company-switch-loading-overlay.is-visible {
+  display: flex;
+}
+.company-switch-loading-overlay__panel {
+  min-width: 220px;
+  padding: 18px 20px;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid rgba(21, 51, 94, 0.15);
+  box-shadow: 0 20px 45px rgba(2, 6, 23, 0.25);
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.company-switch-loading-overlay__spinner {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 3px solid rgba(21, 51, 94, 0.2);
+  border-top-color: #15335e;
+  animation: company-switch-spin 0.8s linear infinite;
+}
+.company-switch-loading-overlay__text {
+  margin: 0;
+  color: #0b1220;
+  font-size: 0.92rem;
+  font-weight: 600;
+  text-align: center;
+}
+@keyframes company-switch-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .app-loader__content {

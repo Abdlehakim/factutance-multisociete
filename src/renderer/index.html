@@ -71,6 +71,17 @@
   </head>
 
   <body>
+    <div id="app-loader" class="app-loader" role="status" aria-live="polite">
+      <div class="app-loader__content">
+        <img src="./assets/icon.png" alt="Facturance" class="app-loader__logo" />
+        <div class="app-loader__dots" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+        <p class="app-loader__text">Chargement de Facturance...</p>
+      </div>
+    </div>
     <div id="pdfRoot" aria-hidden="true" style="display: none"></div>
     <div class="app" id="app"></div>
     <script src="./config/branding.js"></script>

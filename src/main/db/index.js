@@ -81,6 +81,21 @@ const initDatabase = () => {
   return dbInstance;
 };
 
+const resetConnection = () => {
+  if (!dbInstance) {
+    currentDbPath = "";
+    return true;
+  }
+  try {
+    dbInstance.close();
+  } catch (err) {
+    console.warn("Facturance DB close failed", err);
+  }
+  dbInstance = null;
+  currentDbPath = "";
+  return true;
+};
+
 const ensureTables = (db) => {
   if (!db) return;
   db.pragma("foreign_keys = ON");
@@ -4918,5 +4933,6 @@ module.exports = {
   loadCompanyProfile,
   saveCompanyProfile,
   loadSmtpSettings,
-  saveSmtpSettings
+  saveSmtpSettings,
+  resetConnection
 };

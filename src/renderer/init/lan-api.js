@@ -56,6 +56,30 @@
   };
 
   const api = {
+    listCompanies: async () => {
+      const res = await postJson("/api/companies/list", {});
+      if (Array.isArray(res)) return res;
+      if (res && Array.isArray(res.companies)) return res.companies;
+      return [];
+    },
+    createCompany: (payload) => postJson("/api/companies/create", payload || {}),
+    setActiveCompany: (payload = {}) => {
+      if (typeof payload === "string") {
+        return postJson("/api/companies/set-active", { id: payload });
+      }
+      return postJson("/api/companies/set-active", payload || {});
+    },
+    switchCompany: (payload = {}) => {
+      if (typeof payload === "string") {
+        return postJson("/api/companies/switch", { id: payload });
+      }
+      return postJson("/api/companies/switch", payload || {});
+    },
+    getActiveCompanyId: async () => {
+      const res = await postJson("/api/companies/active-paths", {});
+      return String(res?.activeCompanyId || res?.active?.id || "").trim();
+    },
+    getActiveCompanyPaths: () => postJson("/api/companies/active-paths", {}),
     loadCompanyData: () => postJson("/api/company/load", {}),
     saveCompanyData: (payload) => postJson("/api/company/save", payload),
     saveInvoiceJSON: (payload) => postJson("/api/documents", payload),

@@ -1,7 +1,69 @@
 (function (w) {
   const SEM = (w.SEM = w.SEM || {});
   const AppInit = (w.AppInit = w.AppInit || {});
+  const COMPANY_HISTORY_DOC_TYPES = [
+    "facture",
+    "fa",
+    "devis",
+    "bl",
+    "bc",
+    "avoir",
+    "be",
+    "bs",
+    "retenue"
+  ];
   let initialized = false;
+
+  function ensureCompanySwitchOverlay() {
+    if (typeof document === "undefined") return null;
+    let overlay = document.getElementById("companySwitchLoadingOverlay");
+    if (overlay) return overlay;
+    overlay = document.createElement("div");
+    overlay.id = "companySwitchLoadingOverlay";
+    overlay.className = "company-switch-loading-overlay";
+    overlay.setAttribute("role", "status");
+    overlay.setAttribute("aria-live", "polite");
+    overlay.setAttribute("aria-hidden", "true");
+    overlay.hidden = true;
+    overlay.innerHTML = `
+      <div class="company-switch-loading-overlay__panel">
+        <span class="company-switch-loading-overlay__spinner" aria-hidden="true"></span>
+        <p class="company-switch-loading-overlay__text">Chargement de la societe...</p>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    return overlay;
+  }
+
+  function setCompanySwitchOverlayVisibility(visible, options = {}) {
+    const body = document.body;
+    if (!body) return;
+    const overlay = ensureCompanySwitchOverlay();
+    if (!overlay) return;
+    const textEl = overlay.querySelector(".company-switch-loading-overlay__text");
+    const label = String(options?.label || "").trim();
+    if (textEl && label) textEl.textContent = label;
+    if (visible) {
+      overlay.hidden = false;
+      overlay.setAttribute("aria-hidden", "false");
+      overlay.classList.add("is-visible");
+      body.classList.add("company-switch-loading");
+    } else {
+      overlay.classList.remove("is-visible");
+      overlay.setAttribute("aria-hidden", "true");
+      overlay.hidden = true;
+      body.classList.remove("company-switch-loading");
+    }
+  }
+
+  function beginCompanySwitchLoading(payload = {}) {
+    const label = String(payload?.label || "Chargement de la societe...").trim();
+    setCompanySwitchOverlayVisibility(true, { label });
+  }
+
+  function endCompanySwitchLoading() {
+    setCompanySwitchOverlayVisibility(false);
+  }
 
   function normalizeCompanyId(raw) {
     if (typeof raw === "string") return raw.trim();
@@ -40,7 +102,8 @@
     out.sort((a, b) => {
       const an = Number(String(a.id).replace(/[^\d]/g, "")) || 0;
       const bn = Number(String(b.id).replace(/[^\d]/g, "")) || 0;
-      return an - bn;
+      if (an !== bn) return an - bn;
+      return String(a.id || "").localeCompare(String(b.id || ""));
     });
     return out;
   }
@@ -70,6 +133,203 @@
     return "";
   }
 
+  function getDefaultCompanyTemplate() {
+    const source =
+      (w.DEFAULTS && typeof w.DEFAULTS.company === "object" && w.DEFAULTS.company) ||
+      (w.DEFAULT_COMPANY_TEMPLATE && typeof w.DEFAULT_COMPANY_TEMPLATE === "object"
+        ? w.DEFAULT_COMPANY_TEMPLATE
+        : null) ||
+      (w.DEFAULT_COMPANY && typeof w.DEFAULT_COMPANY === "object" ? w.DEFAULT_COMPANY : null) ||
+      {};
+    try {
+      return JSON.parse(JSON.stringify(source));
+    } catch {
+      return { ...source };
+    }
+  }
+
+  function applySwitchSnapshotToCompanyState(snapshot = {}) {
+    const state = SEM.state || (SEM.state = {});
+    const baseCompany = getDefaultCompanyTemplate();
+    const nextCompany =
+      snapshot?.company && typeof snapshot.company === "object" ? snapshot.company : {};
+    state.company = { ...baseCompany, ...nextCompany };
+    const smtpProfiles =
+      snapshot?.smtpProfiles && typeof snapshot.smtpProfiles === "object"
+        ? snapshot.smtpProfiles
+        : null;
+    if (smtpProfiles) {
+      state.company.smtpProfiles = { ...(state.company.smtpProfiles || {}), ...smtpProfiles };
+      if (!state.company.smtpPreset) {
+        state.company.smtpPreset = state.company.smtpProfiles.professional ? "professional" : "gmail";
+      }
+    }
+  }
+
+  async function rebuildDocumentHistoryFromStorage() {
+    if (typeof w.clearDocumentHistory === "function") {
+      COMPANY_HISTORY_DOC_TYPES.forEach((docType) => {
+        try {
+          w.clearDocumentHistory(docType);
+        } catch (err) {
+          console.warn("clearDocumentHistory failed", docType, err);
+        }
+      });
+    }
+    if (
+      !w.electronAPI ||
+      typeof w.electronAPI.listInvoiceFiles !== "function" ||
+      typeof w.addDocumentHistory !== "function"
+    ) {
+      return;
+    }
+
+    for (const docType of COMPANY_HISTORY_DOC_TYPES) {
+      try {
+        const res = await w.electronAPI.listInvoiceFiles({ docType });
+        if (!res?.ok) continue;
+        const items = Array.isArray(res.items) ? res.items : [];
+        items.forEach((entry) => {
+          const pathValue = String(entry?.path || entry?.docPath || "").trim();
+          if (!pathValue) return;
+          w.addDocumentHistory({
+            id: entry?.id,
+            docType,
+            path: pathValue,
+            number: entry?.number || entry?.name || "",
+            date: entry?.date || "",
+            name: entry?.label || entry?.name || "",
+            savedAt: entry?.modifiedAt || entry?.createdAt || new Date().toISOString(),
+            createdAt: entry?.createdAt || entry?.modifiedAt || "",
+            status: entry?.status || entry?.historyStatus || "",
+            historyStatus: entry?.historyStatus || entry?.status || "",
+            clientName: entry?.clientName || entry?.client?.name || "",
+            clientAccount:
+              entry?.clientAccount || entry?.client?.account || entry?.client?.accountOf || "",
+            totalHT: entry?.totalHT,
+            totalTTC: entry?.totalTTC,
+            stampTT: entry?.stampTT,
+            totalTTCExclStamp: entry?.totalTTCExclStamp,
+            currency: entry?.currency,
+            paymentMethod: entry?.paymentMethod || entry?.mode || "",
+            paymentDate: entry?.paymentDate || "",
+            paymentRef: entry?.paymentReference || entry?.paymentRef || "",
+            paid: entry?.paid,
+            balanceDue: entry?.balanceDue,
+            acompteEnabled: entry?.acompteEnabled,
+            reglementEnabled: entry?.reglementEnabled,
+            reglementText: entry?.reglementText,
+            note_interne: entry?.noteInterne || entry?.note_interne || "",
+            has_comment: entry?.hasComment ?? entry?.has_comment,
+            convertedFrom: entry?.convertedFrom,
+            pdfPath: entry?.pdfPath || "",
+            pdfExportedAt: entry?.pdfExportedAt || ""
+          });
+        });
+      } catch (err) {
+        console.warn("document history rebuild failed", docType, err);
+      } finally {
+        if (typeof w.recomputeDocumentNumbering === "function") {
+          try {
+            w.recomputeDocumentNumbering(docType);
+          } catch (err) {
+            console.warn("recomputeDocumentNumbering failed", docType, err);
+          }
+        }
+      }
+    }
+  }
+
+  async function rehydrateCompanyRuntimeState(switchResult = {}) {
+    if (typeof w.invalidatePdfPreviewCache === "function") {
+      try {
+        w.invalidatePdfPreviewCache({ closeModal: true });
+      } catch (err) {
+        console.warn("invalidatePdfPreviewCache failed", err);
+      }
+    }
+
+    try {
+      const activeHistoryPath = String(SEM?.state?.meta?.historyPath || "").trim();
+      if (activeHistoryPath && typeof w.releaseDocumentEditLock === "function") {
+        await w.releaseDocumentEditLock(activeHistoryPath);
+      }
+    } catch (err) {
+      console.warn("releaseDocumentEditLock failed during company switch", err);
+    }
+
+    if (typeof SEM.newInvoice === "function") {
+      SEM.newInvoice();
+    }
+
+    if (typeof w.resetPaymentHistoryCache === "function") {
+      try {
+        w.resetPaymentHistoryCache();
+      } catch (err) {
+        console.warn("resetPaymentHistoryCache failed", err);
+      }
+    }
+
+    const snapshot =
+      switchResult?.snapshot && typeof switchResult.snapshot === "object"
+        ? switchResult.snapshot
+        : {};
+    applySwitchSnapshotToCompanyState(snapshot);
+
+    const jobs = [];
+    if (typeof SEM.loadCompanyFromLocal === "function") {
+      jobs.push(
+        Promise.resolve(SEM.loadCompanyFromLocal()).catch((err) => {
+          console.warn("loadCompanyFromLocal failed during company switch", err);
+        })
+      );
+    }
+    if (typeof SEM.refreshModelSelect === "function") {
+      jobs.push(
+        Promise.resolve(SEM.refreshModelSelect(undefined, { force: true })).catch((err) => {
+          console.warn("refreshModelSelect failed during company switch", err);
+        })
+      );
+    }
+    jobs.push(
+      Promise.resolve(rebuildDocumentHistoryFromStorage()).catch((err) => {
+        console.warn("document history rebuild failed during company switch", err);
+      })
+    );
+    await Promise.all(jobs);
+
+    if (typeof w.hydratePaymentHistory === "function") {
+      try {
+        await w.hydratePaymentHistory();
+      } catch (err) {
+        console.warn("hydratePaymentHistory failed during company switch", err);
+      }
+    }
+
+    const runtime = AppInit.__runtime && typeof AppInit.__runtime === "object" ? AppInit.__runtime : {};
+    const historyApi = runtime.history || {};
+    const selectedType =
+      (typeof historyApi.getSelectedType === "function" && historyApi.getSelectedType()) ||
+      String(getEl("docType")?.value || "facture");
+
+    SEM.bind?.();
+    SEM.setSubmitMode?.("add");
+    SEM.renderItems?.();
+    SEM.computeTotals?.();
+    SEM.applyColumnHiding?.();
+
+    if (typeof historyApi.renderHistoryList === "function") {
+      historyApi.renderHistoryList(selectedType);
+    }
+    if (runtime.numbering && typeof runtime.numbering.syncInvoiceNumberControls === "function") {
+      runtime.numbering.syncInvoiceNumberControls({
+        force: true,
+        useNextIfEmpty: true,
+        overrideWithNext: true
+      });
+    }
+  }
+
   async function initCompanySwitcher() {
     const sel = document.getElementById("companySwitchSelect");
     const menu = document.getElementById("companySwitchSelectMenu");
@@ -81,7 +341,7 @@
     function setDisplayText(value) {
       if (!display) return;
       const text = String(value || "").trim();
-      display.textContent = text || "Sélectionner une société";
+      display.textContent = text || "Selectionner une societe";
     }
 
     function syncPanelSelection(value) {
@@ -137,7 +397,7 @@
     if (
       !api ||
       typeof api.listCompanies !== "function" ||
-      typeof api.setActiveCompany !== "function"
+      (typeof api.switchCompany !== "function" && typeof api.setActiveCompany !== "function")
     ) {
       menu?.setAttribute("hidden", "");
       sel.hidden = true;
@@ -185,7 +445,7 @@
         if (panel) {
           const empty = document.createElement("div");
           empty.className = "model-select-empty";
-          empty.textContent = "Aucune société";
+          empty.textContent = "Aucune societe";
           panel.appendChild(empty);
         }
         return;
@@ -197,26 +457,74 @@
         chooseCompany(companies[0].id);
       }
 
+      let currentCompanyId = String(sel.value || "").trim();
       let switching = false;
       sel.addEventListener("change", async () => {
         if (switching) return;
         const nextId = String(sel.value || "").trim();
-        if (!nextId) return;
+        if (!nextId || nextId === currentCompanyId) {
+          chooseCompany(currentCompanyId);
+          return;
+        }
+
+        const previousId = currentCompanyId;
         chooseCompany(nextId);
+        const selectedOption = Array.from(sel.options || []).find((option) => option.value === nextId);
+        const selectedLabel = normalizeCompanyName(selectedOption?.textContent, nextId);
+
         switching = true;
         sel.disabled = true;
         if (trigger) trigger.setAttribute("aria-disabled", "true");
+        beginCompanySwitchLoading({
+          targetId: nextId,
+          label: `Chargement de ${selectedLabel}...`
+        });
+
         try {
-          const result = await api.setActiveCompany(nextId);
-          if (result && typeof result === "object" && result.ok === false) {
-            throw new Error(String(result.error || "Unable to set active company"));
+          const switchFn =
+            typeof api.switchCompany === "function"
+              ? api.switchCompany.bind(api)
+              : (typeof api.setActiveCompany === "function" ? api.setActiveCompany.bind(api) : null);
+          if (!switchFn) {
+            throw new Error("Company switch API is unavailable.");
           }
-          w.location.reload();
+          const result = await switchFn(nextId);
+          if (result && typeof result === "object" && result.ok === false) {
+            throw new Error(String(result.error || "Unable to switch company"));
+          }
+          const switchedCompanyId = normalizeCompanyId(
+            result?.activeCompanyId || result?.activeCompany?.id || nextId
+          ) || nextId;
+          await rehydrateCompanyRuntimeState(result || {});
+          currentCompanyId = switchedCompanyId;
+          chooseCompany(switchedCompanyId);
         } catch (err) {
           console.error("Unable to switch active company", err);
+          try {
+            const switchFn =
+              typeof api.switchCompany === "function"
+                ? api.switchCompany.bind(api)
+                : (typeof api.setActiveCompany === "function" ? api.setActiveCompany.bind(api) : null);
+            if (switchFn && previousId) {
+              const rollbackRes = await switchFn(previousId);
+              if (!rollbackRes || rollbackRes.ok !== false) {
+                await rehydrateCompanyRuntimeState(rollbackRes || {});
+              }
+            }
+          } catch (rollbackErr) {
+            console.error("Rollback after company switch failure failed", rollbackErr);
+          }
+          currentCompanyId = previousId;
+          chooseCompany(previousId);
+          const errorMessage = String(err?.message || err || "Switch failed.");
+          if (typeof w.showToast === "function") {
+            w.showToast(`Changement de societe impossible: ${errorMessage}`);
+          }
+        } finally {
           switching = false;
           sel.disabled = false;
           if (trigger) trigger.removeAttribute("aria-disabled");
+          endCompanySwitchLoading();
         }
       });
     } catch (err) {
@@ -244,9 +552,18 @@
 
     const focus = SEM.ui || {};
     focus.installFocusGuards?.();
-    ["addPurchasePrice", "addPurchaseTva", "addPurchaseFodecRate", "addPurchaseFodecTva", "addPrice", "addTva", "addDiscount", "addFodecRate", "addFodecTva", "addStockQty"].forEach((id) =>
-      focus.enableFirstClickSelectSecondClickCaret?.(getEl(id))
-    );
+    [
+      "addPurchasePrice",
+      "addPurchaseTva",
+      "addPurchaseFodecRate",
+      "addPurchaseFodecTva",
+      "addPrice",
+      "addTva",
+      "addDiscount",
+      "addFodecRate",
+      "addFodecTva",
+      "addStockQty"
+    ].forEach((id) => focus.enableFirstClickSelectSecondClickCaret?.(getEl(id)));
 
     AppInit.wireFodecAuto?.();
 
@@ -259,11 +576,22 @@
       focus,
       forms: SEM.forms
     });
+
+    AppInit.__runtime = {
+      numbering,
+      history,
+      focus,
+      forms: SEM.forms
+    };
+    endCompanySwitchLoading();
   }
 
   w.onReady(() => {
     if (initialized) return;
     initialized = true;
-    Promise.resolve(init()).catch((err) => console.error("App init error", err));
+    Promise.resolve(init()).catch((err) => {
+      console.error("App init error", err);
+      endCompanySwitchLoading();
+    });
   });
 })(window);
