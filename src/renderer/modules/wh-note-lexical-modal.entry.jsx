@@ -97,6 +97,39 @@ import {
     return String(rawHtml || "");
   };
 
+  const normalizePlainText = (value = "") =>
+    String(value || "")
+      .replace(/\u00a0/g, " ")
+      .replace(/\u200b/g, "")
+      .trim();
+
+  const isBlankHtml = (html = "") => {
+    const raw = String(html || "");
+    if (!raw.trim()) return true;
+    if (typeof DOMParser === "undefined") {
+      return !normalizePlainText(raw.replace(/<[^>]+>/g, " "));
+    }
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(`<div id="wh-note-blank-check">${raw}</div>`, "text/html");
+    const host = doc.getElementById("wh-note-blank-check");
+    if (!host) return true;
+    const source = host.querySelector('div[data-size-root="true"]') || host;
+    const hasMeaningfulNode = (node) => {
+      if (!node) return false;
+      if (node.nodeType === Node.TEXT_NODE) {
+        return !!normalizePlainText(node.textContent || "");
+      }
+      if (node.nodeType !== Node.ELEMENT_NODE) return false;
+      const tag = String(node.tagName || "").toLowerCase();
+      if (tag === "br") return false;
+      if (["img", "video", "audio", "iframe", "object", "embed", "svg", "hr", "table"].includes(tag)) {
+        return true;
+      }
+      return Array.from(node.childNodes || []).some(hasMeaningfulNode);
+    };
+    return !Array.from(source.childNodes || []).some(hasMeaningfulNode);
+  };
+
   const sanitizeForEditor = (rawHtml = "") => {
     const sanitize = getBindingShared().sanitizeWhNoteForEditor;
     if (typeof sanitize === "function") {
@@ -173,6 +206,13 @@ import {
     const root = $getRoot();
     const textNodes = root.getAllTextNodes();
     if (!textNodes.length) {
+      const firstChild = root.getFirstChild();
+      if (firstChild?.getType?.() === "paragraph" && firstChild.getChildrenSize?.() === 0) {
+        const text = $createTextNode("");
+        text.setStyle(styleWithFontSize("", size));
+        firstChild.append(text);
+        return;
+      }
       const paragraph = $createParagraphNode();
       const text = $createTextNode("");
       text.setStyle(styleWithFontSize("", size));
@@ -185,6 +225,25 @@ import {
       if (/font-size\s*:/i.test(style)) return;
       node.setStyle(styleWithFontSize(style, size));
     });
+  };
+
+  const normalizeEmptyImportedRoot = () => {
+    const root = $getRoot();
+    const children = root.getChildren();
+    if (!children.length) {
+      root.append($createParagraphNode());
+      return;
+    }
+    const allEmpty = children.every((node) =>
+      !String(node.getTextContent() || "")
+        .replace(/\u00a0/g, " ")
+        .replace(/\u200b/g, "")
+        .trim()
+    );
+    if (allEmpty && children.length > 1) {
+      root.clear();
+      root.append($createParagraphNode());
+    }
   };
 
   function ExternalValuePlugin({ serializedValue, valueVersion, onHydrated, setFontSize }) {
@@ -201,7 +260,9 @@ import {
           const root = $getRoot();
           root.clear();
 
-          if (payload.html) {
+          if (isBlankHtml(payload.html)) {
+            root.append($createParagraphNode());
+          } else {
             const parser = new DOMParser();
             const dom = parser.parseFromString(payload.html, "text/html");
             const nodes = $generateNodesFromDOM(editor, dom);
@@ -210,11 +271,19 @@ import {
             } else {
               root.append($createParagraphNode());
             }
-          } else {
-            root.append($createParagraphNode());
+            const children = root.getChildren();
+            const allEmpty =
+              children.length === 0 ||
+              children.every((node) => !normalizePlainText(node.getTextContent() || ""));
+            if (allEmpty) {
+              root.clear();
+              root.append($createParagraphNode());
+            }
           }
 
+          normalizeEmptyImportedRoot();
           applyFontSizeToUnstyledNodes(payload.size);
+          root.selectStart();
           const text = root
             .getTextContent()
             .replace(/\u00a0/g, " ")
@@ -409,12 +478,7 @@ import {
         editorState.read(() => {
           const rawHtml = $generateHtmlFromNodes(editor, null);
           const normalized = normalizeNoteHtml(rawHtml);
-          const text = $getRoot()
-            .getTextContent()
-            .replace(/\u00a0/g, " ")
-            .replace(/\u200b/g, "")
-            .trim();
-          const nextEmpty = !text;
+          const nextEmpty = isBlankHtml(normalized);
           const serialized = nextEmpty ? "" : ensureSizeWrapper(normalized, fontSizeRef.current);
           setIsEmpty(nextEmpty);
           safeCall(onSerializedChange, { serialized, isEmpty: nextEmpty, source: "editor" });
@@ -446,7 +510,7 @@ import {
             data-editor-engine="lexical"
             tabIndex="0"
           >
-            <div className="note-editor-lexical-body">
+            <div className="note-editor-lexical-body lexical-note-wrap">
               <RichTextPlugin
                 contentEditable={
                   <ContentEditable

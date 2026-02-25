@@ -19,9 +19,14 @@
   pointer-events: auto;
 }
 
+.wh-note-box.wh-pdf-note-box .lexical-note-wrap {
+  position: relative;
+}
+
 .wh-note-box.wh-pdf-note-box .lexical-note-editor {
   min-height: 120px;
-  padding: 10px;
+  position: relative;
+  padding: 12px;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -37,12 +42,26 @@
   word-break: break-word;
 }
 
+.wh-note-box.wh-pdf-note-box .lexical-note-editor p {
+  margin: 0;
+}
+
+.wh-note-box.wh-pdf-note-box .lexical-note-editor ul,
+.wh-note-box.wh-pdf-note-box .lexical-note-editor ol {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.wh-note-box.wh-pdf-note-box .lexical-note-editor li {
+  margin: 0;
+}
+
 .wh-note-box.wh-pdf-note-box .lexical-note-placeholder {
   position: absolute;
-  top: 10px;
-  left: 10px;
-  right: 10px;
-  color: #94a3b8;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  color: #93a4bd;
   pointer-events: none;
 }
 
