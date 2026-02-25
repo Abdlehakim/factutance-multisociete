@@ -248,6 +248,8 @@ const BASE_TABLE_ORDER = [
   "article_fields",
   "clients",
   "client_fields",
+  "depot_magasin",
+  "depot_magasin_emplacement",
   "documents",
   "document_fields",
   "models",
@@ -296,6 +298,13 @@ const BASE_TABLE_DEFINITIONS = {
       ["stock_qty", "REAL"],
       ["stock_min", "REAL"],
       ["stock_alert", "INTEGER"],
+      ["stock_default_depot_id", "TEXT"],
+      ["stock_default_emplacement_id", "TEXT"],
+      ["stock_allow_negative", "INTEGER NOT NULL DEFAULT 0"],
+      ["stock_block_insufficient", "INTEGER NOT NULL DEFAULT 0"],
+      ["stock_alert_enabled", "INTEGER NOT NULL DEFAULT 0"],
+      ["stock_min_qty", "INTEGER NOT NULL DEFAULT 0"],
+      ["stock_max_qty", "INTEGER"],
       ["unit", "TEXT"],
       ["purchase_price", "REAL"],
       ["purchase_tva", "REAL"],
@@ -388,6 +397,34 @@ const BASE_TABLE_DEFINITIONS = {
     indexes: [
       { sql: "CREATE INDEX IF NOT EXISTS idx_client_fields_path ON client_fields (path)" },
       { sql: "CREATE INDEX IF NOT EXISTS idx_client_fields_path_value ON client_fields (path, value)" }
+    ]
+  },
+  depot_magasin: {
+    columns: [
+      ["id", "TEXT PRIMARY KEY"],
+      ["name", "TEXT NOT NULL"],
+      ["address", "TEXT"],
+      ["created_at", "TEXT"],
+      ["updated_at", "TEXT"]
+    ],
+    indexes: [
+      { sql: "CREATE INDEX IF NOT EXISTS idx_depot_magasin_name ON depot_magasin (name)" },
+      { sql: "CREATE INDEX IF NOT EXISTS idx_depot_magasin_updated_at ON depot_magasin (updated_at)" }
+    ]
+  },
+  depot_magasin_emplacement: {
+    columns: [
+      ["id", "TEXT PRIMARY KEY"],
+      ["depot_id", "TEXT NOT NULL"],
+      ["code", "TEXT NOT NULL"],
+      ["created_at", "TEXT"],
+      ["updated_at", "TEXT"],
+      ["UNIQUE", "(depot_id, code)"],
+      ["FOREIGN KEY", "(depot_id) REFERENCES depot_magasin(id) ON DELETE CASCADE"]
+    ],
+    indexes: [
+      { sql: "CREATE INDEX IF NOT EXISTS idx_depot_magasin_emplacement_depot_id ON depot_magasin_emplacement (depot_id)" },
+      { sql: "CREATE INDEX IF NOT EXISTS idx_depot_magasin_emplacement_code ON depot_magasin_emplacement (code)" }
     ]
   },
   client_ledger: {

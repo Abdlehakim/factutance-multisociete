@@ -113,7 +113,8 @@
   z-index: 500;
 }
 #articleSearchResults,
-#clientSearchResults {
+#clientSearchResults,
+#depotMagasinSearchResults {
   max-width: none;
   --article-search-row-height: 75px;
   --article-search-row-gap: 12px;
@@ -128,7 +129,8 @@
     var(--article-search-list-height, 490px) + var(--article-search-pager-height, 86px)
   );
 }
-#clientSearchResults {
+#clientSearchResults,
+#depotMagasinSearchResults {
   --article-search-row-height: 90px;
   --article-search-row-gap: 10px;
   --article-search-list-padding: 8px;
@@ -144,7 +146,8 @@
   );
 }
 #articleSearchResults.article-search--paged,
-#clientSearchResults.client-search--paged {
+#clientSearchResults.client-search--paged,
+#depotMagasinSearchResults.client-search--paged {
   display: flex;
   flex-direction: column;
   max-height: var(--article-search-total-height, 576px);
@@ -873,7 +876,8 @@
   align-items: stretch;
   gap: 6px;
 }
-.client-search__results#clientSearchResults .client-search__actions {
+.client-search__results#clientSearchResults .client-search__actions,
+.client-search__results#depotMagasinSearchResults .client-search__actions {
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -883,7 +887,8 @@
   min-width: 140px;
   margin-left: auto;
 }
-.client-search__results#clientSearchResults .client-search__actions > * {
+.client-search__results#clientSearchResults .client-search__actions > *,
+.client-search__results#depotMagasinSearchResults .client-search__actions > * {
   width: 100%;
   min-width: 0;
 }

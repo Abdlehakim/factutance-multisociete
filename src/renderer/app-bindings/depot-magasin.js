@@ -6,6 +6,8 @@
   const RESULTS_ID = "depotMagasinSearchResults";
   const SEARCH_INPUT_ID = "depotMagasinSearch";
   const SEARCH_LIMIT = 120;
+  const MIN_SEARCH_LENGTH = 2;
+  const SEARCH_DEBOUNCE_MS = 220;
 
   let depotsCache = [];
   let activeDepotPath = "";
@@ -423,6 +425,17 @@
     }
   };
 
+  const canSearchQuery = (query = "") => normalizeText(query).length >= MIN_SEARCH_LENGTH;
+
+  const runSearch = async ({ showDropdown = true } = {}) => {
+    const query = normalizeText(getEl(SEARCH_INPUT_ID)?.value);
+    if (!canSearchQuery(query)) {
+      setResultsHidden(true);
+      return;
+    }
+    await refreshDepots({ query, showDropdown });
+  };
+
   const saveDepot = async ({ forceCreate = false } = {}) => {
     const payload = buildPayloadFromForm();
     if (!payload.name) {
@@ -465,7 +478,8 @@
     }
 
     const query = normalizeText(getEl(SEARCH_INPUT_ID)?.value);
-    await refreshDepots({ query, showDropdown: true });
+    await refreshDepots({ query, showDropdown: false });
+    setResultsHidden(true);
     if (forceCreate) {
       resetForm();
       getEl("depotMagasinName")?.focus?.();
@@ -479,10 +493,26 @@
       clearTimeout(searchTimer);
       searchTimer = null;
     }
+    const query = normalizeText(getEl(SEARCH_INPUT_ID)?.value);
+    if (!canSearchQuery(query)) {
+      setResultsHidden(true);
+      return;
+    }
     searchTimer = setTimeout(() => {
-      const query = normalizeText(getEl(SEARCH_INPUT_ID)?.value);
       refreshDepots({ query, showDropdown: true });
-    }, 170);
+    }, SEARCH_DEBOUNCE_MS);
+  };
+
+  const handleSearchFocus = async () => {
+    const query = normalizeText(getEl(SEARCH_INPUT_ID)?.value);
+    if (!canSearchQuery(query)) {
+      setResultsHidden(true);
+      return;
+    }
+    if (depotsCache.length) {
+      renderSearchResults(depotsCache);
+    }
+    await refreshDepots({ query, showDropdown: true });
   };
 
   const bindEvents = () => {
@@ -527,8 +557,7 @@
         return;
       }
       if (target.closest("#depotMagasinSearchBtn")) {
-        const query = normalizeText(getEl(SEARCH_INPUT_ID)?.value);
-        await refreshDepots({ query, showDropdown: true });
+        await runSearch({ showDropdown: true });
         return;
       }
       if (target.closest("#depotMagasinSettingsBtn")) {
@@ -562,6 +591,13 @@
       }
     });
 
+    document.addEventListener("focusin", async (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      if (target.id !== SEARCH_INPUT_ID) return;
+      await handleSearchFocus();
+    });
+
     document.addEventListener("change", (event) => {
       const target = event.target;
       if (!(target instanceof HTMLElement)) return;
@@ -574,8 +610,7 @@
       if (!(event.target instanceof HTMLElement)) return;
       if (event.key === "Enter" && event.target.id === SEARCH_INPUT_ID) {
         event.preventDefault();
-        const query = normalizeText(getEl(SEARCH_INPUT_ID)?.value);
-        await refreshDepots({ query, showDropdown: true });
+        await runSearch({ showDropdown: true });
         return;
       }
       if (event.key === "Enter" && event.target.id === "depotMagasinEmplacementInput") {

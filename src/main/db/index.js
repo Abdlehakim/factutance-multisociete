@@ -4,6 +4,7 @@ const fs = require("fs");
 const crypto = require("crypto");
 const Database = require("better-sqlite3");
 const { runMigrations: runSchemaMigrations } = require("./migrate");
+const { createDepotMagasinRepository } = require("./depot-magasin");
 const {
   DOC_TYPE_TABLES,
   DOC_ITEM_TABLES,
@@ -15,6 +16,7 @@ const COMPANY_DB_FILENAME_REGEX = /^entreprise\d+$/i;
 const CLIENT_BALANCE_DOC_TABLE = DOC_TYPE_TABLES.facture;
 const CLIENT_BALANCE_MIGRATION_KEY = "migration_client_balance_rebuild_v4";
 const CLIENT_PATH_PREFIX = "sqlite://clients/";
+const DEPOT_PATH_PREFIX = "sqlite://depots/";
 const ARTICLE_PATH_PREFIX = "sqlite://articles/";
 const DOCUMENT_PATH_PREFIX = "sqlite://documents/";
 const DOC_TYPE_PREFIX = {
@@ -100,6 +102,11 @@ const ensureTables = (db) => {
   if (!db) return;
   db.pragma("foreign_keys = ON");
   runSchemaMigrations(db, path.join(__dirname, "migrations"));
+  // Backfill depot/magasin stock schema on existing company DBs even when
+  // historical migration files are absent in this branch.
+  alignSchema(db, {
+    tables: ["articles", "depot_magasin", "depot_magasin_emplacement"]
+  });
   runLegacyDataMigrations(db);
   ensureClientBalanceTriggers(db);
   ensurePaymentHistoryBalanceTriggers(db);
@@ -1194,12 +1201,19 @@ const formatDocumentNumber = ({ docType, period, counter, length, prefix, number
 };
 
 const formatClientPath = (id) => `${CLIENT_PATH_PREFIX}${id}`;
+const formatDepotPath = (id) => `${DEPOT_PATH_PREFIX}${id}`;
 const formatArticlePath = (id) => `${ARTICLE_PATH_PREFIX}${id}`;
 const formatDocumentPath = (number) => `${DOCUMENT_PATH_PREFIX}${String(number || "").trim()}`;
 
 const parseClientIdFromPath = (value) => {
   if (typeof value !== "string") return null;
   if (value.startsWith(CLIENT_PATH_PREFIX)) return value.slice(CLIENT_PATH_PREFIX.length);
+  return null;
+};
+
+const parseDepotIdFromPath = (value) => {
+  if (typeof value !== "string") return null;
+  if (value.startsWith(DEPOT_PATH_PREFIX)) return value.slice(DEPOT_PATH_PREFIX.length);
   return null;
 };
 
@@ -1213,6 +1227,20 @@ const parseDocumentNumberFromPath = (value) => {
   if (typeof value !== "string") return null;
   if (value.startsWith(DOCUMENT_PATH_PREFIX)) return value.slice(DOCUMENT_PATH_PREFIX.length);
   return null;
+};
+
+let depotMagasinRepository = null;
+
+const getDepotMagasinRepository = () => {
+  if (!depotMagasinRepository) {
+    depotMagasinRepository = createDepotMagasinRepository({
+      getDb: initDatabase,
+      generateId,
+      parseDepotIdFromPath,
+      formatDepotPath
+    });
+  }
+  return depotMagasinRepository;
 };
 
 const normalizeDocumentItem = (item = {}, position = 0, { docType = "" } = {}) => {
@@ -3033,6 +3061,67 @@ const getClientIdByLegacyPath = (legacyPath) => {
   const db = initDatabase();
   const row = db.prepare("SELECT id FROM clients WHERE legacy_path = ?").get(legacyPath);
   return row ? row.id : null;
+};
+
+/* ---------- depots / emplacements ---------- */
+const getDepotById = (id) => {
+  return getDepotMagasinRepository().getDepot(id);
+};
+
+const saveDepot = ({ depot = {}, suggestedName = "", id } = {}) => {
+  const source = depot && typeof depot === "object" ? depot : {};
+  const payload = {
+    ...source,
+    id: id || source.id || source.path,
+    name: String(source.name || source.label || suggestedName || "").trim(),
+    address: source.address,
+    emplacements: Array.isArray(source.emplacements) ? source.emplacements : []
+  };
+  const result = getDepotMagasinRepository().saveDepot(payload);
+  return {
+    id: result?.id || "",
+    path: result?.path || formatDepotPath(result?.id || ""),
+    name: result?.name || ""
+  };
+};
+
+const updateDepot = ({ id, depot = {}, suggestedName = "" } = {}) => {
+  const depotId = parseDepotIdFromPath(id) || String(id || "").trim();
+  if (!depotId) throw new Error("Identifiant depot/magasin requis.");
+  const existing = getDepotMagasinRepository().getDepot(depotId);
+  if (!existing) throw new Error("Depot/magasin introuvable.");
+  return saveDepot({
+    id: depotId,
+    depot: {
+      ...existing,
+      ...depot,
+      name:
+        String(
+          depot?.name ||
+            depot?.label ||
+            existing?.name ||
+            suggestedName ||
+            ""
+        ).trim() || existing?.name
+    },
+    suggestedName
+  });
+};
+
+const deleteDepot = (id) => {
+  return getDepotMagasinRepository().deleteDepot(id);
+};
+
+const searchDepots = ({ query = "", limit, offset } = {}) => {
+  return getDepotMagasinRepository().searchDepots({ query, limit, offset });
+};
+
+const listDepots = (query = "") => getDepotMagasinRepository().listDepots(query);
+
+const listEmplacementsByDepot = (depotId) => {
+  const id = parseDepotIdFromPath(depotId) || String(depotId || "").trim();
+  if (!id) return [];
+  return getDepotMagasinRepository().listEmplacementsByDepot(id);
 };
 
 /* ---------- articles ---------- */
@@ -4896,6 +4985,15 @@ module.exports = {
   formatClientPath,
   parseClientIdFromPath,
   getClientIdByLegacyPath,
+  saveDepot,
+  updateDepot,
+  deleteDepot,
+  searchDepots,
+  listDepots,
+  listEmplacementsByDepot,
+  getDepotById,
+  formatDepotPath,
+  parseDepotIdFromPath,
   saveArticle,
   updateArticle: saveArticle,
   deleteArticle,

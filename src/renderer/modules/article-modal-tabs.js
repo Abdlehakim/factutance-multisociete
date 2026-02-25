@@ -108,7 +108,9 @@
       }
       if (evt.key === "End") {
         evt.preventDefault();
-        activateTab(popover, "stock", { focus: true });
+        const tabs = getTabs(popover);
+        const lastTabName = getTabName(tabs[tabs.length - 1]) || DEFAULT_TAB;
+        activateTab(popover, lastTabName, { focus: true });
       }
     });
   };

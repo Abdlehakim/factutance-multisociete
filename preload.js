@@ -244,6 +244,18 @@ const api = {
   openClient: (payload) => ipcRenderer.invoke("clients:open", payload || {}),
   deleteClient: (payload) => ipcRenderer.invoke("clients:delete", payload),
 
+  // Depots / magasins
+  listDepots: () => ipcRenderer.invoke("depots:list"),
+  listEmplacementsByDepot: (payload = {}) => ipcRenderer.invoke("depots:listEmplacements", payload || {}),
+  searchDepots: (payload) => {
+    if (typeof payload === "string") return ipcRenderer.invoke("depots:search", payload);
+    return ipcRenderer.invoke("depots:search", payload || {});
+  },
+  saveDepotDirect: (payload) => ipcRenderer.invoke("depots:saveDirect", payload || {}),
+  updateDepotDirect: (payload) => ipcRenderer.invoke("depots:updateDirect", payload || {}),
+  deleteDepot: (payload) => ipcRenderer.invoke("depots:delete", payload || {}),
+  openDepot: (payload) => ipcRenderer.invoke("depots:open", payload || {}),
+
   // Assets exposed to renderer (PDF views use this for logo + styles)
   assets: { logo: logoDataURL, pdfCss: pdfCssText, pdfWhCss: pdfWhCssText },
 };

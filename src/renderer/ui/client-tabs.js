@@ -246,7 +246,7 @@ const renderDepotMagasinPanel = () => `
             id="depotMagasinSearchBtn"
             type="button"
             class="client-search__action"
-            aria-label="Rechercher un depot/magasin"
+            aria-label="Rechercher"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="11" cy="11" r="6" />

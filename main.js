@@ -2816,6 +2816,92 @@ ipcMain.handle("clients:search", async (_evt, payload = {}) => {
   }
 });
 
+ipcMain.handle("depots:list", async () => {
+  try {
+    const results = FactDb.listDepots();
+    return { ok: true, results, total: Array.isArray(results) ? results.length : 0 };
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e), results: [] };
+  }
+});
+
+ipcMain.handle("depots:listEmplacements", async (_evt, payload = {}) => {
+  try {
+    const pathValue = String(payload?.path || "").trim();
+    const idValue = String(payload?.depotId || payload?.id || "").trim();
+    const depotId = FactDb.parseDepotIdFromPath(pathValue) || idValue;
+    if (!depotId) return { ok: true, results: [], total: 0 };
+    const results = FactDb.listEmplacementsByDepot(depotId);
+    return { ok: true, results, total: Array.isArray(results) ? results.length : 0 };
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e), results: [] };
+  }
+});
+
+ipcMain.handle("depots:search", async (_evt, payload = {}) => {
+  try {
+    const queryRaw = typeof payload === "string" ? payload : payload?.query;
+    const limitRaw = typeof payload === "object" && payload !== null ? payload.limit : undefined;
+    const offsetRaw = typeof payload === "object" && payload !== null ? payload.offset : undefined;
+    const query = String(queryRaw || "").trim();
+    const limitValue = Number(limitRaw);
+    const limit = Number.isFinite(limitValue) && limitValue > 0 ? Math.floor(limitValue) : null;
+    const offset = Math.max(0, Number(offsetRaw) || 0);
+    const results = FactDb.searchDepots({ query, limit, offset });
+    return { ok: true, results: results.results, total: results.total };
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e), results: [] };
+  }
+});
+
+ipcMain.handle("depots:saveDirect", async (_evt, payload = {}) => {
+  try {
+    const { depot = {}, suggestedName = "depot-magasin" } = payload || {};
+    const result = FactDb.saveDepot({ depot, suggestedName });
+    return { ok: true, ...result };
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+});
+
+ipcMain.handle("depots:updateDirect", async (_evt, payload = {}) => {
+  try {
+    const { depot = {}, path: currentPath, id: rawId, suggestedName = "depot-magasin" } = payload || {};
+    const id = String(rawId || "").trim() || FactDb.parseDepotIdFromPath(currentPath);
+    if (!id) return { ok: false, error: "Chemin du depot/magasin introuvable." };
+    const result = FactDb.updateDepot({ id, depot, suggestedName });
+    return { ok: true, ...result };
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+});
+
+ipcMain.handle("depots:delete", async (_evt, payload = {}) => {
+  try {
+    const pathValue = String(payload?.path || "").trim();
+    const idValue = String(payload?.id || "").trim();
+    const id = FactDb.parseDepotIdFromPath(pathValue) || idValue;
+    if (!id) return { ok: false, error: "Identifiant depot/magasin introuvable." };
+    return FactDb.deleteDepot(id);
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+});
+
+ipcMain.handle("depots:open", async (_evt, payload = {}) => {
+  try {
+    const pathValue = String(payload?.path || "").trim();
+    const idValue = String(payload?.id || "").trim();
+    const id = FactDb.parseDepotIdFromPath(pathValue) || idValue;
+    if (!id) return { ok: false, error: "Identifiant depot/magasin introuvable." };
+    const depot = FactDb.getDepotById(id);
+    if (!depot) return { ok: false, error: "Depot/magasin introuvable." };
+    return { ok: true, depot, path: depot.path, name: depot.name };
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) };
+  }
+});
+
 async function migrateClientsFromDir(entityType) {
   if (!CLIENTS_FS_ENABLED) return;
   try {

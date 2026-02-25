@@ -626,6 +626,19 @@
     if (fields.totalValueVente) fields.totalValueVente.value = formatMoneyValue(totalValueVente);
   };
 
+  const enforceExclusiveStockOptions = (scopeHint = null, changedField = null) => {
+    const scope = resolveScope(scopeHint);
+    if (!scope) return;
+    const fields = getFields(scope);
+    if (!fields.allowNegative || !fields.blockInsufficient) return;
+    if (!fields.allowNegative.checked || !fields.blockInsufficient.checked) return;
+    if (changedField === fields.blockInsufficient) {
+      fields.allowNegative.checked = false;
+      return;
+    }
+    fields.blockInsufficient.checked = false;
+  };
+
   const syncUi = (scopeHint = null) => {
     const scope = resolveScope(scopeHint);
     if (!scope) return null;
@@ -658,13 +671,7 @@
     const alertEnabled = uiInteractive && !!fields.alert?.checked;
     setDisabledState(fields.min, !alertEnabled);
 
-    const allowNegative = uiInteractive && !!fields.allowNegative?.checked;
-    if (fields.blockInsufficient) {
-      if (interactive && allowNegative && fields.blockInsufficient.checked) {
-        fields.blockInsufficient.checked = false;
-      }
-      setDisabledState(fields.blockInsufficient, !(uiInteractive && !allowNegative));
-    }
+    setDisabledState(fields.blockInsufficient, !uiInteractive);
 
     setDisabledState(fields.unitDisplay, true);
     setDisabledState(fields.availableDisplay, true);
@@ -843,6 +850,9 @@
       if (!(target instanceof HTMLElement)) return;
       const scope = toScopeNode(target);
       if (!scope) return;
+      if (target.matches?.("#addStockAllowNegative, #addStockBlockInsufficient")) {
+        enforceExclusiveStockOptions(scope, target);
+      }
       if (shouldSyncTarget(target)) syncUi(scope);
       if (shouldSyncReadOnlyTarget(target)) syncReadOnlyInfo(scope);
       if (target.matches?.("#addStockDefaultDepot")) {
@@ -858,7 +868,12 @@
       if (!(target instanceof HTMLElement)) return;
       const scope = toScopeNode(target);
       if (!scope) return;
-      if (target.matches?.("#addStockAlert, #addStockAllowNegative")) syncUi(scope);
+      if (target.matches?.("#addStockAllowNegative, #addStockBlockInsufficient")) {
+        enforceExclusiveStockOptions(scope, target);
+      }
+      if (target.matches?.("#addStockAlert, #addStockAllowNegative, #addStockBlockInsufficient")) {
+        syncUi(scope);
+      }
       if (shouldSyncReadOnlyTarget(target)) syncReadOnlyInfo(scope);
     });
 
