@@ -16,7 +16,6 @@
 - `live-bindings/core/bootstrap/runtime/saved-modals.js`: saved-client/saved-article modal blocks (state, wiring, search handlers).
 - `live-bindings/core/bootstrap/runtime/imports-exports.js`: client/article import-export modal blocks.
 - `live-bindings/core/bootstrap/runtime/models.js`: model workflows/actions/dirty tracking block.
-- `live-bindings/core/bootstrap/runtime/stock-alerts.js`: stock-alert prelude + interaction block.
 - `live-bindings/core/bootstrap/runtime/finalize.js`: stable ctx export/accessor block.
 - `live-bindings/core/document-ui.js`: document UI handlers that run against the shared core runtime context.
 - `live-bindings/company.js`: company contact + SMTP + LAN server modal wiring and company profile edit listeners.
