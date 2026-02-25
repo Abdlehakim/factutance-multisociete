@@ -14,6 +14,7 @@
   ];
   let initialized = false;
   let appReadyNotified = false;
+  let companySwitchInProgress = false;
 
   function resolveBootOverlay() {
     if (typeof document === "undefined") return null;
@@ -57,55 +58,28 @@
     }
   }
 
-  function ensureCompanySwitchOverlay() {
-    if (typeof document === "undefined") return null;
-    let overlay = document.getElementById("companySwitchLoadingOverlay");
-    if (overlay) return overlay;
-    overlay = document.createElement("div");
-    overlay.id = "companySwitchLoadingOverlay";
-    overlay.className = "company-switch-loading-overlay";
-    overlay.setAttribute("role", "status");
-    overlay.setAttribute("aria-live", "polite");
-    overlay.setAttribute("aria-hidden", "true");
-    overlay.hidden = true;
-    overlay.innerHTML = `
-      <div class="company-switch-loading-overlay__panel">
-        <span class="company-switch-loading-overlay__spinner" aria-hidden="true"></span>
-        <p class="company-switch-loading-overlay__text">Chargement de la societe...</p>
-      </div>
-    `;
-    document.body.appendChild(overlay);
-    return overlay;
-  }
-
   function setCompanySwitchOverlayVisibility(visible, options = {}) {
     const body = document.body;
     if (!body) return;
-    const overlay = ensureCompanySwitchOverlay();
-    if (!overlay) return;
-    const textEl = overlay.querySelector(".company-switch-loading-overlay__text");
     const label = String(options?.label || "").trim();
-    if (textEl && label) textEl.textContent = label;
     if (visible) {
-      overlay.hidden = false;
-      overlay.setAttribute("aria-hidden", "false");
-      overlay.classList.add("is-visible");
       body.classList.add("company-switch-loading");
+      showBootOverlay(label || "Chargement de la societe...");
     } else {
-      overlay.classList.remove("is-visible");
-      overlay.setAttribute("aria-hidden", "true");
-      overlay.hidden = true;
       body.classList.remove("company-switch-loading");
+      if (companySwitchInProgress) hideBootOverlay();
     }
   }
 
   function beginCompanySwitchLoading(payload = {}) {
+    companySwitchInProgress = true;
     const label = String(payload?.label || "Chargement de la societe...").trim();
     setCompanySwitchOverlayVisibility(true, { label });
   }
 
   function endCompanySwitchLoading() {
     setCompanySwitchOverlayVisibility(false);
+    companySwitchInProgress = false;
   }
 
   function normalizeCompanyId(raw) {
@@ -633,8 +607,8 @@
   async function init() {
     showBootOverlay("Chargement de Facturance...");
     await runCriticalInit();
-    hideBootOverlay();
     notifyAppReadyOnce();
+    hideBootOverlay();
     void runNonCriticalInit().catch((err) => {
       console.error("Non-critical startup failed", err);
     });

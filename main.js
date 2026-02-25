@@ -199,10 +199,10 @@ if (isSquirrel) app.quit();
 
 const DEFAULT_WINDOW_BOUNDS = { width: 1150, height: 760 };
 const MIN_WINDOW_BOUNDS = { width: 1024, height: 700 };
-const SPLASH_WINDOW_BOUNDS = { width: 300, height: 240 };
+const SPLASH_WINDOW_BOUNDS = { width: 520, height: 300 };
+const SPLASH_MIN_VISIBLE_MS = 2000;
 const SHOW_MAIN_FALLBACK_MS = 90000;
 const SHOW_MAIN_FALLBACK_RETRY_MS = 15000;
-const SPLASH_POST_READY_DELAY_MS = 1800;
 const MAIN_REVEAL_FADE_MS = 200;
 
 let mainWindow;
@@ -211,13 +211,22 @@ let allowAppClose = false;
 let mainWindowReady = false;
 let mainWindowRendererReady = false;
 let hasShownMainWindow = false;
-let revealInProgress = false;
+let splashShownAt = 0;
+let pendingRevealRequest = false;
 let showMainFallbackTimer = null;
+let revealMainTimer = null;
 
 function clearShowFallback() {
   if (showMainFallbackTimer) {
     clearTimeout(showMainFallbackTimer);
     showMainFallbackTimer = null;
+  }
+}
+
+function clearRevealMainTimer() {
+  if (revealMainTimer) {
+    clearTimeout(revealMainTimer);
+    revealMainTimer = null;
   }
 }
 
@@ -242,99 +251,110 @@ function updateSplashLoadingMessage(label = "Still loading...") {
 }
 
 async function handleStartupFallback() {
-  if (hasShownMainWindow || mainWindowRendererReady) return;
+  if (hasShownMainWindow) return;
   updateSplashLoadingMessage("Still loading...");
   scheduleShowFallback(SHOW_MAIN_FALLBACK_RETRY_MS);
 }
 
-function closeSplashWindow({ destroy = false } = {}) {
-  if (splashWindow && !splashWindow.isDestroyed()) {
-    if (destroy) splashWindow.destroy();
-    else splashWindow.close();
+function closeSplashWindow({ destroy = true } = {}) {
+  if (!splashWindow || splashWindow.isDestroyed()) {
+    splashWindow = null;
+    return;
   }
+  if (destroy) splashWindow.destroy();
+  else splashWindow.close();
   splashWindow = null;
 }
 
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, Math.max(0, Number(ms) || 0)));
+function fadeInMainWindow(durationMs = MAIN_REVEAL_FADE_MS) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  const duration = Math.max(0, Number(durationMs) || 0);
+  if (duration <= 0) {
+    mainWindow.setOpacity(1);
+    return;
+  }
+  const startedAt = Date.now();
+  const tick = () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    const elapsed = Date.now() - startedAt;
+    const progress = Math.min(1, elapsed / duration);
+    mainWindow.setOpacity(Math.max(0.01, progress));
+    if (progress < 1) setTimeout(tick, 16);
+  };
+  tick();
 }
 
-async function revealMainWindowAfterReady() {
-  if (hasShownMainWindow || revealInProgress) return;
-  if (!mainWindowRendererReady || !mainWindowReady) return;
-  if (!mainWindow || mainWindow.isDestroyed()) return;
-
-  revealInProgress = true;
-  if (SPLASH_POST_READY_DELAY_MS > 0) {
-    await sleep(SPLASH_POST_READY_DELAY_MS);
-    if (!mainWindow || mainWindow.isDestroyed()) {
-      revealInProgress = false;
-      return;
-    }
+function revealMainWindow() {
+  if (hasShownMainWindow) return false;
+  if (!mainWindow || mainWindow.isDestroyed()) return false;
+  if (!mainWindowReady) {
+    pendingRevealRequest = true;
+    return false;
   }
+  clearRevealMainTimer();
   clearShowFallback();
   closeSplashWindow({ destroy: true });
 
   mainWindow.setMinimumSize(MIN_WINDOW_BOUNDS.width, MIN_WINDOW_BOUNDS.height);
-  if (!mainWindow.isVisible()) {
-    mainWindow.setOpacity(0.01);
-    mainWindow.show();
-  }
+  mainWindow.setOpacity(0.01);
+  if (!mainWindow.isVisible()) mainWindow.show();
   if (!mainWindow.isMaximized()) mainWindow.maximize();
-
-  await new Promise((resolve) => {
-    const startedAt = Date.now();
-    const tick = () => {
-      if (!mainWindow || mainWindow.isDestroyed()) {
-        resolve();
-        return;
-      }
-      const elapsed = Date.now() - startedAt;
-      const progress = Math.min(1, elapsed / MAIN_REVEAL_FADE_MS);
-      mainWindow.setOpacity(Math.max(0.01, progress));
-      if (progress >= 1) {
-        resolve();
-        return;
-      }
-      setTimeout(tick, 16);
-    };
-    tick();
-  });
-
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.setOpacity(1);
-    mainWindow.focus();
-  }
   hasShownMainWindow = true;
-  revealInProgress = false;
+  pendingRevealRequest = false;
+  fadeInMainWindow();
+  mainWindow.focus();
+  return true;
 }
 
-async function requestMainWindowReveal() {
-  if (hasShownMainWindow || revealInProgress) return false;
-  if (!mainWindowRendererReady || !mainWindowReady) return false;
-  await revealMainWindowAfterReady();
-  return hasShownMainWindow;
+function scheduleMainRevealAfterMinimumSplash() {
+  if (hasShownMainWindow || !mainWindowRendererReady) return;
+  pendingRevealRequest = true;
+  const elapsed = splashShownAt > 0 ? Date.now() - splashShownAt : SPLASH_MIN_VISIBLE_MS;
+  const remaining = SPLASH_MIN_VISIBLE_MS - elapsed;
+  clearRevealMainTimer();
+  if (remaining > 0) {
+    revealMainTimer = setTimeout(() => {
+      revealMainTimer = null;
+      revealMainWindow();
+    }, remaining);
+    return;
+  }
+  revealMainWindow();
 }
 
 function createSplashWindow() {
   if (splashWindow && !splashWindow.isDestroyed()) return;
   splashWindow = new BrowserWindow({
-    width: SPLASH_WINDOW_BOUNDS.width,
-    height: SPLASH_WINDOW_BOUNDS.height,
+    width: 520,
+    height: 300,
     minWidth: SPLASH_WINDOW_BOUNDS.width,
     minHeight: SPLASH_WINDOW_BOUNDS.height,
     useContentSize: true,
-    backgroundColor: "#0b1220",
+    backgroundColor: "#00000000",
     center: true,
     frame: false,
     resizable: false,
     maximizable: false,
     minimizable: false,
     alwaysOnTop: true,
-    transparent: false,
+    transparent: true,
+    hasShadow: true,
     skipTaskbar: true,
     autoHideMenuBar: true,
-    show: true,
+    show: false,
+    webPreferences: {
+      contextIsolation: true,
+      sandbox: true,
+      nodeIntegration: false
+    }
+  });
+  splashWindow.once("ready-to-show", () => {
+    if (!splashWindow || splashWindow.isDestroyed()) return;
+    splashWindow.show();
+  });
+  splashShownAt = Date.now();
+  splashWindow.on("show", () => {
+    splashShownAt = Date.now();
   });
   splashWindow.on("closed", () => {
     splashWindow = null;
@@ -346,7 +366,8 @@ function createMainWindow() {
   mainWindowReady = false;
   mainWindowRendererReady = false;
   hasShownMainWindow = false;
-  revealInProgress = false;
+  pendingRevealRequest = false;
+  clearRevealMainTimer();
   mainWindow = new BrowserWindow({
     width: DEFAULT_WINDOW_BOUNDS.width,
     height: DEFAULT_WINDOW_BOUNDS.height,
@@ -365,7 +386,9 @@ function createMainWindow() {
   Menu.setApplicationMenu(null);
   mainWindow.once("ready-to-show", () => {
     mainWindowReady = true;
-    if (mainWindowRendererReady) void requestMainWindowReveal();
+    if (pendingRevealRequest || mainWindowRendererReady) {
+      scheduleMainRevealAfterMinimumSplash();
+    }
   });
   mainWindow.webContents.on("before-input-event", (event, input) => {
     const key = String(input.key || "").toLowerCase();
@@ -388,23 +411,29 @@ function createMainWindow() {
     mainWindowReady = false;
     mainWindowRendererReady = false;
     hasShownMainWindow = false;
-    revealInProgress = false;
+    pendingRevealRequest = false;
+    clearRevealMainTimer();
     clearShowFallback();
+    closeSplashWindow({ destroy: true });
   });
   mainWindow.loadFile(path.join(__dirname, "src", "renderer", "index.html"));
 }
 
 ipcMain.on("app:ready", () => {
   mainWindowRendererReady = true;
-  void requestMainWindowReveal();
+  scheduleMainRevealAfterMinimumSplash();
 });
 if (hasSingleInstanceLock) {
   app.on("second-instance", (_event, argv = []) => {
-    if (mainWindow) {
+    if (mainWindow && mainWindow.isVisible()) {
       if (mainWindow.isMinimized()) mainWindow.restore();
       mainWindow.focus();
-    } else if (splashWindow) {
+    } else if (splashWindow && !splashWindow.isDestroyed()) {
       splashWindow.focus();
+    } else {
+      if (!splashWindow || splashWindow.isDestroyed()) createSplashWindow();
+      if (!mainWindow || mainWindow.isDestroyed()) createMainWindow();
+      scheduleShowFallback();
     }
   });
 }
