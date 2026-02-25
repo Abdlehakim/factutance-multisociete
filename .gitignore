@@ -32,9 +32,6 @@ pnpm-debug.log*
 # App exports you might accidentally commit
 *.pdf
 
-# Env / local config
-.env
-.env.*.local
 
 # OS / editors
 .DS_Store
