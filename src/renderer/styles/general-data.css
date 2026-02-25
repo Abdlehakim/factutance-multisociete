@@ -537,6 +537,11 @@
 .server-modal__field--port {
   flex: 0 1 120px;
 }
+.server-modal__toggle-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
 .server-modal__toggle {
   display: inline-flex;
   align-items: center;
@@ -546,6 +551,7 @@
   border: 1px solid #e2e8f0;
   background: #f8fafc;
   font-size: 0.9rem;
+  width: 100%;
 }
 .server-modal__url-list {
   display: flex;

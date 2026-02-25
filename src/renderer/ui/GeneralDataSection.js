@@ -560,14 +560,16 @@ export function renderGeneralDataSection() {
           </button>
         </div>
         <form id="companyLanServerModalForm" class="server-modal__body swbDialog__msg" novalidate>
-          <label class="server-modal__toggle">
-            <input id="companyLanServerEnabled" type="checkbox" />
-            <span>Activer le serveur LAN</span>
-          </label>
-          <label class="server-modal__toggle">
-            <input id="companyLanServerRedirectHttp80" type="checkbox" />
-            <span>Autoriser l'URL sans port (HTTP :80)</span>
-          </label>
+          <div class="server-modal__toggle-row">
+            <label class="server-modal__toggle">
+              <input id="companyLanServerEnabled" type="checkbox" />
+              <span>Activer le serveur LAN</span>
+            </label>
+            <label class="server-modal__toggle">
+              <input id="companyLanServerRedirectHttp80" type="checkbox" />
+              <span>Autoriser l'URL sans port (HTTP :80)</span>
+            </label>
+          </div>
           <div class="server-modal__row">
             <div class="server-modal__field server-modal__field--port">
               <label for="companyLanServerPort" class="label-text">Port</label>
