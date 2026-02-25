@@ -489,7 +489,6 @@
 }
 @media (max-width: 1240px) {
   #articleSavedModal .article-saved-modal__row {
-    flex-wrap: wrap;
     align-items: flex-start;
   }
   #articleSavedModal .article-saved-modal__left {
@@ -532,6 +531,7 @@
 #articleSavedModal .article-saved-modal__stock-actions .client-search__stock-field {
   font-size: 9px;
   gap: 3px;
+  align-items: center;
 }
 
 #articleSavedModal .article-saved-modal__stock-controls.article-saved-modal__stock-actions .client-search__stock-field--toggle,
@@ -544,6 +544,8 @@
 #articleSavedModal .article-saved-modal__stock-controls.article-saved-modal__stock-actions .client-search__stock-label,
 #articleSavedModal .article-saved-modal__stock-actions .client-search__stock-label {
   letter-spacing: 0.01em;
+  white-space: nowrap;
+  flex: 0 0 auto;
 }
 
 #articleSavedModal .article-saved-modal__stock-controls.article-saved-modal__stock-actions .client-search__stock-toggle,
@@ -582,6 +584,8 @@
 #articleSavedModal .article-saved-modal__stock-controls.article-saved-modal__stock-actions .client-search__stock-input--delta,
 #articleSavedModal .article-saved-modal__stock-actions .client-search__stock-input--delta {
   min-width: 0;
+  height: 38px;
+  min-height: 38px;
 }
 
 #articleSavedModal .article-saved-modal__stock-controls.article-saved-modal__stock-actions .client-search__stock-qty-stepper,
@@ -589,6 +593,11 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+#articleSavedModal .article-saved-modal__stock-controls.article-saved-modal__stock-actions .client-search__stock-qty-stepper > .client-search__stock-field,
+#articleSavedModal .article-saved-modal__stock-actions .client-search__stock-qty-stepper > .client-search__stock-field {
+  align-items: center;
 }
 
 #articleSavedModal .article-saved-modal__stock-controls.article-saved-modal__stock-actions .client-search__qty-buttons,
@@ -602,10 +611,16 @@
 #articleSavedModal .article-saved-modal__stock-actions .client-search__qty-buttons > * {
   flex: 1 1 0;
   min-width: 0;
-  padding: 4px 6px;
+  padding: 6px 8px;
   font-size: 9px;
   line-height: 1.2;
   white-space: nowrap;
+}
+
+#articleSavedModal button[data-stock-qty-inc],
+#articleSavedModal button[data-stock-qty-dec] {
+  height: 34px;
+  min-height: 34px;
 }
 
 #articleSavedModal .article-saved-modal__stock-top .client-search__select-handle {

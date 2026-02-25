@@ -435,7 +435,7 @@
             articleSavedModal?.querySelector("#articleSavedModalRefresh") || getEl("articleSavedModalRefresh");
           articleSavedSearchInput = getEl("articleSavedSearch");
           articleSavedSearchButton = getEl("articleSavedSearchBtn");
-          ARTICLE_SAVED_PAGE_SIZE = 4;
+          ARTICLE_SAVED_PAGE_SIZE = 5;
           ARTICLE_SAVED_MIN_SEARCH_LENGTH = 2;
           getArticleSavedModalTotalPages = () => {
             const total = Array.isArray(articleSavedModalState.items) ? articleSavedModalState.items.length : 0;
@@ -2482,7 +2482,7 @@
                               inputmode="numeric"
                               class="client-search__stock-input client-search__stock-input--delta"
                               data-stock-qty-delta
-                              value="1"
+                              value="0"
                             />
                           </label>
                           <div class="client-search__qty-buttons">

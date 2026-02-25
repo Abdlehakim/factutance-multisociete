@@ -5,9 +5,9 @@ import { renderArticleFormPopover } from "./templates/article-form-popover.templ
 export function renderAddItemSection() {
   return html(`
 
-    <div id="articleSavedModal" class="swbDialog article-saved-modal" hidden aria-hidden="true">
+    <div id="articleSavedModal" class="swbDialog article-saved-modal payments-history-modal" hidden aria-hidden="true">
       <div
-        class="swbDialog__panel article-saved-modal__panel"
+        class="swbDialog__panel article-saved-modal__panel payments-history-modal__panel"
         role="dialog"
         aria-modal="true"
         aria-labelledby="articleSavedModalTitle"
@@ -44,7 +44,7 @@ export function renderAddItemSection() {
             </svg>
           </button>
         </div>
-        <div class="article-saved-modal__body swbDialog__msg">
+        <div class="article-saved-modal__body swbDialog__msg payments-history-modal__body">
           <div class="article-saved-modal__search article-search client-search">
             <div class="client-search__controls">
               <label class="client-search__field">

@@ -1323,7 +1323,7 @@
   width: min(70%, calc(100vw - 40px));
 }
 #articleSavedModal .article-saved-modal__panel {
-  width: min(1040px, calc(100vw - 40px));
+  width: min(90%, calc(100vw - 40px));
 }
 #clientSavedModal .client-saved-modal__panel,
 #clientSavedModalNv .client-saved-modal__panel,
@@ -1345,12 +1345,21 @@
   gap:6px;
 }
 .swbDialog__panel.article-saved-modal__panel .article-saved-modal__body {
-  min-height: 420px;
+  min-height: 0;
+  height: 100%;
+  max-height: max-content;
+  overflow: hidden;
 }
 .swbDialog__panel.article-saved-modal__panel .article-saved-modal__list {
-  min-height: calc(3 * 132px + 2 * 14px);
-  max-height: calc(3 * 132px + 2 * 14px);
-  overflow-y: hidden;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  overflow-y: auto;
+}
+#articleSavedModal .article-saved-modal__status {
+  flex: 0 0 auto;
+  width: 100%;
+  margin-top: 8px;
 }
 .swbDialog__panel.client-saved-modal__panel .client-saved-modal__body {
   min-height: 420px;
