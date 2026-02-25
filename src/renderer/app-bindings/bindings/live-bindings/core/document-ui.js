@@ -989,6 +989,7 @@
             const setArticleFormPopoverMode = (ctx, mode = "default") => {
               if (!ctx?.popover) return;
               ctx.popover.dataset.articleFormMode = mode;
+              ctx.popover.dataset.mode = mode === "view" ? "preview" : "edit";
               if (mode !== "edit") delete ctx.popover.dataset.itemEditIndex;
               const saveBtn = ctx.popover.querySelector("#btnSaveArticle");
               const addBtn = ctx.popover.querySelector("#btnAddArticleFromPopover");
@@ -1003,7 +1004,7 @@
               const useQuickAddActions = !isEdit && ctx.toggle?.id === "articleFormToggleBtn";
               ctx.popover.dataset.articleActionMode = useQuickAddActions ? "add-save" : "default";
               if (rightActionsGroup) {
-                const hideRightActions = isViewMode && !useQuickAddActions;
+                const hideRightActions = isViewMode;
                 rightActionsGroup.hidden = hideRightActions;
                 rightActionsGroup.setAttribute("aria-hidden", hideRightActions ? "true" : "false");
               }
@@ -1069,7 +1070,7 @@
                   body.removeAttribute("inert");
                   body.removeAttribute("aria-disabled");
                 }
-                const formControls = body.querySelectorAll("input, textarea, select, button");
+                const formControls = body.querySelectorAll("input, textarea, select, button, summary");
                 formControls.forEach((control) => {
                   if (!(control instanceof HTMLElement)) return;
                   if (isViewMode) {
@@ -1079,11 +1080,17 @@
                     if ("readOnly" in control && control.dataset.articleReadonlyPrevReadonly === undefined) {
                       control.dataset.articleReadonlyPrevReadonly = control.readOnly ? "1" : "0";
                     }
+                    if (control.dataset.articleReadonlyPrevTabindex === undefined) {
+                      control.dataset.articleReadonlyPrevTabindex = control.hasAttribute("tabindex")
+                        ? String(control.getAttribute("tabindex") ?? "")
+                        : "__none__";
+                    }
                     if ("readOnly" in control) {
                       control.readOnly = true;
                     }
-                    control.disabled = true;
-                    control.setAttribute("aria-disabled", "true");
+                    control.disabled = false;
+                    control.setAttribute("tabindex", "-1");
+                    control.setAttribute("aria-disabled", "false");
                     return;
                   }
                   if (control.dataset.articleReadonlyPrevDisabled !== undefined) {
@@ -1094,8 +1101,20 @@
                     control.readOnly = control.dataset.articleReadonlyPrevReadonly === "1";
                     delete control.dataset.articleReadonlyPrevReadonly;
                   }
+                  if (control.dataset.articleReadonlyPrevTabindex !== undefined) {
+                    const prevTabindex = control.dataset.articleReadonlyPrevTabindex;
+                    if (prevTabindex === "__none__") {
+                      control.removeAttribute("tabindex");
+                    } else {
+                      control.setAttribute("tabindex", prevTabindex);
+                    }
+                    delete control.dataset.articleReadonlyPrevTabindex;
+                  }
                   control.setAttribute("aria-disabled", control.disabled ? "true" : "false");
                 });
+              }
+              if (SEM.stockWindow?.syncUi) {
+                SEM.stockWindow.syncUi(ctx.popover);
               }
               if (typeof SEM?.refreshArticleUpdateButton === "function") {
                 SEM.refreshArticleUpdateButton(ctx.popover);

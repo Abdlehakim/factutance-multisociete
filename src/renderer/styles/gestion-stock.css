@@ -1,0 +1,375 @@
+#articleFormPopover {
+  --article-modal-min-h: clamp(520px, 68vh, 620px);
+  min-height: var(--article-modal-min-h);
+  display: flex;
+  flex-direction: column;
+}
+
+#articleFormPopover .article-form-modal__panel {
+  min-height: var(--article-modal-min-h);
+  max-height: min(90vh, calc(100vh - 24px));
+  display: flex;
+  flex-direction: column;
+}
+
+#articleFormPopover .swbDialog__header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+}
+
+#articleFormPopover .swbDialog__tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+
+#articleFormPopover .swbDialog__tab {
+  appearance: none;
+  border: 1px solid #caddff;
+  background: #ffffff;
+  color: #15335e;
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  min-height: 30px;
+  cursor: pointer;
+  flex: 0 0 auto;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+#articleFormPopover .swbDialog__tab.is-active,
+#articleFormPopover .swbDialog__tab[aria-selected="true"] {
+  background: #15335e;
+  border-color: #15335e;
+  color: #ffffff;
+}
+
+#articleFormPopover .swbDialog__tab:focus-visible {
+  outline: 2px solid #93c5fd;
+  outline-offset: 2px;
+}
+
+#articleFormPopover .swbDialog__close {
+  margin-left: auto;
+}
+
+#articleFormPopover .swbDialog__body,
+#articleFormPopover .article-form-modal__body {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+#articleFormPopover .article-form-modal__tab-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 14px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+#articleFormPopover .article-form-modal__tab-panel--stock {
+  display: flex;
+  flex-direction: column;
+}
+
+#articleFormPopover .article-form-modal__tab-panel[hidden] {
+  display: none !important;
+}
+
+#articleFormPopover .article-stock-panel {
+  --swb-field-h: 42px;
+  width: 100%;
+  min-width: 0;
+}
+
+#articleFormPopover #addStockManagementPanel {
+  max-width: 1100px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+#articleFormPopover .article-form-modal__tab-panel--stock > #addStockManagementPanel {
+  margin-top: auto;
+  margin-bottom: auto;
+}
+
+#articleFormPopover .article-stock-panel__content {
+  display: grid;
+  gap: 14px;
+}
+
+#articleFormPopover .article-stock-panel__group {
+  display: grid;
+  gap: 10px;
+  padding-top: 14px;
+}
+
+#articleFormPopover .article-stock-panel__group:first-child {
+  padding-top: 0;
+  border-top: none;
+}
+
+#articleFormPopover .article-stock-panel__group-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+  letter-spacing: 0.01em;
+}
+
+#articleFormPopover .article-stock-panel__row {
+  gap: 12px 20px;
+}
+
+#articleFormPopover .article-stock-panel__toggle-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+#articleFormPopover .article-stock-panel__two-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  align-items: start;
+}
+
+#articleFormPopover .article-stock-panel__two-cols > .article-stock-panel__group {
+  position: relative;
+  padding: 18px 22px;
+}
+
+#articleFormPopover .article-stock-panel__two-cols > .article-stock-panel__group:last-child::before {
+  content: "";
+  position: absolute;
+  left: -10px;
+  top: 10px;
+  bottom: 10px;
+  width: 1px;
+  background: rgba(15, 23, 42, 0.12);
+}
+
+
+#articleFormPopover .article-stock-depot-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+}
+
+#articleFormPopover .article-stock-depot-filter > .label-text {
+  display: block;
+}
+
+#articleFormPopover .article-stock-depot-filter .doc-dialog-model-picker__field {
+  width: 100%;
+}
+
+#articleFormPopover .article-stock-depot-filter .field-toggle-menu {
+  width: 100%;
+}
+
+#articleFormPopover .article-stock-depot-filter .field-toggle-trigger {
+  height: var(--swb-field-h);
+  min-height: var(--swb-field-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0 12px;
+  border: 1px solid #caddff;
+  border-radius: 5px;
+  background: #fff;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1;
+  gap: 8px;
+}
+
+#articleFormPopover .article-stock-depot-filter .field-toggle-trigger:hover {
+  color: var(--text);
+  background: #fff;
+  border-color: #caddff;
+}
+
+#articleFormPopover .article-stock-depot-filter .field-toggle-menu:focus-within .field-toggle-trigger {
+  outline: none;
+  border-color: #15335e;
+  box-shadow: 0 0 0 2px rgba(21, 51, 94, 0.18);
+}
+
+#articleFormPopover #addStockDefaultDepotMenu[data-selected="true"] .field-toggle-trigger,
+#articleFormPopover #addStockDefaultLocationMenu[data-selected="true"] .field-toggle-trigger {
+  border-color: #9eb8e8;
+  background: #f6f9ff;
+}
+
+#articleFormPopover .article-stock-depot-filter .model-select-display {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  line-height: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#articleFormPopover #addStockDefaultDepotDisplay[data-selected="true"],
+#articleFormPopover #addStockDefaultLocationDisplay[data-selected="true"] {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+#articleFormPopover #addStockMin:not(:disabled),
+#articleFormPopover #addStockMax:not(:disabled) {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+#articleFormPopover #addStockMin::placeholder,
+#articleFormPopover #addStockMax::placeholder {
+  color: #64748b;
+  font-weight: 400;
+}
+
+#articleFormPopover .article-stock-depot-filter .field-toggle-trigger .chevron {
+  width: 18px;
+  height: 18px;
+  margin-left: 10px;
+  flex: 0 0 auto;
+  align-self: center;
+}
+
+#articleFormPopover .article-stock-depot-filter .field-toggle-menu[data-disabled="true"] .field-toggle-trigger {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+#articleFormPopover[data-mode="preview"] #addStockManagementPanel {
+  pointer-events: none;
+}
+
+#articleFormPopover[data-mode="preview"] #addStockManagementPanel :is(input, select, textarea, button, summary) {
+  cursor: default;
+}
+
+#articleFormPopover[data-mode="preview"] .swbDialog__group--right {
+  display: none !important;
+}
+
+#articleFormPopover[data-mode="preview"] #addStockManagementPanel .article-stock-panel__toggle-row,
+#articleFormPopover[data-mode="preview"] #addStockManagementPanel .article-stock-panel__toggle-row input[type="checkbox"],
+#articleFormPopover[data-mode="preview"] #addStockManagementPanel .field-toggle-menu,
+#articleFormPopover[data-mode="preview"] #addStockManagementPanel .field-toggle-trigger,
+#articleFormPopover[data-mode="preview"] #addStockManagementPanel .field-toggle-panel,
+#articleFormPopover[data-mode="preview"] #addStockManagementPanel .model-select-option {
+  pointer-events: none !important;
+}
+
+#articleFormPopover .article-stock-info-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+#articleFormPopover .article-stock-panel__toggle-row {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  margin: 0;
+  min-height: 38px;
+  white-space: nowrap;
+}
+
+#articleFormPopover .article-stock-panel__toggle-grid .article-stock-panel__toggle-row {
+  width: 100%;
+}
+
+#articleFormPopover .article-stock-panel__toggle-row .label-text {
+  white-space: nowrap;
+}
+
+#articleFormPopover .article-stock-panel__toggle-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  min-height: 16px;
+  margin: 0;
+  accent-color: var(--primary);
+}
+
+#articleFormPopover #addStockUnitDisplay,
+#articleFormPopover #addStockAvailableDisplay,
+#articleFormPopover #addStockTotalCostAchat,
+#articleFormPopover #addStockTotalValueVente {
+  color: #0f172a;
+  background-image: linear-gradient(135deg, #f8fafc, #e2e8f0);
+  border-color: #b6c0d5;
+  font-weight: 700;
+  cursor: default;
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+#articleFormPopover .article-stock-panel select:not(.doc-dialog-model-select),
+#articleFormPopover .article-stock-panel input {
+  width: 100%;
+}
+
+@media (max-width: 860px) {
+  #articleFormPopover .article-stock-panel__row.grid.two {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #articleFormPopover .article-stock-panel__toggle-row {
+    white-space: normal;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 900px) {
+  #articleFormPopover .article-stock-panel__two-cols {
+    grid-template-columns: 1fr;
+  }
+
+  #articleFormPopover .article-stock-panel__two-cols > .article-stock-panel__group:last-child::before {
+    content: none;
+  }
+}
+
+@media (max-width: 1100px) {
+  #articleFormPopover .article-stock-info-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  #articleFormPopover .article-stock-info-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  #articleFormPopover .swbDialog__tab {
+    min-width: 148px;
+  }
+}

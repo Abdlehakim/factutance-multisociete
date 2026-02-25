@@ -1,8 +1,11 @@
 import { renderClientFieldsSettingsModal } from "./clientFieldsSettingsModal.js";
 import { renderFournisseurFieldsSettingsModal } from "./fournisseurFieldsSettingsModal.js";
 import { renderFournisseurImportModal } from "./fournisseurImportModal.js";
+import { renderDepotMagasinImportModal } from "./depotMagasinImportModal.js";
+import { renderDepotMagasinExportModal } from "./depotMagasinExportModal.js";
 import { renderClientFormPopover } from "./clientFormPopover.js";
 import { renderFournisseurFormPopover } from "./fournisseurFormPopover.js";
+import { renderDepotMagasinFormPopover } from "./depot-magasin.js";
 
 const CLIENT_TABS_ROOT_SELECTOR = "[data-client-tabs]";
 const CLIENT_TAB_SELECTOR = "[data-client-tab]";
@@ -11,12 +14,14 @@ const CLIENT_TAB_ACTIVE_CLASS = "is-active";
 
 const CLIENT_TAB_PANEL_IDS = {
   clients: "clientBoxMainscreenClientsPanel",
-  fournisseurs: "clientBoxMainscreenFournisseursPanel"
+  fournisseurs: "clientBoxMainscreenFournisseursPanel",
+  depots: "clientBoxMainscreenDepotsPanel"
 };
 
 const CLIENT_TAB_ENTITY_TYPE = {
   clients: "client",
-  fournisseurs: "vendor"
+  fournisseurs: "vendor",
+  depots: "depot"
 };
 
 const renderClientPanel = () => `
@@ -226,6 +231,111 @@ const renderFournisseurPanel = () => `
   </div>
 `;
 
+const renderDepotMagasinPanel = () => `
+  <div class="grid two client-tabs__panel-grid">
+    <div class="full client-search">
+      <div class="client-search__controls">
+        <label class="client-search__field">
+          <input
+            id="depotMagasinSearch"
+            type="search"
+            placeholder="Nom du depot/magasin ou adresse"
+            autocomplete="off"
+          />
+          <button
+            id="depotMagasinSearchBtn"
+            type="button"
+            class="client-search__action"
+            aria-label="Rechercher un depot/magasin"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="6" />
+              <line x1="16.5" y1="16.5" x2="21" y2="21" stroke-linecap="round" />
+            </svg>
+          </button>
+        </label>
+        <button
+          id="depotMagasinSavedListBtn"
+          type="button"
+          class="client-search__saved"
+          aria-label="Afficher les depots/magasins"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="5" cy="6" r="1.5" />
+            <circle cx="5" cy="12" r="1.5" />
+            <circle cx="5" cy="18" r="1.5" />
+            <line x1="9" y1="6" x2="20" y2="6" stroke-linecap="round" />
+            <line x1="9" y1="12" x2="20" y2="12" stroke-linecap="round" />
+            <line x1="9" y1="18" x2="20" y2="18" stroke-linecap="round" />
+          </svg>
+        </button>
+        <button
+          id="depotMagasinSettingsBtn"
+          type="button"
+          class="client-search__saved"
+          aria-label="Configurer les depots/magasins"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3" />
+            <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" />
+          </svg>
+        </button>
+        <button
+          id="depotMagasinImportBtn"
+          type="button"
+          class="client-search__saved client-search__saved--import"
+          aria-label="Importer des depots/magasins"
+          aria-haspopup="dialog"
+          aria-controls="depotMagasinImportModal"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 3v12" stroke-linecap="round" />
+            <path d="M8 7l4-4 4 4" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M5 14v4a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3v-4" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </button>
+        <button
+          id="depotMagasinExportBtn"
+          type="button"
+          class="client-search__saved client-search__saved--export"
+          aria-label="Exporter des depots/magasins"
+          aria-haspopup="dialog"
+          aria-controls="depotMagasinExportModal"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 21V9" stroke-linecap="round" />
+            <path d="M8 17l4 4 4-4" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M5 10V6a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v4" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </button>
+      </div>
+      <div id="depotMagasinSearchResults" class="client-search__results" hidden></div>
+      ${renderDepotMagasinFormPopover()}
+    </div>
+
+    <div class="full client-type-field doc-type-field">
+      <button
+        id="depotMagasinFormToggleBtn"
+        type="button"
+        class="doc-type-action-btn"
+        aria-label="Nouveau depot"
+        aria-haspopup="dialog"
+        aria-expanded="false"
+        aria-controls="depotMagasinFormPopover"
+      >
+        <span class="doc-type-action-icon" aria-hidden="true">
+          <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 24 24" height="200px" width="200px" xmlns="http://www.w3.org/2000/svg">
+            <path fill="none" d="M0 0h24v24H0z"></path>
+            <path d="m12 5.5 6 4.5v1c.7 0 1.37.1 2 .29V9l-8-6-8 6v12h7.68c-.3-.62-.5-1.29-.6-2H6v-9l6-4.5z"></path>
+            <path d="M18 13c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zm3 5.5h-2.5V21h-1v-2.5H15v-1h2.5V15h1v2.5H21v1z"></path>
+          </svg>
+        </span>
+        <span class="doc-type-action-label">Nouveau depot</span>
+      </button>
+    </div>
+  </div>
+`;
+
 const setScopeEntity = (root, tabValue) => {
   const entityType = CLIENT_TAB_ENTITY_TYPE[tabValue] || "client";
   root.dataset.activeClientTab = tabValue;
@@ -237,22 +347,25 @@ const setScopeEntity = (root, tabValue) => {
 
 const closeInactivePanelUi = (panel) => {
   if (!panel) return;
-  const toggleBtn = panel.querySelector("#clientFormToggleBtn");
+  const toggleBtn = panel.querySelector("#clientFormToggleBtn, #depotMagasinFormToggleBtn");
   if (toggleBtn) {
     toggleBtn.setAttribute("aria-expanded", "false");
   }
-  const popover = panel.querySelector("#clientFormPopover, #fournisseurFormPopover");
+  const popover = panel.querySelector(
+    "#clientFormPopover, #fournisseurFormPopover, #depotMagasinFormPopover"
+  );
   if (popover && !popover.hidden) {
     popover.classList.remove("is-open");
     popover.hidden = true;
     popover.setAttribute("hidden", "");
     popover.setAttribute("aria-hidden", "true");
   }
-  const results = panel.querySelector("#clientSearchResults");
-  if (results && !results.hidden) {
-    results.hidden = true;
-    results.setAttribute("hidden", "");
-  }
+  panel.querySelectorAll(".client-search__results").forEach((results) => {
+    if (!results.hidden) {
+      results.hidden = true;
+      results.setAttribute("hidden", "");
+    }
+  });
 };
 
 const applyTabState = (root, nextTab, { focus = false } = {}) => {
@@ -339,7 +452,7 @@ export function wireClientTabs(scope = document) {
 
 export function renderClientTabsList() {
   return `
-      <div class="client-tabs__list" role="tablist" aria-label="Clients et fournisseurs">
+      <div class="client-tabs__list" role="tablist" aria-label="Clients, fournisseurs et depots">
         <button
           type="button"
           class="client-tab is-active"
@@ -363,6 +476,18 @@ export function renderClientTabsList() {
           tabindex="-1"
         >
           Fournisseurs
+        </button>
+        <button
+          type="button"
+          class="client-tab"
+          data-client-tab="depots"
+          role="tab"
+          aria-selected="false"
+          aria-controls="${CLIENT_TAB_PANEL_IDS.depots}"
+          id="clientTabDepots"
+          tabindex="-1"
+        >
+          Depot/Magasin
         </button>
       </div>
   `;
@@ -396,7 +521,21 @@ export function renderClientTabs({ includeList = true } = {}) {
         ${renderFournisseurPanel()}
       </div>
 
+      <div
+        class="client-tab-panel"
+        data-client-panel="depots"
+        data-client-entity-type="depot"
+        id="${CLIENT_TAB_PANEL_IDS.depots}"
+        role="tabpanel"
+        aria-labelledby="clientTabDepots"
+        hidden
+      >
+        ${renderDepotMagasinPanel()}
+      </div>
+
       ${renderFournisseurImportModal()}
+      ${renderDepotMagasinImportModal()}
+      ${renderDepotMagasinExportModal()}
     </div>
   `;
 }

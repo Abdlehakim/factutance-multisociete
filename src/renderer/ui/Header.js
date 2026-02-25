@@ -187,6 +187,92 @@ export function renderHeader() {
           </div>
         </details>
       </div>
+      <div class="actions__alerts">
+          <button
+            id="clientSavedListHeaderBtn"
+            type="button"
+            class="client-search__saved stock-alerts__trigger"
+            title="Alertes stock"
+            aria-label="Afficher les alertes de stock"
+            aria-expanded="false"
+            aria-controls="stockAlertPopover"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+            </svg>
+            <span id="stockAlertBadge" class="stock-alerts__badge" hidden></span>
+          </button>
+          <div
+            id="stockAlertPopover"
+            class="stock-alerts"
+            role="dialog"
+            aria-modal="false"
+            hidden
+            aria-hidden="true"
+          >
+            <div class="stock-alerts__card">
+              <div class="stock-alerts__header">
+                <div class="stock-alerts__title">Alertes stock</div>
+                <p id="stockAlertStatus" class="stock-alerts__status" aria-live="polite">1 article en alerte.</p>
+              </div>
+              <ul id="stockAlertList" class="stock-alerts__list" role="list"></ul>
+              <div class="stock-alerts__pagination" id="stockAlertPagination">
+                <button
+                  type="button"
+                  class="stock-alerts__pager-btn"
+                  id="stockAlertPrev"
+                  aria-label="Page précédente"
+                  disabled
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                    focusable="false"
+                  >
+                    <polyline points="15 18 9 12 15 6"></polyline>
+                  </svg>
+                  Précedent
+                </button>
+                <div class="stock-alerts__pagination-status" id="stockAlertPageLabel">Page 1 / 1</div>
+                <button
+                  type="button"
+                  class="stock-alerts__pager-btn"
+                  id="stockAlertNext"
+                  aria-label="Page suivante"
+                >
+                  Suivant
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                    focusable="false"
+                  >
+                    <polyline points="9 18 15 12 9 6"></polyline>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       </header>
     <div id="pdfDocModal" class="swbDialog doc-history-modal pdf-doc-modal" hidden aria-hidden="true">
       <div
@@ -1179,5 +1265,3 @@ export function renderHeader() {
     </div>
   `);
 }
-
-

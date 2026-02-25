@@ -826,7 +826,8 @@
 #clientSavedModal,
 #clientSavedModalNv,
 #fournisseurSavedModal,
-#fournisseurSavedModalNv {
+#fournisseurSavedModalNv,
+#depotMagasinSavedModal {
   display: flex !important;
   align-items: center;
   justify-content: center;
@@ -846,6 +847,9 @@
 #fournisseurImportModal {
   z-index: 100004;
 }
+#depotMagasinImportModal {
+  z-index: 100004;
+}
 #docHistoryPurchaseImportModal {
   z-index: 100004;
 }
@@ -855,18 +859,23 @@
 #fournisseurExportModal {
   z-index: 100006;
 }
+#depotMagasinExportModal {
+  z-index: 100006;
+}
 
 #clientSavedModal[hidden],
 #clientSavedModalNv[hidden],
 #fournisseurSavedModal[hidden],
-#fournisseurSavedModalNv[hidden] {
+#fournisseurSavedModalNv[hidden],
+#depotMagasinSavedModal[hidden] {
   display: flex !important;
 }
 
 #clientSavedModal.is-open,
 #clientSavedModalNv.is-open,
 #fournisseurSavedModal.is-open,
-#fournisseurSavedModalNv.is-open {
+#fournisseurSavedModalNv.is-open,
+#depotMagasinSavedModal.is-open {
   opacity: 1;
   background-color: rgba(0, 0, 0, 0.35);
   pointer-events: auto;
@@ -874,7 +883,8 @@
 
 #clientSavedModal .client-saved-modal__panel,
 #fournisseurSavedModal .client-saved-modal__panel,
-#fournisseurSavedModalNv .client-saved-modal__panel {
+#fournisseurSavedModalNv .client-saved-modal__panel,
+#depotMagasinSavedModal .client-saved-modal__panel {
   transform-origin: center;
   will-change: transform, opacity;
   opacity: 0;
@@ -886,7 +896,8 @@
 #clientSavedModal.is-open .client-saved-modal__panel,
 #clientSavedModalNv.is-open .client-saved-modal__panel,
 #fournisseurSavedModal.is-open .client-saved-modal__panel,
-#fournisseurSavedModalNv.is-open .client-saved-modal__panel {
+#fournisseurSavedModalNv.is-open .client-saved-modal__panel,
+#depotMagasinSavedModal.is-open .client-saved-modal__panel {
   opacity: 1;
   transform: scale(1);
 }
@@ -896,10 +907,12 @@
   #clientSavedModalNv,
   #fournisseurSavedModal,
   #fournisseurSavedModalNv,
+  #depotMagasinSavedModal,
   #clientSavedModal .client-saved-modal__panel,
   #clientSavedModalNv .client-saved-modal__panel,
   #fournisseurSavedModal .client-saved-modal__panel,
-  #fournisseurSavedModalNv .client-saved-modal__panel {
+  #fournisseurSavedModalNv .client-saved-modal__panel,
+  #depotMagasinSavedModal .client-saved-modal__panel {
     transition: none;
   }
 }
@@ -1328,7 +1341,8 @@
 #clientSavedModal .client-saved-modal__panel,
 #clientSavedModalNv .client-saved-modal__panel,
 #fournisseurSavedModal .client-saved-modal__panel,
-#fournisseurSavedModalNv .client-saved-modal__panel {
+#fournisseurSavedModalNv .client-saved-modal__panel,
+#depotMagasinSavedModal .client-saved-modal__panel {
   width: min(1040px, calc(100vw - 40px));
 }
 .pdf-preview-modal__panel {

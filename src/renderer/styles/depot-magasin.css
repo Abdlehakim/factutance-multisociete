@@ -1,0 +1,181 @@
+#depotMagasinFormPopover {
+  position: fixed;
+  inset: auto;
+  left: 50%;
+  top: 50%;
+  width: 100vw;
+  height: 100vh;
+  transform: translate(-50vw, -50vh);
+  z-index: 100004;
+}
+
+#depotMagasinFormPopover .client-form-modal__panel {
+  width: min(880px, calc(100vw - 40px));
+  max-height: calc(100vh - 40px);
+  display: flex;
+  flex-direction: column;
+}
+
+#depotMagasinFormPopover .client-form-modal__body {
+  max-height: calc(100vh - 240px);
+  overflow: auto;
+}
+
+#depotMagasinFormPopover .client-form-modal__actions {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.depot-magasin-modal__row {
+  gap: 20px;
+}
+
+#depotMagasinFormPopover .depot-magasin-modal__row .add-item-field {
+  display: grid;
+  gap: 6px;
+}
+
+.depot-magasin-modal__emplacements {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+}
+
+.depot-magasin-modal__emplacements-head {
+  margin: 0;
+}
+
+.depot-magasin-modal__emplacements-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #0b1220;
+}
+
+.depot-magasin-modal__emplacements-hint {
+  margin: 0;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.depot-magasin-modal__emplacement-input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.depot-magasin-modal__emplacement-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.depot-magasin-modal__emplacement-add {
+  min-width: 96px;
+  min-height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.depot-magasin-modal__emplacements-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-content: flex-start;
+  min-height: 42px;
+  padding: 8px 10px;
+}
+
+.depot-magasin-modal__emplacement-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 4px 10px;
+  border: 1px solid #caddff;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.25;
+}
+
+.depot-magasin-modal__emplacement-chip-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.depot-magasin-modal__emplacement-chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.2);
+  color: #334155;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.depot-magasin-modal__emplacement-chip-remove:hover,
+.depot-magasin-modal__emplacement-chip-remove:focus-visible {
+  background: rgba(239, 68, 68, 0.18);
+  color: #b91c1c;
+  outline: none;
+}
+
+#clientBoxMainscreenDepotsPanel .client-search__results {
+  max-height: 340px;
+}
+
+#clientBoxMainscreenDepotsPanel .depot-magasin-search__option {
+  align-items: flex-start;
+}
+
+#clientBoxMainscreenDepotsPanel .depot-magasin-search__select {
+  min-height: 86px;
+}
+
+#clientBoxMainscreenDepotsPanel .depot-magasin-search__actions {
+  width: 170px;
+  flex: 0 0 170px;
+}
+
+@media (max-width: 900px) {
+  .depot-magasin-modal__emplacement-input-row {
+    grid-template-columns: 1fr;
+  }
+
+  .depot-magasin-modal__emplacement-add {
+    justify-self: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  #depotMagasinFormPopover .client-form-modal__panel {
+    width: calc(100vw - 24px);
+    max-height: calc(100vh - 24px);
+  }
+
+  #depotMagasinFormPopover .swbDialog__group--right {
+    flex-wrap: wrap;
+    white-space: normal;
+    justify-content: center;
+  }
+
+  #depotMagasinFormPopover .client-form-modal__actions {
+    justify-content: center;
+  }
+}

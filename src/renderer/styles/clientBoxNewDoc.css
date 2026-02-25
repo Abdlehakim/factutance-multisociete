@@ -47,6 +47,12 @@
   flex-direction: column;
 }
 
+#articleSavedModal #articleFormPopover .client-form-modal__panel,
+#articleFormPopover .client-form-modal__panel {
+  width: min(1240px, calc(100vw - 32px));
+  max-height: calc(100vh - 24px);
+}
+
 #clientBoxNewDoc #clientFormPopover .client-form-modal__body,
 #FournisseurBoxNewDoc #fournisseurFormPopover .client-form-modal__body,
 #clientSavedModal #clientFormPopover .client-form-modal__body,
@@ -58,6 +64,11 @@
   background: #f8fafc;
   max-height: calc(100vh - 240px);
   overflow: auto;
+}
+
+#articleSavedModal #articleFormPopover .client-form-modal__body,
+#articleFormPopover .client-form-modal__body {
+  max-height: calc(100vh - 196px);
 }
 
 #clientBoxNewDoc #clientFormPopover .client-form-modal__actions,

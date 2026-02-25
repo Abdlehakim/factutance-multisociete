@@ -2,6 +2,11 @@
   const SEM = (w.SEM = w.SEM || {});
   const MAP = () => SEM.consts?.FIELD_TOGGLE_MAP || {};
   const hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj || {}, key);
+  const getStockWindowApi = () =>
+    SEM.stockWindow && typeof SEM.stockWindow === "object" ? SEM.stockWindow : null;
+  const syncStockManagementUi = (scopeHint = null) =>
+    getStockWindowApi()?.syncUi?.(scopeHint);
+
   const DEFAULT_ARTICLE_FIELD_VISIBILITY = {
     ref: true,
     product: true,
@@ -54,6 +59,16 @@
     Object.keys(MAP()).forEach((key) => {
       use[key] = isEnabled(key);
     });
+    const stockPayload = getStockWindowApi()?.captureFromForm?.() || {};
+    const stockManagement =
+      stockPayload.stockManagement && typeof stockPayload.stockManagement === "object"
+        ? stockPayload.stockManagement
+        : {};
+    const stockAlert = !!(stockPayload.stockAlert ?? stockManagement.alertEnabled);
+    const stockMin = Number.isFinite(Number(stockPayload.stockMin))
+      ? Number(stockPayload.stockMin)
+      : 1;
+    const stockMax = stockPayload.stockMax ?? null;
     const fodecEnabled = !!getEl("addFodecEnabled")?.checked;
     const fodecRate = getNum("addFodecRate",1);
     const fodecTva = getNum("addFodecTva",19);
@@ -63,6 +78,9 @@
     return {
       ref:getStr("addRef"), product:getStr("addProduct"), desc:getStr("addDesc"),
       stockQty:getNum("addStockQty",0),
+      stockAlert,
+      stockMin,
+      stockMax,
       unit:getStr("addUnit"),
       purchasePrice:getNum("addPurchasePrice",0),
       purchaseTva:getNum("addPurchaseTva",0),
@@ -81,6 +99,7 @@
         rate:purchaseFodecRate,
         tva:purchaseFodecTva
       },
+      stockManagement,
       use
     };
   }
@@ -100,10 +119,12 @@
     if (purchaseFodecToggle) purchaseFodecToggle.checked = !!purchaseFodec.enabled;
     setVal("addPurchaseFodecRate", String(purchaseFodec.rate ?? 1));
     setVal("addPurchaseFodecTva", String(purchaseFodec.tva ?? 19));
+    getStockWindowApi()?.fillToForm?.(a);
     if (a.use && typeof a.use === "object") {
       Object.keys(MAP()).forEach((k) => typeof a.use[k] === "boolean" && setEnabled(k, a.use[k]));
       SEM.applyColumnHiding?.();
     }
+    syncStockManagementUi();
     SEM.updateAddFormTotals?.();
   }
   function pickSuggestedName(a = {}) {
@@ -139,7 +160,7 @@
 
   SEM.forms = {
     isEnabled, setEnabled,
-    captureArticleFromForm, fillArticleToForm, pickSuggestedName,
+    captureArticleFromForm, fillArticleToForm, pickSuggestedName, syncStockManagementUi,
     captureClientFromForm, fillClientToForm, safeClientName, pickSuggestedClientName,
   };
 })(window);

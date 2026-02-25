@@ -20,6 +20,8 @@
     desc: true,
     qty: true,
     unit: true,
+    emplacement: false,
+    observation: false,
     stockQty: true,
     purchasePrice: false,
     purchaseTva: false,
@@ -677,6 +679,13 @@
     "product",
     "desc",
     "stockQty",
+    "stockAlert",
+    "stockMin",
+    "stockMax",
+    "stockDefaultDepot",
+    "stockDefaultLocation",
+    "stockAllowNegative",
+    "stockBlockInsufficient",
     "purchasePrice",
     "purchaseTva",
     "unit",
@@ -700,15 +709,38 @@
     const num = Number(normalized);
     return Number.isFinite(num) ? String(num) : String(Number(fallback) || 0);
   };
+  const normalizeArticleSnapshotOptionalNumber = (value) => {
+    const normalized = String(value ?? "").replace(",", ".").trim();
+    if (!normalized) return "";
+    const num = Number(normalized);
+    return Number.isFinite(num) ? String(num) : "";
+  };
   const sanitizeArticleFormSnapshot = (article = {}, pathHint = "") => {
     const fodec = article?.fodec && typeof article.fodec === "object" ? article.fodec : {};
     const purchaseFodec =
       article?.purchaseFodec && typeof article.purchaseFodec === "object" ? article.purchaseFodec : {};
+    const stockManagement =
+      article?.stockManagement && typeof article.stockManagement === "object" ? article.stockManagement : {};
+    const stockMinResolved = stockManagement?.min ?? article?.stockMin;
+    const stockMaxResolved = stockManagement?.max ?? article?.stockMax;
+    const stockAlertResolved = !!(
+      stockManagement?.alertEnabled ??
+      article?.stockAlert ??
+      article?.stockMinAlert
+    );
     return {
       ref: normalizeArticleSnapshotText(article?.ref),
       product: normalizeArticleSnapshotText(article?.product),
       desc: normalizeArticleSnapshotText(article?.desc),
       stockQty: normalizeArticleSnapshotNumber(article?.stockQty, 0),
+      stockAlert: stockAlertResolved ? "1" : "0",
+      stockMin: normalizeArticleSnapshotNumber(stockMinResolved, 1),
+      stockMax: normalizeArticleSnapshotOptionalNumber(stockMaxResolved),
+      stockDefaultDepot: normalizeArticleSnapshotText(stockManagement?.defaultDepot),
+      stockDefaultLocation: normalizeArticleSnapshotText(stockManagement?.defaultLocation),
+      stockAllowNegative: stockManagement?.allowNegative ? "1" : "0",
+      stockBlockInsufficient:
+        stockManagement?.blockInsufficient && !stockManagement?.allowNegative ? "1" : "0",
       purchasePrice: normalizeArticleSnapshotNumber(article?.purchasePrice, 0),
       purchaseTva: normalizeArticleSnapshotNumber(article?.purchaseTva, 0),
       unit: normalizeArticleSnapshotText(article?.unit),
@@ -741,17 +773,28 @@
       captured.tva = salesTvaFromForm;
       return captured;
     }
+    const stockPayload = SEM.stockWindow?.captureFromForm?.() || {};
+    const stockManagement =
+      stockPayload.stockManagement && typeof stockPayload.stockManagement === "object"
+        ? stockPayload.stockManagement
+        : {};
     return {
       ref: getStr("addRef"),
       product: getStr("addProduct"),
       desc: getStr("addDesc"),
       stockQty: getNum("addStockQty", 0),
+      stockAlert: !!(stockPayload.stockAlert ?? stockManagement.alertEnabled),
+      stockMin: Number.isFinite(Number(stockPayload.stockMin))
+        ? Number(stockPayload.stockMin)
+        : 1,
+      stockMax: stockPayload.stockMax ?? null,
       purchasePrice: purchasePriceFromForm,
       purchaseTva: purchaseTvaFromForm,
       unit: getStr("addUnit"),
       price: salesPriceFromForm,
       tva: salesTvaFromForm,
       discount: getNum("addDiscount", 0),
+      stockManagement,
       fodec: {
         enabled: !!getEl("addFodecEnabled")?.checked,
         label: "FODEC",
@@ -1813,6 +1856,8 @@
     setVal("addPurchaseFodecRate", String(defaults.purchaseFodec.rate));
     setVal("addPurchaseFodecTva", String(defaults.purchaseFodec.tva));
     setVal("addPurchaseFodecAmount","0");
+    if (SEM.stockWindow?.clearForm) SEM.stockWindow.clearForm();
+    SEM.forms?.syncStockManagementUi?.();
     if (typeof SEM.updateAddFormTotals === "function") SEM.updateAddFormTotals();
     SEM.markItemFormDirty?.(false);
   };
@@ -1837,6 +1882,8 @@
     if (purchaseFodecToggle) purchaseFodecToggle.checked = !!purchaseFodec.enabled;
     setVal("addPurchaseFodecRate", String(purchaseFodec.rate ?? 1));
     setVal("addPurchaseFodecTva", String(purchaseFodec.tva ?? 19));
+    SEM.stockWindow?.fillToForm?.(it);
+    SEM.forms?.syncStockManagementUi?.();
     if (typeof SEM.updateAddFormTotals === "function") SEM.updateAddFormTotals();
     SEM.markItemFormDirty?.(false);
   };
@@ -1943,6 +1990,7 @@
       tva: salesTva,
       discount: getNum("addDiscount",0)
     };
+    SEM.stockWindow?.applyToItem?.(item);
     const fodecEnabled = !!getEl("addFodecEnabled")?.checked;
     const fodecLabel = state().meta?.addForm?.fodec?.label || "FODEC";
     item.fodec = {
@@ -2397,6 +2445,13 @@
       getEl("addProduct"),
       getEl("addDesc"),
       getEl("addStockQty"),
+      getEl("addStockAlert"),
+      getEl("addStockMin"),
+      getEl("addStockMax"),
+      getEl("addStockDefaultDepot"),
+      getEl("addStockDefaultLocation"),
+      getEl("addStockAllowNegative"),
+      getEl("addStockBlockInsufficient"),
       getEl("addUnit"),
       getEl("addPurchasePrice"),
       getEl("addPurchaseTva"),
@@ -2666,6 +2721,13 @@
         "addProduct",
         "addDesc",
         "addStockQty",
+        "addStockAlert",
+        "addStockMin",
+        "addStockMax",
+        "addStockDefaultDepot",
+        "addStockDefaultLocation",
+        "addStockAllowNegative",
+        "addStockBlockInsufficient",
         "addUnit",
         "addPurchasePrice",
         "addPurchaseTva",

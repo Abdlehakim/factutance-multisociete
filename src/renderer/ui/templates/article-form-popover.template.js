@@ -1,5 +1,160 @@
 const resolveId = (prefix, id) => (prefix ? `${prefix}-${id}` : id);
 
+const renderArticleStockPanel = ({ idPrefix = "", preview = false } = {}) => {
+  const id = (value) => resolveId(idPrefix, value);
+  const readOnlyNumberInput = preview ? " tabindex=\"-1\" aria-readonly=\"true\" disabled" : "";
+  const disabledAttr = preview ? " disabled tabindex=\"-1\" aria-disabled=\"true\"" : "";
+  const panelNumberDisabledAttr = preview ? readOnlyNumberInput : "";
+  const stockPickerDisabled = preview ? "true" : "false";
+  const stockPickerSelectDisabledAttr = preview ? " disabled" : "";
+
+  return `
+    <section
+      id="${id("addStockManagementPanel")}"
+      class="article-stock-panel"
+      data-stock-management-panel
+      data-stock-management-active="true"
+      aria-labelledby="${id("stockSettingsTitle")}"
+    >
+      <div class="article-stock-panel__content">
+        <div class="article-stock-panel__two-cols">
+          <section id="${id("stockParamsSection")}" class="article-stock-panel__group" aria-labelledby="${id("stockSettingsTitle")}">
+            <h4 id="${id("stockSettingsTitle")}" class="article-stock-panel__group-title">Param&egrave;tres stock</h4>
+            <div class="grid two article-stock-panel__row">
+              <label class="doc-history-modal__filter article-stock-depot-filter">
+                <span id="${id("addStockDefaultDepotLabel")}" class="label-text">D&eacute;p&ocirc;t/Magasin</span>
+                <div class="doc-dialog-model-picker__field">
+                  <details
+                    id="${id("addStockDefaultDepotMenu")}"
+                    class="field-toggle-menu doc-dialog-model-menu doc-history-model-menu"
+                    data-wired="1"
+                    data-disabled="${stockPickerDisabled}"
+                  >
+                    <summary
+                      class="btn success field-toggle-trigger"
+                      role="button"
+                      aria-haspopup="listbox"
+                      aria-expanded="false"
+                      aria-labelledby="${id("addStockDefaultDepotLabel")} ${id("addStockDefaultDepotDisplay")}"
+                      aria-disabled="${stockPickerDisabled}"
+                    >
+                      <span id="${id("addStockDefaultDepotDisplay")}" class="model-select-display">S&eacute;lectionner un d&eacute;p&ocirc;t</span>
+                      <svg class="chevron" aria-hidden="true" focusable="false" stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="none" d="M0 0h24v24H0V0z"></path><path d="M12 4c4.41 0 8 3.59 8 8s-3.59 8-8 8-8-3.59-8-8 3.59-8 8-8m0-2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 13-4-4h8z"></path></svg>
+                    </summary>
+                    <div
+                      class="field-toggle-panel model-select-panel doc-history-model-panel"
+                      id="${id("addStockDefaultDepotPanel")}"
+                      role="listbox"
+                      aria-labelledby="${id("addStockDefaultDepotLabel")}"
+                    ></div>
+                  </details>
+                  <select
+                    id="${id("addStockDefaultDepot")}"
+                    class="model-select doc-dialog-model-select"
+                    aria-hidden="true"
+                    tabindex="-1"
+                    aria-disabled="${stockPickerDisabled}"${stockPickerSelectDisabledAttr}
+                  >
+                  <option value="">S&eacute;lectionner un d&eacute;p&ocirc;t</option>
+                  </select>
+                </div>
+              </label>
+              <label class="doc-history-modal__filter article-stock-depot-filter article-stock-location-filter">
+                <span id="${id("addStockDefaultLocationLabel")}" class="label-text">Emplacement</span>
+                <div class="doc-dialog-model-picker__field">
+                  <details
+                    id="${id("addStockDefaultLocationMenu")}"
+                    class="field-toggle-menu doc-dialog-model-menu doc-history-model-menu"
+                    data-wired="1"
+                    data-disabled="${stockPickerDisabled}"
+                  >
+                    <summary
+                      class="btn success field-toggle-trigger"
+                      role="button"
+                      aria-haspopup="listbox"
+                      aria-expanded="false"
+                      aria-labelledby="${id("addStockDefaultLocationLabel")} ${id("addStockDefaultLocationDisplay")}"
+                      aria-disabled="${stockPickerDisabled}"
+                    >
+                      <span id="${id("addStockDefaultLocationDisplay")}" class="model-select-display">S&eacute;lectionner un emplacement</span>
+                      <svg class="chevron" aria-hidden="true" focusable="false" stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="none" d="M0 0h24v24H0V0z"></path><path d="M12 4c4.41 0 8 3.59 8 8s-3.59 8-8 8-8-3.59-8-8 3.59-8 8-8m0-2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 13-4-4h8z"></path></svg>
+                    </summary>
+                    <div
+                      class="field-toggle-panel model-select-panel doc-history-model-panel"
+                      id="${id("addStockDefaultLocationPanel")}"
+                      role="listbox"
+                      aria-labelledby="${id("addStockDefaultLocationLabel")}"
+                    ></div>
+                  </details>
+                  <select
+                    id="${id("addStockDefaultLocation")}"
+                    class="model-select doc-dialog-model-select"
+                    aria-hidden="true"
+                    tabindex="-1"
+                    aria-disabled="${stockPickerDisabled}"${stockPickerSelectDisabledAttr}
+                  >
+                    <option value="">S&eacute;lectionner un emplacement</option>
+                  </select>
+                </div>
+              </label>
+            </div>
+            <div class="grid two article-stock-panel__toggle-grid">
+              <label class="label-inline article-stock-panel__toggle-row" for="${id("addStockAllowNegative")}">
+                <input id="${id("addStockAllowNegative")}" type="checkbox"${disabledAttr} />
+                <span class="label-text">Autoriser stock n&eacute;gatif</span>
+              </label>
+              <label class="label-inline article-stock-panel__toggle-row" for="${id("addStockBlockInsufficient")}">
+                <input id="${id("addStockBlockInsufficient")}" type="checkbox" checked${disabledAttr} />
+                <span class="label-text">Bloquer sortie si stock insuffisant</span>
+              </label>
+            </div>
+          </section>
+
+          <section id="${id("stockAlertsSection")}" class="article-stock-panel__group" aria-labelledby="${id("stockAlertsTitle")}">
+            <h4 id="${id("stockAlertsTitle")}" class="article-stock-panel__group-title">Seuils &amp; alertes</h4>
+            <label class="label-inline article-stock-panel__toggle-row" for="${id("addStockAlert")}">
+              <input id="${id("addStockAlert")}" type="checkbox"${disabledAttr} />
+              <span class="label-text">Alerte stock</span>
+            </label>
+            <div class="grid two article-stock-panel__row">
+              <div class="add-item-field">
+                <label for="${id("addStockMin")}" class="label-text">Stock minimum</label>
+                <input id="${id("addStockMin")}" type="number" min="0" step="1" value="1"${panelNumberDisabledAttr} />
+              </div>
+              <div class="add-item-field">
+                <label for="${id("addStockMax")}" class="label-text">Stock maximum</label>
+                <input id="${id("addStockMax")}" type="number" min="0" step="1" placeholder="Optionnel"${panelNumberDisabledAttr} />
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <section class="article-stock-panel__group article-stock-panel__group--info" aria-labelledby="${id("stockInfoTitle")}">
+          <h4 id="${id("stockInfoTitle")}" class="article-stock-panel__group-title">Informations</h4>
+          <div class="article-stock-info-row">
+            <div class="add-item-field">
+              <label for="${id("addStockUnitDisplay")}" class="label-text">Unit&eacute; de stock</label>
+              <input id="${id("addStockUnitDisplay")}" value="" readonly tabindex="-1" aria-readonly="true" disabled />
+            </div>
+            <div class="add-item-field">
+              <label for="${id("addStockAvailableDisplay")}" class="label-text">Stock disponible</label>
+              <input id="${id("addStockAvailableDisplay")}" value="0" readonly tabindex="-1" aria-readonly="true" disabled />
+            </div>
+            <div class="add-item-field">
+              <label for="${id("addStockTotalCostAchat")}" class="label-text">Co&ucirc;t total de stock (Achat) (DT)</label>
+              <input id="${id("addStockTotalCostAchat")}" value="0.000" readonly tabindex="-1" aria-readonly="true" disabled />
+            </div>
+            <div class="add-item-field">
+              <label for="${id("addStockTotalValueVente")}" class="label-text">Valeur totale &agrave; la vente (DT)</label>
+              <input id="${id("addStockTotalValueVente")}" value="0.000" readonly tabindex="-1" aria-readonly="true" disabled />
+            </div>
+          </div>
+        </section>
+      </div>
+    </section>
+  `;
+};
+
 const renderArticleFormFields = ({ idPrefix = "", preview = false } = {}) => {
   const id = (value) => resolveId(idPrefix, value);
   const previewField = (key) => (preview ? ` data-article-preview-field="${key}"` : "");
@@ -156,15 +311,40 @@ const renderArticleFormFields = ({ idPrefix = "", preview = false } = {}) => {
 };
 
 export const renderArticleFormPopover = () => `
-  <div id="articleFormPopover" class="swbDialog client-form-modal article-form-modal" hidden aria-hidden="true">
+  <div id="articleFormPopover" class="swbDialog client-form-modal article-form-modal" data-mode="edit" hidden aria-hidden="true">
     <div
       class="swbDialog__panel client-form-modal__panel article-form-modal__panel"
       role="dialog"
       aria-modal="true"
-      aria-labelledby="articleFormPopoverTitle"
+      aria-label="Fiche article"
     >
       <div class="swbDialog__header">
-        <div id="articleFormPopoverTitle" class="swbDialog__title">Fiche article</div>
+        <div class="swbDialog__tabs" role="tablist" aria-label="Fiche article tabs">
+          <button
+            id="articleFormTabArticle"
+            type="button"
+            class="swbDialog__tab is-active"
+            role="tab"
+            aria-selected="true"
+            aria-controls="articleFormTabPanelArticle"
+            data-article-tab="article"
+            tabindex="0"
+          >
+            Fiche article
+          </button>
+          <button
+            id="articleFormTabStock"
+            type="button"
+            class="swbDialog__tab"
+            role="tab"
+            aria-selected="false"
+            aria-controls="articleFormTabPanelStock"
+            data-article-tab="stock"
+            tabindex="-1"
+          >
+            Gestion du stock
+          </button>
+        </div>
         <button
           type="button"
           class="swbDialog__close"
@@ -177,8 +357,27 @@ export const renderArticleFormPopover = () => `
           </svg>
         </button>
       </div>
-      <div class="client-form-modal__body article-form-modal__body swbDialog__msg">
-        ${renderArticleFormFields()}
+      <div class="client-form-modal__body article-form-modal__body swbDialog__msg" data-stock-management-layout data-stock-management-active="true">
+        <section
+          id="articleFormTabPanelArticle"
+          class="article-form-modal__tab-panel article-form-modal__tab-panel--article is-active"
+          role="tabpanel"
+          aria-labelledby="articleFormTabArticle"
+          data-article-modal-panel="article"
+        >
+          ${renderArticleFormFields()}
+        </section>
+        <section
+          id="articleFormTabPanelStock"
+          class="article-form-modal__tab-panel article-form-modal__tab-panel--stock"
+          role="tabpanel"
+          aria-labelledby="articleFormTabStock"
+          data-article-modal-panel="stock"
+          hidden
+          aria-hidden="true"
+        >
+          ${renderArticleStockPanel()}
+        </section>
       </div>
       <div class="client-form-modal__actions swbDialog__actions">
         <div class="swbDialog__group swbDialog__group--left">
