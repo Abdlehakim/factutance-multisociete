@@ -1,8 +1,8 @@
 module.exports = {
   groups: [
   {
-    "id": "group-2026-02-24",
-    "name": "Group 2026-02-24",
+    "id": "WELLCOMGROUP",
+    "name": "WELLCOM GROUP",
     "companies": [
       "WELLCOM",
       "ProDisplay"
