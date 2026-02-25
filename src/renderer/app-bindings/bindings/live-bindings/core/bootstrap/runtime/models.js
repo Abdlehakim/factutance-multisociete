@@ -160,6 +160,55 @@
           setModelNotePlaceholder = (value) => {
             modelNotePlaceholderEnabled = !!value;
           };
+          const whPdfNoteComponent = SEM.__whPdfNoteComponent || {};
+          const whNoteLexicalModal = SEM.__whNoteLexicalModal || {};
+          const initModalWhNoteEditor = () => {
+            const onChange = () => {
+              if (typeof scheduleModelPreviewUpdate === "function") scheduleModelPreviewUpdate();
+            };
+            const lexicalApi = SEM.__whNoteLexicalModal || whNoteLexicalModal;
+            if (typeof lexicalApi.mount === "function") {
+              lexicalApi.mount({ onChange });
+              return;
+            }
+            if (typeof whPdfNoteComponent.initGroup !== "function") return;
+            whPdfNoteComponent.initGroup("modal", { state, onChange });
+          };
+          const destroyModalWhNoteEditor = () => {
+            const lexicalApi = SEM.__whNoteLexicalModal || whNoteLexicalModal;
+            if (typeof lexicalApi.unmount === "function") {
+              lexicalApi.unmount();
+              return;
+            }
+            if (typeof whPdfNoteComponent.destroyGroup !== "function") return;
+            whPdfNoteComponent.destroyGroup("modal");
+          };
+          let modalWhNoteMountFrameA = 0;
+          let modalWhNoteMountFrameB = 0;
+          const cancelModalWhNoteMount = () => {
+            if (modalWhNoteMountFrameA && typeof cancelAnimationFrame === "function") {
+              cancelAnimationFrame(modalWhNoteMountFrameA);
+            }
+            if (modalWhNoteMountFrameB && typeof cancelAnimationFrame === "function") {
+              cancelAnimationFrame(modalWhNoteMountFrameB);
+            }
+            modalWhNoteMountFrameA = 0;
+            modalWhNoteMountFrameB = 0;
+          };
+          const scheduleModalWhNoteMount = () => {
+            cancelModalWhNoteMount();
+            const raf = typeof requestAnimationFrame === "function"
+              ? requestAnimationFrame
+              : (cb) => setTimeout(cb, 16);
+            modalWhNoteMountFrameA = raf(() => {
+              modalWhNoteMountFrameA = 0;
+              modalWhNoteMountFrameB = raf(() => {
+                modalWhNoteMountFrameB = 0;
+                if (!modelActionsOpen || !modelActionsModal || modelActionsModal.hidden) return;
+                initModalWhNoteEditor();
+              });
+            });
+          };
           const footerNoteComponent = SEM.__footerNoteComponent || {};
           const FOOTER_NOTE_FONT_SIZES =
             Array.isArray(footerNoteComponent.FONT_SIZES) && footerNoteComponent.FONT_SIZES.length
@@ -1243,10 +1292,13 @@
                 modelActionsModal.removeAttribute("hidden");
                 modelActionsModal.setAttribute("aria-hidden", "false");
                 modelActionsModal.classList.add("is-open");
+                scheduleModalWhNoteMount();
                 if (!wasOpen) {
                   resetModelStepperFlow();
                 }
               } else {
+                cancelModalWhNoteMount();
+                destroyModalWhNoteEditor();
                 modelActionsModal.classList.remove("is-open");
                 modelActionsModal.hidden = true;
                 modelActionsModal.setAttribute("hidden", "");

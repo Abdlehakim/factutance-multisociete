@@ -243,7 +243,7 @@
       getEl("reglementDays")?.addEventListener("input", syncReglementDays);
       syncReglementDays();
       if (typeof whPdfNoteComponent.wireAll === "function") {
-        whPdfNoteComponent.wireAll("all", {
+        whPdfNoteComponent.wireAll("main", {
           state,
           onChange: () => {
             if (typeof scheduleModelPreviewUpdate === "function") scheduleModelPreviewUpdate();

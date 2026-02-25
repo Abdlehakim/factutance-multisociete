@@ -4,6 +4,26 @@ export function renderWhPdfNoteSection(options = {}) {
   const group = isModal ? "modal" : "main";
   const boxId = isModal ? "whNoteBoxModal" : "whNoteBox";
   const labelId = `whNoteLabel${suffix}`;
+  const hiddenId = `whNote${suffix}`;
+  const mountId = isModal ? "whNoteLexicalRootModal" : "";
+
+  if (isModal) {
+    return `
+      <fieldset class="section-box wh-note-box wh-pdf-note-box" id="${boxId}">
+        <legend><span class="model-save-dot">Note (PDF)</span></legend>
+        <div class="full note-field" data-wh-note-group="${group}">
+          <div class="note-field-label" id="${labelId}">Message affiche sous le recapitulatif</div>
+          <div
+            id="${mountId}"
+            class="note-lexical-root"
+            aria-labelledby="${labelId}"
+            data-editor-engine="lexical"
+          ></div>
+          <textarea id="${hiddenId}" hidden></textarea>
+        </div>
+      </fieldset>
+    `;
+  }
 
   return `
     <fieldset class="section-box wh-note-box wh-pdf-note-box" id="${boxId}">
@@ -37,15 +57,13 @@ export function renderWhPdfNoteSection(options = {}) {
         <div
           id="whNoteEditor${suffix}"
           class="note-editor"
-          contenteditable="true"
-          role="textbox"
-          aria-multiline="true"
           aria-labelledby="${labelId}"
           data-placeholder="Texte libre pour le PDF"
           data-empty="true"
+          data-editor-engine="contenteditable"
           tabindex="0"
         ></div>
-        <textarea id="whNote${suffix}" hidden></textarea>
+        <textarea id="${hiddenId}" hidden></textarea>
       </div>
     </fieldset>
   `;

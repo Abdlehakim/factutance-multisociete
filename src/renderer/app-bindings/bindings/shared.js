@@ -133,6 +133,11 @@
     return { editors, hiddens, sizeSelects };
   };
 
+  const getWhNoteLexicalModalApi = () => {
+    const api = SEM.__whNoteLexicalModal || null;
+    return api && typeof api === "object" ? api : null;
+  };
+
   function cleanWhNoteEditor(editor) {
     if (!editor) return;
     const isEmptyText = (node) =>
@@ -535,6 +540,15 @@
   }
   SEM.refreshInvoiceSummary = refreshInvoiceSummary;
 
+  const getWhNoteEditorHtml = (editor) => {
+    return editor?.innerHTML || "";
+  };
+
+  const setWhNoteEditorHtml = (editor, html = "") => {
+    if (!editor) return;
+    editor.innerHTML = html;
+  };
+
   function sanitizeWhNoteForEditor(raw = "") {
     if (typeof document === "undefined") return String(raw ?? "");
     const normalized = normalizeWhNoteFromEditor(String(raw ?? ""));
@@ -552,7 +566,39 @@
       .replace(/\n/g, "<br>");
     const container = document.createElement("div");
     container.innerHTML = normalizedHTML || "";
+
+    container.querySelectorAll("ol").forEach((list) => {
+      const items = Array.from(list.children || []).filter(
+        (child) => child?.nodeType === Node.ELEMENT_NODE && child.tagName?.toLowerCase() === "li"
+      );
+      if (!items.length) return;
+      const hasDataList = items.some((item) => item.hasAttribute("data-list"));
+      if (!hasDataList) return;
+      const isBulletList = items.every(
+        (item) => String(item.getAttribute("data-list") || "").toLowerCase() === "bullet"
+      );
+      items.forEach((item) => item.removeAttribute("data-list"));
+      if (!isBulletList) return;
+      const ul = document.createElement("ul");
+      while (list.firstChild) {
+        ul.appendChild(list.firstChild);
+      }
+      list.replaceWith(ul);
+    });
+    container.querySelectorAll("li[data-list]").forEach((item) => item.removeAttribute("data-list"));
+
     const allowed = new Set(["strong", "em", "ul", "ol", "li", "br", "span", "div"]);
+    const resolveNodeSize = (node) => {
+      if (!node || node.nodeType !== Node.ELEMENT_NODE) return null;
+      const direct = normalizeWhNoteFontSize(node.getAttribute("data-size"));
+      if (direct) return direct;
+      const inline = normalizeWhNoteFontSize(node.style?.fontSize || "");
+      if (inline) return inline;
+      if (node.classList?.contains("ql-size-small")) return 10;
+      if (node.classList?.contains("ql-size-large")) return 14;
+      if (node.classList?.contains("ql-size-huge")) return 14;
+      return null;
+    };
     const parts = [];
     const walk = (node) => {
       if (node.nodeType === Node.TEXT_NODE) {
@@ -566,7 +612,7 @@
       if (node.nodeType !== Node.ELEMENT_NODE) return;
       const tag = node.tagName.toLowerCase();
       if (tag === "span" || tag === "div") {
-        const size = normalizeWhNoteFontSize(node.getAttribute("data-size"));
+        const size = resolveNodeSize(node);
         if (!size) {
           const isBlock = WH_NOTE_BLOCK_TAGS.has(tag);
           if (isBlock) pushWhNoteBreak(parts);
@@ -687,7 +733,7 @@
       editor = getEl("whNoteEditor");
     }
     if (!editor) return;
-    const text = editor.textContent
+    const text = (editor.textContent || "")
       .replace(/\u00A0/g, " ")
       .replace(/\u200b/g, "")
       .trim();
@@ -711,15 +757,28 @@
     const group = opts.group || "main";
     const { editors, hiddens, sizeSelects } = getAllWhNoteNodes(group);
     if (!editors.length && !hiddens.length) return;
+    const rawValue = typeof value === "string" ? value : "";
+
+    if (group === "modal") {
+      const lexicalModalApi = getWhNoteLexicalModalApi();
+      if (typeof lexicalModalApi?.setContent === "function") {
+        hiddens.forEach((hidden) => {
+          hidden.value = rawValue;
+        });
+        lexicalModalApi.setContent(rawValue, { syncHidden: false, source: "shared-set" });
+        return;
+      }
+    }
+
     const sanitized = sanitizeWhNoteForEditor(value || "");
     const sizeMatch = sanitized.match(/data-size="(\d{1,3})"/);
     const resolvedSize = normalizeWhNoteFontSize(sizeMatch?.[1]) ?? WH_NOTE_DEFAULT_FONT_SIZE;
     editors.forEach((editor) => {
-      editor.innerHTML = sanitized;
+      setWhNoteEditorHtml(editor, sanitized);
       updateWhNotePlaceholder(editor);
     });
     hiddens.forEach((hidden) => {
-      hidden.value = typeof value === "string" ? value : "";
+      hidden.value = rawValue;
     });
     sizeSelects.forEach((select) => {
       select.value = String(resolvedSize);
@@ -759,14 +818,15 @@
     if (clean) cleanWhNoteEditor(editor);
     const sizeSelect = ctx.sizeSelect || sizeSelects[0];
     const preferredSize = normalizeWhNoteFontSize(sizeSelect?.value) ?? WH_NOTE_DEFAULT_FONT_SIZE;
-    const serialized = ensureWhNoteSizeWrapper(normalizeWhNoteFromEditor(editor.innerHTML), preferredSize);
+    const sourceHtml = getWhNoteEditorHtml(editor);
+    const serialized = ensureWhNoteSizeWrapper(normalizeWhNoteFromEditor(sourceHtml), preferredSize);
     hiddens.forEach((hidden) => {
       hidden.value = serialized;
     });
     if (group === "main" && state().meta?.withholding) state().meta.withholding.note = serialized;
     const sanitized = sanitizeWhNoteForEditor(serialized);
     editors.forEach((ed) => {
-      if (ed !== editor) ed.innerHTML = sanitized;
+      if (ed !== editor) setWhNoteEditorHtml(ed, sanitized);
       updateWhNotePlaceholder(ed);
     });
     sizeSelects.forEach((select) => {

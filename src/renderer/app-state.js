@@ -837,7 +837,9 @@
     }
     const noteValue = noteCandidates[0] || getStr("whNote", wh.note ?? "");
     wh.note      = noteValue;
-    if (typeof document !== "undefined" && document.querySelectorAll) {
+    if (typeof SEM.updateWhNoteEditor === "function") {
+      SEM.updateWhNoteEditor(noteValue, { group: "main" });
+    } else if (typeof document !== "undefined" && document.querySelectorAll) {
       const selection = typeof document.getSelection === "function" ? document.getSelection() : null;
       const activeEl = document.activeElement;
       const isEditing = (editor) => {
@@ -852,11 +854,12 @@
       });
       document.querySelectorAll("#whNoteEditor").forEach((editor) => {
         if (!editor) return;
-        // Avoid clobbering the caret while the user is typing inside the editor.
         if (!isEditing(editor) && editor.innerHTML !== (noteValue || "")) {
           editor.innerHTML = noteValue || "";
         }
-        const text = (editor.textContent || "").replace(/\u00a0/g, " ").trim();
+        const text = (editor.textContent || "")
+          .replace(/\u00a0/g, " ")
+          .trim();
         editor.dataset.empty = text ? "false" : "true";
       });
     }

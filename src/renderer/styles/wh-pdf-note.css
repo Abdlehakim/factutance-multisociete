@@ -56,6 +56,11 @@
   background: #e1ecff;
 }
 
+.wh-note-box.wh-pdf-note-box .note-tool.is-active {
+  background: #15335e;
+  color: #fff;
+}
+
 .wh-note-box.wh-pdf-note-box .note-tool em {
   font-style: italic;
 }

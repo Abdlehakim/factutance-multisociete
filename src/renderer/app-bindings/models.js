@@ -2195,7 +2195,9 @@
         const syncEditor = (editor, value) => {
           if (!editor) return;
           editor.innerHTML = value || "";
-          const text = (editor.textContent || "").replace(/\u00a0/g, " ").trim();
+          const text = (editor.textContent || "")
+            .replace(/\u00a0/g, " ")
+            .trim();
           editor.dataset.empty = text ? "false" : "true";
         };
         if (typeof SEM.updateWhNoteEditor === "function") {

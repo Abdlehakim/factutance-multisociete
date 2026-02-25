@@ -1,0 +1,51 @@
+.wh-note-box.wh-pdf-note-box .note-lexical-root {
+  display: block;
+}
+
+.wh-note-box.wh-pdf-note-box .note-lexical-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.wh-note-box.wh-pdf-note-box .note-editor.note-editor--lexical {
+  padding: 0;
+  position: relative;
+  pointer-events: auto;
+}
+
+.wh-note-box.wh-pdf-note-box .note-editor-lexical-body {
+  position: relative;
+  pointer-events: auto;
+}
+
+.wh-note-box.wh-pdf-note-box .lexical-note-editor {
+  min-height: 120px;
+  padding: 10px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  outline: none;
+  line-height: 1.35;
+  font-size: 12px;
+  cursor: text;
+  color: #0b1f3a;
+  caret-color: #0b1f3a;
+  pointer-events: auto;
+  user-select: text;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.wh-note-box.wh-pdf-note-box .lexical-note-placeholder {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.wh-note-box.wh-pdf-note-box .note-editor.note-editor--lexical[data-empty="true"]::before {
+  content: none;
+}
