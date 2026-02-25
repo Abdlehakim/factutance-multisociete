@@ -12,9 +12,16 @@
     "bs",
     "retenue"
   ];
+  const COMPANY_SWITCH_MIN_OVERLAY_MS = 5000;
+  const COMPANY_SWITCH_OVERLAY_UNTIL_KEY = "companySwitchOverlayUntil";
+  const COMPANY_SWITCH_OVERLAY_NAME_KEY = "companySwitchOverlayName";
   let initialized = false;
   let appReadyNotified = false;
   let companySwitchInProgress = false;
+
+  function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, Math.max(0, Number(ms) || 0)));
+  }
 
   function resolveBootOverlay() {
     if (typeof document === "undefined") return null;
@@ -58,27 +65,86 @@
     }
   }
 
-  function setCompanySwitchOverlayVisibility(visible, options = {}) {
-    const body = document.body;
-    if (!body) return;
-    const label = String(options?.label || "").trim();
-    if (visible) {
-      body.classList.add("company-switch-loading");
-      showBootOverlay(label || "Chargement de la societe...");
-    } else {
-      body.classList.remove("company-switch-loading");
-      if (companySwitchInProgress) hideBootOverlay();
+  function resolveCompanySwitchOverlay() {
+    if (typeof document === "undefined") return null;
+    return document.getElementById("companySwitchOverlay");
+  }
+
+  function setCompanySwitchOverlayLabel(value) {
+    const overlay = resolveCompanySwitchOverlay();
+    if (!overlay) return;
+    const textEl = overlay.querySelector(".company-switch-overlay__text");
+    if (!textEl) return;
+    const label = String(value || "").trim();
+    if (!label) return;
+    textEl.textContent = label;
+  }
+
+  function persistCompanySwitchOverlayState(untilTimestamp, displayName = "") {
+    try {
+      sessionStorage.setItem(COMPANY_SWITCH_OVERLAY_UNTIL_KEY, String(untilTimestamp));
+      if (displayName) sessionStorage.setItem(COMPANY_SWITCH_OVERLAY_NAME_KEY, displayName);
+      else sessionStorage.removeItem(COMPANY_SWITCH_OVERLAY_NAME_KEY);
+    } catch {
+      // ignore storage access errors
     }
+  }
+
+  function clearCompanySwitchOverlayState() {
+    try {
+      sessionStorage.removeItem(COMPANY_SWITCH_OVERLAY_UNTIL_KEY);
+      sessionStorage.removeItem(COMPANY_SWITCH_OVERLAY_NAME_KEY);
+    } catch {
+      // ignore storage access errors
+    }
+  }
+
+  function showCompanySwitchOverlay(displayName = "") {
+    const body = document.body;
+    if (body) body.classList.add("company-switch-loading");
+    const overlay = resolveCompanySwitchOverlay();
+    const label = String(displayName || "").trim();
+    if (label) {
+      setCompanySwitchOverlayLabel(`Chargement de ${label}...`);
+    } else {
+      setCompanySwitchOverlayLabel("Chargement de la societe...");
+    }
+    if (!overlay) return;
+    overlay.hidden = false;
+    overlay.setAttribute("aria-hidden", "false");
+    overlay.classList.add("is-visible");
+  }
+
+  function hideCompanySwitchOverlay() {
+    const body = document.body;
+    if (body) body.classList.remove("company-switch-loading");
+    const overlay = resolveCompanySwitchOverlay();
+    if (!overlay) return;
+    overlay.classList.remove("is-visible");
+    overlay.hidden = true;
+    overlay.setAttribute("aria-hidden", "true");
   }
 
   function beginCompanySwitchLoading(payload = {}) {
     companySwitchInProgress = true;
-    const label = String(payload?.label || "Chargement de la societe...").trim();
-    setCompanySwitchOverlayVisibility(true, { label });
+    const now = Date.now();
+    const label = String(payload?.label || "").trim();
+    persistCompanySwitchOverlayState(now + COMPANY_SWITCH_MIN_OVERLAY_MS, label);
+    showCompanySwitchOverlay(label);
+    return now;
   }
 
-  function endCompanySwitchLoading() {
-    setCompanySwitchOverlayVisibility(false);
+  async function endCompanySwitchLoading(startedAt = Date.now(), options = {}) {
+    if (!companySwitchInProgress) return;
+    if (options?.keepVisible === true) {
+      companySwitchInProgress = false;
+      return;
+    }
+    const elapsed = Date.now() - Number(startedAt || Date.now());
+    const remaining = COMPANY_SWITCH_MIN_OVERLAY_MS - elapsed;
+    if (remaining > 0) await sleep(remaining);
+    hideCompanySwitchOverlay();
+    clearCompanySwitchOverlayState();
     companySwitchInProgress = false;
   }
 
@@ -492,10 +558,15 @@
         switching = true;
         sel.disabled = true;
         if (trigger) trigger.setAttribute("aria-disabled", "true");
-        beginCompanySwitchLoading({
+        const switchOverlayStartedAt = beginCompanySwitchLoading({
           targetId: nextId,
-          label: `Chargement de ${selectedLabel}...`
+          label: selectedLabel
         });
+        let reloadTriggered = false;
+        const onBeforeUnload = () => {
+          reloadTriggered = true;
+        };
+        w.addEventListener("beforeunload", onBeforeUnload, { once: true });
 
         try {
           const switchFn =
@@ -509,6 +580,7 @@
           if (result && typeof result === "object" && result.ok === false) {
             throw new Error(String(result.error || "Unable to switch company"));
           }
+          if (reloadTriggered) return;
           const switchedCompanyId = normalizeCompanyId(
             result?.activeCompanyId || result?.activeCompany?.id || nextId
           ) || nextId;
@@ -538,10 +610,11 @@
             w.showToast(`Changement de societe impossible: ${errorMessage}`);
           }
         } finally {
+          w.removeEventListener("beforeunload", onBeforeUnload);
           switching = false;
           sel.disabled = false;
           if (trigger) trigger.removeAttribute("aria-disabled");
-          endCompanySwitchLoading();
+          await endCompanySwitchLoading(switchOverlayStartedAt, { keepVisible: reloadTriggered });
         }
       });
     } catch (err) {

@@ -98,6 +98,24 @@
         <p class="app-loader__text">Chargement de Facturance...</p>
       </div>
     </div>
+    <div
+      id="companySwitchOverlay"
+      class="company-switch-overlay"
+      role="status"
+      aria-live="polite"
+      aria-hidden="true"
+      hidden
+    >
+      <div class="app-loader__content company-switch-overlay__card">
+        <img src="./assets/icon.png" alt="Facturance" class="app-loader__logo" />
+        <div class="app-loader__dots" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+        <p class="app-loader__text company-switch-overlay__text">Chargement de la societe...</p>
+      </div>
+    </div>
     <div id="pdfRoot" aria-hidden="true" style="display: none"></div>
     <div class="app" id="app"></div>
     <script src="./config/branding.js"></script>
