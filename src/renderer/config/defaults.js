@@ -2,7 +2,7 @@
   const w = globalScope || {};
 
   const APP_NAME = "Facturance";
-  const APP_VERSION = "v2.2.0";
+  const APP_VERSION = "v2.2.1";
   const TODAY = new Date().toISOString().slice(0, 10);
   const DUE = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
 

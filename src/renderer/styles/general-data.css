@@ -262,6 +262,12 @@
   gap: 6px;
   min-height: 38px;
   height: 38px;
+  background: #edf2f1;
+  color: var(--primary);
+}
+#companyBox #companySwitchSelectMenu .field-toggle-trigger:hover {
+  background: var(--primary);
+  color: #ffffff;
 }
 #companyBox #companySwitchSelectPanel {
   position: absolute !important;
