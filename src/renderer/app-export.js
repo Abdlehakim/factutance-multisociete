@@ -1319,7 +1319,7 @@
       delete metaTarget.status;
     }
     if (!data.company && st.company && !st.company.logo) {
-      const headerLogoEl = document.getElementById("companyLogo");
+      const headerLogoEl = document.getElementById("facturanceLogo");
       const domLogo =
         headerLogoEl && headerLogoEl.dataset.logoState !== "empty"
           ? headerLogoEl.getAttribute("src") || ""
@@ -2849,3 +2849,4 @@
   window.previewXmlFileInModal = previewXmlFileInModal;
   window.invalidatePdfPreviewCache = invalidatePdfPreviewCache;
 })();
+

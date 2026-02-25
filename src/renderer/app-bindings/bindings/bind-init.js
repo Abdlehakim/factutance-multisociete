@@ -72,7 +72,7 @@
       const brandDisplay = `${appName}${appVer}${companyName ? ` ${companyName}` : ""}`;
       if (h1) h1.textContent = brandDisplay;
       try { if (document && brandDisplay) document.title = `${brandDisplay} - Gestionnaire de factures`; } catch {}
-      try { const img = document.getElementById("companyLogo"); if (img) img.alt = `Logo ${brandDisplay}`; } catch {}
+      try { const img = document.getElementById("facturanceLogo"); if (img) img.alt = `Logo ${brandDisplay}`; } catch {}
 
       const setLabelText = (id, text) => {
         const el = getEl(id);
@@ -404,3 +404,4 @@
 
   
 })(window);
+
