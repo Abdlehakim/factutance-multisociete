@@ -440,6 +440,210 @@
   width: 100%;
   max-width: 100%;
 }
+#articleSavedModal .client-search__option.article-saved-item {
+  display: block;
+  align-items: stretch;
+}
+#articleSavedModal .article-saved-modal__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 22px;
+  width: 100%;
+  min-width: 0;
+}
+#articleSavedModal .article-saved-modal__left {
+  flex: 1 1 0;
+  min-width: 0;
+}
+#articleSavedModal .article-saved-modal__left .client-search__select {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+#articleSavedModal .article-saved-modal__item-actions.article-saved-modal__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 180px;
+  flex: 0 0 180px;
+  align-items: center;
+  justify-content: center;
+}
+#articleSavedModal .article-saved-modal__item-actions.article-saved-modal__actions > * {
+  width: 160px;
+  height: 34px;
+  min-height: 34px;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+#articleSavedModal .article-saved-modal__stock-side {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+#articleSavedModal .article-saved-modal__stock-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+@media (max-width: 1240px) {
+  #articleSavedModal .article-saved-modal__row {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+  #articleSavedModal .article-saved-modal__left {
+    flex: 1 1 100%;
+  }
+  #articleSavedModal .article-saved-modal__item-actions.article-saved-modal__actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    min-width: 0;
+    flex: 0 1 auto;
+  }
+  #articleSavedModal .article-saved-modal__stock-side {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+#articleSavedModal .article-saved-modal__stock-controls.article-saved-modal__stock-actions,
+#articleSavedModal .article-saved-modal__stock-actions {
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 6px;
+  width: 232px;
+  min-width: 232px;
+}
+
+#articleSavedModal .article-saved-modal__stock-controls.article-saved-modal__stock-actions > *,
+#articleSavedModal .article-saved-modal__stock-actions > * {
+  width: 100%;
+}
+
+#articleSavedModal .article-saved-modal__stock-controls.article-saved-modal__stock-actions .client-search__stock-min,
+#articleSavedModal .article-saved-modal__stock-actions .client-search__stock-min {
+  display: flex;
+  gap: 10px;
+}
+
+#articleSavedModal .article-saved-modal__stock-controls.article-saved-modal__stock-actions .client-search__stock-field,
+#articleSavedModal .article-saved-modal__stock-actions .client-search__stock-field {
+  font-size: 9px;
+  gap: 3px;
+}
+
+#articleSavedModal .article-saved-modal__stock-controls.article-saved-modal__stock-actions .client-search__stock-field--toggle,
+#articleSavedModal .article-saved-modal__stock-actions .client-search__stock-field--toggle {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+#articleSavedModal .article-saved-modal__stock-controls.article-saved-modal__stock-actions .client-search__stock-label,
+#articleSavedModal .article-saved-modal__stock-actions .client-search__stock-label {
+  letter-spacing: 0.01em;
+}
+
+#articleSavedModal .article-saved-modal__stock-controls.article-saved-modal__stock-actions .client-search__stock-toggle,
+#articleSavedModal .article-saved-modal__stock-actions .client-search__stock-toggle {
+  width: 22px;
+  height: 22px;
+}
+
+#articleSavedModal .article-saved-modal__stock-controls.article-saved-modal__stock-actions .client-search__stock-input,
+#articleSavedModal .article-saved-modal__stock-controls.article-saved-modal__stock-actions .client-search__stock-select,
+#articleSavedModal .article-saved-modal__stock-actions .client-search__stock-input,
+#articleSavedModal .article-saved-modal__stock-actions .client-search__stock-select {
+  padding: 4px 6px;
+  font-size: 11px;
+}
+#articleSavedModal .article-saved-modal__stock-controls.article-saved-modal__stock-actions .client-search__stock-field--toggle,
+#articleSavedModal .article-saved-modal__stock-actions .client-search__stock-field--toggle,
+#articleSavedModal .article-saved-modal__stock-controls.article-saved-modal__stock-actions [data-stock-min-toggle],
+#articleSavedModal .article-saved-modal__stock-controls.article-saved-modal__stock-actions [data-stock-min-input],
+#articleSavedModal .article-saved-modal__stock-actions [data-stock-min-toggle],
+#articleSavedModal .article-saved-modal__stock-actions [data-stock-min-input] {
+  pointer-events: none;
+}
+#articleSavedModal .article-saved-modal__stock-controls.article-saved-modal__stock-actions [data-stock-min-toggle],
+#articleSavedModal .article-saved-modal__stock-controls.article-saved-modal__stock-actions [data-stock-min-input],
+#articleSavedModal .article-saved-modal__stock-actions [data-stock-min-toggle],
+#articleSavedModal .article-saved-modal__stock-actions [data-stock-min-input] {
+  cursor: default;
+}
+#articleSavedModal .article-saved-modal__stock-controls.article-saved-modal__stock-actions [data-stock-min-input][readonly],
+#articleSavedModal .article-saved-modal__stock-actions [data-stock-min-input][readonly] {
+  background: #ffffff;
+  color: #111827;
+}
+
+#articleSavedModal .article-saved-modal__stock-controls.article-saved-modal__stock-actions .client-search__stock-input--delta,
+#articleSavedModal .article-saved-modal__stock-actions .client-search__stock-input--delta {
+  min-width: 0;
+}
+
+#articleSavedModal .article-saved-modal__stock-controls.article-saved-modal__stock-actions .client-search__stock-qty-stepper,
+#articleSavedModal .article-saved-modal__stock-actions .client-search__stock-qty-stepper {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+#articleSavedModal .article-saved-modal__stock-controls.article-saved-modal__stock-actions .client-search__qty-buttons,
+#articleSavedModal .article-saved-modal__stock-actions .client-search__qty-buttons {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+}
+
+#articleSavedModal .article-saved-modal__stock-controls.article-saved-modal__stock-actions .client-search__qty-buttons > *,
+#articleSavedModal .article-saved-modal__stock-actions .client-search__qty-buttons > * {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 4px 6px;
+  font-size: 9px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+#articleSavedModal .article-saved-modal__stock-top .client-search__select-handle {
+  width: 22px;
+  height: 96px;
+  border-radius: 3px;
+  margin-left: 4px;
+  margin-right: 4px;
+}
+
+#articleSavedModal .article-saved-modal__stock-top .client-search__stock-badge {
+  flex: 0 0 72px;
+  width: 72px;
+  height: 72px;
+  border-radius: 8px;
+}
+
+@media (max-width: 640px) {
+  #articleSavedModal .article-saved-modal__stock-side {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  #articleSavedModal .article-saved-modal__item-actions.article-saved-modal__actions {
+    width: 100%;
+    justify-content: flex-start;
+    align-items: stretch;
+  }
+  #articleSavedModal .article-saved-modal__item-actions.article-saved-modal__actions > * {
+    width: 100%;
+  }
+  #articleSavedModal .article-saved-modal__stock-controls.article-saved-modal__stock-actions,
+  #articleSavedModal .article-saved-modal__stock-actions {
+    width: 100%;
+    min-width: 0;
+  }
+}
 .article-saved-item .client-search__stock-min {
   width: auto;
 }

@@ -2294,8 +2294,22 @@
                   "Article";
                 const priceValue = Number(article.price);
                 const tvaValue = Number(article.tva);
+                const stockQtyValue = Number(article.stockQty);
+                const stockMinValue = Number(article.stockMin ?? article.stock_min);
+                const stockAlertRaw = article.stockAlert ?? article.stock_alert ?? article.stockMinAlert;
                 const hasPrice = Number.isFinite(priceValue) && priceValue >= 0;
                 const hasTva = Number.isFinite(tvaValue) && tvaValue >= 0;
+                const hasStockQty = Number.isFinite(stockQtyValue) && stockQtyValue >= 0;
+                const hasStockMin = Number.isFinite(stockMinValue) && stockMinValue >= 0;
+                const stockQtyNormalized = hasStockQty ? normalizeStockQtyValue(stockQtyValue) : 0;
+                const stockQtyData = hasStockQty ? String(stockQtyNormalized) : "";
+                const stockMinNormalized = hasStockMin ? Math.round(stockMinValue) : 1;
+                const stockAlertActive = stockAlertRaw !== undefined ? !!stockAlertRaw : false;
+                const { level: stockMeterLevel, state: stockMeterState } = resolveStockMeterState(
+                  hasStockQty ? stockQtyNormalized : Number.NaN,
+                  stockMinNormalized,
+                  stockAlertActive
+                );
               const resolveFodec = (src = {}) => {
                 const f = src.fodec && typeof src.fodec === "object" ? src.fodec : {};
                 const rate = Number(
@@ -2333,6 +2347,12 @@
                   if (!Number.isFinite(value) || value < 0) return '<span class="client-search__empty">N.R.</span>';
                   return escapeHTML(value.toFixed(2));
                 };
+                const formatStockValue = (value) => {
+                  if (!Number.isFinite(value) || value < 0) return '<span class="client-search__empty">N.R.</span>';
+                  const normalized = normalizeStockQtyValue(value);
+                  const str = normalized.toFixed(3).replace(/\.?0+$/, "");
+                  return escapeHTML(str);
+                };
                 const formatTvaValue = (value) => {
                   if (!Number.isFinite(value) || value < 0) return '<span class="client-search__empty">N.R.</span>';
                   const formatted = Number.isInteger(value) ? value.toFixed(0) : value.toFixed(2);
@@ -2358,53 +2378,125 @@
                   `<button type="button" class="client-search__delete" data-article-saved-delete="${actualIndex}">Supprimer</button>`
                 );
                 row.innerHTML = `
-                  <button type="button" class="client-search__select client-search__select--detailed" data-article-saved-load="${actualIndex}">
-                      <div class="client-search__details-grid">
-                      <div class="client-search__details-row client-search__details-row--metrics client-search__details-row--name">
-                        <div class="client-search__detail client-search__detail--inline client-search__detail--name">
-                          <span class="client-search__detail-label">Désignation :</span>
-                          <span class="client-search__detail-value">${formatValue(title)}</span>
-                        </div>
-                        <div class="client-search__detail client-search__detail--inline">
-                          <span class="client-search__detail-label">R\u00E9f. :</span>
-                          <span class="client-search__detail-value">${formatValue(article.ref)}</span>
-                        </div>
+                  <div class="article-saved-modal__row article-saved-modal__content">
+                    <div class="article-saved-modal__left">
+                      <button type="button" class="client-search__select client-search__select--detailed" data-article-saved-load="${actualIndex}">
+                          <div class="client-search__details-grid">
+                          <div class="client-search__details-row client-search__details-row--metrics client-search__details-row--name">
+                            <div class="client-search__detail client-search__detail--inline client-search__detail--name">
+                              <span class="client-search__detail-label">Désignation :</span>
+                              <span class="client-search__detail-value">${formatValue(title)}</span>
+                            </div>
+                            <div class="client-search__detail client-search__detail--inline">
+                              <span class="client-search__detail-label">R\u00E9f. :</span>
+                              <span class="client-search__detail-value">${formatValue(article.ref)}</span>
+                            </div>
+                          </div>
+                          <div class="client-search__detail client-search__detail--inline client-search__detail--full client-search__detail--description">
+                            <span class="client-search__detail-label">Description :</span>
+                            <span class="client-search__detail-value">${formatValue(truncatedDesc)}</span>
+                          </div>
+                        <div class="client-search__details-row client-search__details-row--metrics">
+                            <div class="client-search__detail client-search__detail--inline">
+                              <span class="client-search__detail-label">TVA :</span>
+                              <span class="client-search__detail-value">${formatTvaValue(tvaValue)}</span>
+                            </div>
+                            <div class="client-search__detail client-search__detail--inline">
+                              <span class="client-search__detail-label">Taux FODEC :</span>
+                              <span class="client-search__detail-value">${formatFodecValue(fodecRateValue, hasFodecEnabled)}</span>
+                            </div>
+                            <div class="client-search__detail client-search__detail--inline">
+                              <span class="client-search__detail-label">FODEC TVA :</span>
+                              <span class="client-search__detail-value">${formatFodecValue(fodecTvaValue, hasFodecEnabled)}</span>
+                            </div>
+                          </div>
+                          <div class="client-search__details-row client-search__details-row--metrics">
+                            <div class="client-search__detail client-search__detail--inline">
+                              <span class="client-search__detail-label">P.U. HT :</span>
+                              <span class="client-search__detail-value">${formatPriceValue(priceValue)}</span>
+                            </div>
+                            <div class="client-search__detail client-search__detail--inline">
+                              <span class="client-search__detail-label">PRIX UNITAIRE TTC :</span>
+                              <span class="client-search__detail-value">${formatPriceValue(totalTtcValue)}</span>
+                            </div>
+                          </div>
                       </div>
-                      <div class="client-search__detail client-search__detail--inline client-search__detail--full client-search__detail--description">
-                        <span class="client-search__detail-label">Description :</span>
-                        <span class="client-search__detail-value">${formatValue(truncatedDesc)}</span>
-                      </div>
-                    <div class="client-search__details-row client-search__details-row--metrics">
-                        <div class="client-search__detail client-search__detail--inline">
-                          <span class="client-search__detail-label">TVA :</span>
-                          <span class="client-search__detail-value">${formatTvaValue(tvaValue)}</span>
-                        </div>
-                        <div class="client-search__detail client-search__detail--inline">
-                          <span class="client-search__detail-label">Taux FODEC :</span>
-                          <span class="client-search__detail-value">${formatFodecValue(fodecRateValue, hasFodecEnabled)}</span>
-                        </div>
-                        <div class="client-search__detail client-search__detail--inline">
-                          <span class="client-search__detail-label">FODEC TVA :</span>
-                          <span class="client-search__detail-value">${formatFodecValue(fodecTvaValue, hasFodecEnabled)}</span>
-                        </div>
-                      </div>
-                      <div class="client-search__details-row client-search__details-row--metrics">
-                        <div class="client-search__detail client-search__detail--inline">
-                          <span class="client-search__detail-label">P.U. HT :</span>
-                          <span class="client-search__detail-value">${formatPriceValue(priceValue)}</span>
-                        </div>
-                        <div class="client-search__detail client-search__detail--inline">
-                          <span class="client-search__detail-label">PRIX UNITAIRE TTC :</span>
-                          <span class="client-search__detail-value">${formatPriceValue(totalTtcValue)}</span>
-                        </div>
-                      </div>
+                    </button>
                   </div>
-                </button>
-                <div class="article-saved-modal__item-actions">
-                  ${actionButtons.join("\n                  ")}
+                  <div class="article-saved-modal__item-actions article-saved-modal__actions">
+                    ${actionButtons.join("\n                  ")}
+                  </div>
+                  <div class="article-saved-modal__stock-side">
+                    <div class="article-saved-modal__stock-top">
+                      <span
+                        class="client-search__select-handle"
+                        role="meter"
+                        aria-label="Niveau de stock"
+                        aria-valuemin="0"
+                        aria-valuemax="${STOCK_METER_MAX_LEVEL}"
+                        aria-valuenow="${stockMeterLevel}"
+                        data-stock-level="${stockMeterLevel}"
+                        data-stock-state="${stockMeterState}"
+                        data-stock-qty="${stockQtyData}"
+                      >
+                        <span class="sr-only">Stock level ${stockMeterLevel} of ${STOCK_METER_MAX_LEVEL}</span>
+                      </span>
+                      <span class="client-search__stock-badge" data-stock-state="${stockMeterState}">
+                        <span class="client-search__stock-badge-label">Stock</span>
+                        <span class="client-search__stock-badge-value" data-stock-qty-value="${stockQtyData}">
+                          ${formatStockValue(stockQtyValue)}
+                        </span>
+                      </span>
+                      <div class="article-saved-modal__stock-controls article-saved-modal__stock-actions">
+                        <div class="client-search__stock-min" data-stock-min-active="${stockAlertActive ? "true" : "false"}">
+                          <label class="client-search__stock-field client-search__stock-field--toggle">
+                            <input
+                              type="checkbox"
+                              class="client-search__stock-toggle"
+                              data-stock-min-toggle
+                              ${stockAlertActive ? "checked" : ""}
+                            />
+                            <span class="client-search__stock-label">Alerte stock</span>
+                          </label>
+                          <label class="client-search__stock-field">
+                            <span class="client-search__stock-label">Stock min.</span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              inputmode="numeric"
+                              class="client-search__stock-input"
+                              data-stock-min-input
+                              value="${stockMinNormalized}"
+                              ${stockAlertActive ? "" : "disabled"}
+                            />
+                          </label>
+                        </div>
+                        <div class="client-search__stock-qty-stepper">
+                          <label class="client-search__stock-field">
+                            <span class="client-search__stock-label">Quantite</span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              inputmode="numeric"
+                              class="client-search__stock-input client-search__stock-input--delta"
+                              data-stock-qty-delta
+                              value="1"
+                            />
+                          </label>
+                          <div class="client-search__qty-buttons">
+                            <button type="button" class="client-search__addSTK client-search__qty-btn client-search__qty-btn--add" data-stock-qty-inc>Ajouter au stock</button>
+                            <button type="button" class="client-search__edit client-search__qty-btn client-search__qty-btn--remove" data-stock-qty-dec>Retirer du stock</button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>`;
                 articleSavedModalList.appendChild(row);
               });
+              refreshStockMeters(articleSavedModalList);
             }
 
             if (articleSavedModalPage) {
@@ -2713,6 +2805,24 @@
           }
           if (articleSavedModalList) {
             articleSavedModalList.addEventListener("click", async (evt) => {
+              const stockIncBtn = evt.target.closest("[data-stock-qty-inc]");
+              const stockDecBtn = evt.target.closest("[data-stock-qty-dec]");
+              if (stockIncBtn || stockDecBtn) {
+                const option = (stockIncBtn || stockDecBtn).closest(".client-search__option");
+                if (!option) return;
+                const delta = getStockDeltaValue(option);
+                if (!delta) return;
+                const currentRaw =
+                  option.querySelector("[data-stock-qty-value]")?.dataset.stockQtyValue ??
+                  option.querySelector(".client-search__select-handle")?.dataset.stockQty ??
+                  "0";
+                const currentQty = normalizeStockQtyValue(currentRaw);
+                const nextQty = stockDecBtn ? Math.max(0, currentQty - delta) : currentQty + delta;
+                setOptionStockQty(option, nextQty);
+                updateStockMeterHandle(option);
+                await persistStockQty(option, nextQty);
+                return;
+              }
               const addBtn = evt.target.closest("[data-article-add]");
               if (addBtn) {
                 if (addBtn.disabled) return;
@@ -2819,6 +2929,12 @@
                   await showDialog?.(deleteError.text, { title: deleteError.title });
                 }
               }
+            });
+            articleSavedModalList.addEventListener("change", (evt) => {
+              handleArticleSearchResultsChange(evt, articleSavedModalList);
+            });
+            articleSavedModalList.addEventListener("input", (evt) => {
+              handleArticleSearchResultsInput(evt, articleSavedModalList);
             });
           }
 
