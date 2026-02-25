@@ -294,6 +294,79 @@
     email: ["companyEmailDisplay", "itemsCompanyEmail"],
     address: ["companyAddressDisplay", "itemsCompanyAddress"]
   };
+  const COMPANY_HEADER_IDS = {
+    subtitle: "companyHeaderSubtitle",
+    avatarImage: "companyHeaderAvatarImage",
+    avatarFallback: "companyHeaderAvatarFallback"
+  };
+
+  function computeCompanyInitials(name) {
+    const normalized = String(name || "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!normalized) return "FA";
+    const letters = normalized
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part.charAt(0).toUpperCase())
+      .join("");
+    return letters || "FA";
+  }
+
+  function buildCompanyHeaderSubtitle(company = {}) {
+    const vat = String(company.vat || "").trim();
+    const email = String(company.email || "").trim();
+    const phones = parseCompanyPhoneList(company.phone || "");
+    const firstPhone = String(phones[0] || "").trim();
+    if (vat && email) return { kind: "mf", value: `${vat} | ${email}` };
+    if (vat && firstPhone) return { kind: "mf", value: `${vat} | ${firstPhone}` };
+    if (vat) return { kind: "mf", value: vat };
+    if (email && firstPhone) return { kind: "plain", value: `${email} | ${firstPhone}` };
+    if (email) return { kind: "plain", value: email };
+    if (firstPhone) return { kind: "plain", value: firstPhone };
+    return { kind: "empty", value: "Renseignez les coordonnees de l'entreprise." };
+  }
+
+  function refreshCompanyHeader(company = {}) {
+    const subtitleEl = getEl(COMPANY_HEADER_IDS.subtitle);
+    if (subtitleEl) {
+      const subtitle = buildCompanyHeaderSubtitle(company);
+      subtitleEl.textContent = "";
+      if (subtitle.kind === "mf") {
+        const prefix = document.createElement("strong");
+        prefix.className = "company-header__subtitle-prefix";
+        prefix.textContent = "MF:";
+        subtitleEl.appendChild(prefix);
+        subtitleEl.appendChild(document.createTextNode(` ${subtitle.value}`));
+      } else {
+        subtitleEl.textContent = subtitle.value;
+      }
+      subtitleEl.classList.toggle("is-empty", subtitle.kind === "empty");
+    }
+
+    const avatarImageEl = getEl(COMPANY_HEADER_IDS.avatarImage);
+    const avatarFallbackEl = getEl(COMPANY_HEADER_IDS.avatarFallback);
+    const logoSrc = String(company.logo || "").trim();
+    const displayName = String(company.name || "").trim();
+    const initials = computeCompanyInitials(displayName);
+    if (avatarFallbackEl) {
+      avatarFallbackEl.textContent = initials;
+      avatarFallbackEl.hidden = !!logoSrc;
+    }
+    if (avatarImageEl) {
+      if (logoSrc) {
+        if (avatarImageEl.getAttribute("src") !== logoSrc) {
+          avatarImageEl.setAttribute("src", logoSrc);
+        }
+        avatarImageEl.alt = displayName ? `Logo ${displayName}` : "Logo entreprise";
+        avatarImageEl.hidden = false;
+      } else {
+        avatarImageEl.hidden = true;
+        avatarImageEl.removeAttribute("src");
+      }
+    }
+  }
 
   function refreshCompanySummary() {
     const company = state().company || {};
@@ -321,10 +394,17 @@
           if (row) row.hidden = !text;
           return;
         }
+        if (key === "name") {
+          const fallbackName = "Societe";
+          el.textContent = text || fallbackName;
+          el.classList.toggle("is-empty", !text);
+          return;
+        }
         el.textContent = text || "—";
         el.classList.toggle("is-empty", !text);
       });
     });
+    refreshCompanyHeader(company);
   }
   SEM.refreshCompanySummary = refreshCompanySummary;
 

@@ -94,8 +94,6 @@
           refreshCompanySummary();
         }));
       }
-
-      const companyQuickEditBtn = getEl("btnCompanyContactEdit");
       if (!SEM._companyContactModalInitialized) {
         SEM._companyContactModalInitialized = true;
         initCompanyContactModal();
