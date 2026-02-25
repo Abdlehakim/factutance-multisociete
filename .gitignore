@@ -43,6 +43,8 @@ desktop.ini
 *.swo
 *.orig
 
+
+.package-lock.json
 # Vercel local project folder (if you ever use the CLI)
 .vercel/
 # build-server
