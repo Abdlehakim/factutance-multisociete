@@ -64,6 +64,33 @@
       stockPayload.stockManagement && typeof stockPayload.stockManagement === "object"
         ? stockPayload.stockManagement
         : {};
+    const depots = Array.isArray(stockPayload.depots) ? stockPayload.depots : [];
+    const selectedDepotId = String(
+      stockPayload.selectedDepotId ?? stockManagement.selectedDepotId ?? stockManagement.defaultDepot ?? ""
+    ).trim();
+    const activeDepotId = String(
+      stockPayload.activeDepotId ?? selectedDepotId
+    ).trim();
+    const selectedEmplacements = (() => {
+      const sourceRaw =
+        stockPayload.selectedEmplacements ??
+        stockManagement.selectedEmplacements ??
+        stockManagement.defaultLocationIds ??
+        stockManagement.defaultLocationId ??
+        stockManagement.defaultLocation ??
+        [];
+      const source = Array.isArray(sourceRaw) ? sourceRaw : String(sourceRaw || "").trim() ? [sourceRaw] : [];
+      const seen = new Set();
+      return source
+        .map((entry) => String(entry || "").trim())
+        .filter((entry) => {
+          if (!entry) return false;
+          const key = entry.toLowerCase();
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+    })();
     const stockAlert = !!(stockPayload.stockAlert ?? stockManagement.alertEnabled);
     const stockMin = Number.isFinite(Number(stockPayload.stockMin))
       ? Number(stockPayload.stockMin)
@@ -100,6 +127,21 @@
         tva:purchaseFodecTva
       },
       stockManagement,
+      depots: depots.map((entry) => ({
+        id: String(entry?.id || "").trim(),
+        name: String(entry?.name || "").trim(),
+        linkedDepotId: String(entry?.linkedDepotId || "").trim(),
+        selectedLocationIds: Array.isArray(entry?.selectedLocationIds)
+          ? entry.selectedLocationIds.map((value) => String(value || "").trim()).filter(Boolean)
+          : [],
+        selectedEmplacementIds: Array.isArray(entry?.selectedEmplacementIds)
+          ? entry.selectedEmplacementIds.map((value) => String(value || "").trim()).filter(Boolean)
+          : [],
+        createdAt: String(entry?.createdAt || "").trim()
+      })).filter((entry) => entry.id),
+      selectedDepotId,
+      activeDepotId,
+      selectedEmplacements,
       use
     };
   }

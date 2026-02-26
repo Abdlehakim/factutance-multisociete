@@ -122,11 +122,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\Home\\Desktop\\factutance-multisociete\\tools\\teif-signer\\TeifSigner\\TeifSigner.csproj",
+      "projectUniqueName": "C:\\Users\\Home\\Desktop\\projectfacturance\\factutance-multisociete\\tools\\teif-signer\\TeifSigner\\TeifSigner.csproj",
       "projectName": "TeifSigner",
-      "projectPath": "C:\\Users\\Home\\Desktop\\factutance-multisociete\\tools\\teif-signer\\TeifSigner\\TeifSigner.csproj",
+      "projectPath": "C:\\Users\\Home\\Desktop\\projectfacturance\\factutance-multisociete\\tools\\teif-signer\\TeifSigner\\TeifSigner.csproj",
       "packagesPath": "C:\\Users\\Home\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\Home\\Desktop\\factutance-multisociete\\tools\\teif-signer\\TeifSigner\\obj\\",
+      "outputPath": "C:\\Users\\Home\\Desktop\\projectfacturance\\factutance-multisociete\\tools\\teif-signer\\TeifSigner\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\Home\\AppData\\Roaming\\NuGet\\NuGet.Config"

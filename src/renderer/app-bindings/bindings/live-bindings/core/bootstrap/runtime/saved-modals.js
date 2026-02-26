@@ -1398,6 +1398,139 @@
                       )
                     }
             };
+            const stockManagement =
+              source.stockManagement && typeof source.stockManagement === "object"
+                ? source.stockManagement
+                : {};
+            const depotsSource = Array.isArray(source.depots)
+              ? source.depots
+              : Array.isArray(stockManagement.depots)
+              ? stockManagement.depots
+              : [];
+            const depots = depotsSource
+              .map((entry) => ({
+                id: String(entry?.id || "").trim(),
+                name: String(entry?.name || entry?.label || "").trim(),
+                linkedDepotId: String(
+                  entry?.linkedDepotId ??
+                  entry?.depotDbId ??
+                  entry?.magasinId ??
+                  entry?.magasin_id ??
+                  ""
+                ).trim(),
+                selectedLocationIds: (() => {
+                  const sourceValue =
+                    entry?.selectedLocationIds ??
+                    entry?.selectedLocationId ??
+                    entry?.selectedEmplacementIds ??
+                    entry?.selectedEmplacements ??
+                    entry?.defaultLocationIds ??
+                    entry?.defaultLocationId ??
+                    entry?.defaultLocation ??
+                    [];
+                  const sourceRows = Array.isArray(sourceValue)
+                    ? sourceValue
+                    : String(sourceValue || "").trim()
+                    ? [sourceValue]
+                    : [];
+                  const seen = new Set();
+                  return sourceRows
+                    .map((value) => String(value || "").trim())
+                    .filter((value) => {
+                      if (!value) return false;
+                      const key = value.toLowerCase();
+                      if (seen.has(key)) return false;
+                      seen.add(key);
+                      return true;
+                    });
+                })(),
+                selectedEmplacementIds: (() => {
+                  const sourceValue =
+                    entry?.selectedEmplacementIds ??
+                    entry?.selectedLocationIds ??
+                    entry?.selectedEmplacements ??
+                    entry?.defaultLocationIds ??
+                    entry?.defaultLocationId ??
+                    entry?.defaultLocation ??
+                    [];
+                  const sourceRows = Array.isArray(sourceValue)
+                    ? sourceValue
+                    : String(sourceValue || "").trim()
+                    ? [sourceValue]
+                    : [];
+                  const seen = new Set();
+                  return sourceRows
+                    .map((value) => String(value || "").trim())
+                    .filter((value) => {
+                      if (!value) return false;
+                      const key = value.toLowerCase();
+                      if (seen.has(key)) return false;
+                      seen.add(key);
+                      return true;
+                    });
+                })(),
+                createdAt: String(entry?.createdAt || entry?.created_at || "").trim()
+              }))
+              .filter((entry) => entry.id);
+            const selectedDepotId = String(
+              source.activeDepotId ??
+              source.selectedDepotId ??
+              source.selected_depot_id ??
+              stockManagement.activeDepotId ??
+              stockManagement.selectedDepotId ??
+              stockManagement.defaultDepot ??
+              ""
+            ).trim();
+            const selectedEmplacements = (() => {
+              const sourceValue =
+                source.selectedEmplacements ??
+                source.selected_emplacements ??
+                stockManagement.selectedEmplacements ??
+                stockManagement.defaultLocationIds ??
+                stockManagement.defaultLocationId ??
+                stockManagement.defaultLocation ??
+                [];
+              const rows = Array.isArray(sourceValue)
+                ? sourceValue
+                : String(sourceValue || "").trim()
+                ? [sourceValue]
+                : [];
+              const seen = new Set();
+              return rows
+                .map((entry) => String(entry || "").trim())
+                .filter((entry) => {
+                  if (!entry) return false;
+                  const key = entry.toLowerCase();
+                  if (seen.has(key)) return false;
+                  seen.add(key);
+                  return true;
+                });
+            })();
+            if (depots.length) normalized.depots = depots;
+            if (selectedDepotId) normalized.selectedDepotId = selectedDepotId;
+            if (selectedDepotId) normalized.activeDepotId = selectedDepotId;
+            if (selectedEmplacements.length) normalized.selectedEmplacements = selectedEmplacements.slice();
+            if (stockManagement && typeof stockManagement === "object") {
+              normalized.stockManagement = {
+                ...stockManagement,
+                activeDepotId: String(stockManagement.activeDepotId || "").trim() || selectedDepotId || "",
+                defaultDepot:
+                  String(stockManagement.defaultDepot || "").trim() || selectedDepotId || ""
+              };
+              if (selectedEmplacements.length) {
+                normalized.stockManagement.defaultLocationIds = selectedEmplacements.slice();
+                normalized.stockManagement.selectedEmplacements = selectedEmplacements.slice();
+                normalized.stockManagement.defaultLocationId =
+                  String(normalized.stockManagement.defaultLocationId || "").trim() ||
+                  selectedEmplacements[0];
+                normalized.stockManagement.defaultLocation =
+                  String(normalized.stockManagement.defaultLocation || "").trim() ||
+                  selectedEmplacements[0];
+              }
+              if (depots.length && !Array.isArray(normalized.stockManagement.depots)) {
+                normalized.stockManagement.depots = depots.slice();
+              }
+            }
             const path = record.path || source.__articlePath || source.__path || source.path || "";
             if (path) normalized.__articlePath = path;
             return normalized;

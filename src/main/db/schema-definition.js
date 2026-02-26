@@ -299,6 +299,7 @@ const BASE_TABLE_DEFINITIONS = {
       ["stock_min", "REAL"],
       ["stock_alert", "INTEGER"],
       ["stock_default_depot_id", "TEXT"],
+      ["stock_depots_json", "TEXT"],
       ["stock_default_emplacement_id", "TEXT"],
       ["stock_allow_negative", "INTEGER NOT NULL DEFAULT 0"],
       ["stock_block_insufficient", "INTEGER NOT NULL DEFAULT 0"],

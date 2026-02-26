@@ -715,6 +715,31 @@
     const num = Number(normalized);
     return Number.isFinite(num) ? String(num) : "";
   };
+  const normalizeArticleSnapshotMultiText = (value) => {
+    const source = (() => {
+      if (Array.isArray(value)) return value;
+      const raw = String(value ?? "").trim();
+      if (!raw) return [];
+      if (raw.startsWith("[") && raw.endsWith("]")) {
+        try {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) return parsed;
+        } catch {}
+      }
+      return [raw];
+    })();
+    const seen = new Set();
+    return source
+      .map((entry) => String(entry ?? "").trim())
+      .filter((entry) => {
+        if (!entry) return false;
+        const key = entry.toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .join("|");
+  };
   const sanitizeArticleFormSnapshot = (article = {}, pathHint = "") => {
     const fodec = article?.fodec && typeof article.fodec === "object" ? article.fodec : {};
     const purchaseFodec =
@@ -728,6 +753,13 @@
       article?.stockAlert ??
       article?.stockMinAlert
     );
+    const stockDefaultLocationResolved =
+      article?.selectedEmplacements ??
+      stockManagement?.selectedEmplacements ??
+      stockManagement?.defaultLocationIds ??
+      stockManagement?.defaultLocationId ??
+      stockManagement?.defaultLocation ??
+      "";
     return {
       ref: normalizeArticleSnapshotText(article?.ref),
       product: normalizeArticleSnapshotText(article?.product),
@@ -737,7 +769,7 @@
       stockMin: normalizeArticleSnapshotNumber(stockMinResolved, 1),
       stockMax: normalizeArticleSnapshotOptionalNumber(stockMaxResolved),
       stockDefaultDepot: normalizeArticleSnapshotText(stockManagement?.defaultDepot),
-      stockDefaultLocation: normalizeArticleSnapshotText(stockManagement?.defaultLocation),
+      stockDefaultLocation: normalizeArticleSnapshotMultiText(stockDefaultLocationResolved),
       stockAllowNegative: stockManagement?.allowNegative ? "1" : "0",
       stockBlockInsufficient:
         stockManagement?.blockInsufficient && !stockManagement?.allowNegative ? "1" : "0",
@@ -778,6 +810,26 @@
       stockPayload.stockManagement && typeof stockPayload.stockManagement === "object"
         ? stockPayload.stockManagement
         : {};
+    const selectedEmplacements = (() => {
+      const sourceRaw =
+        stockPayload.selectedEmplacements ??
+        stockManagement.selectedEmplacements ??
+        stockManagement.defaultLocationIds ??
+        stockManagement.defaultLocationId ??
+        stockManagement.defaultLocation ??
+        [];
+      const source = Array.isArray(sourceRaw) ? sourceRaw : String(sourceRaw || "").trim() ? [sourceRaw] : [];
+      const seen = new Set();
+      return source
+        .map((entry) => String(entry || "").trim())
+        .filter((entry) => {
+          if (!entry) return false;
+          const key = entry.toLowerCase();
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+    })();
     return {
       ref: getStr("addRef"),
       product: getStr("addProduct"),
@@ -795,6 +847,32 @@
       tva: salesTvaFromForm,
       discount: getNum("addDiscount", 0),
       stockManagement,
+      depots: Array.isArray(stockPayload.depots)
+        ? stockPayload.depots.map((entry) => ({
+            id: String(entry?.id || "").trim(),
+            name: String(entry?.name || "").trim(),
+            linkedDepotId: String(entry?.linkedDepotId || "").trim(),
+            selectedLocationIds: Array.isArray(entry?.selectedLocationIds)
+              ? entry.selectedLocationIds.map((value) => String(value || "").trim()).filter(Boolean)
+              : [],
+            selectedEmplacementIds: Array.isArray(entry?.selectedEmplacementIds)
+              ? entry.selectedEmplacementIds.map((value) => String(value || "").trim()).filter(Boolean)
+              : [],
+            createdAt: String(entry?.createdAt || "").trim()
+          })).filter((entry) => entry.id)
+        : [],
+      selectedDepotId: String(
+        stockPayload.selectedDepotId ?? stockManagement.selectedDepotId ?? stockManagement.defaultDepot ?? ""
+      ).trim(),
+      activeDepotId: String(
+        stockPayload.activeDepotId ??
+          stockPayload.selectedDepotId ??
+          stockManagement.activeDepotId ??
+          stockManagement.selectedDepotId ??
+          stockManagement.defaultDepot ??
+          ""
+      ).trim(),
+      selectedEmplacements,
       fodec: {
         enabled: !!getEl("addFodecEnabled")?.checked,
         label: "FODEC",

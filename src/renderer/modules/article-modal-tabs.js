@@ -3,6 +3,7 @@
   const POPOVER_SELECTOR = "#articleFormPopover";
   const TAB_SELECTOR = "[data-article-tab]";
   const PANEL_SELECTOR = "[data-article-modal-panel]";
+  const TAB_ADD_BUTTON_SELECTOR = "#articleDepotAddBtn";
   const DEFAULT_TAB = "article";
 
   const getTabName = (tab) => String(tab?.dataset?.articleTab || "").toLowerCase();
@@ -78,6 +79,7 @@
     SEM.__articleModalTabsBound = true;
 
     document.addEventListener("click", (evt) => {
+      if (evt?.target?.closest?.(TAB_ADD_BUTTON_SELECTOR)) return;
       const tab = evt?.target?.closest?.(TAB_SELECTOR);
       if (!(tab instanceof HTMLElement)) return;
       const popover = toPopover(tab);
@@ -87,6 +89,7 @@
     });
 
     document.addEventListener("keydown", (evt) => {
+      if (evt?.target?.closest?.(TAB_ADD_BUTTON_SELECTOR)) return;
       const tab = evt?.target?.closest?.(TAB_SELECTOR);
       if (!(tab instanceof HTMLElement)) return;
       const popover = toPopover(tab);

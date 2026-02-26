@@ -124,24 +124,25 @@ const renderArticleStockPanel = ({ idPrefix = "", preview = false } = {}) => {
                     aria-labelledby="${id("addStockDefaultLocationLabel")} ${id("addStockDefaultLocationDisplay")}"
                     aria-disabled="${stockPickerDisabled}"
                   >
-                    <span id="${id("addStockDefaultLocationDisplay")}" class="model-select-display">S&eacute;lectionner un emplacement</span>
+                    <span id="${id("addStockDefaultLocationDisplay")}" class="model-select-display">Aucune</span>
                     <svg class="chevron" aria-hidden="true" focusable="false" stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="none" d="M0 0h24v24H0V0z"></path><path d="M12 4c4.41 0 8 3.59 8 8s-3.59 8-8 8-8-3.59-8-8 3.59-8 8-8m0-2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 13-4-4h8z"></path></svg>
                   </summary>
                   <div
                     class="field-toggle-panel model-select-panel doc-history-model-panel"
                     id="${id("addStockDefaultLocationPanel")}"
                     role="listbox"
+                    aria-multiselectable="true"
                     aria-labelledby="${id("addStockDefaultLocationLabel")}"
                   ></div>
                 </details>
                 <select
                   id="${id("addStockDefaultLocation")}"
                   class="model-select doc-dialog-model-select"
+                  multiple
                   aria-hidden="true"
                   tabindex="-1"
                   aria-disabled="${stockPickerDisabled}"${stockPickerSelectDisabledAttr}
                 >
-                  <option value="">S&eacute;lectionner un emplacement</option>
                 </select>
               </div>
             </label>
@@ -371,10 +372,19 @@ export const renderArticleFormPopover = () => `
             aria-selected="false"
             aria-controls="articleFormTabPanelStock"
             data-article-tab="stock"
+            data-depot-id="depot-1"
+            data-depot-active="true"
             tabindex="-1"
           >
-            Gestion du stock
+            <span class="tab-label">Depot 1</span>
           </button>
+          <div id="articleDepotTabsRow" class="article-depot-tabs" aria-label="D&eacute;p&ocirc;ts de l'article"></div>
+          <button
+            id="articleDepotAddBtn"
+            type="button"
+            class="swbDialog__tabAdd"
+            aria-label="Ajouter un d&eacute;p&ocirc;t"
+          >+</button>
         </div>
         <button
           type="button"

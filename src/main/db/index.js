@@ -15,6 +15,7 @@ const DEFAULT_DB_FILENAME = "entreprise1.db";
 const COMPANY_DB_FILENAME_REGEX = /^entreprise\d+$/i;
 const CLIENT_BALANCE_DOC_TABLE = DOC_TYPE_TABLES.facture;
 const CLIENT_BALANCE_MIGRATION_KEY = "migration_client_balance_rebuild_v4";
+const ARTICLE_DEPOT_GENERIC_NAME_CLEANUP_KEY = "migration_article_depot_generic_name_cleanup_v1";
 const CLIENT_PATH_PREFIX = "sqlite://clients/";
 const DEPOT_PATH_PREFIX = "sqlite://depots/";
 const ARTICLE_PATH_PREFIX = "sqlite://articles/";
@@ -783,6 +784,61 @@ const migrateDocumentNumbering = (db) => {
   }
 };
 
+const cleanupStoredGenericArticleDepotNames = (db) => {
+  if (!db || !tableExists(db, "app_settings") || !tableExists(db, "articles")) return;
+  if (!tableHasColumn(db, "articles", "stock_depots_json")) return;
+  if (hasMigrationFlag(db, ARTICLE_DEPOT_GENERIC_NAME_CLEANUP_KEY)) return;
+
+  const rows = db
+    .prepare(
+      "SELECT id, stock_depots_json FROM articles WHERE stock_depots_json IS NOT NULL AND TRIM(stock_depots_json) <> ''"
+    )
+    .all();
+  const update = db.prepare("UPDATE articles SET stock_depots_json = ?, updated_at = ? WHERE id = ?");
+  const now = new Date().toISOString();
+
+  const tx = db.transaction((entries = []) => {
+    entries.forEach((row) => {
+      const serialized = normalizeTextValue(row?.stock_depots_json || "");
+      if (!serialized) return;
+      const source = parseArticleDepotsSource(serialized);
+      if (!source.length) return;
+      let changed = false;
+      const cleaned = source.map((entry, index) => {
+        if (entry && typeof entry === "object" && !Array.isArray(entry)) {
+          const next = { ...entry };
+          const name = normalizeTextValue(next.name || next.label || "");
+          if (name && isGenericDepotAutoName(name)) {
+            if (Object.prototype.hasOwnProperty.call(next, "name")) delete next.name;
+            if (Object.prototype.hasOwnProperty.call(next, "label")) delete next.label;
+            changed = true;
+          }
+          return next;
+        }
+        const raw = normalizeTextValue(entry);
+        if (!raw || !isGenericDepotAutoName(raw)) return entry;
+        const match = raw.match(/(\d+)/);
+        const parsed = Number(match?.[1] || index + 1);
+        const nextNumber =
+          Number.isFinite(parsed) && parsed > 0 ? Math.trunc(parsed) : Math.max(1, index + 1);
+        changed = true;
+        return { id: `depot-${nextNumber}` };
+      });
+      if (!changed) return;
+      let nextSerialized = "";
+      try {
+        nextSerialized = JSON.stringify(cleaned);
+      } catch {
+        return;
+      }
+      if (!nextSerialized || nextSerialized === serialized) return;
+      update.run(nextSerialized, now, row.id);
+    });
+    markMigrationFlag(db, ARTICLE_DEPOT_GENERIC_NAME_CLEANUP_KEY);
+  });
+  tx(rows);
+};
+
 const runLegacyDataMigrations = (db) => {
   try {
     migrateLegacyClients(db);
@@ -794,6 +850,7 @@ const runLegacyDataMigrations = (db) => {
     migrateLegacyModels(db);
     migrateLegacyAppSettings(db);
     migrateDocumentNumbering(db);
+    cleanupStoredGenericArticleDepotNames(db);
     runClientBalanceRebuildMigration(db);
     renumberPaymentHistory(db);
   } catch (err) {
@@ -830,6 +887,8 @@ const buildSearchText = (values = []) =>
     .join(" ");
 
 const normalizeTextValue = (value) => String(value ?? "").trim();
+const isGenericDepotAutoName = (value = "") =>
+  /^depot[\s_-]*\d+$/i.test(normalizeTextValue(value));
 
 const normalizeDbBool = (value) => (value ? 1 : 0);
 
@@ -3146,6 +3205,9 @@ const persistArticleRecord = ({
   stockQty,
   stockMin,
   stockAlert,
+  stockDefaultDepotId,
+  stockDepotsJson,
+  stockDefaultEmplacementId,
   unit,
   purchasePrice,
   purchaseTva,
@@ -3192,6 +3254,9 @@ const persistArticleRecord = ({
         stock_qty,
         stock_min,
         stock_alert,
+        stock_default_depot_id,
+        stock_depots_json,
+        stock_default_emplacement_id,
         unit,
         purchase_price,
         purchase_tva,
@@ -3225,7 +3290,7 @@ const persistArticleRecord = ({
         updated_at
       )
       VALUES (
-        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
       )
       ON CONFLICT(id) DO UPDATE SET
         name = excluded.name,
@@ -3236,6 +3301,9 @@ const persistArticleRecord = ({
         stock_qty = excluded.stock_qty,
         stock_min = excluded.stock_min,
         stock_alert = excluded.stock_alert,
+        stock_default_depot_id = excluded.stock_default_depot_id,
+        stock_depots_json = excluded.stock_depots_json,
+        stock_default_emplacement_id = excluded.stock_default_emplacement_id,
         unit = excluded.unit,
         purchase_price = excluded.purchase_price,
         purchase_tva = excluded.purchase_tva,
@@ -3278,6 +3346,9 @@ const persistArticleRecord = ({
       stockQty,
       stockMin,
       stockAlert,
+      stockDefaultDepotId,
+      stockDepotsJson,
+      stockDefaultEmplacementId,
       unit,
       purchasePrice,
       purchaseTva,
@@ -3366,7 +3437,372 @@ const normalizeArticlePurchaseFodec = (source = {}) => {
   return { enabled, label, rate, tva };
 };
 
+const parseArticleDepotsSource = (value) => {
+  if (Array.isArray(value)) return value;
+  if (typeof value !== "string") return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const parseArticleDepotTabNumber = (value = "") => {
+  const match = normalizeTextValue(value).match(/^depot[-_\s]?(\d+)$/i);
+  if (!match) return null;
+  const parsed = Number(match[1]);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.trunc(parsed) : null;
+};
+
+const isArticleDepotTabId = (value = "") => Number.isFinite(parseArticleDepotTabNumber(value));
+
+const toArticleDepotTabId = (value = "", fallbackNumber = 1) => {
+  const parsed = parseArticleDepotTabNumber(value);
+  const fallbackParsed = Number(fallbackNumber);
+  const safeNumber =
+    Number.isFinite(parsed) && parsed > 0
+      ? parsed
+      : Number.isFinite(fallbackParsed) && fallbackParsed > 0
+      ? Math.trunc(fallbackParsed)
+      : 1;
+  return `depot-${safeNumber}`;
+};
+
+const normalizeArticleDepotLinkedId = (value = "") =>
+  normalizeTextValue(value).replace(/^sqlite:\/\/depots\//i, "");
+
+const normalizeArticleScopedIds = (value = []) => {
+  const source = (() => {
+    if (Array.isArray(value)) return value;
+    const raw = normalizeTextValue(value);
+    if (!raw) return [];
+    if (raw.startsWith("[") && raw.endsWith("]")) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+      } catch {}
+    }
+    return [raw];
+  })();
+  const seen = new Set();
+  const normalized = [];
+  source.forEach((entry) => {
+    const id = normalizeTextValue(entry);
+    if (!id) return;
+    const key = id.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    normalized.push(id);
+  });
+  return normalized;
+};
+
+const normalizeArticleDepotEntry = (entry = {}, index = 0) => {
+  const source = entry && typeof entry === "object" ? entry : { id: entry, name: entry };
+  const rawId = normalizeArticleDepotLinkedId(
+    source.id || source.value || source.depotId || source.path
+  );
+  const name = normalizeTextValue(source.name || source.label || "");
+  const linkedDepotId = normalizeArticleDepotLinkedId(
+    source.linkedDepotId ??
+      source.depotDbId ??
+      source.magasinId ??
+      source.magasin_id ??
+      source.defaultDepotSourceId ??
+      source.selectedDepotSourceId ??
+      source.sourceDepotId ??
+      source.defaultDepotId ??
+      source.stockDefaultDepotId ??
+      ""
+  );
+  const selectedLocationIds = normalizeArticleScopedIds(
+    source.selectedLocationIds ??
+      source.selectedLocationId ??
+      source.selectedEmplacementIds ??
+      source.selectedEmplacements ??
+      source.defaultLocationIds ??
+      source.defaultLocationId ??
+      source.defaultLocation ??
+      []
+  );
+  const selectedEmplacementIds = normalizeArticleScopedIds(
+    source.selectedEmplacementIds ??
+      source.selectedLocationIds ??
+      source.selectedEmplacements ??
+      source.defaultLocationIds ??
+      source.defaultLocationId ??
+      source.defaultLocation ??
+      selectedLocationIds
+  );
+  const createdAt = normalizeTextValue(source.createdAt || source.created_at || "");
+  if (!rawId && !name && !linkedDepotId && !selectedLocationIds.length && !selectedEmplacementIds.length) {
+    return null;
+  }
+  const fallbackNumber = Number.isFinite(index) ? index + 1 : 1;
+  const finalId = toArticleDepotTabId(rawId || name, fallbackNumber);
+  const inferredNumber = parseArticleDepotTabNumber(finalId) || fallbackNumber;
+  const fallbackName = `Depot ${Math.max(1, inferredNumber)}`;
+  const legacyLinkedDepotId = rawId && !isArticleDepotTabId(rawId) ? rawId : "";
+  const resolvedSelectedEmplacementIds =
+    selectedEmplacementIds.length > 0 ? selectedEmplacementIds : selectedLocationIds.slice();
+  return {
+    id: finalId,
+    name: name || fallbackName,
+    linkedDepotId: linkedDepotId || legacyLinkedDepotId,
+    selectedLocationIds: selectedLocationIds.slice(),
+    selectedEmplacementIds: resolvedSelectedEmplacementIds.slice(),
+    createdAt: createdAt || new Date().toISOString()
+  };
+};
+
+const normalizeArticleDepots = (value = []) => {
+  const source = parseArticleDepotsSource(value);
+  const seen = new Set();
+  const normalized = [];
+  source.forEach((entry, index) => {
+    const depot = normalizeArticleDepotEntry(entry, index);
+    if (!depot) return;
+    const key = depot.id.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    normalized.push(depot);
+  });
+  if (!normalized.length) {
+    const firstDepot = normalizeArticleDepotEntry({ id: "depot-1" }, 0);
+    if (firstDepot) normalized.push(firstDepot);
+  }
+  if (!normalized.some((entry) => entry.id === "depot-1")) {
+    const firstDepot = normalizeArticleDepotEntry({ id: "depot-1" }, 0);
+    if (firstDepot) normalized.unshift(firstDepot);
+  }
+  return normalized;
+};
+
+const serializeArticleDepots = (depots = []) => {
+  const normalized = normalizeArticleDepots(depots)
+    .map((entry) => {
+      const id = toArticleDepotTabId(entry?.id || "", 1);
+      if (!id) return null;
+      const name = normalizeTextValue(entry?.name || "");
+      const linkedDepotId = normalizeArticleDepotLinkedId(
+        entry?.linkedDepotId ??
+          entry?.depotDbId ??
+          entry?.magasinId ??
+          entry?.magasin_id ??
+          entry?.defaultDepotSourceId ??
+          entry?.sourceDepotId ??
+          ""
+      );
+      const selectedLocationIds = normalizeArticleScopedIds(
+        entry?.selectedLocationIds ??
+          entry?.selectedLocationId ??
+          entry?.selectedEmplacementIds ??
+          entry?.selectedEmplacements ??
+          entry?.defaultLocationIds ??
+          entry?.defaultLocationId ??
+          entry?.defaultLocation ??
+          []
+      );
+      const selectedEmplacementIds = normalizeArticleScopedIds(
+        entry?.selectedEmplacementIds ??
+          entry?.selectedLocationIds ??
+          entry?.selectedEmplacements ??
+          entry?.defaultLocationIds ??
+          entry?.defaultLocationId ??
+          entry?.defaultLocation ??
+          selectedLocationIds
+      );
+      const createdAt = normalizeTextValue(entry?.createdAt || entry?.created_at || "");
+      const row = {
+        id,
+        createdAt: createdAt || new Date().toISOString()
+      };
+      if (name && !isGenericDepotAutoName(name)) {
+        row.name = name;
+      }
+      if (linkedDepotId) {
+        row.linkedDepotId = linkedDepotId;
+      }
+      if (selectedLocationIds.length) {
+        row.selectedLocationIds = selectedLocationIds.slice();
+      }
+      if (selectedEmplacementIds.length) {
+        row.selectedEmplacementIds = selectedEmplacementIds.slice();
+      }
+      return row;
+    })
+    .filter(Boolean);
+  if (!normalized.length) return null;
+  try {
+    return JSON.stringify(normalized);
+  } catch {
+    return null;
+  }
+};
+
+const parseArticleEmplacementSelectionSource = (value) => {
+  if (Array.isArray(value)) return value;
+  const raw = normalizeTextValue(value);
+  if (!raw) return [];
+  if (raw.startsWith("[") && raw.endsWith("]")) {
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [raw];
+    }
+  }
+  return [raw];
+};
+
+const normalizeArticleEmplacementIds = (value = []) => {
+  const source = parseArticleEmplacementSelectionSource(value);
+  const seen = new Set();
+  const normalized = [];
+  source.forEach((entry) => {
+    const id = normalizeTextValue(entry);
+    if (!id) return;
+    const key = id.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    normalized.push(id);
+  });
+  return normalized;
+};
+
+const serializeArticleEmplacementIds = (ids = []) => {
+  const normalized = normalizeArticleEmplacementIds(ids);
+  if (!normalized.length) return null;
+  try {
+    return JSON.stringify(normalized);
+  } catch {
+    return null;
+  }
+};
+
 const normalizeArticleRecord = (raw = {}) => {
+  const stockManagementRaw =
+    raw?.stockManagement && typeof raw.stockManagement === "object" ? raw.stockManagement : {};
+  const selectedDepotRaw = normalizeArticleDepotLinkedId(
+    raw?.activeDepotId ??
+    raw?.selectedDepotId ??
+      raw?.selected_depot_id ??
+      raw?.stock_default_depot_id ??
+      stockManagementRaw?.activeDepotId ??
+      stockManagementRaw?.selectedDepotId ??
+      stockManagementRaw?.defaultDepot ??
+      ""
+  );
+  const selectedDepotTabId = isArticleDepotTabId(selectedDepotRaw)
+    ? toArticleDepotTabId(selectedDepotRaw, 1)
+    : "";
+  const legacySelectedDepotSourceId =
+    normalizeArticleDepotLinkedId(
+      stockManagementRaw?.defaultDepotSourceId ??
+        stockManagementRaw?.selectedDepotSourceId ??
+        stockManagementRaw?.sourceDepotId ??
+        stockManagementRaw?.linkedDepotId ??
+        ""
+    ) || (selectedDepotRaw && !selectedDepotTabId ? selectedDepotRaw : "");
+  const depots = normalizeArticleDepots(
+    raw?.depots ?? raw?.stockDepots ?? raw?.stock_depots_json ?? stockManagementRaw?.depots ?? []
+  );
+  const selectedEmplacements = normalizeArticleEmplacementIds(
+    raw?.selectedEmplacements ??
+      raw?.selected_emplacements ??
+      raw?.stock_default_emplacement_ids ??
+      raw?.stock_default_emplacement_id ??
+      stockManagementRaw?.selectedEmplacements ??
+      stockManagementRaw?.defaultLocationIds ??
+      stockManagementRaw?.defaultLocationId ??
+      stockManagementRaw?.defaultEmplacementId ??
+      stockManagementRaw?.defaultLocation ??
+      []
+  );
+  const hasSelectedDepotTab = selectedDepotTabId && depots.some((entry) => entry.id === selectedDepotTabId);
+  const activeDepotId = hasSelectedDepotTab ? selectedDepotTabId : String(depots[0]?.id || "depot-1").trim();
+  const activeDepotIndex = Math.max(
+    0,
+    depots.findIndex((entry) => entry.id === activeDepotId)
+  );
+  const migratedDepots = depots.map((entry, index) => {
+    if (index !== activeDepotIndex) return entry;
+    const currentLocationIds = normalizeArticleScopedIds(
+      entry?.selectedLocationIds ??
+        entry?.selectedEmplacementIds ??
+        entry?.selectedEmplacements ??
+        entry?.defaultLocationIds ??
+        entry?.defaultLocationId ??
+        entry?.defaultLocation ??
+        []
+    );
+    const mergedLocationIds = currentLocationIds.length ? currentLocationIds : selectedEmplacements.slice();
+    const currentEmplacementIds = normalizeArticleScopedIds(
+      entry?.selectedEmplacementIds ??
+        entry?.selectedLocationIds ??
+        entry?.selectedEmplacements ??
+        entry?.defaultLocationIds ??
+        entry?.defaultLocationId ??
+        entry?.defaultLocation ??
+        mergedLocationIds
+    );
+    return {
+      ...entry,
+      linkedDepotId: normalizeArticleDepotLinkedId(entry?.linkedDepotId || legacySelectedDepotSourceId || ""),
+      selectedLocationIds: mergedLocationIds.slice(),
+      selectedEmplacementIds: (currentEmplacementIds.length ? currentEmplacementIds : mergedLocationIds).slice()
+    };
+  });
+  const activeDepotRecord = migratedDepots[activeDepotIndex] || migratedDepots[0] || null;
+  const activeDepotSourceId = normalizeArticleDepotLinkedId(
+    activeDepotRecord?.linkedDepotId || legacySelectedDepotSourceId || ""
+  );
+  const activeDepotSelectedEmplacements = normalizeArticleScopedIds(
+    activeDepotRecord?.selectedLocationIds ??
+      activeDepotRecord?.selectedEmplacementIds ??
+      selectedEmplacements ??
+      []
+  );
+  const defaultLocationId = selectedEmplacements[0] || "";
+  const resolveDepotTabValue = (value = "") => {
+    const candidateRaw = normalizeArticleDepotLinkedId(value);
+    if (isArticleDepotTabId(candidateRaw)) {
+      const candidate = toArticleDepotTabId(candidateRaw, 1);
+      if (migratedDepots.some((entry) => entry.id === candidate)) return candidate;
+    }
+    return activeDepotId || "depot-1";
+  };
+  const stockManagement = {
+    ...stockManagementRaw,
+    defaultDepot: resolveDepotTabValue(stockManagementRaw?.defaultDepot ?? activeDepotId),
+    activeDepotId: resolveDepotTabValue(stockManagementRaw?.activeDepotId ?? activeDepotId),
+    selectedDepotId: resolveDepotTabValue(stockManagementRaw?.selectedDepotId ?? activeDepotId),
+    defaultDepotSourceId: normalizeArticleDepotLinkedId(
+      stockManagementRaw?.defaultDepotSourceId ??
+        stockManagementRaw?.selectedDepotSourceId ??
+        stockManagementRaw?.sourceDepotId ??
+        activeDepotSourceId
+    ),
+    defaultLocation:
+      normalizeTextValue(stockManagementRaw?.defaultLocation ?? defaultLocationId ?? "") || defaultLocationId,
+    defaultLocationId:
+      normalizeTextValue(
+        stockManagementRaw?.defaultLocationId ??
+          stockManagementRaw?.defaultEmplacementId ??
+          defaultLocationId ??
+          ""
+      ) || defaultLocationId
+  };
+  stockManagement.depots = migratedDepots.slice();
+  stockManagement.defaultLocationIds = activeDepotSelectedEmplacements.slice();
+  stockManagement.selectedEmplacements = activeDepotSelectedEmplacements.slice();
+  if (!stockManagement.defaultLocation && activeDepotSelectedEmplacements.length) {
+    stockManagement.defaultLocation = activeDepotSelectedEmplacements[0];
+  }
+  if (!stockManagement.defaultLocationId && activeDepotSelectedEmplacements.length) {
+    stockManagement.defaultLocationId = activeDepotSelectedEmplacements[0];
+  }
   const stockMinNum = Number(raw?.stockMin);
   const normalized = {
     ref: raw?.ref ?? "",
@@ -3384,7 +3820,12 @@ const normalizeArticleRecord = (raw = {}) => {
     discount: Number(raw?.discount ?? 0) || 0,
     fodec: normalizeArticleFodec(raw),
     purchaseFodec: normalizeArticlePurchaseFodec(raw),
-    use: normalizeArticleUse(raw?.use)
+    use: normalizeArticleUse(raw?.use),
+    activeDepotId,
+    selectedDepotId: activeDepotId,
+    selectedEmplacements: activeDepotSelectedEmplacements.slice(),
+    depots: migratedDepots,
+    stockManagement
   };
   return normalized;
 };
@@ -3419,6 +3860,18 @@ const saveArticle = ({ article = {}, suggestedName = "article", id, legacyPath }
     stockQty: normalized.stockQty,
     stockMin: normalized.stockMin,
     stockAlert: normalizeDbBool(normalized.stockAlert),
+    stockDefaultDepotId: normalizeTextValue(
+      normalized.selectedDepotId || normalized.stockManagement?.defaultDepot || ""
+    ),
+    stockDepotsJson: serializeArticleDepots(normalized.depots),
+    stockDefaultEmplacementId: serializeArticleEmplacementIds(
+      normalized.selectedEmplacements ??
+        normalized.stockManagement?.selectedEmplacements ??
+        normalized.stockManagement?.defaultLocationIds ??
+        normalized.stockManagement?.defaultLocationId ??
+        normalized.stockManagement?.defaultLocation ??
+        []
+    ),
     unit: normalized.unit,
     purchasePrice: normalized.purchasePrice,
     purchaseTva: normalized.purchaseTva,
@@ -3459,6 +3912,13 @@ const getArticleById = (id) => {
   const db = initDatabase();
   const row = db.prepare("SELECT * FROM articles WHERE id = ?").get(id);
   if (!row) return null;
+  const depots = normalizeArticleDepots(row.stock_depots_json);
+  const selectedDepotId = normalizeTextValue(row.stock_default_depot_id || "").replace(
+    /^sqlite:\/\/depots\//i,
+    ""
+  );
+  const selectedEmplacements = normalizeArticleEmplacementIds(row.stock_default_emplacement_id);
+  const defaultLocationId = selectedEmplacements[0] || "";
   const articleData = {
     ref: row.ref || "",
     product: row.product || "",
@@ -3484,6 +3944,21 @@ const getArticleById = (id) => {
       label: row.purchase_fodec_label || "FODEC ACHAT",
       rate: Number(row.purchase_fodec_rate ?? 0) || 0,
       tva: Number(row.purchase_fodec_tva ?? 0) || 0
+    },
+    depots,
+    activeDepotId: selectedDepotId,
+    selectedDepotId,
+    selectedEmplacements: selectedEmplacements.slice(),
+    stockManagement: {
+      enabled: true,
+      defaultDepot: selectedDepotId,
+      activeDepotId: selectedDepotId,
+      selectedDepotId,
+      defaultLocation: defaultLocationId,
+      defaultLocationId,
+      defaultLocationIds: selectedEmplacements.slice(),
+      selectedEmplacements: selectedEmplacements.slice(),
+      depots: depots.slice()
     },
     use: {
       ref: row.use_ref == null ? undefined : !!row.use_ref,
@@ -3528,7 +4003,7 @@ const searchArticles = ({ query = "", limit, offset } = {}) => {
   const countSql = `SELECT COUNT(*) as total FROM articles ${whereClause}`;
   const total = db.prepare(countSql).get(...params)?.total || 0;
   const parts = [
-    "SELECT id, name, ref, product, desc, qty, stock_qty, stock_min, stock_alert, unit, purchase_price, purchase_tva, price, tva, discount,",
+    "SELECT id, name, ref, product, desc, qty, stock_qty, stock_min, stock_alert, stock_default_depot_id, stock_depots_json, stock_default_emplacement_id, unit, purchase_price, purchase_tva, price, tva, discount,",
     "fodec_enabled, fodec_label, fodec_rate, fodec_tva, purchase_fodec_enabled, purchase_fodec_label, purchase_fodec_rate, purchase_fodec_tva, use_ref, use_product, use_desc, use_unit, use_price,",
     "use_fodec, use_tva, use_discount, use_total_ht, use_total_ttc FROM articles",
     whereClause,
@@ -3554,6 +4029,11 @@ const searchArticles = ({ query = "", limit, offset } = {}) => {
       stockQty: row.stock_qty,
       stockMin: row.stock_min,
       stockAlert: !!row.stock_alert,
+      selectedDepotId: row.stock_default_depot_id,
+      depots: row.stock_depots_json,
+      stock_default_depot_id: row.stock_default_depot_id,
+      stock_depots_json: row.stock_depots_json,
+      stock_default_emplacement_id: row.stock_default_emplacement_id,
       unit: row.unit,
       purchasePrice: row.purchase_price,
       purchaseTva: row.purchase_tva,
@@ -3650,6 +4130,18 @@ const adjustArticleStockById = (id, deltaRaw) => {
     stockQty: article.stockQty,
     stockMin: article.stockMin,
     stockAlert: normalizeDbBool(article.stockAlert),
+    stockDefaultDepotId: normalizeTextValue(
+      article.selectedDepotId || article.stockManagement?.defaultDepot || ""
+    ),
+    stockDepotsJson: serializeArticleDepots(article.depots),
+    stockDefaultEmplacementId: serializeArticleEmplacementIds(
+      article.selectedEmplacements ??
+        article.stockManagement?.selectedEmplacements ??
+        article.stockManagement?.defaultLocationIds ??
+        article.stockManagement?.defaultLocationId ??
+        article.stockManagement?.defaultLocation ??
+        []
+    ),
     unit: article.unit,
     purchasePrice: article.purchasePrice,
     purchaseTva: article.purchaseTva,
