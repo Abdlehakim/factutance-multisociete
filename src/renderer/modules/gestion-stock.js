@@ -995,6 +995,9 @@
     defaultLocationMenu: getField(scope, "addStockDefaultLocationMenu"),
     defaultLocationPanel: getField(scope, "addStockDefaultLocationPanel"),
     defaultLocationDisplay: getField(scope, "addStockDefaultLocationDisplay"),
+    selectedDepotInfoDisplay: getField(scope, "addStockSelectedDepotDisplay"),
+    selectedLocationInfoDisplay: getField(scope, "addStockSelectedLocationDisplay"),
+    selectedLocationInfoBadges: getField(scope, "addStockSelectedLocationBadges"),
     depotStockQtyLabel: getField(scope, "addStockDepotQtyLabel"),
     depotStockQty: getField(scope, "addStockDepotQty"),
     allowNegative: getField(scope, "addStockAllowNegative"),
@@ -1512,6 +1515,7 @@
     if (display instanceof HTMLElement) {
       display.dataset.selected = hasSelectedDepot ? "true" : "false";
     }
+    syncSelectedDepotLocationInfo(scope);
 
     if (!(panel instanceof HTMLElement)) return;
     panel.replaceChildren();
@@ -1614,6 +1618,7 @@
     if (display instanceof HTMLElement) {
       display.dataset.selected = selectedLocationIds.length ? "true" : "false";
     }
+    syncSelectedDepotLocationInfo(scope);
 
     if (!(panel instanceof HTMLElement)) return;
     panel.setAttribute("aria-multiselectable", "true");
@@ -1782,6 +1787,77 @@
     }
   };
 
+  const syncSelectedDepotLocationInfo = (scopeHint = null) => {
+    const scope = resolveScope(scopeHint);
+    if (!scope) return;
+    const fields = getFields(scope);
+    const renderSelectedLocationBadges = (labels = []) => {
+      const container = fields.selectedLocationInfoBadges;
+      if (!(container instanceof HTMLElement)) return;
+      container.replaceChildren();
+      const normalizedLabels = (Array.isArray(labels) ? labels : [])
+        .map((entry) => String(entry || "").trim())
+        .filter(Boolean);
+      if (!normalizedLabels.length) {
+        const mutedBadge = document.createElement("span");
+        mutedBadge.className = "stock-location-badge stock-location-badge--muted";
+        const mutedLabel = document.createElement("span");
+        mutedLabel.className = "stock-location-badge__label";
+        mutedLabel.textContent = LOCATION_NONE_LABEL;
+        mutedBadge.appendChild(mutedLabel);
+        container.appendChild(mutedBadge);
+        return;
+      }
+      normalizedLabels.forEach((labelText) => {
+        const badge = document.createElement("span");
+        badge.className = "stock-location-badge";
+        const badgeLabel = document.createElement("span");
+        badgeLabel.className = "stock-location-badge__label";
+        badgeLabel.textContent = labelText;
+        badge.appendChild(badgeLabel);
+        container.appendChild(badge);
+      });
+    };
+    const selectedDepotValue = normalizeDepotRefId(String(fields.defaultDepot?.value || "").trim());
+    let selectedDepotLabel = "-";
+    if (selectedDepotValue) {
+      selectedDepotLabel = String(fields.defaultDepotDisplay?.textContent || "")
+        .replace(/\s+/g, " ")
+        .trim();
+      if (!selectedDepotLabel || selectedDepotLabel === DEPOT_PLACEHOLDER_LABEL) {
+        const selectedOption =
+          (fields.defaultDepot?.selectedOptions && fields.defaultDepot.selectedOptions.length
+            ? fields.defaultDepot.selectedOptions[0]
+            : null) ||
+          Array.from(fields.defaultDepot?.options || []).find(
+            (entry) => normalizeDepotRefId(String(entry.value || "").trim()) === selectedDepotValue
+          ) ||
+          null;
+        selectedDepotLabel = getOptionLabel(selectedOption) || selectedDepotValue;
+      }
+    }
+
+    const selectedLocationIds = getSelectedLocationIds(fields.defaultLocation);
+    const selectedLocationLabels = selectedLocationIds
+      .map((locationId) => {
+        const option = Array.from(fields.defaultLocation?.options || []).find(
+          (entry) => String(entry.value || "").trim() === locationId
+        );
+        return getOptionLabel(option) || locationId;
+      })
+      .filter(Boolean);
+    const selectedLocationLabel =
+      getLocationDisplayLabel(fields.defaultLocation, selectedLocationIds) || LOCATION_NONE_LABEL;
+
+    if (fields.selectedDepotInfoDisplay instanceof HTMLElement) {
+      fields.selectedDepotInfoDisplay.value = selectedDepotLabel || "-";
+    }
+    if (fields.selectedLocationInfoDisplay instanceof HTMLElement) {
+      fields.selectedLocationInfoDisplay.value = selectedLocationLabel || LOCATION_NONE_LABEL;
+    }
+    renderSelectedLocationBadges(selectedLocationLabels);
+  };
+
   const syncReadOnlyInfo = (scope, hints = {}) => {
     const fields = getFields(scope);
     const unitValue =
@@ -1802,6 +1878,7 @@
     if (fields.availableDisplay) fields.availableDisplay.value = String(normalizedAvailableValue);
     if (fields.totalCostAchat) fields.totalCostAchat.value = formatMoneyValue(totalCostAchat);
     if (fields.totalValueVente) fields.totalValueVente.value = formatMoneyValue(totalValueVente);
+    syncSelectedDepotLocationInfo(scope);
   };
 
   const enforceExclusiveStockOptions = (scopeHint = null, changedField = null) => {
@@ -2033,6 +2110,11 @@
     setDisabledState(fields.availableDisplay, true);
     setDisabledState(fields.totalCostAchat, true);
     setDisabledState(fields.totalValueVente, true);
+    setDisabledState(fields.selectedDepotInfoDisplay, true);
+    setDisabledState(fields.selectedLocationInfoDisplay, true);
+    if (fields.selectedLocationInfoBadges instanceof HTMLElement) {
+      fields.selectedLocationInfoBadges.setAttribute("aria-disabled", "true");
+    }
     if (isArticleScope(scope)) {
       const activeDepotStockQty = syncActiveDepotStockField(scope);
       syncReadOnlyInfo(scope, { stockQty: activeDepotStockQty });
