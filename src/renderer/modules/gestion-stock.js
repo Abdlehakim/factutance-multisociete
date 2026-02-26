@@ -4,7 +4,7 @@
   const EMPTY_DEPOT_VALUE = "";
   const DEPOT_PLACEHOLDER_LABEL = "Selectionner un depot";
   const LOCATION_NONE_LABEL = "Aucune";
-  const LOCATION_EMPTY_LABEL = "Aucun emplacement enregistre";
+  const LOCATION_EMPTY_LABEL = "Aucun emplacement";
   const ADD_SCOPE_SELECTOR = "#addItemBox, #addItemBoxMainscreen, #articleFormPopover";
   const ARTICLE_POPOVER_ID = "articleFormPopover";
   const ARTICLE_DEPOT_REMOVE_BUTTON_SELECTOR = "#articleDepotRemoveBtn";
@@ -463,15 +463,36 @@
     if (!target) return null;
     if (isArticleScope(scope)) {
       const records = getArticleDepotRecords();
-      const tabTarget = toDepotTabId(target, 1);
+      const tabTarget = isDepotTabId(target) ? toDepotTabId(target, 1) : "";
       const articleDepot =
-        records.find((entry, index) => entry.id === tabTarget) ||
+        (tabTarget ? records.find((entry, index) => entry.id === tabTarget) : null) ||
         records.find((entry, index) => resolveArticleDepotSourceId(entry, index) === target) ||
         null;
       const linked = resolveLinkedDepotRecord(articleDepot || { id: target }, records.indexOf(articleDepot));
       return linked || articleDepot;
     }
     return getScopeDepotRecords(scope).find((entry) => entry.id === target) || null;
+  };
+
+  const getLocationOptionsForMagasin = (magasinId = "") => {
+    const target = normalizeDepotRefId(magasinId);
+    if (!target) return [];
+    const depotRecord = getDepotById(target);
+    if (!depotRecord) return [];
+    return normalizeEmplacementRecords(depotRecord.emplacements || [], target).filter(
+      (entry) => normalizeDepotRefId(entry?.depotId || target) === target
+    );
+  };
+
+  const filterLocationIdsByOptions = (values = [], options = []) => {
+    const selected = normalizeLocationSelection(values);
+    if (!selected.length) return [];
+    const allowedSet = new Set(
+      (Array.isArray(options) ? options : [])
+        .map((entry) => String(entry?.id || "").trim().toLowerCase())
+        .filter(Boolean)
+    );
+    return selected.filter((entry) => allowedSet.has(String(entry || "").trim().toLowerCase()));
   };
 
   const getCachedDepotDisplayName = (depot = {}, indexHint = -1) => {
@@ -1547,7 +1568,7 @@
 
   const syncLocationPicker = (
     scopeHint = null,
-    { clearValue = false, forceDisabled = false, preferredLocationIds = [] } = {}
+    { clearValue = false, forceDisabled = false, preferredLocationIds = [], magasinId = "" } = {}
   ) => {
     const scope = resolveScope(scopeHint);
     if (!scope) return;
@@ -1562,14 +1583,14 @@
 
     const selectedDepotId = getScopeActiveDepotId(scope, fields);
     const articleContext = isArticleScope(scope) ? getActiveArticleDepotContext() : null;
-    const selectedDepotLookupId = isArticleScope(scope)
-      ? normalizeDepotRefId(articleContext?.sourceDepotId || "")
-      : normalizeDepotRefId(selectedDepotId);
-    const selectedDepot = getScopeDepotById(scope, selectedDepotLookupId || selectedDepotId);
-    const locationOptions = normalizeEmplacementRecords(
-      selectedDepot?.emplacements || [],
-      selectedDepot?.id || selectedDepotLookupId || selectedDepotId
+    const selectedDepotLookupId = normalizeDepotRefId(
+      magasinId ||
+        (isArticleScope(scope)
+          ? articleContext?.sourceDepotId || fields.defaultDepot?.value || ""
+          : fields.defaultDepot?.value || selectedDepotId)
     );
+    const selectedDepot = getScopeDepotById(scope, selectedDepotLookupId || selectedDepotId);
+    const locationOptions = getLocationOptionsForMagasin(selectedDepotLookupId);
     const preferredIds = clearValue
       ? []
       : (() => {
@@ -1580,7 +1601,8 @@
           }
           return getSelectedLocationIds(select);
         })();
-    const selectedLocationIds = setLocationSelectOptions(select, locationOptions, preferredIds);
+    const scopedPreferredIds = filterLocationIdsByOptions(preferredIds, locationOptions);
+    const selectedLocationIds = setLocationSelectOptions(select, locationOptions, scopedPreferredIds);
     const shouldDisable = !!forceDisabled || !selectedDepotLookupId || !locationOptions.length;
     setLocationPickerDisabled(fields, shouldDisable);
 
@@ -1599,6 +1621,8 @@
     let count = 0;
     Array.from(select.options || []).forEach((option) => {
       if (!option.value) return;
+      const optionDepotId = normalizeDepotRefId(String(option.dataset?.depotId || "").trim());
+      if (selectedDepotLookupId && optionDepotId !== selectedDepotLookupId) return;
       const button = document.createElement("button");
       button.type = "button";
       button.className = "model-select-option model-select-option--multiselect stock-location-option";
@@ -1660,7 +1684,7 @@
     if (!count) {
       const empty = document.createElement("p");
       empty.className = "model-select-empty";
-      empty.textContent = selectedDepotId ? LOCATION_EMPTY_LABEL : "Selectionnez d'abord un depot";
+      empty.textContent = selectedDepotLookupId ? LOCATION_EMPTY_LABEL : "Selectionnez d'abord un depot";
       panel.appendChild(empty);
     }
     if (isArticleScope(scope)) {
@@ -1671,6 +1695,23 @@
         selectedEmplacementIds: selectedLocationIds
       });
     }
+  };
+
+  const refreshLocationOptionsForMagasin = (
+    scopeHint = null,
+    magasinId = "",
+    { clearValue = false, forceDisabled = false, preferredLocationIds = [] } = {}
+  ) => {
+    const scope = resolveScope(scopeHint);
+    if (!scope) return [];
+    syncLocationPicker(scope, {
+      clearValue,
+      forceDisabled,
+      preferredLocationIds,
+      magasinId
+    });
+    const fields = getFields(scope);
+    return getSelectedLocationIds(fields.defaultLocation);
   };
 
   const handleDepotSelectionChange = async (
@@ -1685,27 +1726,28 @@
     const selectedDepotLookupId = isArticleScope(scope)
       ? normalizeDepotRefId(resolveArticleDepotSourceId(getArticleDepotRecordByTabId(selectedDepotId)))
       : normalizeDepotRefId(selectedDepot?.id || selectedDepotId);
+    const selectedMagasinId = normalizeDepotRefId(String(fields.defaultDepot?.value || selectedDepotLookupId || "").trim());
     const preferredIds = normalizeLocationSelection(preferredLocationIds);
     const previousLocationIds = isArticleScope(scope)
       ? getArticleDepotSelectedLocationIds(getArticleDepotRecordByTabId(selectedDepotId))
       : getSelectedLocationIds(fields.defaultLocation);
     const keptLocationIds = preferredIds.length ? preferredIds : previousLocationIds;
-    if (!selectedDepotLookupId) {
-      syncLocationPicker(scope, {
+    if (!selectedMagasinId) {
+      refreshLocationOptionsForMagasin(scope, "", {
         clearValue: clearLocation,
         preferredLocationIds: clearLocation ? [] : keptLocationIds
       });
       syncDepotPicker(scope);
       return;
     }
-    syncLocationPicker(scope, {
+    refreshLocationOptionsForMagasin(scope, selectedMagasinId, {
       clearValue: clearLocation,
       preferredLocationIds: clearLocation ? [] : keptLocationIds
     });
-    if (selectedDepotLookupId) {
-      await fetchEmplacementsByDepot(selectedDepotLookupId);
+    if (selectedMagasinId) {
+      await fetchEmplacementsByDepot(selectedMagasinId);
     }
-    syncLocationPicker(scope, {
+    refreshLocationOptionsForMagasin(scope, selectedMagasinId, {
       clearValue: false,
       preferredLocationIds: clearLocation ? [] : keptLocationIds
     });
