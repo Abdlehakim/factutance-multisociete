@@ -1418,6 +1418,10 @@
                   entry?.magasin_id ??
                   ""
                 ).trim(),
+                stockQty: mapNumber(
+                  entry?.stockQty ?? entry?.stock_qty ?? entry?.quantity ?? entry?.qty,
+                  normalized.stockQty
+                ),
                 selectedLocationIds: (() => {
                   const sourceValue =
                     entry?.selectedLocationIds ??

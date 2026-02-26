@@ -269,6 +269,15 @@
   gap: 12px 20px;
 }
 
+#articleFormPopover .article-stock-panel__row--depot-settings {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 0;
+}
+
+#articleFormPopover .article-stock-depot-qty-field {
+  min-width: 0;
+}
+
 #articleFormPopover .article-stock-panel__toggle-grid {
   display: flex;
   flex-direction: column;
@@ -549,7 +558,8 @@
 }
 
 @media (max-width: 860px) {
-  #articleFormPopover .article-stock-panel__row.grid.two {
+  #articleFormPopover .article-stock-panel__row.grid.two,
+  #articleFormPopover .article-stock-panel__row--depot-settings {
     grid-template-columns: minmax(0, 1fr);
   }
 

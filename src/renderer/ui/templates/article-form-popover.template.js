@@ -56,6 +56,7 @@ const renderArticleStockPanel = ({ idPrefix = "", preview = false } = {}) => {
   const id = (value) => resolveId(idPrefix, value);
   const stockPickerDisabled = preview ? "true" : "false";
   const stockPickerSelectDisabledAttr = preview ? " disabled" : "";
+  const readOnlyNumberInput = preview ? " tabindex=\"-1\" aria-readonly=\"true\" disabled" : "";
 
   return `
     <section
@@ -68,7 +69,7 @@ const renderArticleStockPanel = ({ idPrefix = "", preview = false } = {}) => {
       <div class="article-stock-panel__content">
         <section id="${id("stockParamsSection")}" class="article-stock-panel__group article-stock-panel__group--settings" aria-labelledby="${id("stockSettingsTitle")}">
           <h4 id="${id("stockSettingsTitle")}" class="article-stock-panel__group-title">Param&egrave;tres stock</h4>
-          <div class="grid two article-stock-panel__row">
+          <div class="grid article-stock-panel__row article-stock-panel__row--depot-settings">
             <label class="doc-history-modal__filter article-stock-depot-filter">
               <span id="${id("addStockDefaultDepotLabel")}" class="label-text">D&eacute;p&ocirc;t/Magasin</span>
               <div class="doc-dialog-model-picker__field">
@@ -146,6 +147,10 @@ const renderArticleStockPanel = ({ idPrefix = "", preview = false } = {}) => {
                 </select>
               </div>
             </label>
+            <div class="add-item-field article-stock-depot-qty-field">
+              <label id="${id("addStockDepotQtyLabel")}" for="${id("addStockDepotQty")}" class="label-text">Stock Depot 1</label>
+              <input id="${id("addStockDepotQty")}" type="number" min="0" step="1" value="0"${readOnlyNumberInput} />
+            </div>
           </div>
         </section>
 

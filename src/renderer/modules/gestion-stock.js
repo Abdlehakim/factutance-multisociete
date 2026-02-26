@@ -116,6 +116,14 @@
     return normalized;
   };
 
+  const normalizeStockQty = (value = 0, fallback = 0) => {
+    const fallbackNumber = Number(fallback);
+    const safeFallback = Number.isFinite(fallbackNumber) ? Math.max(0, Math.trunc(fallbackNumber)) : 0;
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return safeFallback;
+    return Math.max(0, Math.trunc(parsed));
+  };
+
   const isDepotTabId = (value = "") => Number.isFinite(parseDepotAutoNumberFromId(value));
   const toDepotTabId = (value = "", fallbackNumber = 1) => {
     const parsed = parseDepotAutoNumberFromId(value);
@@ -164,6 +172,13 @@
         source.stockDefaultDepotId ??
         ""
     );
+    const stockQty = normalizeStockQty(
+      source.stockQty ??
+        source.stock_qty ??
+        source.quantity ??
+        source.qty ??
+        0
+    );
     const createdAt = String(source.createdAt || source.created_at || "").trim();
     if (!rawId && !name && !linkedDepotId && !selectedLocationIds.length) return null;
     const fallbackNumber = Number.isFinite(index) ? index + 1 : 1;
@@ -175,6 +190,7 @@
       linkedDepotId: linkedDepotId || legacyLinkedDepotId,
       selectedLocationIds,
       selectedEmplacementIds,
+      stockQty,
       createdAt: createdAt || new Date().toISOString(),
       emplacements: []
     };
@@ -606,6 +622,71 @@
     return used;
   };
 
+  const getDepotStockQty = (depot = {}, fallback = 0) =>
+    normalizeStockQty(
+      depot?.stockQty ??
+        depot?.stock_qty ??
+        depot?.quantity ??
+        depot?.qty,
+      fallback
+    );
+
+  const hasExplicitDepotStockQty = (entry = {}) => {
+    const source = entry && typeof entry === "object" ? entry : {};
+    return ["stockQty", "stock_qty", "quantity", "qty"].some((key) => {
+      if (!Object.prototype.hasOwnProperty.call(source, key)) return false;
+      return String(source[key] ?? "").trim() !== "";
+    });
+  };
+
+  const getArticleStockQtyInputValue = (scopeHint = null) => {
+    const scope = resolveScope(scopeHint);
+    if (!scope) return 0;
+    const fields = getFields(scope);
+    return normalizeStockQty(getNumValue(fields.qty, 0), 0);
+  };
+
+  const syncActiveDepotStockField = (scopeHint = null, depotRecordHint = null, depotIndexHint = -1) => {
+    const scope = resolveScope(scopeHint);
+    if (!scope || !isArticleScope(scope)) return 0;
+    const fields = getFields(scope);
+    const context = getActiveArticleDepotContext();
+    const resolvedIndex = Number.isFinite(depotIndexHint) && depotIndexHint >= 0
+      ? depotIndexHint
+      : Number.isFinite(context.index)
+      ? context.index
+      : 0;
+    const fallbackRecord = context.record || { id: context.activeDepotId || MAIN_ARTICLE_DEPOT_ID };
+    const record = depotRecordHint && typeof depotRecordHint === "object" ? depotRecordHint : fallbackRecord;
+    const fallbackStockQty = getArticleStockQtyInputValue(scope);
+    const stockQty = getDepotStockQty(record, fallbackStockQty);
+    const depotNumber = getDepotTabNumber(record, resolvedIndex);
+
+    if (fields.depotStockQtyLabel instanceof HTMLElement) {
+      fields.depotStockQtyLabel.textContent = `Stock Depot ${depotNumber}`;
+    }
+    if (fields.depotStockQty instanceof HTMLElement) {
+      fields.depotStockQty.value = String(stockQty);
+      fields.depotStockQty.dataset.depotId = String(record?.id || context.activeDepotId || MAIN_ARTICLE_DEPOT_ID).trim();
+    }
+
+    return stockQty;
+  };
+
+  const persistActiveDepotStockQty = (scopeHint = null, valueHint = 0) => {
+    const scope = resolveScope(scopeHint);
+    if (!scope || !isArticleScope(scope)) return normalizeStockQty(valueHint, 0);
+    const context = getActiveArticleDepotContext();
+    if (!context.record?.id) return normalizeStockQty(valueHint, getArticleStockQtyInputValue(scope));
+    const nextStockQty = normalizeStockQty(valueHint, getDepotStockQty(context.record, getArticleStockQtyInputValue(scope)));
+    updateArticleDepotRecord(context.record.id, (draft) => ({
+      ...draft,
+      stockQty: nextStockQty
+    }));
+    syncActiveDepotStockField(scope);
+    return nextStockQty;
+  };
+
   const persistActiveArticleDepotSelection = ({
     linkedDepotId = "",
     depotName = "",
@@ -732,6 +813,8 @@
     defaultLocationMenu: getField(scope, "addStockDefaultLocationMenu"),
     defaultLocationPanel: getField(scope, "addStockDefaultLocationPanel"),
     defaultLocationDisplay: getField(scope, "addStockDefaultLocationDisplay"),
+    depotStockQtyLabel: getField(scope, "addStockDepotQtyLabel"),
+    depotStockQty: getField(scope, "addStockDepotQty"),
     allowNegative: getField(scope, "addStockAllowNegative"),
     blockInsufficient: getField(scope, "addStockBlockInsufficient"),
     alert: getField(scope, "addStockAlert"),
@@ -975,6 +1058,7 @@
         id: entry.id,
         name: entry.name,
         linkedDepotId: normalizeDepotRefId(entry?.linkedDepotId || ""),
+        stockQty: getDepotStockQty(entry, 0),
         selectedLocationIds: normalizeScopedIdList(entry?.selectedLocationIds || []),
         selectedEmplacementIds: normalizeScopedIdList(
           entry?.selectedEmplacementIds || entry?.selectedLocationIds || []
@@ -1483,8 +1567,11 @@
     const fields = getFields(scope);
     const unitValue =
       hints.unit !== undefined ? String(hints.unit ?? "").trim() : String(fields.unit?.value ?? "").trim();
+    const activeStockQtyValue = isArticleScope(scope)
+      ? Number(getNumValue(fields.depotStockQty, getNumValue(fields.qty, 0)))
+      : Number(getNumValue(fields.qty, 0));
     const availableValue =
-      hints.stockQty !== undefined ? Number(hints.stockQty) : Number(getNumValue(fields.qty, 0));
+      hints.stockQty !== undefined ? Number(hints.stockQty) : activeStockQtyValue;
     const purchasePriceValue =
       hints.purchasePrice !== undefined ? Number(hints.purchasePrice) : Number(getNumValue(fields.purchasePrice, 0));
     const salesPriceValue =
@@ -1530,16 +1617,22 @@
       const nextRecord = nextIndex >= 0 ? records[nextIndex] : { id: nextDepotId };
       const sourceDepotId = resolveArticleDepotSourceId(nextRecord, nextIndex);
       const savedLocationIds = getArticleDepotSelectedLocationIds(nextRecord);
+      const activeDepotStockQty = getDepotStockQty(nextRecord, getArticleStockQtyInputValue(scope));
       setArticleActiveDepotId(nextDepotId);
       setArticleSelectedDepotId(nextDepotId);
       setFieldValue(fields.defaultDepot, sourceDepotId || EMPTY_DEPOT_VALUE);
       renderDepotTabs(article, scope);
       setDepotTabsActiveState(scope, nextDepotId);
+      syncActiveDepotStockField(scope, {
+        ...nextRecord,
+        stockQty: activeDepotStockQty
+      }, nextIndex);
       handleDepotSelectionChange(scope, {
         clearLocation,
         preferredLocationIds: clearLocation ? preferredLocationIds : preferredLocationIds.length ? preferredLocationIds : savedLocationIds
       });
       syncActiveDepotNameFromDb(scope, nextDepotId, article);
+      syncReadOnlyInfo(scope, { stockQty: activeDepotStockQty });
       if (article && typeof article === "object") {
         article.activeDepotId = nextDepotId;
         article.selectedDepotId = nextDepotId;
@@ -1567,6 +1660,7 @@
       id: createArticleDepotId(current, nextNumber),
       name: "",
       linkedDepotId: "",
+      stockQty: getArticleStockQtyInputValue(scope),
       selectedLocationIds: [],
       selectedEmplacementIds: [],
       createdAt: new Date().toISOString(),
@@ -1614,6 +1708,7 @@
       fields.allowNegative,
       fields.alert,
       fields.max,
+      fields.depotStockQty,
     ].forEach((field) => setDisabledState(field, !uiInteractive));
     setDepotPickerDisabled(fields, !uiInteractive);
     if (fields.depotAddBtn instanceof HTMLElement) {
@@ -1634,7 +1729,12 @@
     setDisabledState(fields.availableDisplay, true);
     setDisabledState(fields.totalCostAchat, true);
     setDisabledState(fields.totalValueVente, true);
-    syncReadOnlyInfo(scope);
+    if (isArticleScope(scope)) {
+      const activeDepotStockQty = syncActiveDepotStockField(scope);
+      syncReadOnlyInfo(scope, { stockQty: activeDepotStockQty });
+    } else {
+      syncReadOnlyInfo(scope);
+    }
 
     return { scope, panelVisible, interactive };
   };
@@ -1644,8 +1744,18 @@
     if (!scope) return;
     const fields = getFields(scope);
     if (isArticleScope(scope)) {
+      const currentArticleStockQty = getArticleStockQtyInputValue(scope);
       setArticleDepotState({
-        depots: [{ id: MAIN_ARTICLE_DEPOT_ID, name: "", linkedDepotId: "", selectedLocationIds: [] }],
+        depots: [
+          {
+            id: MAIN_ARTICLE_DEPOT_ID,
+            name: "",
+            linkedDepotId: "",
+            stockQty: currentArticleStockQty,
+            selectedLocationIds: [],
+            selectedEmplacementIds: []
+          }
+        ],
         selectedDepotId: MAIN_ARTICLE_DEPOT_ID,
         activeDepotId: MAIN_ARTICLE_DEPOT_ID
       });
@@ -1700,12 +1810,19 @@
         stockManagement.defaultLocation ??
         ""
     );
+    const articleMainStockQty = normalizeStockQty(article.stockQty ?? getNumValue(fields.qty, 0), 0);
     if (isArticleScope(scope)) {
       const sourceDepots = Array.isArray(article.depots)
         ? article.depots
         : Array.isArray(stockManagement.depots)
         ? stockManagement.depots
         : [];
+      const sourceDepotStockFlags = new Map();
+      sourceDepots.forEach((entry, index) => {
+        const normalized = normalizeArticleDepotRecord(entry, index);
+        if (!normalized?.id) return;
+        sourceDepotStockFlags.set(normalized.id, hasExplicitDepotStockQty(entry));
+      });
       const normalizedDepots = normalizeArticleDepotRecords(sourceDepots).slice();
       const selectedTabId = selectedDepotTabIdResolved || String(normalizedDepots[0]?.id || MAIN_ARTICLE_DEPOT_ID).trim();
       const selectedIndex = Math.max(
@@ -1713,13 +1830,24 @@
         normalizedDepots.findIndex((entry) => entry.id === selectedTabId)
       );
       const nextDepots = normalizedDepots.map((entry, index) => {
-        if (index !== selectedIndex) return entry;
         const currentLocationIds = getArticleDepotSelectedLocationIds(entry);
+        const resolvedLocationIds = currentLocationIds.length ? currentLocationIds : legacyLocationIds.slice();
+        const hasExplicitStockQty = sourceDepotStockFlags.get(entry.id) === true;
+        const resolvedStockQty = hasExplicitStockQty
+          ? getDepotStockQty(entry, articleMainStockQty)
+          : articleMainStockQty;
+        if (index !== selectedIndex) {
+          return {
+            ...entry,
+            stockQty: resolvedStockQty
+          };
+        }
         return {
           ...entry,
+          stockQty: resolvedStockQty,
           linkedDepotId: normalizeDepotRefId(entry?.linkedDepotId || legacyLinkedDepotId || ""),
-          selectedLocationIds: currentLocationIds.length ? currentLocationIds : legacyLocationIds.slice(),
-          selectedEmplacementIds: currentLocationIds.length ? currentLocationIds : legacyLocationIds.slice()
+          selectedLocationIds: resolvedLocationIds,
+          selectedEmplacementIds: resolvedLocationIds
         };
       });
       setArticleDepotState({
@@ -1783,6 +1911,7 @@
     })();
     const selectedEmplacements = getSelectedLocationIds(fields.defaultLocation);
     if (articleScope) {
+      persistActiveDepotStockQty(scope, getNumValue(fields.depotStockQty, getArticleStockQtyInputValue(scope)));
       persistActiveArticleDepotSelection({
         linkedDepotId: normalizeDepotRefId(fields.defaultDepot?.value || ""),
         selectedLocationIds: selectedEmplacements,
@@ -1836,6 +1965,7 @@
         id: entry.id,
         name: entry.name,
         linkedDepotId: normalizeDepotRefId(entry?.linkedDepotId || ""),
+        stockQty: getDepotStockQty(entry, getArticleStockQtyInputValue(scope)),
         selectedLocationIds: normalizeScopedIdList(entry?.selectedLocationIds || []),
         selectedEmplacementIds: normalizeScopedIdList(
           entry?.selectedEmplacementIds || entry?.selectedLocationIds || []
@@ -1864,6 +1994,7 @@
         id: String(entry?.id || "").trim(),
         name: String(entry?.name || "").trim(),
         linkedDepotId: normalizeDepotRefId(entry?.linkedDepotId || ""),
+        stockQty: getDepotStockQty(entry, 0),
         selectedLocationIds: normalizeScopedIdList(entry?.selectedLocationIds || []),
         selectedEmplacementIds: normalizeScopedIdList(
           entry?.selectedEmplacementIds || entry?.selectedLocationIds || []
@@ -1916,7 +2047,7 @@
     );
 
   const shouldSyncReadOnlyTarget = (target) =>
-    target?.matches?.("#addUnit, #addStockQty, #addPurchasePrice, #addPrice");
+    target?.matches?.("#addUnit, #addStockQty, #addStockDepotQty, #addPurchasePrice, #addPrice");
 
   const bindEvents = () => {
     if (SEM.__stockWindowEventsBound || typeof document === "undefined") return;
@@ -1927,6 +2058,11 @@
       if (!(target instanceof HTMLElement)) return;
       const scope = toScopeNode(target);
       if (!scope) return;
+      if (target.matches?.("#addStockDepotQty") && isArticleScope(scope)) {
+        const stockQty = persistActiveDepotStockQty(scope, getNumValue(target, getArticleStockQtyInputValue(scope)));
+        syncReadOnlyInfo(scope, { stockQty });
+        return;
+      }
       if (target.matches?.("#addStockAllowNegative, #addStockBlockInsufficient")) {
         enforceExclusiveStockOptions(scope, target);
       }
@@ -1960,6 +2096,16 @@
       if (!(target instanceof HTMLElement)) return;
       const scope = toScopeNode(target);
       if (!scope) return;
+      if (target.matches?.("#addStockDepotQty") && isArticleScope(scope)) {
+        const rawValue = String(target.value ?? "").trim();
+        if (!rawValue) {
+          syncReadOnlyInfo(scope, { stockQty: 0 });
+          return;
+        }
+        const stockQty = persistActiveDepotStockQty(scope, getNumValue(target, 0));
+        syncReadOnlyInfo(scope, { stockQty });
+        return;
+      }
       if (target.matches?.("#addStockAllowNegative, #addStockBlockInsufficient")) {
         enforceExclusiveStockOptions(scope, target);
       }

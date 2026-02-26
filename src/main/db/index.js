@@ -3535,6 +3535,15 @@ const normalizeArticleDepotEntry = (entry = {}, index = 0) => {
       source.defaultLocation ??
       selectedLocationIds
   );
+  const stockQty = clampStockQuantity(
+    normalizeArticleNumber(
+      source.stockQty ??
+        source.stock_qty ??
+        source.quantity ??
+        source.qty,
+      0
+    )
+  );
   const createdAt = normalizeTextValue(source.createdAt || source.created_at || "");
   if (!rawId && !name && !linkedDepotId && !selectedLocationIds.length && !selectedEmplacementIds.length) {
     return null;
@@ -3550,6 +3559,7 @@ const normalizeArticleDepotEntry = (entry = {}, index = 0) => {
     id: finalId,
     name: name || fallbackName,
     linkedDepotId: linkedDepotId || legacyLinkedDepotId,
+    stockQty,
     selectedLocationIds: selectedLocationIds.slice(),
     selectedEmplacementIds: resolvedSelectedEmplacementIds.slice(),
     createdAt: createdAt || new Date().toISOString()
@@ -3613,9 +3623,19 @@ const serializeArticleDepots = (depots = []) => {
           entry?.defaultLocation ??
           selectedLocationIds
       );
+      const stockQty = clampStockQuantity(
+        normalizeArticleNumber(
+          entry?.stockQty ??
+            entry?.stock_qty ??
+            entry?.quantity ??
+            entry?.qty,
+          0
+        )
+      );
       const createdAt = normalizeTextValue(entry?.createdAt || entry?.created_at || "");
       const row = {
         id,
+        stockQty,
         createdAt: createdAt || new Date().toISOString()
       };
       if (name && !isGenericDepotAutoName(name)) {

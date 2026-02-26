@@ -852,6 +852,10 @@
             id: String(entry?.id || "").trim(),
             name: String(entry?.name || "").trim(),
             linkedDepotId: String(entry?.linkedDepotId || "").trim(),
+            stockQty: (() => {
+              const parsed = Number(entry?.stockQty ?? entry?.stock_qty ?? entry?.quantity ?? entry?.qty);
+              return Number.isFinite(parsed) ? Math.max(0, Math.trunc(parsed)) : 0;
+            })(),
             selectedLocationIds: Array.isArray(entry?.selectedLocationIds)
               ? entry.selectedLocationIds.map((value) => String(value || "").trim()).filter(Boolean)
               : [],
