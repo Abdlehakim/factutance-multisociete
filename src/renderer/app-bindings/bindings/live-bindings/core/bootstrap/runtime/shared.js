@@ -258,6 +258,7 @@
               stockQty: true,
               purchasePrice: false,
               purchaseTva: false,
+              purchaseDiscount: false,
               price: true,
               fodec: true,
               addFodec: true,
@@ -274,6 +275,7 @@
             ARTICLE_PURCHASE_TOGGLE_KEYS = [
               "purchasePrice",
               "purchaseTva",
+              "purchaseDiscount",
               "addPurchaseFodec",
               "totalPurchaseHt",
               "totalPurchaseTtc"

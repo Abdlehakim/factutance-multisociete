@@ -242,6 +242,18 @@ const renderArticleFormFields = ({ idPrefix = "", preview = false } = {}) => {
                 <input id="${id("addPurchaseTva")}" type="number" min="0" step="0.01" value="0"${previewDefault("purchaseTva")}${readOnlyNumberInput} />
               </div>
 
+              <div class="add-item-field"${previewField("purchaseDiscount")}>
+                <label for="${id("addPurchaseDiscount")}" class="label-text" data-article-field-label="purchaseDiscount">Remise A.</label>
+                <input
+                  id="${id("addPurchaseDiscount")}"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value="0"
+                  aria-disabled="${preview ? "true" : "false"}"${previewDefault("purchaseDiscount")}${readOnlyNumberInput}
+                />
+              </div>
+
               <div class="add-fodec-row add-fodec-row--purchase" id="${id("addPurchaseFodecRow")}" data-fodec-active="${purchaseFodecActive}"${previewField("addPurchaseFodec")}>
                 <div class="label-inline add-fodec-toggle">
                   <span class="label-text">Ajouter Fodec Achat</span>
@@ -384,6 +396,12 @@ export const renderArticleFormPopover = () => `
             <span class="tab-label">Depot 1</span>
           </button>
           <div id="articleDepotTabsRow" class="article-depot-tabs" aria-label="D&eacute;p&ocirc;ts de l'article"></div>
+          <button
+            id="articleDepotRemoveBtn"
+            type="button"
+            class="swbDialog__tabRemove"
+            aria-label="Supprimer le d&eacute;p&ocirc;t actif"
+          >−</button>
           <button
             id="articleDepotAddBtn"
             type="button"

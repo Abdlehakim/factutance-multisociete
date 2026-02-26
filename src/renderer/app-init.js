@@ -648,6 +648,7 @@
     [
       "addPurchasePrice",
       "addPurchaseTva",
+      "addPurchaseDiscount",
       "addPurchaseFodecRate",
       "addPurchaseFodecTva",
       "addPrice",

@@ -35,7 +35,7 @@
       });
     }
 
-    ["addRef", "addProduct", "addDesc", "addUnit", "addStockQty", "addPurchasePrice", "addPurchaseTva", "addPurchaseFodecRate", "addPurchaseFodecTva", "addPrice", "addTva", "addDiscount", "addFodecRate", "addFodecTva"].forEach((id) => {
+    ["addRef", "addProduct", "addDesc", "addUnit", "addStockQty", "addPurchasePrice", "addPurchaseTva", "addPurchaseDiscount", "addPurchaseFodecRate", "addPurchaseFodecTva", "addPrice", "addTva", "addDiscount", "addFodecRate", "addFodecTva"].forEach((id) => {
       const el = getEl(id);
       el?.addEventListener("keydown", (e) => {
         if (e.key === "Enter") {

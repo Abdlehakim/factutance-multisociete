@@ -113,7 +113,8 @@
   cursor: not-allowed;
 }
 
-#articleFormPopover #articleDepotAddBtn.swbDialog__tabAdd {
+#articleFormPopover #articleDepotAddBtn.swbDialog__tabAdd,
+#articleFormPopover #articleDepotRemoveBtn.swbDialog__tabRemove {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -141,22 +142,51 @@
   color: #15335e;
 }
 
-#articleFormPopover #articleDepotAddBtn.swbDialog__tabAdd:focus-visible {
+#articleFormPopover #articleDepotAddBtn.swbDialog__tabAdd:focus-visible,
+#articleFormPopover #articleDepotRemoveBtn.swbDialog__tabRemove:focus-visible {
   outline: 2px solid #93c5fd;
   outline-offset: 2px;
 }
 
 #articleFormPopover #articleDepotAddBtn.swbDialog__tabAdd.is-disabled,
-#articleFormPopover #articleDepotAddBtn.swbDialog__tabAdd[aria-disabled="true"] {
+#articleFormPopover #articleDepotAddBtn.swbDialog__tabAdd[aria-disabled="true"],
+#articleFormPopover #articleDepotAddBtn.swbDialog__tabAdd:disabled,
+#articleFormPopover #articleDepotRemoveBtn.swbDialog__tabRemove.is-disabled,
+#articleFormPopover #articleDepotRemoveBtn.swbDialog__tabRemove[aria-disabled="true"],
+#articleFormPopover #articleDepotRemoveBtn.swbDialog__tabRemove:disabled {
   opacity: 0.55;
   cursor: not-allowed;
   box-shadow: none;
 }
 
 #articleFormPopover #articleDepotAddBtn.swbDialog__tabAdd.is-disabled:hover,
-#articleFormPopover #articleDepotAddBtn.swbDialog__tabAdd[aria-disabled="true"]:hover {
+#articleFormPopover #articleDepotAddBtn.swbDialog__tabAdd[aria-disabled="true"]:hover,
+#articleFormPopover #articleDepotAddBtn.swbDialog__tabAdd:disabled:hover {
   background: #ffffff;
   border-color: #caddff;
+}
+
+#articleFormPopover #articleDepotRemoveBtn.swbDialog__tabRemove {
+  border-color: #d4d8de;
+  color: #64748b;
+}
+
+#articleFormPopover #articleDepotRemoveBtn.swbDialog__tabRemove:hover {
+  background: #fef2f2;
+  border-color: #f5a1a1;
+  color: #b42318;
+}
+
+#articleFormPopover #articleDepotRemoveBtn.swbDialog__tabRemove:focus-visible {
+  outline-color: #f5a1a1;
+}
+
+#articleFormPopover #articleDepotRemoveBtn.swbDialog__tabRemove.is-disabled:hover,
+#articleFormPopover #articleDepotRemoveBtn.swbDialog__tabRemove[aria-disabled="true"]:hover,
+#articleFormPopover #articleDepotRemoveBtn.swbDialog__tabRemove:disabled:hover {
+  background: #ffffff;
+  border-color: #d4d8de;
+  color: #64748b;
 }
 
 #articleFormPopover .swbDialog__tab.is-active,
@@ -166,7 +196,7 @@
   color: #ffffff;
 }
 
-#articleFormPopover #articleFormTabStock[data-depot-active="false"][aria-selected="false"] {
+#articleFormPopover #articleFormTabStock[data-depot-active="false"] {
   background: #ffffff;
   border-color: #caddff;
   color: #15335e;

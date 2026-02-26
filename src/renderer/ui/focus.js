@@ -18,7 +18,7 @@
     if (pdfRoot){ pdfRoot.style.display="none"; pdfRoot.style.pointerEvents="none"; pdfRoot.setAttribute("aria-hidden","true"); }
   }
   function unlockAddInputs(){
-  ["addRef","addProduct","addDesc","addUnit","addStockQty","addPurchasePrice","addPurchaseTva","addPrice","addTva","addDiscount"].forEach((id)=>{
+  ["addRef","addProduct","addDesc","addUnit","addStockQty","addPurchasePrice","addPurchaseTva","addPurchaseDiscount","addPrice","addTva","addDiscount"].forEach((id)=>{
       const el = getEl(id); if (el){ el.disabled = false; el.readOnly = false; }
     });
   }

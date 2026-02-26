@@ -164,6 +164,12 @@ const FIELD_TOGGLES_PURCHASE = [
     ariaLabel: "Afficher champ TVA A."
   },
   {
+    id: "articleFieldsTogglePurchaseDiscount",
+    key: "purchaseDiscount",
+    label: "Remise A.",
+    ariaLabel: "Afficher champ Remise A."
+  },
+  {
     id: "articleFieldsToggleAddPurchaseFodec",
     key: "addPurchaseFodec",
     label: "Ajouter FODEC Achat",

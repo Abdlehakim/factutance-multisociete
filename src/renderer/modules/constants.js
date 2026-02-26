@@ -10,6 +10,7 @@
       unit: "colToggleUnit",
       purchasePrice: "colTogglePurchasePrice",
       purchaseTva: "colTogglePurchaseTva",
+      purchaseDiscount: "colTogglePurchaseDiscount",
       price: "colTogglePrice",
       fodec: "colToggleFodec",
       addFodec: "colToggleAddFodec",

@@ -104,6 +104,7 @@ function getBrandedCompanyName() {
     stockQty: true,
     purchasePrice: false,
     purchaseTva: false,
+    purchaseDiscount: false,
     price: true,
     fodec: true,
     addFodec: true,

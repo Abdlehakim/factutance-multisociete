@@ -16,6 +16,7 @@
     stockQty: true,
     purchasePrice: false,
     purchaseTva: false,
+    purchaseDiscount: false,
     price: true,
     fodec: true,
     addFodec: true,
@@ -111,6 +112,7 @@
       unit:getStr("addUnit"),
       purchasePrice:getNum("addPurchasePrice",0),
       purchaseTva:getNum("addPurchaseTva",0),
+      purchaseDiscount:getNum("addPurchaseDiscount",0),
       price:getNum("addPrice",0),
       tva:getNum("addTva",19),
       discount:getNum("addDiscount",0),
@@ -161,6 +163,7 @@
     setVal("addStockQty", String(a.stockQty ?? 0)); setVal("addUnit", a.unit ?? ""); setVal("addPrice", String(a.price ?? 0));
     setVal("addPurchasePrice", String(a.purchasePrice ?? 0));
     setVal("addPurchaseTva", String(a.purchaseTva ?? 0));
+    setVal("addPurchaseDiscount", String(a.purchaseDiscount ?? a.discount ?? 0));
     setVal("addTva", String(a.tva ?? 19)); setVal("addDiscount", String(a.discount ?? 0));
     const fodec = a.fodec && typeof a.fodec === "object" ? a.fodec : {};
     const fodecToggle = getEl("addFodecEnabled");

@@ -918,6 +918,7 @@
     pf.rate    = getNum("addPurchaseFodecRate", pf.rate ?? 1);
     pf.tva     = getNum("addPurchaseFodecTva",  pf.tva  ?? 19);
     addForm.purchaseTva = getNum("addPurchaseTva", addForm.purchaseTva ?? 0);
+    addForm.purchaseDiscount = getNum("addPurchaseDiscount", addForm.purchaseDiscount ?? 0);
 
       const columnMap = SEM.consts?.FIELD_TOGGLE_MAP || {};
       const columnVisibilityDefaults = {
@@ -929,6 +930,7 @@
         stockQty: true,
         purchasePrice: false,
         purchaseTva: false,
+        purchaseDiscount: false,
         price: true,
         fodec: true,
         addFodec: true,

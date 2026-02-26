@@ -878,6 +878,7 @@
     fodecPurchase: false,
     purchasePrice: false,
     purchaseTva: false,
+    purchaseDiscount: false,
     totalPurchaseHt: false,
     totalPurchaseTtc: false,
     totalHt: true,
@@ -911,6 +912,7 @@
     }
     if (!normalized.purchasePrice) {
       normalized.purchaseTva = false;
+      normalized.purchaseDiscount = false;
       normalized.fodecPurchase = false;
       normalized.totalPurchaseHt = false;
       normalized.totalPurchaseTtc = false;
@@ -1506,6 +1508,7 @@
       price: toNumber(item.price, 0),
       tva: toNumber(item.tva, 19),
       discount: toNumber(item.discount, 0),
+      purchaseDiscount: toNumber(item.purchaseDiscount ?? item.discount, 0),
       fodec: {
         enabled: !!item.fodec?.enabled,
         label: toCleanString(item.fodec?.label || "FODEC"),
@@ -1526,6 +1529,7 @@
       price: toNumber(form.price, 0),
       tva: toNumber(form.tva, 19),
       discount: toNumber(form.discount, 0),
+      purchaseDiscount: toNumber(form.purchaseDiscount ?? form.discount, 0),
       fodec: {
         enabled: !!form.fodec?.enabled,
         label: toCleanString(form.fodec?.label || "FODEC"),
@@ -1568,6 +1572,7 @@
       price: typeof getNum === "function" ? getNum("addPrice", 0) : 0,
       tva: typeof getNum === "function" ? getNum("addTva", 19) : 19,
       discount: typeof getNum === "function" ? getNum("addDiscount", 0) : 0,
+      purchaseDiscount: typeof getNum === "function" ? getNum("addPurchaseDiscount", 0) : 0,
       fodec: {
         enabled: typeof getEl === "function" ? !!getEl("addFodecEnabled")?.checked : false,
         label: state()?.meta?.addForm?.fodec?.label || "FODEC",

@@ -7,6 +7,7 @@
   const LOCATION_EMPTY_LABEL = "Aucun emplacement enregistre";
   const ADD_SCOPE_SELECTOR = "#addItemBox, #addItemBoxMainscreen, #articleFormPopover";
   const ARTICLE_POPOVER_ID = "articleFormPopover";
+  const ARTICLE_DEPOT_REMOVE_BUTTON_SELECTOR = "#articleDepotRemoveBtn";
   const ARTICLE_DEPOT_ADD_BUTTON_SELECTOR = "#articleDepotAddBtn";
   const ARTICLE_STOCK_TAB_SELECTOR = "#articleFormTabStock";
   const ARTICLE_DEPOT_TAB_SELECTOR = "[data-article-depot-tab]";
@@ -16,6 +17,8 @@
   const ARTICLE_MAIN_TAB_PANEL_SELECTOR = "[data-article-modal-panel]";
   const ARTICLE_MAIN_STOCK_TAB = "stock";
   const MAIN_ARTICLE_DEPOT_ID = "depot-1";
+  const MAX_ARTICLE_DEPOT_COUNT = 6;
+  const MAX_ARTICLE_DEPOT_MESSAGE = `Maximum ${MAX_ARTICLE_DEPOT_COUNT} dépôts autorisés.`;
   let depotRecords = [];
   let articleDepotState = {
     depots: [],
@@ -359,26 +362,38 @@
     return String(depotId || "").trim() || "Depot";
   };
 
-  const getNextArticleDepotNumber = (records = []) => {
-    let maxNumber = 0;
-    records.forEach((entry) => {
+  const getNextArticleDepotNumber = (records = [], { maxCount = MAX_ARTICLE_DEPOT_COUNT } = {}) => {
+    const source = Array.isArray(records) ? records : [];
+    const safeMax = Math.max(1, Math.trunc(Number(maxCount) || MAX_ARTICLE_DEPOT_COUNT));
+    const used = new Set();
+    source.forEach((entry) => {
       const parsed =
         parseDepotAutoNumberFromId(entry?.id || "") ||
         parseDepotAutoNumber(entry?.tabLabel || entry?.tabName || entry?.name || "");
-      if (!Number.isFinite(parsed) || parsed <= 0) return;
-      if (parsed > maxNumber) maxNumber = parsed;
+      if (!Number.isFinite(parsed) || parsed <= 0 || parsed > safeMax) return;
+      used.add(Math.trunc(parsed));
     });
-    return maxNumber + 1;
+    for (let number = 1; number <= safeMax; number += 1) {
+      if (!used.has(number)) return number;
+    }
+    return null;
   };
 
-  const createArticleDepotId = (records = [], numberHint = 1) => {
+  const createArticleDepotId = (records = [], numberHint = 1, { maxCount = Number.POSITIVE_INFINITY } = {}) => {
     const used = new Set(records.map((entry) => String(entry?.id || "").trim().toLowerCase()).filter(Boolean));
-    const base = toDepotTabId("", Math.max(1, Math.trunc(Number(numberHint) || 1)));
+    const safeMax = Number.isFinite(Number(maxCount))
+      ? Math.max(1, Math.trunc(Number(maxCount)))
+      : Number.POSITIVE_INFINITY;
+    const start = Math.max(1, Math.trunc(Number(numberHint) || 1));
+    if (Number.isFinite(safeMax) && start > safeMax) return "";
+    const base = toDepotTabId("", start);
     if (!used.has(base)) return base;
-    let next = Math.max(1, Math.trunc(Number(numberHint) || 1)) + 1;
+    let next = start + 1;
+    if (Number.isFinite(safeMax) && next > safeMax) return "";
     let candidate = toDepotTabId("", next);
     while (used.has(candidate)) {
       next += 1;
+      if (Number.isFinite(safeMax) && next > safeMax) return "";
       candidate = toDepotTabId("", next);
     }
     return candidate;
@@ -905,6 +920,24 @@
     field.setAttribute("aria-disabled", disabled ? "true" : "false");
   };
 
+  const notifyDepotMessage = async (message = "", title = "Depot") => {
+    const text = String(message || "").trim();
+    if (!text) return;
+    try {
+      if (typeof w.showToast === "function") {
+        w.showToast(text);
+        return;
+      }
+      if (typeof w.showDialog === "function") {
+        await w.showDialog(text, { title });
+        return;
+      }
+      if (typeof w.alert === "function") {
+        w.alert(text);
+      }
+    } catch {}
+  };
+
   const resolvePopover = (scope) => {
     if (scope?.id === "articleFormPopover") return scope;
     return scope?.closest?.("#articleFormPopover") || null;
@@ -934,6 +967,7 @@
     defaultDepotMenu: getField(scope, "addStockDefaultDepotMenu"),
     defaultDepotPanel: getField(scope, "addStockDefaultDepotPanel"),
     defaultDepotDisplay: getField(scope, "addStockDefaultDepotDisplay"),
+    depotRemoveBtn: getField(scope, "articleDepotRemoveBtn"),
     depotAddBtn: getField(scope, "articleDepotAddBtn"),
     depotTabsRow: getField(scope, "articleDepotTabsRow"),
     defaultLocation: getField(scope, "addStockDefaultLocation"),
@@ -1066,8 +1100,6 @@
   const setDepotTabsActiveState = (scopeHint = null, depotId = "") => {
     const scope = resolveScope(scopeHint);
     if (!scope || !isArticleScope(scope)) return "";
-    const activeMainTab = getActiveArticleMainTab(scope);
-    const isStockMainTabActive = activeMainTab === ARTICLE_MAIN_STOCK_TAB;
     const targetDepotId = toDepotTabId(depotId || getArticleActiveDepotId() || MAIN_ARTICLE_DEPOT_ID, 1);
     const tabs = Array.from(scope.querySelectorAll(ARTICLE_ALL_DEPOT_TAB_BUTTON_SELECTOR)).filter(
       (entry) => entry instanceof HTMLElement && entry.tagName === "BUTTON"
@@ -1082,19 +1114,22 @@
       const isDepotActive = tabDepotId === resolvedActiveDepotId;
       const isMainStockTab = String(tab.dataset?.articleTab || "").toLowerCase() === ARTICLE_MAIN_STOCK_TAB;
       tab.dataset.depotActive = isDepotActive ? "true" : "false";
-
-      if (isMainStockTab) {
-        // Main tab selection is controlled by article-modal-tabs; depot context remains on data attribute.
-        tab.classList.remove("is-depot-active");
-        return;
-      }
-
-      const shouldUseMainActiveStyle = isStockMainTabActive && isDepotActive;
-      tab.classList.toggle("is-active", shouldUseMainActiveStyle);
-      tab.classList.toggle("is-depot-active", !isStockMainTabActive && isDepotActive);
-      tab.setAttribute("aria-selected", shouldUseMainActiveStyle ? "true" : "false");
-      tab.tabIndex = shouldUseMainActiveStyle ? 0 : -1;
+      tab.classList.remove("is-active", "is-depot-active");
+      if (isMainStockTab) return;
+      tab.setAttribute("aria-selected", "false");
+      tab.tabIndex = -1;
     });
+    const activeTab = tabs.find(
+      (entry) => toDepotTabId(entry.dataset?.depotId || "", 1) === resolvedActiveDepotId
+    );
+    if (activeTab instanceof HTMLElement) {
+      const isMainStockTab = String(activeTab.dataset?.articleTab || "").toLowerCase() === ARTICLE_MAIN_STOCK_TAB;
+      if (!isMainStockTab) {
+        activeTab.classList.add("is-active");
+        activeTab.setAttribute("aria-selected", "true");
+        activeTab.tabIndex = 0;
+      }
+    }
     return resolvedActiveDepotId;
   };
 
@@ -1181,15 +1216,14 @@
         activateArticleDepotTab(tab, evt);
       });
       tab.textContent = getDepotTabLabel(entry, sourceIndex >= 0 ? sourceIndex : renderIndex + 1);
-      const isActive = entry.id === activeDepotId;
-      tab.classList.toggle("is-active", isActive);
-      tab.setAttribute("aria-selected", isActive ? "true" : "false");
-      tab.tabIndex = isActive ? 0 : -1;
-      tab.dataset.depotActive = isActive ? "true" : "false";
+      tab.setAttribute("aria-selected", "false");
+      tab.tabIndex = -1;
+      tab.dataset.depotActive = "false";
       row.appendChild(tab);
     });
     row.hidden = extraDepots.length === 0;
     setDepotTabsActiveState(scope, activeDepotId);
+    syncArticleDepotAddButtonState(scope);
 
     if (article && typeof article === "object") {
       article.depots = depots.map((entry) => ({
@@ -1790,6 +1824,29 @@
     return targetDepotId;
   };
 
+  const canAddArticleDepot = (records = []) => {
+    const source = Array.isArray(records) ? records : [];
+    if (source.length >= MAX_ARTICLE_DEPOT_COUNT) return false;
+    const nextNumber = getNextArticleDepotNumber(source, { maxCount: MAX_ARTICLE_DEPOT_COUNT });
+    return Number.isFinite(nextNumber) && nextNumber >= 1 && nextNumber <= MAX_ARTICLE_DEPOT_COUNT;
+  };
+
+  const syncArticleDepotAddButtonState = (scopeHint = null, { uiInteractive = null } = {}) => {
+    const scope = resolveScope(scopeHint);
+    if (!scope || !isArticleScope(scope)) return false;
+    const fields = getFields(scope);
+    if (!(fields.depotAddBtn instanceof HTMLElement)) return false;
+    const effectiveInteractive =
+      uiInteractive === null ? !isViewMode(scope) || isPreviewMode(scope) : !!uiInteractive;
+    const disabled = !effectiveInteractive || !canAddArticleDepot(getArticleDepotRecords());
+    if (fields.depotAddBtn.tagName === "BUTTON") {
+      fields.depotAddBtn.disabled = disabled;
+    }
+    fields.depotAddBtn.setAttribute("aria-disabled", disabled ? "true" : "false");
+    fields.depotAddBtn.classList.toggle("is-disabled", disabled);
+    return !disabled;
+  };
+
   const addDepotTab = (article = null, scopeHint = null) => {
     const scope = resolveScope(scopeHint);
     if (!scope || !isArticleScope(scope)) return null;
@@ -1798,11 +1855,27 @@
     if (fields.depotAddBtn?.getAttribute?.("aria-disabled") === "true") return null;
 
     const current = getArticleDepotRecords();
-    const nextNumber = getNextArticleDepotNumber(current);
+    if (!canAddArticleDepot(current)) {
+      syncArticleDepotAddButtonState(scope);
+      void notifyDepotMessage(MAX_ARTICLE_DEPOT_MESSAGE);
+      return null;
+    }
+    const nextNumber = getNextArticleDepotNumber(current, { maxCount: MAX_ARTICLE_DEPOT_COUNT });
+    if (!Number.isFinite(nextNumber)) {
+      syncArticleDepotAddButtonState(scope);
+      void notifyDepotMessage(MAX_ARTICLE_DEPOT_MESSAGE);
+      return null;
+    }
+    const nextDepotId = createArticleDepotId(current, nextNumber, { maxCount: MAX_ARTICLE_DEPOT_COUNT });
+    if (!nextDepotId) {
+      syncArticleDepotAddButtonState(scope);
+      void notifyDepotMessage(MAX_ARTICLE_DEPOT_MESSAGE);
+      return null;
+    }
     const mainStockQty = getArticleStockQtyInputValue(scope);
     const defaultDepotStockQty = computeDepotRemainingStockQty(mainStockQty, current);
     const nextDepot = {
-      id: createArticleDepotId(current, nextNumber),
+      id: nextDepotId,
       name: "",
       linkedDepotId: "",
       stockQty: defaultDepotStockQty,
@@ -1828,7 +1901,49 @@
     return nextDepot;
   };
 
+  const removeActiveDepotTab = (article = null, scopeHint = null) => {
+    const scope = resolveScope(scopeHint);
+    if (!scope || !isArticleScope(scope)) return null;
+    const fields = getFields(scope);
+    if (fields.depotRemoveBtn?.getAttribute?.("aria-disabled") === "true") return null;
+
+    const current = getArticleDepotRecords();
+    if (!current.length) return null;
+    const activeDepotId = toDepotTabId(getArticleActiveDepotId(), 1);
+    if (activeDepotId === MAIN_ARTICLE_DEPOT_ID) {
+      void notifyDepotMessage("Depot 1 ne peut pas etre supprime");
+      return null;
+    }
+
+    const removeIndex = current.findIndex((entry) => entry.id === activeDepotId);
+    if (removeIndex < 0) return null;
+    const nextRecords = current.filter((entry) => entry.id !== activeDepotId);
+    if (!nextRecords.length) {
+      void notifyDepotMessage("Depot 1 ne peut pas etre supprime");
+      return null;
+    }
+
+    const fallbackIndex = Math.max(0, removeIndex - 1);
+    const fallbackEntry = nextRecords[Math.min(fallbackIndex, nextRecords.length - 1)] || nextRecords[0];
+    const nextActiveDepotId = toDepotTabId(fallbackEntry?.id || MAIN_ARTICLE_DEPOT_ID, 1);
+    setArticleDepotState({
+      depots: nextRecords,
+      selectedDepotId: nextActiveDepotId,
+      activeDepotId: nextActiveDepotId,
+      stockCustomized: articleDepotState.stockCustomized
+    });
+    renderDepotTabs(article, scope);
+    setActiveDepot(article, nextActiveDepotId, {
+      scopeHint: scope,
+      clearLocation: false,
+      preferredLocationIds: []
+    });
+    syncUi(scope);
+    return nextActiveDepotId;
+  };
+
   const createArticleDepotForScope = (scopeHint = null) => addDepotTab(null, scopeHint);
+  const removeArticleDepotForScope = (scopeHint = null) => removeActiveDepotTab(null, scopeHint);
 
   const syncUi = (scopeHint = null) => {
     const scope = resolveScope(scopeHint);
@@ -1857,9 +1972,10 @@
       fields.depotStockQty,
     ].forEach((field) => setDisabledState(field, !uiInteractive));
     setDepotPickerDisabled(fields, !uiInteractive);
-    if (fields.depotAddBtn instanceof HTMLElement) {
-      fields.depotAddBtn.setAttribute("aria-disabled", uiInteractive ? "false" : "true");
-      fields.depotAddBtn.classList.toggle("is-disabled", !uiInteractive);
+    syncArticleDepotAddButtonState(scope, { uiInteractive });
+    if (fields.depotRemoveBtn instanceof HTMLElement) {
+      fields.depotRemoveBtn.setAttribute("aria-disabled", uiInteractive ? "false" : "true");
+      fields.depotRemoveBtn.classList.toggle("is-disabled", !uiInteractive);
     }
     renderDepotTabs(null, scope);
     setDepotTabsDisabled(scope, !uiInteractive);
@@ -2334,6 +2450,16 @@
       if (depotTab instanceof HTMLElement && activateArticleDepotTab(depotTab, evt)) {
         return;
       }
+      const removeButton = target?.closest?.(ARTICLE_DEPOT_REMOVE_BUTTON_SELECTOR);
+      if (removeButton) {
+        evt.preventDefault();
+        evt.stopPropagation();
+        if (removeButton.getAttribute("aria-disabled") === "true") return;
+        const scope = toScopeNode(removeButton);
+        if (!scope) return;
+        removeArticleDepotForScope(scope);
+        return;
+      }
       const addButton = target?.closest?.(ARTICLE_DEPOT_ADD_BUTTON_SELECTOR);
       if (addButton) {
         evt.preventDefault();
@@ -2377,6 +2503,7 @@
     applyToItem,
     renderDepotTabs,
     addDepotTab,
+    removeActiveDepotTab,
     setActiveDepot,
     syncReadOnlyInfo,
     setDepotRecords,
