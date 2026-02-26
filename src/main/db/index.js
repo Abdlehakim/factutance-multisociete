@@ -3472,6 +3472,15 @@ const toArticleDepotTabId = (value = "", fallbackNumber = 1) => {
 const normalizeArticleDepotLinkedId = (value = "") =>
   normalizeTextValue(value).replace(/^sqlite:\/\/depots\//i, "");
 
+const normalizeArticleDepotBool = (value = false) => {
+  if (value === undefined || value === null) return false;
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  const raw = normalizeTextValue(value).toLowerCase();
+  if (!raw) return false;
+  return raw === "1" || raw === "true" || raw === "yes" || raw === "on";
+};
+
 const normalizeArticleScopedIds = (value = []) => {
   const source = (() => {
     if (Array.isArray(value)) return value;
@@ -3544,6 +3553,13 @@ const normalizeArticleDepotEntry = (entry = {}, index = 0) => {
       0
     )
   );
+  const stockQtyCustomized = normalizeArticleDepotBool(
+    source.stockQtyCustomized ??
+      source.stock_qty_customized ??
+      source.depotStockCustomized ??
+      source.depot_stock_customized ??
+      false
+  );
   const createdAt = normalizeTextValue(source.createdAt || source.created_at || "");
   if (!rawId && !name && !linkedDepotId && !selectedLocationIds.length && !selectedEmplacementIds.length) {
     return null;
@@ -3560,6 +3576,7 @@ const normalizeArticleDepotEntry = (entry = {}, index = 0) => {
     name: name || fallbackName,
     linkedDepotId: linkedDepotId || legacyLinkedDepotId,
     stockQty,
+    stockQtyCustomized,
     selectedLocationIds: selectedLocationIds.slice(),
     selectedEmplacementIds: resolvedSelectedEmplacementIds.slice(),
     createdAt: createdAt || new Date().toISOString()
@@ -3632,12 +3649,22 @@ const serializeArticleDepots = (depots = []) => {
           0
         )
       );
+      const stockQtyCustomized = normalizeArticleDepotBool(
+        entry?.stockQtyCustomized ??
+          entry?.stock_qty_customized ??
+          entry?.depotStockCustomized ??
+          entry?.depot_stock_customized ??
+          false
+      );
       const createdAt = normalizeTextValue(entry?.createdAt || entry?.created_at || "");
       const row = {
         id,
         stockQty,
         createdAt: createdAt || new Date().toISOString()
       };
+      if (stockQtyCustomized) {
+        row.stockQtyCustomized = true;
+      }
       if (name && !isGenericDepotAutoName(name)) {
         row.name = name;
       }
@@ -3728,6 +3755,13 @@ const normalizeArticleRecord = (raw = {}) => {
   const depots = normalizeArticleDepots(
     raw?.depots ?? raw?.stockDepots ?? raw?.stock_depots_json ?? stockManagementRaw?.depots ?? []
   );
+  const depotStockCustomized = normalizeArticleDepotBool(
+    raw?.depotStockCustomized ??
+      raw?.depot_stock_customized ??
+      stockManagementRaw?.depotStockCustomized ??
+      stockManagementRaw?.depot_stock_customized ??
+      depots.some((entry) => normalizeArticleDepotBool(entry?.stockQtyCustomized))
+  );
   const selectedEmplacements = normalizeArticleEmplacementIds(
     raw?.selectedEmplacements ??
       raw?.selected_emplacements ??
@@ -3814,6 +3848,7 @@ const normalizeArticleRecord = (raw = {}) => {
           ""
       ) || defaultLocationId
   };
+  stockManagement.depotStockCustomized = depotStockCustomized;
   stockManagement.depots = migratedDepots.slice();
   stockManagement.defaultLocationIds = activeDepotSelectedEmplacements.slice();
   stockManagement.selectedEmplacements = activeDepotSelectedEmplacements.slice();
@@ -3843,6 +3878,7 @@ const normalizeArticleRecord = (raw = {}) => {
     use: normalizeArticleUse(raw?.use),
     activeDepotId,
     selectedDepotId: activeDepotId,
+    depotStockCustomized,
     selectedEmplacements: activeDepotSelectedEmplacements.slice(),
     depots: migratedDepots,
     stockManagement
@@ -3933,6 +3969,7 @@ const getArticleById = (id) => {
   const row = db.prepare("SELECT * FROM articles WHERE id = ?").get(id);
   if (!row) return null;
   const depots = normalizeArticleDepots(row.stock_depots_json);
+  const depotStockCustomized = depots.some((entry) => normalizeArticleDepotBool(entry?.stockQtyCustomized));
   const selectedDepotId = normalizeTextValue(row.stock_default_depot_id || "").replace(
     /^sqlite:\/\/depots\//i,
     ""
@@ -3968,12 +4005,14 @@ const getArticleById = (id) => {
     depots,
     activeDepotId: selectedDepotId,
     selectedDepotId,
+    depotStockCustomized,
     selectedEmplacements: selectedEmplacements.slice(),
     stockManagement: {
       enabled: true,
       defaultDepot: selectedDepotId,
       activeDepotId: selectedDepotId,
       selectedDepotId,
+      depotStockCustomized,
       defaultLocation: defaultLocationId,
       defaultLocationId,
       defaultLocationIds: selectedEmplacements.slice(),

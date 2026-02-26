@@ -1422,6 +1422,12 @@
                   entry?.stockQty ?? entry?.stock_qty ?? entry?.quantity ?? entry?.qty,
                   normalized.stockQty
                 ),
+                stockQtyCustomized: !!(
+                  entry?.stockQtyCustomized ??
+                  entry?.stock_qty_customized ??
+                  entry?.depotStockCustomized ??
+                  entry?.depot_stock_customized
+                ),
                 selectedLocationIds: (() => {
                   const sourceValue =
                     entry?.selectedLocationIds ??
@@ -1476,6 +1482,13 @@
                 createdAt: String(entry?.createdAt || entry?.created_at || "").trim()
               }))
               .filter((entry) => entry.id);
+            const depotStockCustomized = !!(
+              source.depotStockCustomized ??
+              source.depot_stock_customized ??
+              stockManagement.depotStockCustomized ??
+              stockManagement.depot_stock_customized ??
+              depots.some((entry) => !!entry.stockQtyCustomized)
+            );
             const selectedDepotId = String(
               source.activeDepotId ??
               source.selectedDepotId ??
@@ -1511,6 +1524,7 @@
                 });
             })();
             if (depots.length) normalized.depots = depots;
+            if (depotStockCustomized) normalized.depotStockCustomized = true;
             if (selectedDepotId) normalized.selectedDepotId = selectedDepotId;
             if (selectedDepotId) normalized.activeDepotId = selectedDepotId;
             if (selectedEmplacements.length) normalized.selectedEmplacements = selectedEmplacements.slice();
@@ -1521,6 +1535,9 @@
                 defaultDepot:
                   String(stockManagement.defaultDepot || "").trim() || selectedDepotId || ""
               };
+              if (depotStockCustomized) {
+                normalized.stockManagement.depotStockCustomized = true;
+              }
               if (selectedEmplacements.length) {
                 normalized.stockManagement.defaultLocationIds = selectedEmplacements.slice();
                 normalized.stockManagement.selectedEmplacements = selectedEmplacements.slice();

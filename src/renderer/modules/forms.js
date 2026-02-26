@@ -127,6 +127,7 @@
         tva:purchaseFodecTva
       },
       stockManagement,
+      depotStockCustomized: !!(stockPayload.depotStockCustomized ?? stockManagement.depotStockCustomized),
       depots: depots.map((entry) => ({
         id: String(entry?.id || "").trim(),
         name: String(entry?.name || "").trim(),
@@ -135,6 +136,12 @@
           const parsed = Number(entry?.stockQty ?? entry?.stock_qty ?? entry?.quantity ?? entry?.qty);
           return Number.isFinite(parsed) ? Math.max(0, Math.trunc(parsed)) : 0;
         })(),
+        stockQtyCustomized: !!(
+          entry?.stockQtyCustomized ??
+          entry?.stock_qty_customized ??
+          entry?.depotStockCustomized ??
+          entry?.depot_stock_customized
+        ),
         selectedLocationIds: Array.isArray(entry?.selectedLocationIds)
           ? entry.selectedLocationIds.map((value) => String(value || "").trim()).filter(Boolean)
           : [],

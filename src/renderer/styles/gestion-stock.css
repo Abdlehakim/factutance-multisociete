@@ -96,6 +96,12 @@
   color: #ffffff;
 }
 
+#articleFormPopover .swbDialog__tab.is-depot-active {
+  background: transparent;
+  border-color: var(--primary, #15335e);
+  color: var(--primary, #15335e);
+}
+
 #articleFormPopover .article-depot-tab:focus-visible {
   outline: 2px solid #93c5fd;
   outline-offset: 2px;
@@ -160,7 +166,7 @@
   color: #ffffff;
 }
 
-#articleFormPopover #articleFormTabStock[data-depot-active="false"] {
+#articleFormPopover #articleFormTabStock[data-depot-active="false"][aria-selected="false"] {
   background: #ffffff;
   border-color: #caddff;
   color: #15335e;
@@ -517,7 +523,7 @@
   flex-direction: row;
   align-items: center;
   justify-content: flex-start;
-  gap: 8px;
+  gap: 10px;
   margin: 0;
   min-height: 38px;
   white-space: nowrap;
@@ -538,6 +544,18 @@
   min-height: 16px;
   margin: 0;
   accent-color: var(--primary);
+}
+
+#articleFormPopover #addStockAllowNegative,
+#articleFormPopover #addStockBlockInsufficient,
+#articleFormPopover #addStockAlert {
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  min-height: 18px;
+  transform: scale(1.15);
+  transform-origin: center;
+  accent-color: var(--primary, #15335e);
 }
 
 #articleFormPopover #addStockUnitDisplay,
@@ -565,7 +583,7 @@
 
   #articleFormPopover .article-stock-panel__toggle-row {
     white-space: normal;
-    align-items: flex-start;
+    align-items: center;
   }
 }
 

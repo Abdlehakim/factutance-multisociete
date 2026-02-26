@@ -10,19 +10,19 @@ const renderArticleStockAlertsSection = ({ idPrefix = "", preview = false } = {}
     <section id="${id("stockAlertsSection")}" class="article-stock-panel__group article-stock-panel__group--alerts" aria-labelledby="${id("stockAlertsTitle")}">
       <h4 id="${id("stockAlertsTitle")}" class="article-stock-panel__group-title">Seuils &amp; alertes</h4>
       <div class="grid two article-stock-panel__toggle-grid">
-        <label class="label-inline article-stock-panel__toggle-row" for="${id("addStockAllowNegative")}">
-          <input id="${id("addStockAllowNegative")}" type="checkbox"${disabledAttr} />
+        <div class="label-inline article-stock-panel__toggle-row">
+          <input id="${id("addStockAllowNegative")}" type="checkbox" aria-label="Autoriser stock negatif"${disabledAttr} />
           <span class="label-text">Autoriser stock n&eacute;gatif</span>
-        </label>
-        <label class="label-inline article-stock-panel__toggle-row" for="${id("addStockBlockInsufficient")}">
-          <input id="${id("addStockBlockInsufficient")}" type="checkbox" checked${disabledAttr} />
+        </div>
+        <div class="label-inline article-stock-panel__toggle-row">
+          <input id="${id("addStockBlockInsufficient")}" type="checkbox" aria-label="Bloquer sortie si stock insuffisant" checked${disabledAttr} />
           <span class="label-text">Bloquer sortie si stock insuffisant</span>
-        </label>
+        </div>
       </div>
-      <label class="label-inline article-stock-panel__toggle-row" for="${id("addStockAlert")}">
-        <input id="${id("addStockAlert")}" type="checkbox"${disabledAttr} />
+      <div class="label-inline article-stock-panel__toggle-row">
+        <input id="${id("addStockAlert")}" type="checkbox" aria-label="Alerte stock"${disabledAttr} />
         <span class="label-text">Alerte stock</span>
-      </label>
+      </div>
       <div class="grid two article-stock-panel__row">
         <div class="add-item-field">
           <label for="${id("addStockMin")}" class="label-text">Stock minimum</label>

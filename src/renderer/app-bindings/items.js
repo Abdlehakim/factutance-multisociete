@@ -847,6 +847,7 @@
       tva: salesTvaFromForm,
       discount: getNum("addDiscount", 0),
       stockManagement,
+      depotStockCustomized: !!(stockPayload.depotStockCustomized ?? stockManagement.depotStockCustomized),
       depots: Array.isArray(stockPayload.depots)
         ? stockPayload.depots.map((entry) => ({
             id: String(entry?.id || "").trim(),
@@ -856,6 +857,12 @@
               const parsed = Number(entry?.stockQty ?? entry?.stock_qty ?? entry?.quantity ?? entry?.qty);
               return Number.isFinite(parsed) ? Math.max(0, Math.trunc(parsed)) : 0;
             })(),
+            stockQtyCustomized: !!(
+              entry?.stockQtyCustomized ??
+              entry?.stock_qty_customized ??
+              entry?.depotStockCustomized ??
+              entry?.depot_stock_customized
+            ),
             selectedLocationIds: Array.isArray(entry?.selectedLocationIds)
               ? entry.selectedLocationIds.map((value) => String(value || "").trim()).filter(Boolean)
               : [],

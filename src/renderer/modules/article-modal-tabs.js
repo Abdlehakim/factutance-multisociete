@@ -57,6 +57,13 @@
       else panel.setAttribute("hidden", "");
     });
 
+    // Keep stock/depot secondary tab visuals in sync with the active main section tab.
+    if (typeof SEM.stockWindow?.syncUi === "function") {
+      try {
+        SEM.stockWindow.syncUi(popover);
+      } catch {}
+    }
+
     return target;
   };
 
