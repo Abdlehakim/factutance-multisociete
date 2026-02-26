@@ -342,6 +342,17 @@ const renderArticleFormFields = ({ idPrefix = "", preview = false } = {}) => {
             <input id="${id("addTotalTtc")}" type="number" min="0" step="0.01" value="0" readonly tabindex="-1" aria-readonly="true"${preview ? " disabled" : ""} />
           </div>
         </div>
+
+        <div class="add-totals-row add-totals-row--stock-values">
+          <div class="add-item-field">
+            <label for="${id("addTotalStockCostPurchase")}" class="label-text">Co&ucirc;t total de stock (Achat) (DT)</label>
+            <input id="${id("addTotalStockCostPurchase")}" type="number" min="0" step="0.01" value="0" readonly tabindex="-1" aria-readonly="true"${preview ? " disabled" : ""} />
+          </div>
+          <div class="add-item-field">
+            <label for="${id("addTotalStockValueSale")}" class="label-text">Valeur totale &agrave; la vente (DT)</label>
+            <input id="${id("addTotalStockValueSale")}" type="number" min="0" step="0.01" value="0" readonly tabindex="-1" aria-readonly="true"${preview ? " disabled" : ""} />
+          </div>
+        </div>
       </div>
     </div>
   `;

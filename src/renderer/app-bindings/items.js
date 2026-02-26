@@ -23,17 +23,17 @@
     emplacement: false,
     observation: false,
     stockQty: true,
-    purchasePrice: false,
-    purchaseTva: false,
-    purchaseDiscount: false,
+    purchasePrice: true,
+    purchaseTva: true,
+    purchaseDiscount: true,
     price: true,
     fodec: true,
     addFodec: true,
-    addPurchaseFodec: false,
+    addPurchaseFodec: true,
     tva: true,
     discount: true,
-    totalPurchaseHt: false,
-    totalPurchaseTtc: false,
+    totalPurchaseHt: true,
+    totalPurchaseTtc: true,
     totalHt: true,
     totalTtc: true
   };
@@ -2619,16 +2619,16 @@
       desc: true,
       stockQty: true,
       unit: true,
-      purchasePrice: false,
-      purchaseTva: false,
-      purchaseDiscount: false,
-      totalPurchaseHt: false,
+      purchasePrice: true,
+      purchaseTva: true,
+      purchaseDiscount: true,
+      totalPurchaseHt: true,
       price: true,
       tva: true,
       discount: true,
-      addPurchaseFodec: false,
+      addPurchaseFodec: true,
       addFodec: true,
-      totalPurchaseTtc: false,
+      totalPurchaseTtc: true,
       totalHt: true,
       totalTtc: true,
       fodec: true,
@@ -2908,6 +2908,7 @@
   SEM.updateAddFormTotals = function () {
     if (shouldSkipMainscreenAddFormUpdate()) return;
     const qty = getNum("addQty", 1);
+    const stockQty = getNum("addStockQty", 0);
     const purchasePrice = getNum("addPurchasePrice", 0);
     const purchaseTva = getNum("addPurchaseTva", 0);
     const price = getNum("addPrice", 0);
@@ -2956,6 +2957,8 @@
     setReadOnlyNumberValue("addPurchaseFodecAmount", purchaseFodecEnabled ? purchaseFodec : 0);
     setReadOnlyNumberValue("addFodecAmount", fodecEnabled ? fodec : 0);
     setReadOnlyNumberValue("addTotalTtc", totalTTC);
+    setReadOnlyNumberValue("addTotalStockCostPurchase", stockQty * purchaseTtc);
+    setReadOnlyNumberValue("addTotalStockValueSale", stockQty * totalTTC);
   };
 
   SEM.applyColumnHiding = function () {

@@ -645,6 +645,10 @@
   border-top: 1px solid #e2e8f0;
 }
 
+.add-totals-row--stock-values {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .add-pricing-row > div,
 .add-totals-row > div {
   width: 100%;
@@ -653,7 +657,9 @@
 #addTotalPurchaseHt,
 #addTotalPurchaseTtc,
 #addTotalHt,
-#addTotalTtc {
+#addTotalTtc,
+#addTotalStockCostPurchase,
+#addTotalStockValueSale {
   color: #0f172a;
   background-image: linear-gradient(135deg, #f8fafc, #e2e8f0);
   border-color: #b6c0d5;
