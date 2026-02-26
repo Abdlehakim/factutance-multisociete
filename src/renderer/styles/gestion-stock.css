@@ -278,7 +278,7 @@
 
 #articleFormPopover .article-stock-panel__group {
   display: grid;
-  gap: 10px;
+      gap: 18px;
   padding-top: 14px;
 }
 
@@ -312,6 +312,14 @@
 
 #articleFormPopover .article-stock-depot-qty-field {
   min-width: 0;
+}
+
+#articleFormPopover #addStockDepotQty {
+  height: var(--swb-field-h);
+  min-height: var(--swb-field-h);
+  box-sizing: border-box;
+  padding: 0 12px;
+  line-height: 1;
 }
 
 #articleFormPopover .article-stock-panel__toggle-grid {

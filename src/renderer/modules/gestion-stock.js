@@ -415,19 +415,11 @@
       if (linked) return linked;
     }
     const id = normalizeDepotRefId(source?.id || "");
-    if (id) {
+    if (id && !isDepotTabId(id)) {
       const direct = getDepotById(id);
       if (direct) return direct;
     }
     const ownName = String(source?.name || "").trim();
-    const fromId = parseDepotAutoNumberFromId(id);
-    const fromName = parseDepotAutoNumber(ownName);
-    const fromIndex = Number.isFinite(indexHint) && indexHint >= 0 ? indexHint + 1 : null;
-    const mappedNumber = fromId || fromName || fromIndex || null;
-    if (Number.isFinite(mappedNumber) && mappedNumber > 0) {
-      const mapped = depotRecords[mappedNumber - 1];
-      if (mapped) return mapped;
-    }
     if (ownName && !isGenericDepotName(ownName)) {
       const ownNameKey = ownName.toLowerCase();
       const byName =
@@ -1858,7 +1850,7 @@
     renderBadges(
       fields.selectedDepotInfoBadges,
       selectedDepotValue ? [selectedDepotLabel || selectedDepotValue] : [],
-      "-"
+      LOCATION_NONE_LABEL
     );
     renderBadges(fields.selectedLocationInfoBadges, selectedLocationLabels, LOCATION_NONE_LABEL);
   };
