@@ -1327,6 +1327,14 @@
               }
               const openPopover = document.querySelector("#articleFormPopover:not([hidden])");
               if (!openPopover) return;
+              const articlePopover = document.getElementById("articleFormPopover");
+              const composedPath = typeof evt.composedPath === "function" ? evt.composedPath() : [];
+              if (
+                articlePopover &&
+                (articlePopover.contains(evt.target) || composedPath.includes(articlePopover))
+              ) {
+                return;
+              }
               const dialogTarget = evt.target?.closest?.("#swbDialog");
               if (dialogTarget) return;
               if (openPopover.contains(evt.target)) return;
@@ -1334,10 +1342,7 @@
               if (confirmDialog && !confirmDialog.hidden && confirmDialog.getAttribute("aria-hidden") !== "true") {
                 return;
               }
-              const scopeNode = openPopover.closest("#articleSavedModal") || openPopover;
-              const toggle = scopeNode?.querySelector?.("#articleFormToggleBtn") || getEl("articleCreateBtn");
-              if (toggle && toggle.contains(evt.target)) return;
-              closeArticleFormPopover(scopeNode);
+              return;
             });
 
             document.addEventListener("keydown", (evt) => {
@@ -1350,8 +1355,7 @@
               if (confirmDialog && !confirmDialog.hidden && confirmDialog.getAttribute("aria-hidden") !== "true") {
                 return;
               }
-              const scopeNode = openPopover.closest("#articleSavedModal") || openPopover;
-              closeArticleFormPopover(scopeNode);
+              return;
             });
 
             document.addEventListener("click", (evt) => {

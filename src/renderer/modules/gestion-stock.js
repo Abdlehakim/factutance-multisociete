@@ -593,6 +593,19 @@
     };
   };
 
+  const getUsedMagasinIds = (activeDepotId = "") => {
+    const targetDepotId = toDepotTabId(activeDepotId || getArticleActiveDepotId(), 1);
+    const used = new Set();
+    getArticleDepotRecords().forEach((entry, index) => {
+      const depotTabId = toDepotTabId(entry?.id || "", index + 1);
+      if (!depotTabId || depotTabId === targetDepotId) return;
+      const magasinId = normalizeDepotRefId(resolveArticleDepotSourceId(entry, index));
+      if (!magasinId) return;
+      used.add(magasinId);
+    });
+    return used;
+  };
+
   const persistActiveArticleDepotSelection = ({
     linkedDepotId = "",
     depotName = "",
@@ -1166,7 +1179,8 @@
   const syncDepotPicker = (scopeHint = null) => {
     const scope = resolveScope(scopeHint);
     if (!scope) return;
-    if (isArticleScope(scope)) {
+    const articleScope = isArticleScope(scope);
+    if (articleScope) {
       syncArticleDepotNamesFromCache(scope);
     }
     const fields = getFields(scope);
@@ -1176,8 +1190,10 @@
     const display = fields.defaultDepotDisplay;
     if (!(select instanceof HTMLElement) || select.tagName !== "SELECT") return;
     const records = getScopeDepotRecords(scope);
-    if (isArticleScope(scope)) {
-      let activeDepotTabId = String(getArticleActiveDepotId() || MAIN_ARTICLE_DEPOT_ID).trim();
+    const pickerRecords = articleScope ? depotRecords : records;
+    let activeDepotTabId = "";
+    if (articleScope) {
+      activeDepotTabId = String(getArticleActiveDepotId() || MAIN_ARTICLE_DEPOT_ID).trim();
       const hasActiveDepot = activeDepotTabId && records.some((entry) => entry.id === activeDepotTabId);
       if (!hasActiveDepot) {
         activeDepotTabId = String(records[0]?.id || MAIN_ARTICLE_DEPOT_ID).trim();
@@ -1187,43 +1203,13 @@
       const activeIndex = records.findIndex((entry) => entry.id === activeDepotTabId);
       const activeDepotRecord = activeIndex >= 0 ? records[activeIndex] : null;
       const sourceDepotId = resolveArticleDepotSourceId(activeDepotRecord, activeIndex);
-      const activeDepot = getDepotById(sourceDepotId);
-      const selectedLabel =
-        String(resolveDepotDisplayName(activeDepotRecord || { id: activeDepotTabId, name: "" }, activeIndex)).trim() ||
-        getDepotTabLabel(activeDepotRecord || { id: activeDepotTabId }, activeIndex);
-      const activeDepotEntry = sourceDepotId
-        ? {
-            id: sourceDepotId,
-            name: selectedLabel,
-            emplacements: Array.isArray(activeDepot?.emplacements) ? activeDepot.emplacements : []
-          }
-        : null;
-      setSelectOptions(select, activeDepotEntry ? [activeDepotEntry] : [], sourceDepotId || EMPTY_DEPOT_VALUE);
+      setSelectOptions(select, pickerRecords, sourceDepotId || EMPTY_DEPOT_VALUE);
       setFieldValue(select, sourceDepotId || EMPTY_DEPOT_VALUE);
-
-      wireDepotPickerMenu(scope);
-      const hasSelectedDepot = !!sourceDepotId;
-      if (display) display.textContent = selectedLabel;
-      if (menu instanceof HTMLElement) {
-        menu.dataset.selected = hasSelectedDepot ? "true" : "false";
-      }
-      if (display instanceof HTMLElement) {
-        display.dataset.selected = hasSelectedDepot ? "true" : "false";
-      }
-
-      if (panel instanceof HTMLElement) {
-        panel.replaceChildren();
-        const message = document.createElement("p");
-        message.className = "model-select-empty";
-        message.textContent = hasSelectedDepot
-          ? "Changement de depot via onglets Depot."
-          : "Aucun depot enregistre";
-        panel.appendChild(message);
-      }
-      return;
+    } else {
+      setSelectOptions(select, pickerRecords, select.value);
     }
-
-    setSelectOptions(select, records, select.value);
+    const activeMagasinId = normalizeDepotRefId(String(select.value || "").trim());
+    const usedMagasinIds = articleScope ? getUsedMagasinIds(activeDepotTabId) : new Set();
 
     wireDepotPickerMenu(scope);
 
@@ -1250,6 +1236,14 @@
     let count = 0;
     Array.from(select.options || []).forEach((option) => {
       if (!option.value) return;
+      const magasinId = normalizeDepotRefId(String(option.value || "").trim());
+      const isCurrent = articleScope && !!magasinId && magasinId === activeMagasinId;
+      const isUsedElsewhere = articleScope && !!magasinId && usedMagasinIds.has(magasinId);
+      const blockedByUniqueness = !!(isUsedElsewhere && !isCurrent);
+      const baseOptionDisabled = !!option.disabled;
+      if (articleScope) {
+        option.disabled = baseOptionDisabled || blockedByUniqueness;
+      }
       const button = document.createElement("button");
       button.type = "button";
       button.className = "model-select-option";
@@ -1264,7 +1258,7 @@
       button.classList.toggle("is-active", isActive);
       button.setAttribute("aria-selected", isActive ? "true" : "false");
       button.addEventListener("click", () => {
-        if (button.disabled) return;
+        if (button.disabled || button.getAttribute("aria-disabled") === "true") return;
         const nextValue = option.value;
         const changed = select.value !== nextValue;
         select.value = nextValue;
@@ -1621,8 +1615,7 @@
       fields.alert,
       fields.max,
     ].forEach((field) => setDisabledState(field, !uiInteractive));
-    const articleScope = isArticleScope(scope);
-    setDepotPickerDisabled(fields, articleScope || !uiInteractive);
+    setDepotPickerDisabled(fields, !uiInteractive);
     if (fields.depotAddBtn instanceof HTMLElement) {
       fields.depotAddBtn.setAttribute("aria-disabled", uiInteractive ? "false" : "true");
       fields.depotAddBtn.classList.toggle("is-disabled", !uiInteractive);

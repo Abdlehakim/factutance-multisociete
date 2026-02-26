@@ -715,6 +715,16 @@ body:not(.app-loaded) .app-loader__content {
   background: #f8fafc;
   color: #94a3b8;
 }
+.model-select-option.is-disabled,
+.model-select-option[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.model-select-option.is-disabled:hover,
+.model-select-option[aria-disabled="true"]:hover {
+  background: #f8fafc;
+  color: #94a3b8;
+}
 .model-select-option.is-active {
   background: #dbeafe;
   color: #15335e;
