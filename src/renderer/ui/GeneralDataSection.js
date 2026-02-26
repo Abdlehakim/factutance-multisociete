@@ -966,13 +966,13 @@ export function renderGeneralDataSection() {
         <div class="client-import-modal__body swbDialog__msg">
           <p id="articleImportHint" class="client-import-modal__hint">
             Selectionnez un fichier Excel (XLSX) ou CSV contenant plusieurs articles.
-            Colonnes acceptees : Reference, Designation, Description, Unite, Stock, PU A. HT, TVA A., P.U. HT, TVA, Remise, FODEC V., Taux FODEC V., TVA FODEC V., FODEC A., Taux FODEC A., TVA FODEC A.
+            Colonnes acceptees : Reference, Designation, Description, Unite, Stock, PU A. HT, TVA A., Remise A., P.U. HT, TVA, Remise, Autoriser stock negatif, Bloquer sortie stock insuffisant, Alerte stock, Stock minimum, Stock maximum, Stock Depots JSON, FODEC V., Taux FODEC V., TVA FODEC V., FODEC A., Taux FODEC A., TVA FODEC A.
           </p>
           <div class="client-import-modal__example" aria-hidden="true">
             <div class="client-import-modal__example-title">Exemple</div>
             <div class="client-import-modal__example-row">
               <div class="client-import-modal__example-actions">
-                <span class="client-search__detail-copy" role="button" tabindex="0" aria-label="Copier l'entete" title="Copier l'entete" data-doc-history-copy="document" data-article-import-copy data-doc-history-copy-value="Reference&#9;Designation&#9;Desc.&#9;Unite&#9;Stock disp.&#9;PU A. HT&#9;TVA A.&#9;P.U. HT&#9;TVA %&#9;Remise %&#9;FODEC V.&#9;Taux FODEC V.&#9;TVA FODEC V.&#9;FODEC A.&#9;Taux FODEC A.&#9;TVA FODEC A.">
+                <span class="client-search__detail-copy" role="button" tabindex="0" aria-label="Copier l'entete" title="Copier l'entete" data-doc-history-copy="document" data-article-import-copy data-doc-history-copy-value="Reference&#9;Designation&#9;Desc.&#9;Unite&#9;Stock disp.&#9;PU A. HT&#9;TVA A.&#9;Remise A.&#9;P.U. HT&#9;TVA %&#9;Remise %&#9;Autoriser stock negatif&#9;Bloquer sortie stock insuffisant&#9;Alerte stock&#9;Stock minimum&#9;Stock maximum&#9;Stock Depots JSON&#9;FODEC V.&#9;Taux FODEC V.&#9;TVA FODEC V.&#9;FODEC A.&#9;Taux FODEC A.&#9;TVA FODEC A.">
                   <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                     <path d="M16 1H6a2 2 0 0 0-2 2v12h2V3h10V1zm3 4H10a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H10V7h9v14z"></path>
                   </svg>
@@ -1003,6 +1003,9 @@ export function renderGeneralDataSection() {
                       <th data-article-import-field="purchaseTva">
                         <span class="article-import-header" data-article-import-header="purchaseTva" data-article-field-label="purchaseTva">TVA A.</span>
                       </th>
+                      <th data-article-import-field="purchaseDiscount">
+                        <span class="article-import-header" data-article-import-header="purchaseDiscount" data-article-field-label="purchaseDiscount">Remise A.</span>
+                      </th>
                       <th data-article-import-field="price">
                         <span class="article-import-header" data-article-import-header="price" data-article-field-label="price">P.U. HT</span>
                       </th>
@@ -1011,6 +1014,24 @@ export function renderGeneralDataSection() {
                       </th>
                       <th data-article-import-field="discount">
                         <span class="article-import-header" data-article-import-header="discount" data-article-field-label="discount">Remise %</span>
+                      </th>
+                      <th data-article-import-field="stockAllowNegative">
+                        <span class="article-import-header" data-article-import-header="stockAllowNegative">Autoriser stock negatif</span>
+                      </th>
+                      <th data-article-import-field="stockBlockInsufficient">
+                        <span class="article-import-header" data-article-import-header="stockBlockInsufficient">Bloquer sortie stock insuffisant</span>
+                      </th>
+                      <th data-article-import-field="stockAlertEnabled">
+                        <span class="article-import-header" data-article-import-header="stockAlertEnabled">Alerte stock</span>
+                      </th>
+                      <th data-article-import-field="stockMin">
+                        <span class="article-import-header" data-article-import-header="stockMin">Stock minimum</span>
+                      </th>
+                      <th data-article-import-field="stockMax">
+                        <span class="article-import-header" data-article-import-header="stockMax">Stock maximum</span>
+                      </th>
+                      <th data-article-import-field="stockDepotsJson">
+                        <span class="article-import-header" data-article-import-header="stockDepotsJson">Stock Depots JSON</span>
                       </th>
                       <th data-article-import-field="fodec">
                         <span class="article-import-header" data-article-import-header="fodec" data-article-field-label="fodecSale">FODEC V.</span>
@@ -1041,9 +1062,16 @@ export function renderGeneralDataSection() {
                       <td data-article-import-field="stockQty">10</td>
                       <td data-article-import-field="purchasePrice">80</td>
                       <td data-article-import-field="purchaseTva">19</td>
+                      <td data-article-import-field="purchaseDiscount">2</td>
                       <td data-article-import-field="price">120</td>
                       <td data-article-import-field="tva">19</td>
                       <td data-article-import-field="discount">0</td>
+                      <td data-article-import-field="stockAllowNegative">0</td>
+                      <td data-article-import-field="stockBlockInsufficient">1</td>
+                      <td data-article-import-field="stockAlertEnabled">1</td>
+                      <td data-article-import-field="stockMin">2</td>
+                      <td data-article-import-field="stockMax">30</td>
+                      <td data-article-import-field="stockDepotsJson">{"v":1,"activeTabId":"depot-1","customized":false,"tabs":[{"id":"depot-1","stockQty":10}]}</td>
                       <td data-article-import-field="fodec">1</td>
                       <td data-article-import-field="fodecRate">1</td>
                       <td data-article-import-field="fodecTva">19</td>
@@ -1110,9 +1138,16 @@ export function renderGeneralDataSection() {
                     <th data-article-export-field="stockQty"><span data-article-field-label="stockQty">Stock disp.</span></th>
                     <th data-article-export-field="purchasePrice"><span data-article-field-label="purchasePrice">PU A. HT</span></th>
                     <th data-article-export-field="purchaseTva"><span data-article-field-label="purchaseTva">TVA A.</span></th>
+                    <th data-article-export-field="purchaseDiscount"><span data-article-field-label="purchaseDiscount">Remise A.</span></th>
                     <th data-article-export-field="price"><span data-article-field-label="price">P.U. HT</span></th>
                     <th data-article-export-field="tva"><span data-article-field-label="tva">TVA %</span></th>
                     <th data-article-export-field="discount"><span data-article-field-label="discount">Remise %</span></th>
+                    <th data-article-export-field="stockAllowNegative"><span>Autoriser stock negatif</span></th>
+                    <th data-article-export-field="stockBlockInsufficient"><span>Bloquer sortie stock insuffisant</span></th>
+                    <th data-article-export-field="stockAlertEnabled"><span>Alerte stock</span></th>
+                    <th data-article-export-field="stockMin"><span>Stock minimum</span></th>
+                    <th data-article-export-field="stockMax"><span>Stock maximum</span></th>
+                    <th data-article-export-field="stockDepotsJson"><span>Stock Depots JSON</span></th>
                     <th data-article-export-field="fodec"><span data-article-field-label="fodecSale">FODEC V.</span></th>
                     <th data-article-export-field="fodecRate"><span data-article-field-label="fodecRate">Taux FODEC V.</span></th>
                     <th data-article-export-field="fodecTva"><span data-article-field-label="fodecTva">TVA FODEC V.</span></th>
@@ -1130,9 +1165,16 @@ export function renderGeneralDataSection() {
                     <td data-article-export-field="stockQty">10</td>
                     <td data-article-export-field="purchasePrice">80</td>
                     <td data-article-export-field="purchaseTva">19</td>
+                    <td data-article-export-field="purchaseDiscount">2</td>
                     <td data-article-export-field="price">120</td>
                     <td data-article-export-field="tva">19</td>
                     <td data-article-export-field="discount">0</td>
+                    <td data-article-export-field="stockAllowNegative">0</td>
+                    <td data-article-export-field="stockBlockInsufficient">1</td>
+                    <td data-article-export-field="stockAlertEnabled">1</td>
+                    <td data-article-export-field="stockMin">2</td>
+                    <td data-article-export-field="stockMax">30</td>
+                    <td data-article-export-field="stockDepotsJson">{"v":1,"activeTabId":"depot-1","customized":false,"tabs":[{"id":"depot-1","stockQty":10}]}</td>
                     <td data-article-export-field="fodec">1</td>
                     <td data-article-export-field="fodecRate">1</td>
                     <td data-article-export-field="fodecTva">19</td>

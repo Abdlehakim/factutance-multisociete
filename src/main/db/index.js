@@ -16,6 +16,8 @@ const COMPANY_DB_FILENAME_REGEX = /^entreprise\d+$/i;
 const CLIENT_BALANCE_DOC_TABLE = DOC_TYPE_TABLES.facture;
 const CLIENT_BALANCE_MIGRATION_KEY = "migration_client_balance_rebuild_v4";
 const ARTICLE_DEPOT_GENERIC_NAME_CLEANUP_KEY = "migration_article_depot_generic_name_cleanup_v1";
+const MAX_ARTICLE_DEPOT_COUNT = 6;
+const ARTICLE_DEPOTS_JSON_VERSION = 1;
 const CLIENT_PATH_PREFIX = "sqlite://clients/";
 const DEPOT_PATH_PREFIX = "sqlite://depots/";
 const ARTICLE_PATH_PREFIX = "sqlite://articles/";
@@ -347,9 +349,18 @@ const migrateLegacyArticles = (db) => {
       stock_qty,
       stock_min,
       stock_alert,
+      stock_default_depot_id,
+      stock_depots_json,
+      stock_default_emplacement_id,
+      stock_allow_negative,
+      stock_block_insufficient,
+      stock_alert_enabled,
+      stock_min_qty,
+      stock_max_qty,
       unit,
       purchase_price,
       purchase_tva,
+      purchase_discount,
       price,
       tva,
       discount,
@@ -379,7 +390,7 @@ const migrateLegacyArticles = (db) => {
       created_at,
       updated_at
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `
   );
   const tx = db.transaction(() => {
@@ -398,9 +409,36 @@ const migrateLegacyArticles = (db) => {
         normalized.stockQty,
         normalized.stockMin,
         normalizeDbBool(normalized.stockAlert),
+        normalizeTextValue(
+          normalized.selectedDepotId || normalized.stockManagement?.defaultDepot || ""
+        ),
+        serializeArticleDepots(normalized.depots, {
+          activeTabId: normalized.activeDepotId || normalized.selectedDepotId,
+          customized: normalized.depotStockCustomized
+        }),
+        serializeArticleEmplacementIds(
+          normalized.selectedEmplacements ??
+            normalized.stockManagement?.selectedEmplacements ??
+            normalized.stockManagement?.defaultLocationIds ??
+            normalized.stockManagement?.defaultLocationId ??
+            normalized.stockManagement?.defaultLocation ??
+            []
+        ),
+        normalizeDbBool(normalized.allowNegative),
+        normalizeDbBool(!normalized.allowNegative && normalized.blockInsufficient),
+        normalizeDbBool(normalized.stockAlertEnabled),
+        Number.isFinite(Number(normalized.stockMinQty))
+          ? Number(normalized.stockMinQty)
+          : Number(normalized.stockMin) || 0,
+        normalized.stockMax === null || normalized.stockMax === undefined
+          ? null
+          : Number.isFinite(Number(normalized.stockMax))
+          ? Number(normalized.stockMax)
+          : null,
         normalized.unit,
         normalized.purchasePrice,
         normalized.purchaseTva,
+        normalized.purchaseDiscount,
         normalized.price,
         normalized.tva,
         normalized.discount,
@@ -592,9 +630,18 @@ const migrateArticleFieldsToColumns = (db) => {
       stock_qty = ?,
       stock_min = ?,
       stock_alert = ?,
+      stock_default_depot_id = ?,
+      stock_depots_json = ?,
+      stock_default_emplacement_id = ?,
+      stock_allow_negative = ?,
+      stock_block_insufficient = ?,
+      stock_alert_enabled = ?,
+      stock_min_qty = ?,
+      stock_max_qty = ?,
       unit = ?,
       purchase_price = ?,
       purchase_tva = ?,
+      purchase_discount = ?,
       price = ?,
       tva = ?,
       discount = ?,
@@ -638,9 +685,36 @@ const migrateArticleFieldsToColumns = (db) => {
         normalized.stockQty,
         normalized.stockMin,
         normalizeDbBool(normalized.stockAlert),
+        normalizeTextValue(
+          normalized.selectedDepotId || normalized.stockManagement?.defaultDepot || ""
+        ),
+        serializeArticleDepots(normalized.depots, {
+          activeTabId: normalized.activeDepotId || normalized.selectedDepotId,
+          customized: normalized.depotStockCustomized
+        }),
+        serializeArticleEmplacementIds(
+          normalized.selectedEmplacements ??
+            normalized.stockManagement?.selectedEmplacements ??
+            normalized.stockManagement?.defaultLocationIds ??
+            normalized.stockManagement?.defaultLocationId ??
+            normalized.stockManagement?.defaultLocation ??
+            []
+        ),
+        normalizeDbBool(normalized.allowNegative),
+        normalizeDbBool(!normalized.allowNegative && normalized.blockInsufficient),
+        normalizeDbBool(normalized.stockAlertEnabled),
+        Number.isFinite(Number(normalized.stockMinQty))
+          ? Number(normalized.stockMinQty)
+          : Number(normalized.stockMin) || 0,
+        normalized.stockMax === null || normalized.stockMax === undefined
+          ? null
+          : Number.isFinite(Number(normalized.stockMax))
+          ? Number(normalized.stockMax)
+          : null,
         normalized.unit,
         normalized.purchasePrice,
         normalized.purchaseTva,
+        normalized.purchaseDiscount,
         normalized.price,
         normalized.tva,
         normalized.discount,
@@ -801,7 +875,8 @@ const cleanupStoredGenericArticleDepotNames = (db) => {
     entries.forEach((row) => {
       const serialized = normalizeTextValue(row?.stock_depots_json || "");
       if (!serialized) return;
-      const source = parseArticleDepotsSource(serialized);
+      const payload = parseArticleDepotsPayload(serialized);
+      const source = payload.tabs;
       if (!source.length) return;
       let changed = false;
       const cleaned = source.map((entry, index) => {
@@ -825,12 +900,10 @@ const cleanupStoredGenericArticleDepotNames = (db) => {
         return { id: `depot-${nextNumber}` };
       });
       if (!changed) return;
-      let nextSerialized = "";
-      try {
-        nextSerialized = JSON.stringify(cleaned);
-      } catch {
-        return;
-      }
+      const nextSerialized = serializeArticleDepots(cleaned, {
+        activeTabId: payload.activeTabId,
+        customized: payload.customized
+      });
       if (!nextSerialized || nextSerialized === serialized) return;
       update.run(nextSerialized, now, row.id);
     });
@@ -3205,12 +3278,18 @@ const persistArticleRecord = ({
   stockQty,
   stockMin,
   stockAlert,
+  stockAllowNegative,
+  stockBlockInsufficient,
+  stockAlertEnabled,
+  stockMinQty,
+  stockMaxQty,
   stockDefaultDepotId,
   stockDepotsJson,
   stockDefaultEmplacementId,
   unit,
   purchasePrice,
   purchaseTva,
+  purchaseDiscount,
   price,
   tva,
   discount,
@@ -3254,12 +3333,18 @@ const persistArticleRecord = ({
         stock_qty,
         stock_min,
         stock_alert,
+        stock_allow_negative,
+        stock_block_insufficient,
+        stock_alert_enabled,
+        stock_min_qty,
+        stock_max_qty,
         stock_default_depot_id,
         stock_depots_json,
         stock_default_emplacement_id,
         unit,
         purchase_price,
         purchase_tva,
+        purchase_discount,
         price,
         tva,
         discount,
@@ -3290,7 +3375,7 @@ const persistArticleRecord = ({
         updated_at
       )
       VALUES (
-        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
       )
       ON CONFLICT(id) DO UPDATE SET
         name = excluded.name,
@@ -3301,12 +3386,18 @@ const persistArticleRecord = ({
         stock_qty = excluded.stock_qty,
         stock_min = excluded.stock_min,
         stock_alert = excluded.stock_alert,
+        stock_allow_negative = excluded.stock_allow_negative,
+        stock_block_insufficient = excluded.stock_block_insufficient,
+        stock_alert_enabled = excluded.stock_alert_enabled,
+        stock_min_qty = excluded.stock_min_qty,
+        stock_max_qty = excluded.stock_max_qty,
         stock_default_depot_id = excluded.stock_default_depot_id,
         stock_depots_json = excluded.stock_depots_json,
         stock_default_emplacement_id = excluded.stock_default_emplacement_id,
         unit = excluded.unit,
         purchase_price = excluded.purchase_price,
         purchase_tva = excluded.purchase_tva,
+        purchase_discount = excluded.purchase_discount,
         price = excluded.price,
         tva = excluded.tva,
         discount = excluded.discount,
@@ -3346,12 +3437,18 @@ const persistArticleRecord = ({
       stockQty,
       stockMin,
       stockAlert,
+      stockAllowNegative,
+      stockBlockInsufficient,
+      stockAlertEnabled,
+      stockMinQty,
+      stockMaxQty,
       stockDefaultDepotId,
       stockDepotsJson,
       stockDefaultEmplacementId,
       unit,
       purchasePrice,
       purchaseTva,
+      purchaseDiscount,
       price,
       tva,
       discount,
@@ -3437,16 +3534,82 @@ const normalizeArticlePurchaseFodec = (source = {}) => {
   return { enabled, label, rate, tva };
 };
 
-const parseArticleDepotsSource = (value) => {
-  if (Array.isArray(value)) return value;
-  if (typeof value !== "string") return [];
-  try {
-    const parsed = JSON.parse(value);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
+const parseArticleDepotsPayload = (value) => {
+  const parseObject = (input = {}) => {
+    const source = input && typeof input === "object" ? input : {};
+    const tabs = Array.isArray(source.tabs)
+      ? source.tabs
+      : Array.isArray(source.depots)
+      ? source.depots
+      : Array.isArray(source.items)
+      ? source.items
+      : [];
+    const activeTabId = normalizeTextValue(
+      source.activeTabId ??
+        source.activeDepotId ??
+        source.selectedDepotId ??
+        source.defaultDepot ??
+        ""
+    );
+    const customized = normalizeArticleDepotBool(
+      source.customized ??
+        source.depotStockCustomized ??
+        source.depot_stock_customized ??
+        source.stockCustomized ??
+        false
+    );
+    const version = Number(source.v ?? source.version ?? 0);
+    return {
+      tabs,
+      activeTabId,
+      customized,
+      version: Number.isFinite(version) ? Math.max(0, Math.trunc(version)) : 0
+    };
+  };
+
+  if (Array.isArray(value)) {
+    return {
+      tabs: value,
+      activeTabId: "",
+      customized: false,
+      version: 0
+    };
   }
+  if (value && typeof value === "object") {
+    return parseObject(value);
+  }
+  const raw = normalizeTextValue(value);
+  if (!raw) {
+    return {
+      tabs: [],
+      activeTabId: "",
+      customized: false,
+      version: 0
+    };
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return {
+        tabs: parsed,
+        activeTabId: "",
+        customized: false,
+        version: 0
+      };
+    }
+    if (parsed && typeof parsed === "object") {
+      return parseObject(parsed);
+    }
+  } catch {}
+  return {
+    tabs: [],
+    activeTabId: "",
+    customized: false,
+    version: 0
+  };
 };
+
+const parseArticleDepotsSource = (value) => parseArticleDepotsPayload(value).tabs;
 
 const parseArticleDepotTabNumber = (value = "") => {
   const match = normalizeTextValue(value).match(/^depot[-_\s]?(\d+)$/i);
@@ -3606,8 +3769,8 @@ const normalizeArticleDepots = (value = []) => {
   return normalized;
 };
 
-const serializeArticleDepots = (depots = []) => {
-  const normalized = normalizeArticleDepots(depots)
+const serializeArticleDepots = (depots = [], options = {}) => {
+  const normalizedTabs = normalizeArticleDepots(depots)
     .map((entry) => {
       const id = toArticleDepotTabId(entry?.id || "", 1);
       if (!id) return null;
@@ -3680,9 +3843,31 @@ const serializeArticleDepots = (depots = []) => {
       return row;
     })
     .filter(Boolean);
-  if (!normalized.length) return null;
+  if (!normalizedTabs.length) return null;
+  const activeRaw = normalizeArticleDepotLinkedId(
+    options?.activeTabId ??
+      options?.activeDepotId ??
+      options?.selectedDepotId ??
+      options?.defaultDepot ??
+      ""
+  );
+  const activeCandidate = isArticleDepotTabId(activeRaw) ? toArticleDepotTabId(activeRaw, 1) : "";
+  const activeTabId = normalizedTabs.some((entry) => entry.id === activeCandidate)
+    ? activeCandidate
+    : String(normalizedTabs[0]?.id || "depot-1").trim();
+  const customized = normalizeArticleDepotBool(
+    options?.customized ??
+      options?.depotStockCustomized ??
+      options?.depot_stock_customized ??
+      normalizedTabs.some((entry) => normalizeArticleDepotBool(entry?.stockQtyCustomized))
+  );
   try {
-    return JSON.stringify(normalized);
+    return JSON.stringify({
+      v: ARTICLE_DEPOTS_JSON_VERSION,
+      activeTabId: activeTabId || "depot-1",
+      customized,
+      tabs: normalizedTabs
+    });
   } catch {
     return null;
   }
@@ -3731,11 +3916,20 @@ const serializeArticleEmplacementIds = (ids = []) => {
 const normalizeArticleRecord = (raw = {}) => {
   const stockManagementRaw =
     raw?.stockManagement && typeof raw.stockManagement === "object" ? raw.stockManagement : {};
+  const depotsPayload = parseArticleDepotsPayload(
+    raw?.stockDepotsJson ??
+      raw?.stock_depots_json ??
+      raw?.depots ??
+      raw?.stockDepots ??
+      stockManagementRaw?.depots ??
+      []
+  );
   const selectedDepotRaw = normalizeArticleDepotLinkedId(
     raw?.activeDepotId ??
-    raw?.selectedDepotId ??
+      raw?.selectedDepotId ??
       raw?.selected_depot_id ??
       raw?.stock_default_depot_id ??
+      depotsPayload?.activeTabId ??
       stockManagementRaw?.activeDepotId ??
       stockManagementRaw?.selectedDepotId ??
       stockManagementRaw?.defaultDepot ??
@@ -3746,20 +3940,23 @@ const normalizeArticleRecord = (raw = {}) => {
     : "";
   const legacySelectedDepotSourceId =
     normalizeArticleDepotLinkedId(
-      stockManagementRaw?.defaultDepotSourceId ??
+        stockManagementRaw?.defaultDepotSourceId ??
         stockManagementRaw?.selectedDepotSourceId ??
         stockManagementRaw?.sourceDepotId ??
         stockManagementRaw?.linkedDepotId ??
         ""
     ) || (selectedDepotRaw && !selectedDepotTabId ? selectedDepotRaw : "");
   const depots = normalizeArticleDepots(
-    raw?.depots ?? raw?.stockDepots ?? raw?.stock_depots_json ?? stockManagementRaw?.depots ?? []
+    Array.isArray(depotsPayload?.tabs) && depotsPayload.tabs.length
+      ? depotsPayload.tabs
+      : stockManagementRaw?.depots ?? []
   );
   const depotStockCustomized = normalizeArticleDepotBool(
     raw?.depotStockCustomized ??
       raw?.depot_stock_customized ??
       stockManagementRaw?.depotStockCustomized ??
       stockManagementRaw?.depot_stock_customized ??
+      depotsPayload?.customized ??
       depots.some((entry) => normalizeArticleDepotBool(entry?.stockQtyCustomized))
   );
   const selectedEmplacements = normalizeArticleEmplacementIds(
@@ -3858,18 +4055,81 @@ const normalizeArticleRecord = (raw = {}) => {
   if (!stockManagement.defaultLocationId && activeDepotSelectedEmplacements.length) {
     stockManagement.defaultLocationId = activeDepotSelectedEmplacements[0];
   }
-  const stockMinNum = Number(raw?.stockMin);
+  const allowNegative = normalizeArticleDepotBool(
+    stockManagementRaw?.allowNegative ??
+      raw?.allowNegative ??
+      raw?.stockAllowNegative ??
+      raw?.stock_allow_negative ??
+      false
+  );
+  const blockInsufficientRaw =
+    stockManagementRaw?.blockInsufficient ??
+    raw?.blockInsufficient ??
+    raw?.stockBlockInsufficient ??
+    raw?.stock_block_insufficient;
+  const blockInsufficient = allowNegative
+    ? false
+    : blockInsufficientRaw === undefined || blockInsufficientRaw === null
+    ? true
+    : normalizeArticleDepotBool(blockInsufficientRaw);
+  const stockAlertEnabled = normalizeArticleDepotBool(
+    stockManagementRaw?.alertEnabled ??
+      raw?.stockAlertEnabled ??
+      raw?.stock_alert_enabled ??
+      raw?.stockAlert ??
+      raw?.stockMinAlert ??
+      false
+  );
+  const stockMinCandidate = normalizeArticleNumber(
+    stockManagementRaw?.min ??
+      raw?.stockMin ??
+      raw?.stock_min_qty ??
+      raw?.stock_min,
+    1
+  );
+  const stockMinQty =
+    Number.isFinite(stockMinCandidate) && stockMinCandidate >= 0 ? stockMinCandidate : 1;
+  const stockMaxSource =
+    stockManagementRaw?.max ??
+    raw?.stockMax ??
+    raw?.stock_max_qty;
+  const stockMaxQty = (() => {
+    if (stockMaxSource === undefined || stockMaxSource === null) return null;
+    if (typeof stockMaxSource === "string" && !stockMaxSource.trim()) return null;
+    const parsed = normalizeArticleNumber(stockMaxSource, Number.NaN);
+    if (!Number.isFinite(parsed)) return null;
+    return parsed < 0 ? 0 : parsed;
+  })();
+  stockManagement.allowNegative = allowNegative;
+  stockManagement.blockInsufficient = allowNegative ? false : blockInsufficient;
+  stockManagement.alertEnabled = stockAlertEnabled;
+  stockManagement.min = stockMinQty;
+  stockManagement.max = stockMaxQty;
+  const purchaseDiscount = normalizeArticleNumber(
+    raw?.purchaseDiscount ??
+      raw?.purchase_discount ??
+      raw?.purchaseDiscountPct ??
+      raw?.purchase_discount_pct ??
+      raw?.discount,
+    normalizeArticleNumber(raw?.discount, 0)
+  );
   const normalized = {
     ref: raw?.ref ?? "",
     product: raw?.product ?? "",
     desc: raw?.desc ?? "",
     qty: Number(raw?.qty ?? 1) || 1,
     stockQty: Number(raw?.stockQty ?? 0) || 0,
-    stockMin: Number.isFinite(stockMinNum) && stockMinNum >= 0 ? stockMinNum : 1,
-    stockAlert: !!(raw?.stockAlert ?? raw?.stockMinAlert),
+    stockMin: stockMinQty,
+    stockMinQty,
+    stockMax: stockMaxQty,
+    stockAlert: stockAlertEnabled,
+    stockAlertEnabled,
+    allowNegative,
+    blockInsufficient: allowNegative ? false : blockInsufficient,
     unit: raw?.unit ?? "",
     purchasePrice: normalizeArticleNumber(raw?.purchasePrice ?? raw?.purchase_price, 0),
     purchaseTva: normalizeArticleNumber(raw?.purchaseTva ?? raw?.purchase_tva, 0),
+    purchaseDiscount,
     price: Number(raw?.price ?? 0) || 0,
     tva: Number(raw?.tva ?? 19) || 19,
     discount: Number(raw?.discount ?? 0) || 0,
@@ -3892,10 +4152,85 @@ const resolveArticleUseFlag = (use, key) => {
   return use[key] ? 1 : 0;
 };
 
+const validateArticleDepotIntegrity = (article = {}) => {
+  const depots = Array.isArray(article?.depots) ? article.depots : normalizeArticleDepots(article?.depots ?? []);
+  if (depots.length > MAX_ARTICLE_DEPOT_COUNT) {
+    throw new Error(`Maximum ${MAX_ARTICLE_DEPOT_COUNT} depots autorises.`);
+  }
+  const usedLinkedDepotIds = new Set();
+  depots.forEach((entry, index) => {
+    const rawTabId = normalizeTextValue(entry?.id || "");
+    if (!rawTabId || !isArticleDepotTabId(rawTabId)) {
+      throw new Error(`Identifiant depot invalide: ${entry?.id || "(vide)"}`);
+    }
+    const tabId = toArticleDepotTabId(rawTabId, index + 1);
+    const tabNumber = parseArticleDepotTabNumber(tabId);
+    if (!Number.isFinite(tabNumber) || tabNumber < 1 || tabNumber > MAX_ARTICLE_DEPOT_COUNT) {
+      throw new Error(`Identifiant depot invalide: ${entry?.id || tabId}`);
+    }
+    const linkedDepotId = normalizeArticleDepotLinkedId(entry?.linkedDepotId || "");
+    if (!linkedDepotId) return;
+    const key = linkedDepotId.toLowerCase();
+    if (usedLinkedDepotIds.has(key)) {
+      throw new Error("Un magasin ne peut etre affecte qu'a un seul depot.");
+    }
+    usedLinkedDepotIds.add(key);
+  });
+  const activeDepotRaw = normalizeArticleDepotLinkedId(
+    article?.activeDepotId ??
+      article?.selectedDepotId ??
+      article?.stockManagement?.activeDepotId ??
+      article?.stockManagement?.selectedDepotId ??
+      article?.stockManagement?.defaultDepot ??
+      ""
+  );
+  let activeDepotId = normalizeTextValue(article?.depots?.[0]?.id || "depot-1");
+  if (activeDepotRaw) {
+    if (!isArticleDepotTabId(activeDepotRaw)) {
+      throw new Error(`Depot actif invalide: ${activeDepotRaw}`);
+    }
+    activeDepotId = toArticleDepotTabId(activeDepotRaw, 1);
+  }
+  const hasActiveDepot = depots.some((entry, index) => toArticleDepotTabId(entry?.id || "", index + 1) === activeDepotId);
+  if (!hasActiveDepot) {
+    throw new Error("Depot actif invalide.");
+  }
+};
+
 const saveArticle = ({ article = {}, suggestedName = "article", id, legacyPath } = {}) => {
   const db = initDatabase();
   const assignedId = id ? parseArticleIdFromPath(id) || id : generateId("article");
+  const rawStockManagement =
+    article?.stockManagement && typeof article.stockManagement === "object"
+      ? article.stockManagement
+      : {};
+  const rawDepotPayload = parseArticleDepotsPayload(
+    article?.stockDepotsJson ??
+      article?.stock_depots_json ??
+      article?.stockDepots ??
+      []
+  );
+  const rawDepots = Array.isArray(article?.depots)
+    ? article.depots
+    : Array.isArray(rawDepotPayload.tabs) && rawDepotPayload.tabs.length
+    ? rawDepotPayload.tabs
+    : Array.isArray(rawStockManagement.depots)
+    ? rawStockManagement.depots
+    : [];
+  validateArticleDepotIntegrity({
+    ...article,
+    depots: rawDepots,
+    activeDepotId:
+      article?.activeDepotId ??
+      article?.selectedDepotId ??
+      article?.stock_default_depot_id ??
+      rawDepotPayload.activeTabId ??
+      rawStockManagement.activeDepotId ??
+      rawStockManagement.selectedDepotId ??
+      rawStockManagement.defaultDepot
+  });
   const normalized = normalizeArticleRecord(article);
+  validateArticleDepotIntegrity(normalized);
   const name =
     String(suggestedName || normalized.ref || normalized.product || normalized.desc || "")
       .trim()
@@ -3916,10 +4251,27 @@ const saveArticle = ({ article = {}, suggestedName = "article", id, legacyPath }
     stockQty: normalized.stockQty,
     stockMin: normalized.stockMin,
     stockAlert: normalizeDbBool(normalized.stockAlert),
+    stockAllowNegative: normalizeDbBool(normalized.allowNegative),
+    stockBlockInsufficient: normalizeDbBool(
+      !normalized.allowNegative && normalized.blockInsufficient
+    ),
+    stockAlertEnabled: normalizeDbBool(normalized.stockAlertEnabled),
+    stockMinQty: Number.isFinite(Number(normalized.stockMinQty))
+      ? Number(normalized.stockMinQty)
+      : Number(normalized.stockMin) || 0,
+    stockMaxQty:
+      normalized.stockMax === null || normalized.stockMax === undefined
+        ? null
+        : Number.isFinite(Number(normalized.stockMax))
+        ? Number(normalized.stockMax)
+        : null,
     stockDefaultDepotId: normalizeTextValue(
       normalized.selectedDepotId || normalized.stockManagement?.defaultDepot || ""
     ),
-    stockDepotsJson: serializeArticleDepots(normalized.depots),
+    stockDepotsJson: serializeArticleDepots(normalized.depots, {
+      activeTabId: normalized.activeDepotId || normalized.selectedDepotId,
+      customized: normalized.depotStockCustomized
+    }),
     stockDefaultEmplacementId: serializeArticleEmplacementIds(
       normalized.selectedEmplacements ??
         normalized.stockManagement?.selectedEmplacements ??
@@ -3931,6 +4283,7 @@ const saveArticle = ({ article = {}, suggestedName = "article", id, legacyPath }
     unit: normalized.unit,
     purchasePrice: normalized.purchasePrice,
     purchaseTva: normalized.purchaseTva,
+    purchaseDiscount: normalized.purchaseDiscount,
     price: normalized.price,
     tva: normalized.tva,
     discount: normalized.discount,
@@ -3968,56 +4321,44 @@ const getArticleById = (id) => {
   const db = initDatabase();
   const row = db.prepare("SELECT * FROM articles WHERE id = ?").get(id);
   if (!row) return null;
-  const depots = normalizeArticleDepots(row.stock_depots_json);
-  const depotStockCustomized = depots.some((entry) => normalizeArticleDepotBool(entry?.stockQtyCustomized));
-  const selectedDepotId = normalizeTextValue(row.stock_default_depot_id || "").replace(
-    /^sqlite:\/\/depots\//i,
-    ""
-  );
-  const selectedEmplacements = normalizeArticleEmplacementIds(row.stock_default_emplacement_id);
-  const defaultLocationId = selectedEmplacements[0] || "";
-  const articleData = {
-    ref: row.ref || "",
-    product: row.product || "",
-    desc: row.desc || "",
-    qty: Number(row.qty ?? 1) || 1,
-    stockQty: Number(row.stock_qty ?? 0) || 0,
-    stockMin: Number(row.stock_min ?? 1) || 1,
-    stockAlert: !!row.stock_alert,
-    unit: row.unit || "",
-    purchasePrice: Number(row.purchase_price ?? 0) || 0,
-    purchaseTva: Number(row.purchase_tva ?? 0) || 0,
-    price: Number(row.price ?? 0) || 0,
-    tva: Number(row.tva ?? 0) || 0,
-    discount: Number(row.discount ?? 0) || 0,
+  const articleData = normalizeArticleRecord({
+    ref: row.ref,
+    product: row.product,
+    desc: row.desc,
+    qty: row.qty,
+    stockQty: row.stock_qty,
+    stockMin: row.stock_min_qty ?? row.stock_min,
+    stockMinQty: row.stock_min_qty,
+    stockMax: row.stock_max_qty,
+    stockAlert: row.stock_alert_enabled ?? row.stock_alert,
+    stockAlertEnabled: row.stock_alert_enabled,
+    stockAllowNegative: row.stock_allow_negative,
+    stockBlockInsufficient: row.stock_block_insufficient,
+    unit: row.unit,
+    purchasePrice: row.purchase_price,
+    purchaseTva: row.purchase_tva,
+    purchaseDiscount: row.purchase_discount,
+    price: row.price,
+    tva: row.tva,
+    discount: row.discount,
+    selectedDepotId: row.stock_default_depot_id,
+    activeDepotId: row.stock_default_depot_id,
+    depots: row.stock_depots_json,
+    stock_default_depot_id: row.stock_default_depot_id,
+    stock_depots_json: row.stock_depots_json,
+    stock_default_emplacement_id: row.stock_default_emplacement_id,
+    selectedEmplacements: row.stock_default_emplacement_id,
     fodec: {
       enabled: !!row.fodec_enabled,
       label: row.fodec_label || "FODEC",
-      rate: Number(row.fodec_rate ?? 0) || 0,
-      tva: Number(row.fodec_tva ?? 0) || 0
+      rate: row.fodec_rate,
+      tva: row.fodec_tva
     },
     purchaseFodec: {
       enabled: !!row.purchase_fodec_enabled,
       label: row.purchase_fodec_label || "FODEC ACHAT",
-      rate: Number(row.purchase_fodec_rate ?? 0) || 0,
-      tva: Number(row.purchase_fodec_tva ?? 0) || 0
-    },
-    depots,
-    activeDepotId: selectedDepotId,
-    selectedDepotId,
-    depotStockCustomized,
-    selectedEmplacements: selectedEmplacements.slice(),
-    stockManagement: {
-      enabled: true,
-      defaultDepot: selectedDepotId,
-      activeDepotId: selectedDepotId,
-      selectedDepotId,
-      depotStockCustomized,
-      defaultLocation: defaultLocationId,
-      defaultLocationId,
-      defaultLocationIds: selectedEmplacements.slice(),
-      selectedEmplacements: selectedEmplacements.slice(),
-      depots: depots.slice()
+      rate: row.purchase_fodec_rate,
+      tva: row.purchase_fodec_tva
     },
     use: {
       ref: row.use_ref == null ? undefined : !!row.use_ref,
@@ -4031,7 +4372,7 @@ const getArticleById = (id) => {
       totalHt: row.use_total_ht == null ? undefined : !!row.use_total_ht,
       totalTtc: row.use_total_ttc == null ? undefined : !!row.use_total_ttc
     }
-  };
+  });
   return {
     id: row.id,
     name: row.name,
@@ -4062,7 +4403,7 @@ const searchArticles = ({ query = "", limit, offset } = {}) => {
   const countSql = `SELECT COUNT(*) as total FROM articles ${whereClause}`;
   const total = db.prepare(countSql).get(...params)?.total || 0;
   const parts = [
-    "SELECT id, name, ref, product, desc, qty, stock_qty, stock_min, stock_alert, stock_default_depot_id, stock_depots_json, stock_default_emplacement_id, unit, purchase_price, purchase_tva, price, tva, discount,",
+    "SELECT id, name, ref, product, desc, qty, stock_qty, stock_min, stock_alert, stock_allow_negative, stock_block_insufficient, stock_alert_enabled, stock_min_qty, stock_max_qty, stock_default_depot_id, stock_depots_json, stock_default_emplacement_id, unit, purchase_price, purchase_tva, purchase_discount, price, tva, discount,",
     "fodec_enabled, fodec_label, fodec_rate, fodec_tva, purchase_fodec_enabled, purchase_fodec_label, purchase_fodec_rate, purchase_fodec_tva, use_ref, use_product, use_desc, use_unit, use_price,",
     "use_fodec, use_tva, use_discount, use_total_ht, use_total_ttc FROM articles",
     whereClause,
@@ -4086,8 +4427,13 @@ const searchArticles = ({ query = "", limit, offset } = {}) => {
       desc: row.desc,
       qty: row.qty,
       stockQty: row.stock_qty,
-      stockMin: row.stock_min,
-      stockAlert: !!row.stock_alert,
+      stockMin: row.stock_min_qty ?? row.stock_min,
+      stockMinQty: row.stock_min_qty,
+      stockMax: row.stock_max_qty,
+      stockAlert: row.stock_alert_enabled ?? !!row.stock_alert,
+      stockAlertEnabled: row.stock_alert_enabled,
+      stockAllowNegative: row.stock_allow_negative,
+      stockBlockInsufficient: row.stock_block_insufficient,
       selectedDepotId: row.stock_default_depot_id,
       depots: row.stock_depots_json,
       stock_default_depot_id: row.stock_default_depot_id,
@@ -4096,6 +4442,7 @@ const searchArticles = ({ query = "", limit, offset } = {}) => {
       unit: row.unit,
       purchasePrice: row.purchase_price,
       purchaseTva: row.purchase_tva,
+      purchaseDiscount: row.purchase_discount,
       price: row.price,
       tva: row.tva,
       discount: row.discount,
@@ -4175,6 +4522,7 @@ const adjustArticleStockById = (id, deltaRaw) => {
   const next = clampStockQuantity(previous + delta);
   const appliedDelta = normalizeStockNumber(next - previous);
   article.stockQty = next;
+  validateArticleDepotIntegrity(article);
   persistArticleRecord({
     id,
     name: record.name,
@@ -4189,10 +4537,46 @@ const adjustArticleStockById = (id, deltaRaw) => {
     stockQty: article.stockQty,
     stockMin: article.stockMin,
     stockAlert: normalizeDbBool(article.stockAlert),
+    stockAllowNegative: normalizeDbBool(
+      article.allowNegative ?? article.stockManagement?.allowNegative
+    ),
+    stockBlockInsufficient: normalizeDbBool(
+      !(
+        article.allowNegative ??
+        article.stockManagement?.allowNegative
+      ) &&
+        !!(
+          article.blockInsufficient ??
+          article.stockManagement?.blockInsufficient
+        )
+    ),
+    stockAlertEnabled: normalizeDbBool(
+      article.stockAlertEnabled ??
+        article.stockAlert ??
+        article.stockManagement?.alertEnabled
+    ),
+    stockMinQty: Number.isFinite(Number(article.stockMinQty ?? article.stockMin))
+      ? Number(article.stockMinQty ?? article.stockMin)
+      : 0,
+    stockMaxQty:
+      article.stockMax === null || article.stockMax === undefined
+        ? null
+        : Number.isFinite(Number(article.stockMax))
+        ? Number(article.stockMax)
+        : null,
     stockDefaultDepotId: normalizeTextValue(
       article.selectedDepotId || article.stockManagement?.defaultDepot || ""
     ),
-    stockDepotsJson: serializeArticleDepots(article.depots),
+    stockDepotsJson: serializeArticleDepots(article.depots, {
+      activeTabId:
+        article.activeDepotId ??
+        article.selectedDepotId ??
+        article.stockManagement?.activeDepotId ??
+        article.stockManagement?.selectedDepotId,
+      customized:
+        article.depotStockCustomized ??
+        article.stockManagement?.depotStockCustomized
+    }),
     stockDefaultEmplacementId: serializeArticleEmplacementIds(
       article.selectedEmplacements ??
         article.stockManagement?.selectedEmplacements ??
@@ -4204,6 +4588,7 @@ const adjustArticleStockById = (id, deltaRaw) => {
     unit: article.unit,
     purchasePrice: article.purchasePrice,
     purchaseTva: article.purchaseTva,
+    purchaseDiscount: article.purchaseDiscount ?? article.discount,
     price: article.price,
     tva: article.tva,
     discount: article.discount,
