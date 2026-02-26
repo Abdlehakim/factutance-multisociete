@@ -398,7 +398,7 @@
 #articleFormPopover #addStockDefaultDepotMenu[data-selected="true"] .field-toggle-trigger,
 #articleFormPopover #addStockDefaultLocationMenu[data-selected="true"] .field-toggle-trigger {
   border-color: #9eb8e8;
-  background: #f6f9ff;
+  background: #ffffff;
 }
 
 #articleFormPopover .article-stock-depot-filter .model-select-display {

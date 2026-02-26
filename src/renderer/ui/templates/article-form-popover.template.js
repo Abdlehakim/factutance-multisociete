@@ -157,9 +157,9 @@ const renderArticleStockPanel = ({ idPrefix = "", preview = false } = {}) => {
         <section class="article-stock-panel__group article-stock-panel__group--info" aria-labelledby="${id("stockInfoTitle")}">
           <h4 id="${id("stockInfoTitle")}" class="article-stock-panel__group-title">Informations</h4>
           <div class="article-stock-info-row article-stock-info-row--selection">
-            <div class="add-item-field">
-              <label for="${id("addStockSelectedDepotDisplay")}" class="label-text">D&eacute;p&ocirc;t/Magasin</label>
-              <input id="${id("addStockSelectedDepotDisplay")}" value="-" readonly tabindex="-1" aria-readonly="true" disabled />
+            <div class="add-item-field" data-stock-selected-depot>
+              <label class="label-text">D&eacute;p&ocirc;t/Magasin</label>
+              <div id="${id("addStockSelectedDepotBadges")}" class="stock-location-badges" aria-label="Depot/Magasin selectionne"></div>
             </div>
             <div class="add-item-field" data-stock-selected-locations>
               <label class="label-text">Emplacement</label>

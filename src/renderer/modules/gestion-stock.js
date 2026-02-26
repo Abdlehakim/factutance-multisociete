@@ -996,6 +996,7 @@
     defaultLocationPanel: getField(scope, "addStockDefaultLocationPanel"),
     defaultLocationDisplay: getField(scope, "addStockDefaultLocationDisplay"),
     selectedDepotInfoDisplay: getField(scope, "addStockSelectedDepotDisplay"),
+    selectedDepotInfoBadges: getField(scope, "addStockSelectedDepotBadges"),
     selectedLocationInfoDisplay: getField(scope, "addStockSelectedLocationDisplay"),
     selectedLocationInfoBadges: getField(scope, "addStockSelectedLocationBadges"),
     depotStockQtyLabel: getField(scope, "addStockDepotQtyLabel"),
@@ -1791,8 +1792,7 @@
     const scope = resolveScope(scopeHint);
     if (!scope) return;
     const fields = getFields(scope);
-    const renderSelectedLocationBadges = (labels = []) => {
-      const container = fields.selectedLocationInfoBadges;
+    const renderBadges = (container, labels = [], emptyLabel = LOCATION_NONE_LABEL) => {
       if (!(container instanceof HTMLElement)) return;
       container.replaceChildren();
       const normalizedLabels = (Array.isArray(labels) ? labels : [])
@@ -1803,7 +1803,7 @@
         mutedBadge.className = "stock-location-badge stock-location-badge--muted";
         const mutedLabel = document.createElement("span");
         mutedLabel.className = "stock-location-badge__label";
-        mutedLabel.textContent = LOCATION_NONE_LABEL;
+        mutedLabel.textContent = String(emptyLabel || LOCATION_NONE_LABEL).trim() || LOCATION_NONE_LABEL;
         mutedBadge.appendChild(mutedLabel);
         container.appendChild(mutedBadge);
         return;
@@ -1855,7 +1855,12 @@
     if (fields.selectedLocationInfoDisplay instanceof HTMLElement) {
       fields.selectedLocationInfoDisplay.value = selectedLocationLabel || LOCATION_NONE_LABEL;
     }
-    renderSelectedLocationBadges(selectedLocationLabels);
+    renderBadges(
+      fields.selectedDepotInfoBadges,
+      selectedDepotValue ? [selectedDepotLabel || selectedDepotValue] : [],
+      "-"
+    );
+    renderBadges(fields.selectedLocationInfoBadges, selectedLocationLabels, LOCATION_NONE_LABEL);
   };
 
   const syncReadOnlyInfo = (scope, hints = {}) => {
@@ -2112,6 +2117,9 @@
     setDisabledState(fields.totalValueVente, true);
     setDisabledState(fields.selectedDepotInfoDisplay, true);
     setDisabledState(fields.selectedLocationInfoDisplay, true);
+    if (fields.selectedDepotInfoBadges instanceof HTMLElement) {
+      fields.selectedDepotInfoBadges.setAttribute("aria-disabled", "true");
+    }
     if (fields.selectedLocationInfoBadges instanceof HTMLElement) {
       fields.selectedLocationInfoBadges.setAttribute("aria-disabled", "true");
     }
