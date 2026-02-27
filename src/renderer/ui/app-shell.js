@@ -9,6 +9,7 @@ import { renderItemsSectionPreview } from "./itemsSectionPreview.js";
 import { renderDocOptions } from "./DocOptions.js";
 import { renderNotesView } from "./NotesView.js";
 import { wireClientTabs } from "./client-tabs.js";
+import { wireAddItemTabs } from "./addItemBoxMainscreen.js";
 import { html } from "./utils.js";
 
 function setupStickyActionsShadow() {
@@ -40,6 +41,7 @@ function setupStickyActionsShadow() {
   main.appendChild(renderModelSection());
   main.appendChild(renderGeneralDataSection());
   wireClientTabs(main);
+  wireAddItemTabs(main);
 
   main.appendChild(renderNotesView());
 

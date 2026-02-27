@@ -14,14 +14,13 @@ const CLIENT_TAB_ACTIVE_CLASS = "is-active";
 
 const CLIENT_TAB_PANEL_IDS = {
   clients: "clientBoxMainscreenClientsPanel",
-  fournisseurs: "clientBoxMainscreenFournisseursPanel",
-  depots: "clientBoxMainscreenDepotsPanel"
+  fournisseurs: "clientBoxMainscreenFournisseursPanel"
 };
+const DEPOT_PANEL_ID = "clientBoxMainscreenDepotsPanel";
 
 const CLIENT_TAB_ENTITY_TYPE = {
   clients: "client",
-  fournisseurs: "vendor",
-  depots: "depot"
+  fournisseurs: "vendor"
 };
 
 const renderClientPanel = () => `
@@ -231,7 +230,7 @@ const renderFournisseurPanel = () => `
   </div>
 `;
 
-const renderDepotMagasinPanel = () => `
+const renderDepotMagasinPanelTemplate = () => `
   <div class="grid two client-tabs__panel-grid">
     <div class="full client-search">
       <div class="client-search__controls">
@@ -450,9 +449,28 @@ export function wireClientTabs(scope = document) {
   });
 }
 
-export function renderClientTabsList() {
+export function renderDepotTabButton({ tabIndex = "-1", isActive = false } = {}) {
   return `
-      <div class="client-tabs__list" role="tablist" aria-label="Clients, fournisseurs et depots">
+        <button
+          type="button"
+          class="client-tab${isActive ? " is-active" : ""}"
+          data-client-tab="depots"
+          data-add-item-tab="depots"
+          role="tab"
+          aria-selected="${isActive ? "true" : "false"}"
+          aria-controls="${DEPOT_PANEL_ID}"
+          id="clientTabDepots"
+          tabindex="${tabIndex}"
+        >
+          Depot/Magasin
+        </button>
+  `;
+}
+
+export function renderClientTabsList({ includeDepots = false } = {}) {
+  const tabsLabel = includeDepots ? "Clients, fournisseurs et depots" : "Clients et fournisseurs";
+  return `
+      <div class="client-tabs__list" role="tablist" aria-label="${tabsLabel}">
         <button
           type="button"
           class="client-tab is-active"
@@ -477,19 +495,19 @@ export function renderClientTabsList() {
         >
           Fournisseurs
         </button>
-        <button
-          type="button"
-          class="client-tab"
-          data-client-tab="depots"
-          role="tab"
-          aria-selected="false"
-          aria-controls="${CLIENT_TAB_PANEL_IDS.depots}"
-          id="clientTabDepots"
-          tabindex="-1"
-        >
-          Depot/Magasin
-        </button>
+        ${includeDepots ? renderDepotTabButton() : ""}
       </div>
+  `;
+}
+
+export function renderDepotMagasinPanel() {
+  return renderDepotMagasinPanelTemplate();
+}
+
+export function renderDepotMagasinModals() {
+  return `
+      ${renderDepotMagasinImportModal()}
+      ${renderDepotMagasinExportModal()}
   `;
 }
 
@@ -521,21 +539,7 @@ export function renderClientTabs({ includeList = true } = {}) {
         ${renderFournisseurPanel()}
       </div>
 
-      <div
-        class="client-tab-panel"
-        data-client-panel="depots"
-        data-client-entity-type="depot"
-        id="${CLIENT_TAB_PANEL_IDS.depots}"
-        role="tabpanel"
-        aria-labelledby="clientTabDepots"
-        hidden
-      >
-        ${renderDepotMagasinPanel()}
-      </div>
-
       ${renderFournisseurImportModal()}
-      ${renderDepotMagasinImportModal()}
-      ${renderDepotMagasinExportModal()}
     </div>
   `;
 }
