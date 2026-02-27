@@ -1773,7 +1773,7 @@
               case "purchaseTva":
                 return num(article.purchaseTva);
               case "purchaseDiscount":
-                return num(article.purchaseDiscount ?? article.discount);
+                return num(article.purchaseDiscount);
               case "price":
                 return num(article.price);
               case "tva":

@@ -777,7 +777,7 @@
         stockManagement?.blockInsufficient && !stockManagement?.allowNegative ? "1" : "0",
       purchasePrice: normalizeArticleSnapshotNumber(article?.purchasePrice, 0),
       purchaseTva: normalizeArticleSnapshotNumber(article?.purchaseTva, 0),
-      purchaseDiscount: normalizeArticleSnapshotNumber(article?.purchaseDiscount, article?.discount ?? 0),
+      purchaseDiscount: normalizeArticleSnapshotNumber(article?.purchaseDiscount, 0),
       unit: normalizeArticleSnapshotText(article?.unit),
       price: normalizeArticleSnapshotNumber(article?.price, 0),
       tva: normalizeArticleSnapshotNumber(article?.tva, 19),
@@ -801,7 +801,7 @@
     const salesDiscountFromForm = getNum("addDiscount", 0);
     const purchasePriceFromForm = getNum("addPurchasePrice", usePurchasePricing ? salesPriceFromForm : 0);
     const purchaseTvaFromForm = getNum("addPurchaseTva", usePurchasePricing ? salesTvaFromForm : 0);
-    const purchaseDiscountFromForm = getNum("addPurchaseDiscount", salesDiscountFromForm);
+    const purchaseDiscountFromForm = getNum("addPurchaseDiscount", 0);
     if (typeof SEM.forms?.captureArticleFromForm === "function") {
       const captured = SEM.forms.captureArticleFromForm() || {};
       captured.purchasePrice = purchasePriceFromForm;
@@ -1969,7 +1969,7 @@
     setVal("addUnit", it.unit ?? "");
     setVal("addPurchasePrice", String(pricing.purchasePrice));
     setVal("addPurchaseTva", String(pricing.purchaseTva));
-    setVal("addPurchaseDiscount", String(it.purchaseDiscount ?? it.discount ?? 0));
+    setVal("addPurchaseDiscount", String(it.purchaseDiscount ?? 0));
     setVal("addPrice", String(pricing.salesPrice)); setVal("addTva", String(salesTva));
     setVal("addDiscount", String(it.discount ?? 0));
     const fodec = it.fodec && typeof it.fodec === "object" ? it.fodec : {};
@@ -2064,7 +2064,7 @@
     const salesPrice = getNum("addPrice", 0);
     const salesTva = getNum("addTva", 19);
     const salesDiscount = getNum("addDiscount", 0);
-    const purchaseDiscount = getNum("addPurchaseDiscount", salesDiscount);
+    const purchaseDiscount = getNum("addPurchaseDiscount", 0);
     const mode = itemFormMode;
     const items = Array.isArray(state().items) ? state().items : [];
     const resolvedUpdateIndex = mode === "update" ? resolveCurrentEditItemIndex() : null;
@@ -2777,7 +2777,7 @@
     const docType = normalizeDocType(state().meta?.docType || getStr("docType", "facture"));
     const usePurchasePricing = docType === "fa";
     const salesDiscount = sanitizeLinkedItemNumber(article.discount);
-    const purchaseDiscount = sanitizeLinkedItemNumber(article.purchaseDiscount, salesDiscount);
+    const purchaseDiscount = sanitizeLinkedItemNumber(article.purchaseDiscount, 0);
     return {
       ref: sanitizeLinkedItemText(article.ref),
       product: sanitizeLinkedItemText(article.product),
@@ -2819,7 +2819,7 @@
         sanitizeLinkedItemNumber(item.price) === normalized.price &&
         sanitizeLinkedItemNumber(item.tva) === normalized.tva &&
         sanitizeLinkedItemNumber(item.discount) === normalized.discount &&
-        sanitizeLinkedItemNumber(item.purchaseDiscount, normalized.discount) === normalized.purchaseDiscount &&
+        sanitizeLinkedItemNumber(item.purchaseDiscount, 0) === normalized.purchaseDiscount &&
         currentFodec.enabled === nextFodec.enabled &&
         currentFodec.label === nextFodec.label &&
         currentFodec.rate === nextFodec.rate &&
@@ -2913,7 +2913,7 @@
     const purchaseTva = getNum("addPurchaseTva", 0);
     const price = getNum("addPrice", 0);
     const discount = getNum("addDiscount", 0);
-    const purchaseDiscount = getNum("addPurchaseDiscount", discount);
+    const purchaseDiscount = getNum("addPurchaseDiscount", 0);
     const tva = getNum("addTva", 19);
     const fodecEnabled = !!getEl("addFodecEnabled")?.checked;
     const fodecRate = getNum("addFodecRate", 1);

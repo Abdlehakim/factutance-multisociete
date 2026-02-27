@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS "articles" (
   "unit" TEXT,
   "purchase_price" REAL,
   "purchase_tva" REAL,
-  "purchase_discount" REAL DEFAULT 0,
+  "purchase_discount" REAL NOT NULL DEFAULT 0,
   "price" REAL,
   "tva" REAL,
   "discount" REAL,

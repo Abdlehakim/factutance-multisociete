@@ -1508,7 +1508,7 @@
       price: toNumber(item.price, 0),
       tva: toNumber(item.tva, 19),
       discount: toNumber(item.discount, 0),
-      purchaseDiscount: toNumber(item.purchaseDiscount ?? item.discount, 0),
+      purchaseDiscount: toNumber(item.purchaseDiscount, 0),
       fodec: {
         enabled: !!item.fodec?.enabled,
         label: toCleanString(item.fodec?.label || "FODEC"),
@@ -1529,7 +1529,7 @@
       price: toNumber(form.price, 0),
       tva: toNumber(form.tva, 19),
       discount: toNumber(form.discount, 0),
-      purchaseDiscount: toNumber(form.purchaseDiscount ?? form.discount, 0),
+      purchaseDiscount: toNumber(form.purchaseDiscount, 0),
       fodec: {
         enabled: !!form.fodec?.enabled,
         label: toCleanString(form.fodec?.label || "FODEC"),

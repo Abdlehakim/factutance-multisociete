@@ -3448,7 +3448,7 @@ const persistArticleRecord = ({
       unit,
       purchasePrice,
       purchaseTva,
-      purchaseDiscount,
+      Number.isFinite(Number(purchaseDiscount)) ? Number(purchaseDiscount) : 0,
       price,
       tva,
       discount,
@@ -4109,9 +4109,8 @@ const normalizeArticleRecord = (raw = {}) => {
     raw?.purchaseDiscount ??
       raw?.purchase_discount ??
       raw?.purchaseDiscountPct ??
-      raw?.purchase_discount_pct ??
-      raw?.discount,
-    normalizeArticleNumber(raw?.discount, 0)
+      raw?.purchase_discount_pct,
+    0
   );
   const normalized = {
     ref: raw?.ref ?? "",
@@ -4337,7 +4336,7 @@ const getArticleById = (id) => {
     unit: row.unit,
     purchasePrice: row.purchase_price,
     purchaseTva: row.purchase_tva,
-    purchaseDiscount: row.purchase_discount,
+    purchaseDiscount: row.purchase_discount ?? 0,
     price: row.price,
     tva: row.tva,
     discount: row.discount,
@@ -4442,7 +4441,7 @@ const searchArticles = ({ query = "", limit, offset } = {}) => {
       unit: row.unit,
       purchasePrice: row.purchase_price,
       purchaseTva: row.purchase_tva,
-      purchaseDiscount: row.purchase_discount,
+      purchaseDiscount: row.purchase_discount ?? 0,
       price: row.price,
       tva: row.tva,
       discount: row.discount,
@@ -4588,7 +4587,9 @@ const adjustArticleStockById = (id, deltaRaw) => {
     unit: article.unit,
     purchasePrice: article.purchasePrice,
     purchaseTva: article.purchaseTva,
-    purchaseDiscount: article.purchaseDiscount ?? article.discount,
+    purchaseDiscount: Number.isFinite(Number(article.purchaseDiscount))
+      ? Number(article.purchaseDiscount)
+      : 0,
     price: article.price,
     tva: article.tva,
     discount: article.discount,

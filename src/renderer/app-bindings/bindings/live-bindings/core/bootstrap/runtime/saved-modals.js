@@ -1258,6 +1258,7 @@
               setVal("addUnit", articleForFill.unit ?? "");
               setVal("addPurchasePrice", String(articleForFill.purchasePrice ?? 0));
               setVal("addPurchaseTva", String(articleForFill.purchaseTva ?? 0));
+              setVal("addPurchaseDiscount", String(articleForFill.purchaseDiscount ?? 0));
               if (getEl("addPurchaseFodecEnabled")) {
                 getEl("addPurchaseFodecEnabled").checked = !!articleForFill.purchaseFodec?.enabled;
               }
@@ -1306,6 +1307,7 @@
               addUnit: article.unit ?? "",
               addPurchasePrice: article.purchasePrice ?? 0,
               addPurchaseTva: article.purchaseTva ?? 0,
+              addPurchaseDiscount: article.purchaseDiscount ?? 0,
               addPurchaseFodecRate: article.purchaseFodec?.rate ?? 1,
               addPurchaseFodecTva: article.purchaseFodec?.tva ?? 19,
               addPrice: article.price ?? 0,
@@ -1315,7 +1317,16 @@
             const id = inputEl.id;
             if (!(id in valMap)) return false;
             setVal(id, String(valMap[id]));
-            if (["addPurchasePrice", "addPurchaseTva", "addPurchaseFodecRate", "addPurchaseFodecTva", "addPrice", "addTva", "addDiscount"].includes(id)) {
+            if ([
+              "addPurchasePrice",
+              "addPurchaseTva",
+              "addPurchaseDiscount",
+              "addPurchaseFodecRate",
+              "addPurchaseFodecTva",
+              "addPrice",
+              "addTva",
+              "addDiscount"
+            ].includes(id)) {
               SEM.updateAddFormTotals?.();
             }
             return true;
@@ -1374,6 +1385,16 @@
               ),
               price: mapNumber(source.price ?? source.priceHt ?? source.prix ?? source.prixHt, 0),
               tva: mapNumber(source.tva ?? source.vat ?? source.tvaRate ?? source.tvaPct, 19),
+              purchaseDiscount: mapNumber(
+                source.purchaseDiscount ??
+                  source.purchase_discount ??
+                  source.purchaseDiscountPct ??
+                  source.purchase_discount_pct,
+                mapNumber(
+                  source.discount ?? source.remise ?? source.discountPct ?? source.remisePct,
+                  0
+                )
+              ),
               discount: mapNumber(source.discount ?? source.remise ?? source.discountPct ?? source.remisePct, 0),
               fodec:
                 source.fodec && typeof source.fodec === "object"
@@ -1644,6 +1665,13 @@
               unit: article.unit ?? "",
               purchasePrice: Number(article.purchasePrice ?? article.purchase_price ?? 0) || 0,
               purchaseTva: Number(article.purchaseTva ?? article.purchase_tva ?? 0) || 0,
+              purchaseDiscount:
+                Number(
+                  article.purchaseDiscount ??
+                    article.purchase_discount ??
+                    article.discount ??
+                    0
+                ) || 0,
               price: Number(article.price ?? 0) || 0,
               tva: Number(article.tva ?? 19) || 19,
               discount: Number(article.discount ?? 0) || 0,
