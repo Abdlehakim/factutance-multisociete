@@ -108,6 +108,7 @@
 
 /* keep these headers on one line (always visible case) */
 #items thead th.cell-purchase-tva,
+#items thead th.cell-purchase-discount,
 #items thead th.cell-fodec-sale,
 #items thead th.cell-fodec-purchase,
 #items thead th.cell-fodec,
@@ -137,6 +138,9 @@
 
 .hide-col-purchase-tva #items thead th.cell-purchase-tva,
 .hide-col-purchase-tva #items tbody td.cell-purchase-tva { display: none; }
+
+.hide-col-purchase-discount #items thead th.cell-purchase-discount,
+.hide-col-purchase-discount #items tbody td.cell-purchase-discount { display: none; }
 
 .hide-col-price #items thead th.cell-price,
 .hide-col-price #items tbody td.cell-price { display: none; }

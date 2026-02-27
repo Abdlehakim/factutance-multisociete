@@ -1023,18 +1023,55 @@
           "discount_rate",
           "remise"
         ]);
+        const purchaseDiscountSource = pickFirstValue(source, [
+          "purchaseDiscount",
+          "purchase_discount",
+          "purchaseDiscountPct",
+          "purchase_discount_pct",
+          "purchaseDiscountPercent",
+          "purchase_discount_percent",
+          "purchaseDiscountRate",
+          "purchase_discount_rate",
+          "purchaseRemise",
+          "purchase_remise",
+          "remiseAchat",
+          "remise_achat"
+        ]);
         const price = hasValue(priceSource) ? toNumber(priceSource, 0) : 0;
         const tva = hasValue(tvaSource) ? toNumber(tvaSource, 0) : 0;
         const qty = hasValue(qtySource) ? toNumber(qtySource, 0) : toNumber(source.qty, 0);
         const discount = hasValue(discountSource)
           ? toNumber(discountSource, 0)
           : toNumber(source.discount, 0);
+        const purchaseDiscountRaw = hasValue(purchaseDiscountSource)
+          ? toNumber(purchaseDiscountSource, 0)
+          : (isPurchaseDoc
+            ? discount
+            : toNumber(
+              source.purchaseDiscount ??
+                source.purchase_discount ??
+                source.purchaseDiscountPct ??
+                source.purchase_discount_pct ??
+                source.purchaseDiscountPercent ??
+                source.purchase_discount_percent ??
+                source.purchaseDiscountRate ??
+                source.purchase_discount_rate ??
+                source.purchaseRemise ??
+                source.purchase_remise ??
+                source.remiseAchat ??
+                source.remise_achat,
+              0
+            ));
         const purchasePriceRaw = hasValue(purchasePriceSource)
           ? toNumber(purchasePriceSource, 0)
           : (isPurchaseDoc ? price : 0);
         const purchaseTvaRaw = hasValue(purchaseTvaSource)
           ? toNumber(purchaseTvaSource, 0)
           : (isPurchaseDoc ? tva : 0);
+        const purchaseDiscount =
+          isPurchaseDoc && purchaseDiscountRaw === 0 && discount !== 0
+            ? discount
+            : purchaseDiscountRaw;
         const purchasePrice =
           isPurchaseDoc && purchasePriceRaw === 0 && price !== 0
             ? price
@@ -1047,6 +1084,7 @@
           ...source,
           qty,
           discount,
+          purchaseDiscount,
           price,
           tva,
           purchasePrice,

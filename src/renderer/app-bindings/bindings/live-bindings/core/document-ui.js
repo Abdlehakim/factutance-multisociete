@@ -960,21 +960,29 @@
             const addArticleFromPopoverSelection = async (popover) => {
               if (!popover) return false;
               const selected = resolveArticlePopoverSelectedRecord(popover);
-              if (selected) {
-                addArticleToItems(selected.article || {}, { path: selected.path });
-                return true;
-              }
               const captured = SEM.forms?.captureArticleFromForm?.() || {};
               const hasRef = (captured.ref || "").trim();
               const hasProduct = (captured.product || "").trim();
               const hasDesc = (captured.desc || "").trim();
-              if (!hasRef && !hasProduct && !hasDesc) {
-                const missingItemMessage = getMessage("ITEM_REQUIRED_FIELDS");
-                await showDialog?.(missingItemMessage.text, { title: missingItemMessage.title });
-                return false;
+              if (hasRef || hasProduct || hasDesc) {
+                const selectedArticle =
+                  selected && selected.article && typeof selected.article === "object"
+                    ? selected.article
+                    : {};
+                const mergedArticle = { ...selectedArticle, ...captured };
+                const resolvedPath =
+                  (SEM.articleEditContext?.path || "").trim() ||
+                  String(selected?.path || "").trim();
+                addArticleToItems(mergedArticle, { path: resolvedPath });
+                return true;
               }
-              addArticleToItems(captured, { path: SEM.articleEditContext?.path || "" });
-              return true;
+              if (selected) {
+                addArticleToItems(selected.article || {}, { path: selected.path });
+                return true;
+              }
+              const missingItemMessage = getMessage("ITEM_REQUIRED_FIELDS");
+              await showDialog?.(missingItemMessage.text, { title: missingItemMessage.title });
+              return false;
             };
 
             const resetArticleFormPopoverFields = (scopeNode) => {

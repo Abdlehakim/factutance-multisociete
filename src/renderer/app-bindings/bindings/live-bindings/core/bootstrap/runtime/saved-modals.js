@@ -489,6 +489,7 @@
             "addUnit",
             "addPurchasePrice",
             "addPurchaseTva",
+            "addPurchaseDiscount",
             "addPurchaseFodecRow",
             "addPurchaseFodecEnabled",
             "addPurchaseFodecRate",
@@ -1340,7 +1341,9 @@
                 ? record
                 : {};
             const mapNumber = (value, fallback = 0) => {
-              const num = Number(value);
+              const num = Number(
+                typeof value === "string" ? value.replace(",", ".") : value
+              );
               return Number.isFinite(num) ? num : fallback;
             };
             const normalized = {
@@ -1389,11 +1392,16 @@
                 source.purchaseDiscount ??
                   source.purchase_discount ??
                   source.purchaseDiscountPct ??
-                  source.purchase_discount_pct,
-                mapNumber(
-                  source.discount ?? source.remise ?? source.discountPct ?? source.remisePct,
-                  0
-                )
+                  source.purchase_discount_pct ??
+                  source.purchaseDiscountPercent ??
+                  source.purchase_discount_percent ??
+                  source.purchaseDiscountRate ??
+                  source.purchase_discount_rate ??
+                  source.purchaseRemise ??
+                  source.purchase_remise ??
+                  source.remiseAchat ??
+                  source.remise_achat,
+                0
               ),
               discount: mapNumber(source.discount ?? source.remise ?? source.discountPct ?? source.remisePct, 0),
               fodec:
@@ -1657,24 +1665,48 @@
 
           addArticleToItems = (article = {}, options = {}) => {
             if (!article || !Array.isArray(state().items)) return;
+            const toNumber = (value, fallback = 0) => {
+              const num = Number(
+                typeof value === "string" ? value.replace(",", ".") : value
+              );
+              return Number.isFinite(num) ? num : fallback;
+            };
+            const purchaseDiscountValue = toNumber(
+              article.purchaseDiscount ??
+                article.purchase_discount ??
+                article.purchaseDiscountPct ??
+                article.purchase_discount_pct ??
+                article.purchaseDiscountPercent ??
+                article.purchase_discount_percent ??
+                0,
+              0
+            );
+            const salesDiscountValue = toNumber(
+              article.discount ??
+                article.discountPct ??
+                article.discount_pct ??
+                article.discountRate ??
+                article.discount_rate ??
+                article.remise ??
+                0,
+              0
+            );
+            const docTypeRaw = String(state()?.meta?.docType || "")
+              .trim()
+              .toLowerCase();
+            const usePurchasePricing = docTypeRaw === "fa";
             const normalized = {
               ref: article.ref ?? "",
               product: article.product ?? "",
               desc: article.desc ?? "",
-              qty: Number(article.qty ?? 1) || 1,
+              qty: toNumber(article.qty ?? 1, 1) || 1,
               unit: article.unit ?? "",
-              purchasePrice: Number(article.purchasePrice ?? article.purchase_price ?? 0) || 0,
-              purchaseTva: Number(article.purchaseTva ?? article.purchase_tva ?? 0) || 0,
-              purchaseDiscount:
-                Number(
-                  article.purchaseDiscount ??
-                    article.purchase_discount ??
-                    article.discount ??
-                    0
-                ) || 0,
-              price: Number(article.price ?? 0) || 0,
-              tva: Number(article.tva ?? 19) || 19,
-              discount: Number(article.discount ?? 0) || 0,
+              purchasePrice: toNumber(article.purchasePrice ?? article.purchase_price ?? 0, 0),
+              purchaseTva: toNumber(article.purchaseTva ?? article.purchase_tva ?? 0, 0),
+              purchaseDiscount: purchaseDiscountValue,
+              price: toNumber(article.price ?? 0, 0),
+              tva: toNumber(article.tva ?? 19, 19),
+              discount: usePurchasePricing ? purchaseDiscountValue : salesDiscountValue,
               fodec: normalizeArticleFodecForItem(article),
               purchaseFodec: normalizeArticlePurchaseFodecForItem(article)
             };

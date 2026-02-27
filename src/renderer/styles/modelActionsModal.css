@@ -498,6 +498,8 @@ background: #f3f8ff;
 #modelActionsModal #modelActionsPreview .doc-design1__table td[data-col="unit"],
 #modelActionsModal #modelActionsPreview .doc-design1__table th[data-col="price"],
 #modelActionsModal #modelActionsPreview .doc-design1__table td[data-col="price"],
+#modelActionsModal #modelActionsPreview .doc-design1__table th[data-col="purchaseDiscount"],
+#modelActionsModal #modelActionsPreview .doc-design1__table td[data-col="purchaseDiscount"],
 #modelActionsModal #modelActionsPreview .doc-design1__table th[data-col="discount"],
 #modelActionsModal #modelActionsPreview .doc-design1__table td[data-col="discount"],
 #modelActionsModal #modelActionsPreview .doc-design1__table th[data-col="tva"],
@@ -528,6 +530,8 @@ background: #f3f8ff;
 #modelActionsModal #modelActionsPreview .doc-design1__table td[data-col="fodecPurchase"],
 #modelActionsModal #modelActionsPreview .doc-design1__table th[data-col="tva"],
 #modelActionsModal #modelActionsPreview .doc-design1__table td[data-col="tva"],
+#modelActionsModal #modelActionsPreview .doc-design1__table th[data-col="purchaseDiscount"],
+#modelActionsModal #modelActionsPreview .doc-design1__table td[data-col="purchaseDiscount"],
 #modelActionsModal #modelActionsPreview .doc-design1__table th[data-col="discount"],
 #modelActionsModal #modelActionsPreview .doc-design1__table td[data-col="discount"] {
   text-align: center;

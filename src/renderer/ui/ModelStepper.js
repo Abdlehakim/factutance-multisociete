@@ -366,17 +366,6 @@ export const ModelStepper = `
                                     />
                                     <span class="model-save-dot">Unit&eacute;</span>
                                   </label>
-                                  <label class="toggle-option">
-                                    <input
-                                      id="colToggleDiscountModal"
-                                      data-column-key="discount"
-                                      type="checkbox"
-                                      class="col-toggle"
-                                      aria-label="Masquer colonne Remise"
-                                      checked
-                                    />
-                                    <span class="model-save-dot">Remise %</span>
-                                  </label>
                                 </div>
                               </div>
 
@@ -404,6 +393,17 @@ export const ModelStepper = `
                                       checked
                                     />
                                     <span class="model-save-dot">TVA %</span>
+                                  </label>
+                                  <label class="toggle-option">
+                                    <input
+                                      id="colToggleDiscountModal"
+                                      data-column-key="discount"
+                                      type="checkbox"
+                                      class="col-toggle"
+                                      aria-label="Masquer colonne Remise"
+                                      checked
+                                    />
+                                    <span class="model-save-dot">Remise %</span>
                                   </label>
                                   <label class="toggle-option">
                                     <input
@@ -463,6 +463,18 @@ export const ModelStepper = `
                                       aria-label="Masquer colonne TVA A."
                                     />
                                     <span class="model-save-dot">TVA A.</span>
+                                  </label>
+                                  <label class="toggle-option">
+                                    <input
+                                      id="colTogglePurchaseDiscountModal"
+                                      data-column-key="purchaseDiscount"
+                                      type="checkbox"
+                                      class="col-toggle"
+                                      aria-label="Masquer colonne Remise A."
+                                      aria-checked="true"
+                                      checked
+                                    />
+                                    <span class="model-save-dot">Remise A.</span>
                                   </label>
                                   <label class="toggle-option">
                                     <input

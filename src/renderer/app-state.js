@@ -458,6 +458,12 @@
       const parsed = parseLooseNumber(value);
       return Number.isFinite(parsed) ? parsed : fallback;
     };
+    const pickValue = (...values) => {
+      for (const value of values) {
+        if (value !== undefined && value !== null && String(value).trim() !== "") return value;
+      }
+      return undefined;
+    };
     const taxesEnabled = isTaxesEnabled(st.meta?.taxesEnabled);
     const docType = normalizeDocType(st.meta?.docType || "facture");
     const usePurchasePricing = docType === "fa";
@@ -477,6 +483,27 @@
         it && it.purchaseTva !== undefined && it.purchaseTva !== null && String(it.purchaseTva).trim() !== "";
       const salesPrice = toNum(it.price, 0);
       const salesTva = toNum(it.tva, 0);
+      const salesDiscount = toNum(it.discount, 0);
+      const purchaseDiscountSource = pickValue(
+        it?.purchaseDiscount,
+        it?.purchase_discount,
+        it?.purchaseDiscountPct,
+        it?.purchase_discount_pct,
+        it?.purchaseDiscountPercent,
+        it?.purchase_discount_percent,
+        it?.purchaseDiscountRate,
+        it?.purchase_discount_rate,
+        it?.purchaseRemise,
+        it?.purchase_remise,
+        it?.remiseAchat,
+        it?.remise_achat
+      );
+      const purchaseDiscountRaw =
+        purchaseDiscountSource !== undefined ? toNum(purchaseDiscountSource, 0) : salesDiscount;
+      const purchaseDiscount =
+        usePurchasePricing && purchaseDiscountRaw === 0 && salesDiscount !== 0
+          ? salesDiscount
+          : purchaseDiscountRaw;
       const purchasePriceRaw = hasPurchasePrice ? toNum(it.purchasePrice, 0) : salesPrice;
       const purchaseTvaRaw = hasPurchaseTva ? toNum(it.purchaseTva, 0) : salesTva;
       const purchasePrice =
@@ -490,7 +517,8 @@
       const qty = toNum(it.qty, 0);
       const unitPrice = usePurchasePricing ? purchasePrice : salesPrice;
       const base = qty * unitPrice;
-      const disc = base * (toNum(it.discount, 0) / 100);
+      const activeDiscountRate = usePurchasePricing ? purchaseDiscount : salesDiscount;
+      const disc = base * (activeDiscountRate / 100);
       const taxedBase = Math.max(0, base - disc);
       const taxRate = taxesEnabled ? (usePurchasePricing ? purchaseTva : salesTva) : 0;
       const tax = taxedBase * (taxRate / 100);

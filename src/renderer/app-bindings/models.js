@@ -906,6 +906,7 @@
 
     if (!normalized.price) {
       normalized.tva = false;
+      normalized.discount = false;
       normalized.fodecSale = false;
       normalized.totalHt = false;
       normalized.totalTtc = false;

@@ -142,6 +142,7 @@
     stockQty: "Stock disponible",
     purchasePrice: "PU A. HT",
     purchaseTva: "TVA A.",
+    purchaseDiscount: "Remise A.",
     price: "P.U. HT",
     tva: "TVA %",
     discount: "Remise %",
@@ -963,6 +964,7 @@
       unit:      resolveHidden(["unit"]),
       purchasePrice: resolveHidden(["purchasePrice", "purchaseprice"]),
       purchaseTva: resolveHidden(["purchaseTva", "purchasetva", "purchaseTVA"]),
+      purchaseDiscount: resolveHidden(["purchaseDiscount", "purchase_discount", "purchasediscount"]),
       price:     resolveHidden(["price"]),
       fodec:     resolveHidden(["fodec"]),
       fodecSale: resolveHidden(["fodecSale", "fodec_sale", "fodec"]),
@@ -1069,6 +1071,10 @@
       "purchaseTva",
       articleLabelDefaults.purchaseTva || "TVA A."
     );
+    const purchaseDiscountLabel = resolveArticleLabelHtml(
+      "purchaseDiscount",
+      articleLabelDefaults.purchaseDiscount || "Remise A."
+    );
     const fodecSaleHeaderLabel = resolveArticleLabelHtml(
       "fodecSale",
       articleLabelDefaults.fodecAmount || articleLabelDefaults.fodecSale || "FODEC"
@@ -1164,6 +1170,7 @@
 
     const hide = resolveHiddenColumns(state, { strictPreview });
     const hidePurchaseTvaCol = hide.purchaseTva || !taxesEnabled;
+    const hidePurchaseDiscountCol = hide.purchaseDiscount || hide.purchasePrice;
     const hideTvaCol = hide.tva || !taxesEnabled;
     const hideFodecSaleCol = hide.fodecSale || !taxesEnabled;
     const hideFodecPurchaseCol = hide.fodecPurchase || !taxesEnabled;
@@ -1173,7 +1180,12 @@
     const showSalesFinancialColumns =
       !hide.price || !hideFodecSaleCol || !hideTvaCol || !hideTotalHtCol || !hideTTC;
     const showPurchaseFinancialColumns =
-      !hide.purchasePrice || !hidePurchaseTvaCol || !hideFodecPurchaseCol || !hide.totalPurchaseHt || !hideTotalPurchaseTtcCol;
+      !hide.purchasePrice ||
+      !hidePurchaseTvaCol ||
+      !hidePurchaseDiscountCol ||
+      !hideFodecPurchaseCol ||
+      !hide.totalPurchaseHt ||
+      !hideTotalPurchaseTtcCol;
     const showMiniAux = showSalesFinancialColumns || showPurchaseFinancialColumns;
 
     const columns = [];
@@ -1187,6 +1199,7 @@
     if (!hide.price)    columns.push({ key: "price", label: priceLabel, labelKey: "price", nowrap: true, id: "itemsPriceHeader" });
     if (!hideFodecSaleCol) columns.push({ key: "fodecSale", label: fodecSaleHeaderLabel, nowrap: true, id: "itemsFodecHeader" });
     if (!hideFodecPurchaseCol) columns.push({ key: "fodecPurchase", label: fodecPurchaseHeaderLabel, nowrap: true, id: "itemsFodecPurchaseHeader" });
+    if (!hidePurchaseDiscountCol) columns.push({ key: "purchaseDiscount", label: purchaseDiscountLabel, labelKey: "purchaseDiscount", nowrap: true });
     if (!hideTvaCol)    columns.push({ key: "tva", label: tvaLabel, labelKey: "tva", nowrap: true });
     if (!hide.discount) columns.push({ key: "discount", label: discountLabel, labelKey: "discount", nowrap: true });
     if (!hide.totalPurchaseHt) columns.push({ key: "totalPurchaseHt", label: totalPurchaseHtLabel, labelKey: "totalPurchaseHt", nowrap: true });
@@ -1315,6 +1328,18 @@
         "discount_rate",
         "remise"
       ]);
+      const purchaseDiscountSource = pickFirstValue(source, [
+        "purchaseDiscount",
+        "purchase_discount",
+        "purchaseDiscountPct",
+        "purchase_discount_pct",
+        "purchaseDiscountRate",
+        "purchase_discount_rate",
+        "purchaseRemise",
+        "purchase_remise",
+        "remiseAchat",
+        "remise_achat"
+      ]);
       const salesPrice = hasNumValue(salesPriceSource) ? toNum(salesPriceSource, 0) : 0;
       const salesTva = hasNumValue(salesTvaSource) ? toNum(salesTvaSource, 0) : 0;
       const purchasePriceRaw = hasNumValue(purchasePriceSource)
@@ -1344,6 +1369,9 @@
         discount: hasNumValue(discountSource)
           ? toNum(discountSource, 0)
           : toNum(source.discount, 0),
+        purchaseDiscount: hasNumValue(purchaseDiscountSource)
+          ? toNum(purchaseDiscountSource, 0)
+          : toNum(source.purchaseDiscount ?? source.discount, 0),
         fodec: resolveNormalizedFodecConfig(source, { purchase: false }),
         purchaseFodec: resolveNormalizedFodecConfig(source, { purchase: true })
       };
@@ -1354,7 +1382,8 @@
 
       const unitPrice = usePurchasePricing ? it.purchasePrice : it.price;
       const base   = it.qty * unitPrice;
-      const disc   = base * (it.discount / 100);
+      const activeDiscountRate = usePurchasePricing ? it.purchaseDiscount : it.discount;
+      const disc   = base * (activeDiscountRate / 100);
       const after  = base - disc;
       const tvaRate = taxesEnabled ? (usePurchasePricing ? it.purchaseTva : it.tva) : 0;
       const tvaAmt = after * (tvaRate / 100);
@@ -1375,7 +1404,7 @@
       const lineTT = after + tvaAmt + fHt + fTva;
       const purchaseTvaRate = taxesEnabled ? it.purchaseTva : 0;
       const purchaseBase = it.qty * it.purchasePrice;
-      const purchaseDisc = purchaseBase * (it.discount / 100);
+      const purchaseDisc = purchaseBase * ((Number(it.purchaseDiscount || 0)) / 100);
       const linePurchaseHt = Math.max(0, purchaseBase - purchaseDisc);
       const linePurchaseTtc =
         usePurchasePricing
@@ -1419,6 +1448,11 @@
           case "fodecPurchase": {
             const fodecPurchaseDisplay = purchaseFEnabled && taxesEnabled ? `${fmtPct(purchaseFRate)}%` : "0%";
             return `<td${dataAttr}${classAttr}>${fodecPurchaseDisplay}</td>`;
+          }
+          case "purchaseDiscount": {
+            const purchaseDiscountVal = Number(it.purchaseDiscount || 0);
+            const purchaseDiscountDisplay = purchaseDiscountVal > 0 ? `${fmtPct(purchaseDiscountVal)}%` : "0%";
+            return `<td${dataAttr}${classAttr}>${purchaseDiscountDisplay}</td>`;
           }
           case "discount": {
             const discountVal = Number(it.discount || 0);
@@ -1465,7 +1499,7 @@
       const qty   = Number(it.qty || 0);
       const price = Number(usePurchasePricing ? it.purchasePrice : it.price) || 0;
       const tvaRate   = taxesEnabled ? Number(usePurchasePricing ? it.purchaseTva : it.tva) : 0;
-      const discP = Number(it.discount || 0);
+      const discP = Number(usePurchasePricing ? it.purchaseDiscount : it.discount) || 0;
       const base  = qty * price;
       const disc  = base * (discP / 100);
       const after = base - disc;

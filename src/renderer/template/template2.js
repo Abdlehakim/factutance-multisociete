@@ -11,6 +11,7 @@
   { key: "fodecSale", label: "FODEC", nowrap: true },
   { key: "discount", label: "Remise %", nowrap: true },
   { key: "fodecPurchase", label: "FODEC A.", nowrap: true },
+  { key: "purchaseDiscount", label: "Remise A.", nowrap: true },
   { key: "totalPurchaseHt", label: "Total A. HT", nowrap: true },
   { key: "totalHt", label: "Total HT", nowrap: true },
   { key: "totalPurchaseTtc", label: "Total A. TTC", nowrap: true },
@@ -51,6 +52,7 @@ const DOC_DESIGN1_DATA = {
       unit: "kg",
       purchasePrice: "850.000&nbsp;DT",
       purchaseTva: "19%",
+      purchaseDiscount: "5%",
       price: "1,000.000&nbsp;DT",
       fodecSale: "1%",
       fodecPurchase: "1%",
@@ -93,6 +95,7 @@ const DOC_DESIGN1_ITEMS_HTML = DOC_DESIGN1_DATA.items
       unit,
       purchasePrice,
       purchaseTva,
+      purchaseDiscount,
       price,
       tva,
       fodecSale,
@@ -116,6 +119,7 @@ const DOC_DESIGN1_ITEMS_HTML = DOC_DESIGN1_DATA.items
         <td data-col="fodecSale" class="no-wrap">${fodecSale}</td>
         <td data-col="discount" class="no-wrap">${discount}</td>
         <td data-col="fodecPurchase" class="no-wrap">${fodecPurchase}</td>
+        <td data-col="purchaseDiscount" class="no-wrap">${purchaseDiscount}</td>
         <td data-col="totalPurchaseHt" class="no-wrap">${totalPurchaseHt}</td>
         <td data-col="totalHt" class="no-wrap">${totalHt}</td>
         <td data-col="totalPurchaseTtc" class="no-wrap">${totalPurchaseTtc}</td>

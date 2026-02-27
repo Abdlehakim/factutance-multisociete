@@ -693,6 +693,7 @@
 
 /* Keep certain headers on one line for readability */
 #items thead th.cell-purchase-tva,
+#items thead th.cell-purchase-discount,
 #items thead th.cell-fodec-sale,
 #items thead th.cell-fodec-purchase,
 #items thead th.cell-fodec,
@@ -717,6 +718,8 @@
 .hide-col-purchase-price #items tbody td.cell-purchase-price { display: none; }
 .hide-col-purchase-tva #items thead th.cell-purchase-tva,
 .hide-col-purchase-tva #items tbody td.cell-purchase-tva { display: none; }
+.hide-col-purchase-discount #items thead th.cell-purchase-discount,
+.hide-col-purchase-discount #items tbody td.cell-purchase-discount { display: none; }
 .hide-col-price #items thead th.cell-price,
 .hide-col-price #items tbody td.cell-price { display: none; }
 .hide-col-fodec-sale #items thead th.cell-fodec-sale,
@@ -892,6 +895,7 @@
 #items thead th.cell-unit,
 #items thead th.cell-purchase-price,
 #items thead th.cell-purchase-tva,
+#items thead th.cell-purchase-discount,
 #items thead th.cell-fodec-purchase,
 #items thead th.cell-price,
 #items thead th.cell-fodec-sale,
@@ -906,6 +910,7 @@
 #items tbody td.cell-unit,
 #items tbody td.cell-purchase-price,
 #items tbody td.cell-purchase-tva,
+#items tbody td.cell-purchase-discount,
 #items tbody td.cell-fodec-purchase,
 #items tbody td.cell-price,
 #items tbody td.cell-fodec-sale,

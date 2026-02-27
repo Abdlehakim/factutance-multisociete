@@ -1682,6 +1682,58 @@
     return { salesPrice, salesTva, purchasePrice, purchaseTva };
   }
 
+  function resolveItemDiscountValues(rawItem = {}, options = {}) {
+    const source = rawItem && typeof rawItem === "object" ? rawItem : {};
+    const usePurchasePricing = !!options.usePurchasePricing;
+    const salesDiscountSource = pickItemNumericValue(source, [
+      "discount",
+      "discountPct",
+      "discount_pct",
+      "discountRate",
+      "discount_rate",
+      "remise"
+    ]);
+    const purchaseDiscountSource = pickItemNumericValue(source, [
+      "purchaseDiscount",
+      "purchase_discount",
+      "purchaseDiscountPct",
+      "purchase_discount_pct",
+      "purchaseDiscountPercent",
+      "purchase_discount_percent",
+      "purchaseDiscountRate",
+      "purchase_discount_rate",
+      "purchaseRemise",
+      "purchase_remise",
+      "remiseAchat",
+      "remise_achat"
+    ]);
+    const salesDiscount = hasItemValue(salesDiscountSource)
+      ? parseItemNumber(salesDiscountSource, 0)
+      : parseItemNumber(source.discount, 0);
+    const purchaseDiscountRaw = hasItemValue(purchaseDiscountSource)
+      ? parseItemNumber(purchaseDiscountSource, 0)
+      : parseItemNumber(
+        source.purchaseDiscount ??
+          source.purchase_discount ??
+          source.purchaseDiscountPct ??
+          source.purchase_discount_pct ??
+          source.purchaseDiscountPercent ??
+          source.purchase_discount_percent ??
+          source.purchaseDiscountRate ??
+          source.purchase_discount_rate ??
+          source.purchaseRemise ??
+          source.purchase_remise ??
+          source.remiseAchat ??
+          source.remise_achat,
+        usePurchasePricing ? salesDiscount : 0
+      );
+    const purchaseDiscount =
+      usePurchasePricing && purchaseDiscountRaw === 0 && salesDiscount !== 0
+        ? salesDiscount
+        : purchaseDiscountRaw;
+    return { salesDiscount, purchaseDiscount };
+  }
+
   SEM.updateAmountWordsBlock = function updateAmountWordsBlock(totalsInput) {
     const amountWordsHost = getItemsScopedEl("itemsAmountWordsBlock");
     const summaryNoteHost = getItemsScopedEl("itemsSummaryNoteBlock");
@@ -1963,15 +2015,17 @@
   SEM.fillAddFormFromItem = function (it) {
     if (shouldSkipMainscreenAddFormUpdate()) return;
     const pricing = resolveItemPricingValues(it);
+    const docType = normalizeDocType(state().meta?.docType || getStr("docType", "facture"));
+    const discounts = resolveItemDiscountValues(it, { usePurchasePricing: docType === "fa" });
     const salesTva = hasItemValue(it?.tva) ? parseItemNumber(it.tva, 0) : 19;
     setVal("addRef", it.ref ?? ""); setVal("addProduct", it.product ?? "");
     setVal("addDesc", it.desc ?? ""); setVal("addStockQty", String(it.stockQty ?? 0));
     setVal("addUnit", it.unit ?? "");
     setVal("addPurchasePrice", String(pricing.purchasePrice));
     setVal("addPurchaseTva", String(pricing.purchaseTva));
-    setVal("addPurchaseDiscount", String(it.purchaseDiscount ?? 0));
+    setVal("addPurchaseDiscount", String(discounts.purchaseDiscount));
     setVal("addPrice", String(pricing.salesPrice)); setVal("addTva", String(salesTva));
-    setVal("addDiscount", String(it.discount ?? 0));
+    setVal("addDiscount", String(discounts.salesDiscount));
     const fodec = it.fodec && typeof it.fodec === "object" ? it.fodec : {};
     const fodecToggle = getEl("addFodecEnabled");
     if (fodecToggle) fodecToggle.checked = !!fodec.enabled;
@@ -2222,6 +2276,7 @@
     const tableHeaderFallbacks = {
       purchasePrice: taxesEnabled ? "PU A. HT" : "PU A.",
       purchaseTva: "TVA A.",
+      purchaseDiscount: "Remise A.",
       fodecPurchase: "FODEC A.",
       price: taxesEnabled ? "P.U. HT" : "Prix unitaire",
       fodecSale: "FODEC",
@@ -2271,27 +2326,8 @@
 
     state().items.forEach((raw, i) => {
       const pricing = resolveItemPricingValues(raw);
+      const discounts = resolveItemDiscountValues(raw, { usePurchasePricing });
       const qtySource = pickItemNumericValue(raw, ["qty", "quantity", "qte", "quantite"]);
-      const discountSource = pickItemNumericValue(raw, [
-        "discount",
-        "discountPct",
-        "discount_pct",
-        "discountRate",
-        "discount_rate",
-        "remise"
-      ]);
-      const purchaseDiscountSource = pickItemNumericValue(raw, [
-        "purchaseDiscount",
-        "purchase_discount",
-        "purchaseDiscountPct",
-        "purchase_discount_pct",
-        "purchaseDiscountRate",
-        "purchase_discount_rate",
-        "purchaseRemise",
-        "purchase_remise",
-        "remiseAchat",
-        "remise_achat"
-      ]);
       const it = {
         ref: raw.ref ?? "",
         product: raw.product ?? (raw.desc ? String(raw.desc) : ""),
@@ -2302,12 +2338,8 @@
         purchaseTva: pricing.purchaseTva,
         price: pricing.salesPrice,
         tva: pricing.salesTva,
-        discount: hasItemValue(discountSource)
-          ? parseItemNumber(discountSource, 0)
-          : parseItemNumber(raw.discount, 0),
-        purchaseDiscount: hasItemValue(purchaseDiscountSource)
-          ? parseItemNumber(purchaseDiscountSource, 0)
-          : parseItemNumber(raw.purchaseDiscount ?? raw.discount, 0),
+        discount: discounts.salesDiscount,
+        purchaseDiscount: discounts.purchaseDiscount,
         fodec: normalizeItemFodec(raw.fodec),
         purchaseFodec: normalizeItemPurchaseFodec(raw.purchaseFodec)
       };
@@ -2323,7 +2355,7 @@
       const fodecTva = fEnabled && taxesEnabled ? fodec * (fTvaRate / 100) : 0;
       const purchaseBase = it.qty * it.purchasePrice;
       const purchaseDiscountRate =
-        Number.isFinite(Number(it.purchaseDiscount)) ? Number(it.purchaseDiscount) : Number(it.discount) || 0;
+        Number.isFinite(Number(it.purchaseDiscount)) ? Number(it.purchaseDiscount) : 0;
       const purchaseDiscount = purchaseBase * (purchaseDiscountRate / 100);
       const purchaseTaxedBase = Math.max(0, purchaseBase - purchaseDiscount);
       const purchaseTvaRate = taxesEnabled ? it.purchaseTva : 0;
@@ -2343,7 +2375,8 @@
         : (salesTaxedBase + tax + fodec + fodecTva);
       const saleFodecDisplayRate = Number.isFinite(fRate) ? fRate : 0;
       const purchaseFodecDisplayRate = Number.isFinite(purchaseFRate) ? purchaseFRate : 0;
-      const displayedDiscountRate = usePurchasePricing ? purchaseDiscountRate : (Number(it.discount) || 0);
+      const displayedDiscountRate = Number(it.discount) || 0;
+      const displayedPurchaseDiscountRate = Number.isFinite(purchaseDiscountRate) ? purchaseDiscountRate : 0;
 
       const tr = document.createElement("tr");
       tr.innerHTML = `
@@ -2355,6 +2388,17 @@
         <td class="cell-purchase-price right">${formatMoney(it.purchasePrice, currency)}</td>
         <td class="cell-purchase-tva right">${formatPct(purchaseTvaRate)}</td>
         <td class="cell-fodec-purchase right">${formatPct(purchaseFEnabled ? purchaseFodecDisplayRate : 0)}</td>
+        <td class="cell-purchase-discount right">
+          <input
+            type="number"
+            class="discount-input"
+            min="0"
+            step="0.01"
+            value="${displayedPurchaseDiscountRate}"
+            data-purchase-discount-input="${i}"
+            aria-label="Remise achat de la ligne ${i + 1}"
+          />
+        </td>
         <td class="cell-price right">${formatMoney(it.price, currency)}</td>
         <td class="cell-tva right">${formatPct(tvaRate)}</td>
         <td class="cell-fodec-sale right">${formatPct(fEnabled ? saleFodecDisplayRate : 0)}</td>
@@ -2386,6 +2430,11 @@
             </div>
           </div>
         </td>`;
+      const purchaseDiscountInput = tr.querySelector("[data-purchase-discount-input]");
+      if (purchaseDiscountInput) {
+        purchaseDiscountInput.value = String(displayedPurchaseDiscountRate);
+        purchaseDiscountInput.dataset.purchaseDiscountInput = String(i);
+      }
       body.appendChild(tr);
     });
 
@@ -2449,6 +2498,18 @@
         }
       });
     });
+    body.querySelectorAll("[data-purchase-discount-input]").forEach(input => {
+      const commit = () =>
+        setItemPurchaseDiscount(Number(input.dataset.purchaseDiscountInput), input.value);
+      input.addEventListener("change", commit);
+      input.addEventListener("blur", commit);
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          commit();
+        }
+      });
+    });
 
     SEM.computeTotals();
     SEM.applyColumnHiding();
@@ -2484,6 +2545,8 @@
       normalizeItemNum(a.purchaseTva) === normalizeItemNum(b.purchaseTva) &&
       normalizeItemNum(a.price) === normalizeItemNum(b.price) &&
       normalizeItemNum(a.tva) === normalizeItemNum(b.tva) &&
+      normalizeItemNum(a.discount) === normalizeItemNum(b.discount) &&
+      normalizeItemNum(a.purchaseDiscount) === normalizeItemNum(b.purchaseDiscount) &&
       fA.enabled === fB.enabled &&
       fA.label === fB.label &&
       fA.rate === fB.rate &&
@@ -2546,18 +2609,31 @@
     const numeric =
       typeof value === "string" ? Number(value.replace?.(",", ".") ?? value) : Number(value);
     const safeValue = Math.max(MIN_DISCOUNT, Number.isFinite(numeric) ? numeric : MIN_DISCOUNT);
+    const currentDiscount = Number(items[index].discount ?? 0) || 0;
+    if (safeValue === currentDiscount) return;
+    items[index].discount = safeValue;
+    SEM.renderItems();
+  }
+
+  function setItemPurchaseDiscount(index, value) {
+    const items = state().items;
+    if (!Array.isArray(items) || typeof index !== "number") return;
+    if (index < 0 || index >= items.length) return;
+    const numeric =
+      typeof value === "string" ? Number(value.replace?.(",", ".") ?? value) : Number(value);
+    const safeValue = Math.max(MIN_DISCOUNT, Number.isFinite(numeric) ? numeric : MIN_DISCOUNT);
     const docType = normalizeDocType(state().meta?.docType || getStr("docType", "facture"));
     const usePurchasePricing = docType === "fa";
+    const currentPurchaseDiscount = Number(
+      items[index].purchaseDiscount ?? items[index].purchaseDiscountRate ?? 0
+    ) || 0;
     const currentDiscount = Number(items[index].discount ?? 0) || 0;
-    const currentPurchaseDiscount = Number(items[index].purchaseDiscount ?? items[index].discount ?? 0) || 0;
-    if (usePurchasePricing) {
-      if (safeValue === currentDiscount && safeValue === currentPurchaseDiscount) return;
-    } else if (safeValue === currentDiscount) {
+    if (safeValue === currentPurchaseDiscount && (!usePurchasePricing || safeValue === currentDiscount)) {
       return;
     }
-    items[index].discount = safeValue;
+    items[index].purchaseDiscount = safeValue;
     if (usePurchasePricing) {
-      items[index].purchaseDiscount = safeValue;
+      items[index].discount = safeValue;
     }
     SEM.renderItems();
   }
@@ -2776,8 +2852,30 @@
     const pricing = resolveItemPricingValues(article);
     const docType = normalizeDocType(state().meta?.docType || getStr("docType", "facture"));
     const usePurchasePricing = docType === "fa";
-    const salesDiscount = sanitizeLinkedItemNumber(article.discount);
-    const purchaseDiscount = sanitizeLinkedItemNumber(article.purchaseDiscount, 0);
+    const salesDiscount = sanitizeLinkedItemNumber(
+      article.discount ??
+        article.discountPct ??
+        article.discount_pct ??
+        article.discountRate ??
+        article.discount_rate ??
+        article.remise,
+      0
+    );
+    const purchaseDiscount = sanitizeLinkedItemNumber(
+      article.purchaseDiscount ??
+        article.purchase_discount ??
+        article.purchaseDiscountPct ??
+        article.purchase_discount_pct ??
+        article.purchaseDiscountPercent ??
+        article.purchase_discount_percent ??
+        article.purchaseDiscountRate ??
+        article.purchase_discount_rate ??
+        article.purchaseRemise ??
+        article.purchase_remise ??
+        article.remiseAchat ??
+        article.remise_achat,
+      0
+    );
     return {
       ref: sanitizeLinkedItemText(article.ref),
       product: sanitizeLinkedItemText(article.product),
@@ -2973,6 +3071,7 @@
     const tableUnitVis = tableColumns.unit !== false;
     const tablePurchasePriceVis = tableColumns.purchasePrice !== false;
     const tablePurchaseTvaVis = taxesEnabled && tableColumns.purchaseTva !== false;
+    const tablePurchaseDiscountVis = tablePurchasePriceVis && tableColumns.purchaseDiscount !== false;
     const tablePriceVis = tableColumns.price !== false;
     const tableShowFodecSale =
       taxesEnabled &&
@@ -2983,7 +3082,7 @@
       tablePurchasePriceVis &&
       tableColumns.fodecPurchase !== false;
     const tableShowTva = taxesEnabled && tableColumns.tva !== false;
-    const tableDiscountVis = tableColumns.discount !== false;
+    const tableDiscountVis = tablePriceVis && tableColumns.discount !== false;
     const tableShowTotalPurchaseHt = tableColumns.totalPurchaseHt !== false;
     const tableShowTotalPurchaseTtc = taxesEnabled && tableColumns.totalPurchaseTtc !== false;
     const tableShowTotalHt = tablePriceVis && tableColumns.totalHt !== false;
@@ -2993,6 +3092,7 @@
     const showPurchaseFinancialColumns =
       tablePurchasePriceVis ||
       tablePurchaseTvaVis ||
+      tablePurchaseDiscountVis ||
       tableShowFodecPurchase ||
       tableShowTotalPurchaseHt ||
       tableShowTotalPurchaseTtc;
@@ -3005,6 +3105,7 @@
     document.body.classList.toggle("hide-col-unit", !tableUnitVis);
     document.body.classList.toggle("hide-col-purchase-price", !tablePurchasePriceVis);
     document.body.classList.toggle("hide-col-purchase-tva", !tablePurchaseTvaVis);
+    document.body.classList.toggle("hide-col-purchase-discount", !tablePurchaseDiscountVis);
     document.body.classList.toggle("hide-col-price", !tablePriceVis);
     document.body.classList.toggle("hide-col-fodec-sale", !tableShowFodecSale);
     document.body.classList.toggle("hide-col-fodec-purchase", !tableShowFodecPurchase);
@@ -3034,7 +3135,7 @@
     const formUnitVis = columns.unit !== false;
     const formPriceVis = columns.price !== false;
     const formShowTva = taxesEnabled && columns.tva !== false;
-    const formDiscountVis = columns.discount !== false;
+    const formDiscountVis = formPriceVis && columns.discount !== false;
     const formShowTotalHt = formPriceVis && columns.totalHt !== false;
     const formShowTotalTtc = formPriceVis && columns.totalTtc !== false;
     const purchaseSectionEnabled = columns.purchaseSectionEnabled !== false;

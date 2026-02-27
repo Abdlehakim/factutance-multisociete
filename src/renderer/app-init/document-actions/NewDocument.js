@@ -2175,6 +2175,9 @@
       if (!itemsDocOptionsModal || !itemsDocOptionsModalContent) return false;
       itemsModalMode = resolveItemsModalMode(options.mode);
       if (isItemsModalOpen()) {
+        if (typeof SEM?.renderItems === "function") {
+          SEM.renderItems();
+        }
         syncDocMetaBoxFromState();
         applyItemsModalOptionalSectionsVisibility({
           modelName: sanitizeModelSeed(
@@ -2196,6 +2199,9 @@
         if (!built) {
           console.warn("new document modal unavailable; dedicated components not ready");
           return false;
+        }
+        if (typeof SEM?.renderItems === "function") {
+          SEM.renderItems();
         }
         if (typeof SEM?.applyColumnHiding === "function") {
           SEM.applyColumnHiding();

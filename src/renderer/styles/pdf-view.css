@@ -288,6 +288,8 @@ body.exporting-pdf .pdf-preview-modal__content .pdf-page {
 .pdf-table td[data-col="unit"],
 .pdf-table th[data-col="price"],
 .pdf-table td[data-col="price"],
+.pdf-table th[data-col="purchaseDiscount"],
+.pdf-table td[data-col="purchaseDiscount"],
 .pdf-table th[data-col="discount"],
 .pdf-table td[data-col="discount"] {
   width: 1%;
@@ -322,6 +324,8 @@ body.exporting-pdf .pdf-preview-modal__content .pdf-page {
 .pdf-table td[data-col="fodecSale"],
 .pdf-table th[data-col="fodecPurchase"],
 .pdf-table td[data-col="fodecPurchase"],
+.pdf-table th[data-col="purchaseDiscount"],
+.pdf-table td[data-col="purchaseDiscount"],
 .pdf-table th[data-col="tva"],
 .pdf-table td[data-col="tva"],
 .pdf-table th[data-col="discount"],

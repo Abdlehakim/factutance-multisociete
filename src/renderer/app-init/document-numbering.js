@@ -264,12 +264,14 @@
     const MODEL_DOC_TYPE_FA_VENTE_TOGGLE_IDS = [
       "colTogglePriceModal",
       "colToggleTvaModal",
+      "colToggleDiscountModal",
       "colToggleTotalHtModal",
       "colToggleTotalTtcModal"
     ];
     const MODEL_DOC_TYPE_FA_PURCHASE_TOGGLE_IDS = [
       "colTogglePurchasePriceModal",
       "colTogglePurchaseTvaModal",
+      "colTogglePurchaseDiscountModal",
       "colToggleTotalPurchaseHtModal",
       "colToggleTotalPurchaseTtcModal"
     ];
@@ -283,11 +285,13 @@
     ]);
     const MODEL_DOC_TYPE_PRICE_DEPENDENT_VENTE_TOGGLE_IDS = [
       "colToggleTvaModal",
+      "colToggleDiscountModal",
       "colToggleTotalHtModal",
       "colToggleTotalTtcModal"
     ];
     const MODEL_DOC_TYPE_PURCHASE_PRICE_DEPENDENT_TOGGLE_IDS = [
       "colTogglePurchaseTvaModal",
+      "colTogglePurchaseDiscountModal",
       "colToggleTotalPurchaseHtModal",
       "colToggleTotalPurchaseTtcModal"
     ];

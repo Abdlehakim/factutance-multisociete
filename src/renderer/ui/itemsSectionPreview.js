@@ -137,6 +137,12 @@ export function renderItemsSectionPreview() {
               <th id="itemsPurchasePriceHeader" class="cell-purchase-price" data-article-field-label="purchasePrice">PU A. HT</th>
               <th id="itemsPurchaseTvaHeader" class="cell-purchase-tva" data-article-field-label="purchaseTva">TVA A.</th>
               <th id="itemsFodecPurchaseHeader" class="cell-fodec-purchase" data-article-field-label="fodecPurchase">FODEC A.</th>
+              <th
+                id="itemsPurchaseDiscountHeader"
+                class="cell-purchase-discount no-wrap"
+                data-col="purchaseDiscount"
+                data-article-field-label="purchaseDiscount"
+              >Remise A.</th>
               <th id="itemsPriceHeader" class="cell-price" data-article-field-label="price">P.U. HT</th>
               <th class="cell-tva" data-article-field-label="tva">TVA %</th>
               <th id="itemsFodecHeader" class="cell-fodec-sale" data-article-field-label="fodecSale">FODEC V.</th>
