@@ -660,34 +660,6 @@ export function renderGeneralDataSection() {
                   </svg>
                 </button>
               </label>
-              <button
-                id="clientImportBtn"
-                type="button"
-                class="client-search__saved client-search__saved--import"
-                aria-label="Importer des clients"
-                aria-haspopup="dialog"
-                aria-controls="clientImportModal"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M12 3v12" stroke-linecap="round"></path>
-                  <path d="M8 7l4-4 4 4" stroke-linecap="round" stroke-linejoin="round"></path>
-                  <path d="M5 14v4a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3v-4" stroke-linecap="round" stroke-linejoin="round"></path>
-                </svg>
-              </button>
-              <button
-                id="clientExportBtn"
-                type="button"
-                class="client-search__saved client-search__saved--export"
-                aria-label="Exporter des clients"
-                aria-haspopup="dialog"
-                aria-controls="clientExportModal"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M12 21V9" stroke-linecap="round"></path>
-                  <path d="M8 17l4 4 4-4" stroke-linecap="round" stroke-linejoin="round"></path>
-                  <path d="M5 10V6a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v4" stroke-linecap="round" stroke-linejoin="round"></path>
-                </svg>
-              </button>
             </div>
             ${renderClientFormPopover()}
             ${renderFournisseurFormPopover({ includeParticulier: true })}
