@@ -122,24 +122,15 @@
   flex: 1 1 380px;
 }
 .company-header__avatar {
-  width: 56px;
-  height: 56px;
-  max-width: 56px;
-  max-height: 56px;
-  aspect-ratio: 1 / 1;
-  border-radius: 6px;
-  border: 1px solid rgba(21, 51, 94, 0.2);
-  background: #ffffff;
-  color: #ffffff;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.05rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  flex: 0 0 56px;
-  flex-shrink: 0;
-  overflow: hidden;
+      width: 113px;
+    height: max-content;
+aspect-ratio: 1 / 1;
+    border-radius: 6px;
+    border: 1px solid rgba(21, 51, 94, 0.2);
+    background: #ffffff;
+    color: #ffffff;
+    display: inline-flex;
+    align-items: center;
 }
 #companyHeaderAvatarImage {
   max-width: 100%;
