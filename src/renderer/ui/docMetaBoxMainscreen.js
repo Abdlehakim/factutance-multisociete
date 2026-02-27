@@ -98,38 +98,6 @@ export function renderDocMetaBoxMainscreen() {
       <fieldset class="section-box" id="docModeleBoxMainscreen">
         <legend>Mod&egrave;le</legend>
         <div class="doc-meta-grid">
-          <div class="doc-meta-grid__item">
-            <div class="doc-history-row">
-              <button
-                id="docModeleImportBtn"
-                type="button"
-                class="client-search__saved client-search__saved--import"
-                aria-label="Importer des modeles"
-                aria-haspopup="dialog"
-                aria-controls="modelImportModal"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M12 3v12" stroke-linecap="round" />
-                  <path d="M8 7l4-4 4 4" stroke-linecap="round" stroke-linejoin="round" />
-                  <path d="M5 14v4a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3v-4" stroke-linecap="round" stroke-linejoin="round" />
-                </svg>
-              </button>
-              <button
-                id="docModeleExportBtn"
-                type="button"
-                class="client-search__saved client-search__saved--export"
-                aria-label="Exporter des modeles"
-                aria-haspopup="dialog"
-                aria-controls="modelExportModal"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M12 21V9" stroke-linecap="round" />
-                  <path d="M8 17l4 4 4-4" stroke-linecap="round" stroke-linejoin="round" />
-                  <path d="M5 10V6a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v4" stroke-linecap="round" stroke-linejoin="round" />
-                </svg>
-              </button>
-            </div>
-          </div>
           <div class="doc-type-action-row" role="group" aria-label="Actions du modèle">
             <button
               id="modelActionNew"
@@ -180,6 +148,36 @@ export function renderDocMetaBoxMainscreen() {
               </span>
               <span class="doc-type-action-label">Option Mod&egrave;le</span>
             </button>
+            <div class="doc-history-row">
+              <button
+                id="docModeleImportBtn"
+                type="button"
+                class="client-search__saved client-search__saved--import"
+                aria-label="Importer des modeles"
+                aria-haspopup="dialog"
+                aria-controls="modelImportModal"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 3v12" stroke-linecap="round" />
+                  <path d="M8 7l4-4 4 4" stroke-linecap="round" stroke-linejoin="round" />
+                  <path d="M5 14v4a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3v-4" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              </button>
+              <button
+                id="docModeleExportBtn"
+                type="button"
+                class="client-search__saved client-search__saved--export"
+                aria-label="Exporter des modeles"
+                aria-haspopup="dialog"
+                aria-controls="modelExportModal"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 21V9" stroke-linecap="round" />
+                  <path d="M8 17l4 4 4-4" stroke-linecap="round" stroke-linejoin="round" />
+                  <path d="M5 10V6a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v4" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
       </fieldset>

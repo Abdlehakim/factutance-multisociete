@@ -152,7 +152,8 @@
 .section-box#docModeleBoxMainscreen .doc-type-action-row {
   margin-top: auto;
 }
-.section-box#docMetaBoxMainscreen .doc-type-action-row .doc-history-row {
+.section-box#docMetaBoxMainscreen .doc-type-action-row .doc-history-row,
+.section-box#docModeleBoxMainscreen .doc-type-action-row .doc-history-row {
   margin-left: auto;
   justify-content: flex-start;
   flex-direction: column;
