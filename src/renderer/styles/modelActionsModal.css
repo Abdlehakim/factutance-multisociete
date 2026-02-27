@@ -1177,6 +1177,10 @@ border-collapse: separate;
   white-space: nowrap;
 }
 
+#modelActionsModal #modelDocTypePanel.doc-type-panel--inline .doc-type-toggle[data-doc-type-option="fa"] {
+  flex-basis: 100%;
+}
+
 #modelActionsModal .doc-type-select {
   position: absolute;
   width: 1px;

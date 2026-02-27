@@ -198,15 +198,7 @@ export const ModelStepper = `
                                     <input type="checkbox" name="modelDocTypeChoice" value="facture" class="col-toggle" checked aria-checked="true" />
                                     <span class="model-save-dot">Facture</span>
                                   </label>
-                                <label
-                                  class="toggle-option doc-type-toggle"
-                                  data-doc-type-option="fa"
-                                  aria-selected="false"
-                                >
-                                  <input type="checkbox" name="modelDocTypeChoice" value="fa" class="col-toggle" />
-                                  <span class="model-save-dot">Facture d'achat</span>
-                                </label>
-                                <label
+                                  <label
                                   class="toggle-option doc-type-toggle"
                                   data-doc-type-option="avoir"
                                   aria-selected="false"
@@ -229,6 +221,14 @@ export const ModelStepper = `
                                 >
                                   <input type="checkbox" name="modelDocTypeChoice" value="bl" class="col-toggle" />
                                   <span class="model-save-dot">Bon de livraison</span>
+                                </label>
+                                <label
+                                  class="toggle-option doc-type-toggle"
+                                  data-doc-type-option="fa"
+                                  aria-selected="false"
+                                >
+                                  <input type="checkbox" name="modelDocTypeChoice" value="fa" class="col-toggle" />
+                                  <span class="model-save-dot">Facture d'achat</span>
                                 </label>
                               </div>
                                 <select id="modelDocType" class="doc-type-select" aria-hidden="true" tabindex="-1" multiple>
