@@ -66,33 +66,9 @@ export function renderGeneralDataSection() {
                 </div>
               </div>
             </div>
-            <div class="company-info-summary__row">
-              <span class="company-info-summary__label">Type de l'entreprise</span>
-              <span class="company-info-summary__value is-empty" id="companyTypeSummaryDisplay">-</span>
-            </div>
-            <div class="company-info-summary__row">
-              <span class="company-info-summary__label">Matricule fiscal</span>
-              <span class="company-info-summary__value is-empty" id="companyVatDisplay">—</span>
-            </div>
             <div class="company-info-summary__row" hidden>
               <span class="company-info-summary__label">Code en douane</span>
               <span class="company-info-summary__value is-empty" id="companyCustomsDisplay">—</span>
-            </div>
-            <div class="company-info-summary__row" hidden>
-              <span class="company-info-summary__label">IBAN</span>
-              <span class="company-info-summary__value is-empty" id="companyIbanDisplay">—</span>
-            </div>
-            <div class="company-info-summary__row">
-              <span class="company-info-summary__label">Telephone(s)</span>
-              <span class="company-info-summary__value is-empty" id="companyPhoneDisplay">—</span>
-            </div>
-            <div class="company-info-summary__row">
-              <span class="company-info-summary__label">E-mail</span>
-              <span class="company-info-summary__value is-empty" id="companyEmailDisplay">—</span>
-            </div>
-            <div class="company-info-summary__row company-info-summary__row--full">
-              <span class="company-info-summary__label">Adresse</span>
-              <span class="company-info-summary__value is-empty" id="companyAddressDisplay">—</span>
             </div>
           </div>
 
@@ -1499,5 +1475,6 @@ export function renderGeneralDataSection() {
     </div>
   `);
 }
+
 
 

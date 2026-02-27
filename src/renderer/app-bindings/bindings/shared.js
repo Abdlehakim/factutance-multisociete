@@ -285,19 +285,14 @@
   }
   SEM.updateCompanyLogoImage = updateCompanyLogoImage;
 
-  const COMPANY_TYPE_SUMMARY_LABELS = {
-    societe: "Societe / personne morale (PM)",
-    personne_physique: "Personne physique (PP)"
-  };
   const COMPANY_SUMMARY_DISPLAY_IDS = {
     name: ["companyNameDisplay", "itemsCompanyName"],
-    type: "companyTypeSummaryDisplay",
-    vat: ["companyVatDisplay", "itemsCompanyVat"],
+    vat: ["itemsCompanyVat"],
     customsCode: ["companyCustomsDisplay", "itemsCompanyCustoms"],
-    iban: ["companyIbanDisplay", "itemsCompanyIban"],
-    phone: ["companyPhoneDisplay", "itemsCompanyPhone"],
-    email: ["companyEmailDisplay", "itemsCompanyEmail"],
-    address: ["companyAddressDisplay", "itemsCompanyAddress"]
+    iban: ["itemsCompanyIban"],
+    phone: ["itemsCompanyPhone"],
+    email: ["itemsCompanyEmail"],
+    address: ["itemsCompanyAddress"]
   };
   const COMPANY_HEADER_IDS = {
     subtitle: "companyHeaderSubtitle",
@@ -381,10 +376,7 @@
         const el = getEl(displayId);
         if (!el) return;
         let rawValue = company[key] || "";
-        if (key === "type") {
-          const normalized = String(company.type || "societe").toLowerCase();
-          rawValue = COMPANY_TYPE_SUMMARY_LABELS[normalized] || COMPANY_TYPE_SUMMARY_LABELS.societe;
-        } else if (key === "phone") {
+        if (key === "phone") {
           const phones = parseCompanyPhoneList(company.phone || "");
           rawValue = phones.length ? phones.join("\n") : "";
         }
