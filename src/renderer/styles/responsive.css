@@ -6,9 +6,12 @@
   .grid.three .section-box:first-child {
     grid-column: 1 / -1;
   }
-  .logo-wrap img {
-    width: 148px;
-    height: 40px;
+  .brand--sticky .logo-wrap {
+    width: 186px;
+    min-height: 60px;
+  }
+  #facturanceLogo.company-logo {
+    max-height: 44px;
   }
   .header {
     flex-wrap: wrap;
@@ -37,9 +40,16 @@
   .brand h1 {
     font-size: 16px;
   }
-  .logo-wrap img {
-    width: 138px;
-    height: 38px;
+  .brand--sticky {
+    min-height: 74px;
+  }
+  .brand--sticky .logo-wrap {
+    width: 176px;
+    min-height: 56px;
+    padding: 6px 10px;
+  }
+  #facturanceLogo.company-logo {
+    max-height: 40px;
   }
 
   .actions {
@@ -140,9 +150,12 @@
   .brand h1 {
     font-size: 12px;
   }
-  .logo-wrap img {
-    width: 124px;
-    height: 34px;
+  .brand--sticky .logo-wrap {
+    width: 162px;
+    min-height: 52px;
+  }
+  #facturanceLogo.company-logo {
+    max-height: 36px;
   }
 
   .section-box {
@@ -204,9 +217,13 @@
     padding: 12px;
     border-radius: 6px;
   }
-  .logo-wrap img {
-    width: 112px;
-    height: 30px;
+  .brand--sticky .logo-wrap {
+    width: 150px;
+    min-height: 48px;
+    padding: 6px 8px;
+  }
+  #facturanceLogo.company-logo {
+    max-height: 32px;
   }
   .brand h1 {
     font-size: 12px;
