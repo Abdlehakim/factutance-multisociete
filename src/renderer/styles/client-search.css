@@ -467,16 +467,17 @@
 #articleSavedModal .article-saved-modal__item-actions.article-saved-modal__actions {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   min-width: 180px;
   flex: 0 0 180px;
   align-items: center;
   justify-content: center;
+  padding: 6px;
 }
 #articleSavedModal .article-saved-modal__item-actions.article-saved-modal__actions > * {
-  width: 160px;
-  height: 34px;
-  min-height: 34px;
+  width: 140px;
+  height: 26px;
+  min-height: 26px;
   padding-top: 0;
   padding-bottom: 0;
 }
