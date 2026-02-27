@@ -150,7 +150,7 @@
 }
 .section-box#docMetaBoxMainscreen .doc-type-action-row,
 .section-box#docModeleBoxMainscreen .doc-type-action-row {
-  margin-top: auto;
+  margin-top: 20px;
 }
 .section-box#docMetaBoxMainscreen .doc-type-action-row .doc-history-row,
 .section-box#docModeleBoxMainscreen .doc-type-action-row .doc-history-row {
