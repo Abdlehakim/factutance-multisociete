@@ -8,10 +8,7 @@ import { html } from "./utils.js";
 
 export function renderGeneralDataSection() {
   return html(`
-    <section class="grid two">
-      <div class="doc-meta-stack">
-        ${renderDocMetaBoxMainscreen()}
-      </div>
+    <section class="main-screen-grid">
       <fieldset class="section-box" id="companyBox">
         <legend>Informations entreprise :</legend>
         <div class="company-info-grid">
@@ -105,6 +102,7 @@ export function renderGeneralDataSection() {
 
       </fieldset>
 
+      ${renderDocMetaBoxMainscreen()}
       ${renderClientBoxMainscreen()}
       ${renderAddItemBoxMainscreen()}
     </section>

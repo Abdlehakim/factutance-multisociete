@@ -4,14 +4,31 @@
 .label-inline { display: inline-flex; align-items: center; gap: 0.5rem; }
 .label-text { cursor: default; user-select: text; white-space: nowrap; font-size: 13px; }
 .col-toggle { cursor: pointer; }
-.doc-meta-stack {
+
+.main-screen-grid {
   display: grid;
-  gap: 12px;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 20px;
+  align-items: start;
+}
+.main-screen-grid > * {
   min-width: 0;
 }
-@media (max-width: 900px) {
-  .doc-meta-stack {
-    grid-template-columns: 1fr;
+.main-screen-grid > #companyBox {
+  grid-column: 1 / -1;
+}
+.main-screen-grid > #docMetaBoxMainscreen,
+.main-screen-grid > #docModeleBoxMainscreen,
+.main-screen-grid > #clientBoxMainscreen,
+.main-screen-grid > #addItemBoxMainscreen {
+  grid-column: span 6;
+}
+@media (max-width: 1100px) {
+  .main-screen-grid > #docMetaBoxMainscreen,
+  .main-screen-grid > #docModeleBoxMainscreen,
+  .main-screen-grid > #clientBoxMainscreen,
+  .main-screen-grid > #addItemBoxMainscreen {
+    grid-column: 1 / -1;
   }
 }
 
