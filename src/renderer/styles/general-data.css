@@ -331,6 +331,7 @@
   flex: 1 1 380px;
 }
 .company-header__avatar {
+      padding: 5px;
       width: 113px;
     height: max-content;
 aspect-ratio: 1 / 1;

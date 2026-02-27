@@ -152,6 +152,12 @@
 .section-box#docModeleBoxMainscreen .doc-type-action-row {
   margin-top: auto;
 }
+.section-box#docMetaBoxMainscreen .doc-type-action-row .doc-history-row {
+  margin-left: auto;
+  justify-content: flex-start;
+  flex-direction: column;
+  align-items: stretch;
+}
 .doc-type-action-btn {
   --doc-type-action-btn-width: 98px;
   width: var(--doc-type-action-btn-width);
