@@ -133,269 +133,375 @@ export function renderGeneralDataSection() {
           </button>
         </div>
         <form id="companyContactModalForm" class="company-modal__body swbDialog__msg" novalidate>
-          <div class="company-modal__row">
-            <div class="company-modal__field">
-              <label class="full client-type-field doc-type-field">
-                <span id="companyTypeLabel" class="label-text">Type de l'entreprise</span>
-                <div class="client-type-field__controls doc-type-field__controls">
-                  <details id="companyTypeMenu" class="field-toggle-menu client-type-menu doc-type-menu">
-                    <summary
-                      class="btn success field-toggle-trigger"
-                      role="button"
-                      aria-haspopup="listbox"
-                      aria-expanded="false"
-                      aria-labelledby="companyTypeLabel companyTypeDisplay"
-                    >
-                      <span id="companyTypeDisplay">Societe / personne morale (PM)</span>
-                      <svg class="chevron" aria-hidden="true" focusable="false" stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="none" d="M0 0h24v24H0V0z"></path><path d="M12 4c4.41 0 8 3.59 8 8s-3.59 8-8 8-8-3.59-8-8 3.59-8 8-8m0-2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 13-4-4h8z"></path></svg>
-                    </summary>
-                    <div
-                      id="companyTypePanel"
-                      class="field-toggle-panel model-select-panel client-type-panel doc-type-panel"
-                      role="listbox"
-                      aria-labelledby="companyTypeLabel"
-                    >
-                      <button
-                        type="button"
-                        class="model-select-option is-active"
-                        data-company-type-option="societe"
-                        role="option"
-                        aria-selected="true"
-                      >
-                        Societe / personne morale (PM)
-                      </button>
-                      <button
-                        type="button"
-                        class="model-select-option"
-                        data-company-type-option="personne_physique"
-                        role="option"
-                        aria-selected="false"
-                      >
-                      Personne physique (PP)
-                      </button>
+          <div class="model-stepper company-modal__stepper" data-company-contact-stepper>
+            <div
+              class="model-stepper__labels"
+              role="tablist"
+              aria-label="Navigation des etapes des coordonnees de l'entreprise"
+            >
+              <button
+                type="button"
+                class="model-stepper__step is-active"
+                data-company-contact-step="1"
+                role="tab"
+                aria-selected="true"
+                aria-controls="companyContactStepPanel1"
+                id="companyContactStepLabel1"
+                tabindex="0"
+              >
+                <span class="model-stepper__badge">1</span>
+                <span class="model-stepper__title">Type et matricule</span>
+              </button>
+              <button
+                type="button"
+                class="model-stepper__step"
+                data-company-contact-step="2"
+                role="tab"
+                aria-selected="false"
+                aria-controls="companyContactStepPanel2"
+                id="companyContactStepLabel2"
+                tabindex="-1"
+              >
+                <span class="model-stepper__badge">2</span>
+                <span class="model-stepper__title">Coordonnees</span>
+              </button>
+              <button
+                type="button"
+                class="model-stepper__step"
+                data-company-contact-step="3"
+                role="tab"
+                aria-selected="false"
+                aria-controls="companyContactStepPanel3"
+                id="companyContactStepLabel3"
+                tabindex="-1"
+              >
+                <span class="model-stepper__badge">3</span>
+                <span class="model-stepper__title">Branding</span>
+              </button>
+            </div>
+
+            <div class="model-stepper__panels">
+              <section
+                class="model-stepper__panel is-active"
+                data-company-contact-step-panel="1"
+                id="companyContactStepPanel1"
+                role="tabpanel"
+                aria-labelledby="companyContactStepLabel1"
+              >
+                <div class="company-modal__row">
+                  <div class="company-modal__field">
+                    <label class="full client-type-field doc-type-field">
+                      <span id="companyTypeLabel" class="label-text">Type de l'entreprise</span>
+                      <div class="client-type-field__controls doc-type-field__controls">
+                        <details id="companyTypeMenu" class="field-toggle-menu client-type-menu doc-type-menu">
+                          <summary
+                            class="btn success field-toggle-trigger"
+                            role="button"
+                            aria-haspopup="listbox"
+                            aria-expanded="false"
+                            aria-labelledby="companyTypeLabel companyTypeDisplay"
+                          >
+                            <span id="companyTypeDisplay">Societe / personne morale (PM)</span>
+                            <svg class="chevron" aria-hidden="true" focusable="false" stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="none" d="M0 0h24v24H0V0z"></path><path d="M12 4c4.41 0 8 3.59 8 8s-3.59 8-8 8-8-3.59-8-8 3.59-8 8-8m0-2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 13-4-4h8z"></path></svg>
+                          </summary>
+                          <div
+                            id="companyTypePanel"
+                            class="field-toggle-panel model-select-panel client-type-panel doc-type-panel"
+                            role="listbox"
+                            aria-labelledby="companyTypeLabel"
+                          >
+                            <button
+                              type="button"
+                              class="model-select-option is-active"
+                              data-company-type-option="societe"
+                              role="option"
+                              aria-selected="true"
+                            >
+                              Societe / personne morale (PM)
+                            </button>
+                            <button
+                              type="button"
+                              class="model-select-option"
+                              data-company-type-option="personne_physique"
+                              role="option"
+                              aria-selected="false"
+                            >
+                            Personne physique (PP)
+                            </button>
+                          </div>
+                        </details>
+                        <select id="companyType" class="client-type-select doc-type-select" aria-hidden="true" tabindex="-1">
+                          <option value="societe" selected>Societe / personne morale (PM)</option>
+                          <option value="personne_physique">Personne physique (PP)</option>
+                        </select>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+                <div class="company-modal__row">
+                  <div class="company-modal__field">
+                    <span class="label-text">Matricule fiscal</span>
+                    <div class="company-modal__mf-grid" role="group" aria-label="Matricule fiscal">
+                      <label class="company-modal__mf-item">
+                        <span class="company-modal__mf-label">Identifiant unique</span>
+                        <input id="companyModalMfIdentifiant" inputmode="numeric" maxlength="7" autocomplete="off" />
+                      </label>
+                      <label class="company-modal__mf-item">
+                        <span class="company-modal__mf-label">Clef controle</span>
+                        <input id="companyModalMfKey" maxlength="1" autocomplete="off" />
+                      </label>
+                      <label class="company-modal__mf-item">
+                        <span class="company-modal__mf-label">Code TVA %</span>
+                        <input id="companyModalMfCodeTva" maxlength="1" autocomplete="off" />
+                      </label>
+                      <label class="company-modal__mf-item">
+                        <span class="company-modal__mf-label">Code categorie</span>
+                        <input id="companyModalMfCategory" maxlength="1" autocomplete="off" />
+                      </label>
+                      <label class="company-modal__mf-item">
+                        <span class="company-modal__mf-label">Etablissement</span>
+                        <input id="companyModalMfEstablishment" inputmode="numeric" maxlength="3" autocomplete="off" />
+                      </label>
                     </div>
-                  </details>
-                  <select id="companyType" class="client-type-select doc-type-select" aria-hidden="true" tabindex="-1">
-                    <option value="societe" selected>Societe / personne morale (PM)</option>
-                    <option value="personne_physique">Personne physique (PP)</option>
-                  </select>
-                </div>
-              </label>
-            </div>
-          </div>
-          <div class="company-modal__row">
-            <div class="company-modal__field">
-              <span class="label-text">Matricule fiscal</span>
-              <div class="company-modal__mf-grid" role="group" aria-label="Matricule fiscal">
-                <label class="company-modal__mf-item">
-                  <span class="company-modal__mf-label">Identifiant unique</span>
-                  <input id="companyModalMfIdentifiant" inputmode="numeric" maxlength="7" autocomplete="off" />
-                </label>
-                <label class="company-modal__mf-item">
-                  <span class="company-modal__mf-label">Clef controle</span>
-                  <input id="companyModalMfKey" maxlength="1" autocomplete="off" />
-                </label>
-                <label class="company-modal__mf-item">
-                  <span class="company-modal__mf-label">Code TVA %</span>
-                  <input id="companyModalMfCodeTva" maxlength="1" autocomplete="off" />
-                </label>
-                <label class="company-modal__mf-item">
-                  <span class="company-modal__mf-label">Code categorie</span>
-                  <input id="companyModalMfCategory" maxlength="1" autocomplete="off" />
-                </label>
-                <label class="company-modal__mf-item">
-                  <span class="company-modal__mf-label">Etablissement</span>
-                  <input id="companyModalMfEstablishment" inputmode="numeric" maxlength="3" autocomplete="off" />
-                </label>
-              </div>
-            </div>
-          </div>
-          <div class="company-modal__row">
-            <div class="company-modal__field">
-              <label for="companyModalCustomsCode" class="label-text">Code en douane</label>
-              <input id="companyModalCustomsCode" autocomplete="off" />
-            </div>
-            <div class="company-modal__field">
-              <label for="companyModalIban" class="label-text">IBAN</label>
-              <input id="companyModalIban" autocomplete="off" />
-            </div>
-          </div>
-          <div class="company-modal__field">
-            <div class="company-modal__field-head">
-              <label for="companyModalPhonePrimary" class="label-text">Telephone(s)</label>
-              <button type="button" id="companyModalPhoneAdd" class="btn">+ Ajouter un numero</button>
-            </div>
-            <div id="companyModalPhones" class="company-phone-list">
-              <div class="company-phone-item" data-phone-index="0">
-                <input id="companyModalPhoneCodePrimary" type="tel" class="company-phone-code" autocomplete="off" value="+216" />
-                <input id="companyModalPhonePrimary" type="tel" class="company-phone-input" autocomplete="off" />
-              </div>
-            </div>
-          </div>
-          <div class="company-modal__field">
-            <label for="companyModalEmail" class="label-text">E-mail</label>
-            <input id="companyModalEmail" type="email" autocomplete="off" />
-          </div>
-          <div class="company-modal__field">
-            <span class="label-text">Adresse</span>
-            <div class="company-modal__address-grid">
-              <label class="company-modal__address-item">
-                <span class="company-modal__mf-label">Rue</span>
-                <input id="companyModalAddressStreet" autocomplete="off" />
-              </label>
-              <label class="company-modal__address-item">
-                <span class="company-modal__mf-label">Code postal</span>
-                <input id="companyModalAddressPostal" autocomplete="off" />
-              </label>
-              <label class="company-modal__address-item">
-                <span class="company-modal__mf-label">Ville</span>
-                <input id="companyModalAddressCity" autocomplete="off" />
-              </label>
-            </div>
-          </div>
-            <div class="company-branding-block">
-              <div class="company-modal__field company-branding-column">
-                <span class="label-text">Logo de l'entreprise</span>
-                <div class="company-logo-actions">
-                  <div class="company-branding-controls">
-                    <button
-                      id="btnPickLogo"
-                      type="button"
-                      class="btn icon-btn"
-                      title="Joindre un logo"
-                      aria-label="Joindre un logo"
-                    >
-                      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                        <path d="M4 17v-3a4 4 0 0 1 4-4h1v2H8a2 2 0 0 0-2 2v3h12v-3a2 2 0 0 0-2-2h-1v-2h1a4 4 0 0 1 4 4v3a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z" fill="currentColor"/>
-                        <path d="M12 3a1 1 0 0 1 1 1v8h-2V4a1 1 0 0 1 1-1Z" fill="currentColor"/>
-                        <path d="m9.5 9.5 2.5-2.5 2.5 2.5-2.5 2.5z" fill="currentColor"/>
-                      </svg>
-                    </button>
-                    <button
-                      id="btnDeleteLogo"
-                      type="button"
-                      class="btn ghost company-logo-delete"
-                      title="Supprimer le logo"
-                      aria-label="Supprimer le logo"
-                    >
-                      <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 24 24" aria-hidden="true" focusable="false" width="16" height="16">
-                        <path d="M16 1.75V3h5.25a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1 0-1.5H8V1.75C8 .784 8.784 0 9.75 0h4.5C15.216 0 16 .784 16 1.75Zm-6.5 0V3h5V1.75a.25.25 0 0 0-.25-.25h-4.5a.25.25 0 0 0-.25.25ZM4.997 6.178a.75.75 0 1 0-1.493.144L4.916 20.92a1.75 1.75 0 0 0 1.742 1.58h10.684a1.75 1.75 0 0 0 1.742-1.581l1.413-14.597a.75.75 0 0 0-1.494-.144l-1.412 14.596a.25.25 0 0 1-.249.226H6.658a.25.25 0 0 1-.249-.226L4.997 6.178Z"></path>
-                        <path d="M9.206 7.501a.75.75 0 0 1 .793.705l.5 8.5A.75.75 0 1 1 9 16.794l-.5-8.5a.75.75 0 0 1 .705-.793Zm6.293.793A.75.75 0 1 0 14 8.206l-.5 8.5a.75.75 0 0 0 1.498.088l.5-8.5Z"></path>
-                      </svg>
-                    </button>
-                  </div>
-                  <div class="company-logo-preview" id="companyLogoPreview">
-                    <span class="company-logo-preview__placeholder">Aucun logo</span>
                   </div>
                 </div>
-              </div>
-              <div class="company-modal__field company-branding-column">
-                <span class="label-text">Cachet de l'entreprise</span>
-                  <div class="company-seal-actions">
-                  <div class="company-branding-controls">
-                    <button
-                      id="btnPickSeal"
-                      type="button"
-                      class="btn icon-btn"
-                      title="Joindre un cachet"
-                      aria-label="Joindre un cachet"
-                    >
-                      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                        <path d="M5 15.5A3.5 3.5 0 0 1 8.5 12H11V6.5a1 1 0 0 1 2 0V12h2.5A3.5 3.5 0 0 1 19 15.5V17H5Z" fill="currentColor"/>
-                        <path d="M5 18h14v1a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2Z" fill="currentColor"/>
-                      </svg>
-                    </button>
-                    <button
-                      id="btnRotateSeal"
-                      type="button"
-                      class="btn ghost company-seal-rotate"
-                      title="Pivoter le cachet de 90&deg;"
-                      aria-label="Pivoter le cachet de 90 degr├⌐s"
-                      disabled
-                    >
-                      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                        <path d="M12 5V3l-4 3 4 3V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7Z" fill="currentColor"/>
-                      </svg>
-                    </button>
-                    <button
-                      id="btnDeleteSeal"
-                      type="button"
-                      class="btn ghost company-seal-delete"
-                      title="Supprimer le cachet"
-                      aria-label="Supprimer le cachet"
-                      disabled
-                    >
-                      <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                        <path d="M16 1.75V3h5.25a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1 0-1.5H8V1.75C8 .784 8.784 0 9.75 0h4.5C15.216 0 16 .784 16 1.75Zm-6.5 0V3h5V1.75a.25.25 0 0 0-.25-.25h-4.5a.25.25 0 0 0-.25.25ZM4.997 6.178a.75.75 0 1 0-1.493.144L4.916 20.92a1.75 1.75 0 0 0 1.742 1.58h10.684a1.75 1.75 0 0 0 1.742-1.581l1.413-14.597a.75.75 0 0 0-1.494-.144l-1.412 14.596a.25.25 0 0 1-.249.226H6.658a.25.25 0 0 1-.249-.226L4.997 6.178Z"></path>
-                        <path d="M9.206 7.501a.75.75 0 0 1 .793.705l.5 8.5A.75.75 0 1 1 9 16.794l-.5-8.5a.75.75 0 0 1 .705-.793Zm6.293.793A.75.75 0 1 0 14 8.206l-.5 8.5a.75.75 0 0 0 1.498.088l.5-8.5Z"></path>
-                      </svg>
-                    </button>
+              </section>
+
+              <section
+                class="model-stepper__panel"
+                data-company-contact-step-panel="2"
+                id="companyContactStepPanel2"
+                role="tabpanel"
+                aria-labelledby="companyContactStepLabel2"
+                hidden
+              >
+                <div class="company-modal__row">
+                  <div class="company-modal__field">
+                    <label for="companyModalCustomsCode" class="label-text">Code en douane</label>
+                    <input id="companyModalCustomsCode" autocomplete="off" />
                   </div>
-                  <div class="company-seal-preview" id="companySealPreview" data-placeholder="Aucun cachet">
-                    <span class="company-seal-preview__placeholder">Aucun cachet</span>
+                  <div class="company-modal__field">
+                    <label for="companyModalIban" class="label-text">IBAN</label>
+                    <input id="companyModalIban" autocomplete="off" />
                   </div>
                 </div>
-              </div>
-              <div class="company-modal__field company-branding-column">
-                <span class="label-text">Signature</span>
-                <div class="company-signature-actions">
-                  <div class="company-branding-controls">
-                    <button
-                      id="btnPickSignature"
-                      type="button"
-                      class="btn icon-btn"
-                      title="Joindre une signature"
-                      aria-label="Joindre une signature"
-                    >
-                      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                        <path d="M4 17.5c2.5-2 4-3.5 5-5 .8-1.1 1.5-1.9 2.3-2.4.7-.5 1.5-.7 2.3-.6 1.4.2 2.6 1.2 4.4 3 .5.5.5 1.3 0 1.8l-.2.2a1.2 1.2 0 0 1-1.6 0l-1.3-1.2c-.4-.3-.9-.3-1.2.1l-1.8 2c-.5.6-1.3.9-2 .9H4Z" fill="currentColor"/>
-                        <path d="M4 19h16v1H4Z" fill="currentColor"/>
-                      </svg>
-                    </button>
-                    <button
-                      id="btnRotateSignature"
-                      type="button"
-                      class="btn ghost company-seal-rotate"
-                      title="Pivoter la signature de 90&deg;"
-                      aria-label="Pivoter la signature de 90 degr\u00E9s"
-                      disabled
-                    >
-                      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                        <path d="M12 5V3l-4 3 4 3V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7Z" fill="currentColor"/>
-                      </svg>
-                    </button>
-                    <button
-                      id="btnDeleteSignature"
-                      type="button"
-                      class="btn ghost company-signature-delete"
-                      title="Supprimer la signature"
-                      aria-label="Supprimer la signature"
-                      disabled
-                    >
-                      <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                        <path d="M16 1.75V3h5.25a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1 0-1.5H8V1.75C8 .784 8.784 0 9.75 0h4.5C15.216 0 16 .784 16 1.75Zm-6.5 0V3h5V1.75a.25.25 0 0 0-.25-.25h-4.5a.25.25 0 0 0-.25.25ZM4.997 6.178a.75.75 0 1 0-1.493.144L4.916 20.92a1.75 1.75 0 0 0 1.742 1.58h10.684a1.75 1.75 0 0 0 1.742-1.581l1.413-14.597a.75.75 0 0 0-1.494-.144l-1.412 14.596a.25.25 0 0 1-.249.226H6.658a.25.25 0 0 0-.249-.226L4.997 6.178Z"></path>
-                        <path d="M9.206 7.501a.75.75 0 0 1 .793.705l.5 8.5A.75.75 0 1 1 9 16.794l-.5-8.5a.75.75 0 0 1 .705-.793Zm6.293.793A.75.75 0 1 0 14 8.206l-.5 8.5a.75.75 0 0 0 1.498.088l.5-8.5Z"></path>
-                      </svg>
-                    </button>
+                <div class="company-modal__field">
+                  <div class="company-modal__field-head">
+                    <label for="companyModalPhonePrimary" class="label-text">Telephone(s)</label>
+                    <button type="button" id="companyModalPhoneAdd" class="btn">+ Ajouter un numero</button>
                   </div>
-                  <div class="company-seal-preview" id="companySignaturePreview" data-placeholder="Aucune signature">
-                    <span class="company-seal-preview__placeholder">Aucune signature</span>
+                  <div id="companyModalPhones" class="company-phone-list">
+                    <div class="company-phone-item" data-phone-index="0">
+                      <input id="companyModalPhoneCodePrimary" type="tel" class="company-phone-code" autocomplete="off" value="+216" />
+                      <input id="companyModalPhonePrimary" type="tel" class="company-phone-input" autocomplete="off" />
+                    </div>
                   </div>
                 </div>
-              </div>
+                <div class="company-modal__field">
+                  <label for="companyModalEmail" class="label-text">E-mail</label>
+                  <input id="companyModalEmail" type="email" autocomplete="off" />
+                </div>
+                <div class="company-modal__field">
+                  <span class="label-text">Adresse</span>
+                  <div class="company-modal__address-grid">
+                    <label class="company-modal__address-item">
+                      <span class="company-modal__mf-label">Rue</span>
+                      <input id="companyModalAddressStreet" autocomplete="off" />
+                    </label>
+                    <label class="company-modal__address-item">
+                      <span class="company-modal__mf-label">Code postal</span>
+                      <input id="companyModalAddressPostal" autocomplete="off" />
+                    </label>
+                    <label class="company-modal__address-item">
+                      <span class="company-modal__mf-label">Ville</span>
+                      <input id="companyModalAddressCity" autocomplete="off" />
+                    </label>
+                  </div>
+                </div>
+              </section>
+
+              <section
+                class="model-stepper__panel"
+                data-company-contact-step-panel="3"
+                id="companyContactStepPanel3"
+                role="tabpanel"
+                aria-labelledby="companyContactStepLabel3"
+                hidden
+              >
+                <div class="company-branding-block">
+                  <div class="company-modal__field company-branding-column">
+                    <span class="label-text">Logo de l'entreprise</span>
+                    <div class="company-logo-actions">
+                      <div class="company-branding-controls">
+                        <button
+                          id="btnPickLogo"
+                          type="button"
+                          class="btn icon-btn"
+                          title="Joindre un logo"
+                          aria-label="Joindre un logo"
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                            <path d="M4 17v-3a4 4 0 0 1 4-4h1v2H8a2 2 0 0 0-2 2v3h12v-3a2 2 0 0 0-2-2h-1v-2h1a4 4 0 0 1 4 4v3a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z" fill="currentColor"/>
+                            <path d="M12 3a1 1 0 0 1 1 1v8h-2V4a1 1 0 0 1 1-1Z" fill="currentColor"/>
+                            <path d="m9.5 9.5 2.5-2.5 2.5 2.5-2.5 2.5z" fill="currentColor"/>
+                          </svg>
+                        </button>
+                        <button
+                          id="btnDeleteLogo"
+                          type="button"
+                          class="btn ghost company-logo-delete"
+                          title="Supprimer le logo"
+                          aria-label="Supprimer le logo"
+                        >
+                          <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 24 24" aria-hidden="true" focusable="false" width="16" height="16">
+                            <path d="M16 1.75V3h5.25a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1 0-1.5H8V1.75C8 .784 8.784 0 9.75 0h4.5C15.216 0 16 .784 16 1.75Zm-6.5 0V3h5V1.75a.25.25 0 0 0-.25-.25h-4.5a.25.25 0 0 0-.25.25ZM4.997 6.178a.75.75 0 1 0-1.493.144L4.916 20.92a1.75 1.75 0 0 0 1.742 1.58h10.684a1.75 1.75 0 0 0 1.742-1.581l1.413-14.597a.75.75 0 0 0-1.494-.144l-1.412 14.596a.25.25 0 0 1-.249.226H6.658a.25.25 0 0 1-.249-.226L4.997 6.178Z"></path>
+                            <path d="M9.206 7.501a.75.75 0 0 1 .793.705l.5 8.5A.75.75 0 1 1 9 16.794l-.5-8.5a.75.75 0 0 1 .705-.793Zm6.293.793A.75.75 0 1 0 14 8.206l-.5 8.5a.75.75 0 0 0 1.498.088l.5-8.5Z"></path>
+                          </svg>
+                        </button>
+                      </div>
+                      <div class="company-logo-preview" id="companyLogoPreview">
+                        <span class="company-logo-preview__placeholder">Aucun logo</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="company-modal__field company-branding-column">
+                    <span class="label-text">Cachet de l'entreprise</span>
+                      <div class="company-seal-actions">
+                      <div class="company-branding-controls">
+                        <button
+                          id="btnPickSeal"
+                          type="button"
+                          class="btn icon-btn"
+                          title="Joindre un cachet"
+                          aria-label="Joindre un cachet"
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                            <path d="M5 15.5A3.5 3.5 0 0 1 8.5 12H11V6.5a1 1 0 0 1 2 0V12h2.5A3.5 3.5 0 0 1 19 15.5V17H5Z" fill="currentColor"/>
+                            <path d="M5 18h14v1a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2Z" fill="currentColor"/>
+                          </svg>
+                        </button>
+                        <button
+                          id="btnRotateSeal"
+                          type="button"
+                          class="btn ghost company-seal-rotate"
+                          title="Pivoter le cachet de 90&deg;"
+                          aria-label="Pivoter le cachet de 90 degres"
+                          disabled
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                            <path d="M12 5V3l-4 3 4 3V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7Z" fill="currentColor"/>
+                          </svg>
+                        </button>
+                        <button
+                          id="btnDeleteSeal"
+                          type="button"
+                          class="btn ghost company-seal-delete"
+                          title="Supprimer le cachet"
+                          aria-label="Supprimer le cachet"
+                          disabled
+                        >
+                          <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                            <path d="M16 1.75V3h5.25a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1 0-1.5H8V1.75C8 .784 8.784 0 9.75 0h4.5C15.216 0 16 .784 16 1.75Zm-6.5 0V3h5V1.75a.25.25 0 0 0-.25-.25h-4.5a.25.25 0 0 0-.25.25ZM4.997 6.178a.75.75 0 1 0-1.493.144L4.916 20.92a1.75 1.75 0 0 0 1.742 1.58h10.684a1.75 1.75 0 0 0 1.742-1.581l1.413-14.597a.75.75 0 0 0-1.494-.144l-1.412 14.596a.25.25 0 0 1-.249.226H6.658a.25.25 0 0 1-.249-.226L4.997 6.178Z"></path>
+                            <path d="M9.206 7.501a.75.75 0 0 1 .793.705l.5 8.5A.75.75 0 1 1 9 16.794l-.5-8.5a.75.75 0 0 1 .705-.793Zm6.293.793A.75.75 0 1 0 14 8.206l-.5 8.5a.75.75 0 0 0 1.498.088l.5-8.5Z"></path>
+                          </svg>
+                        </button>
+                      </div>
+                      <div class="company-seal-preview" id="companySealPreview" data-placeholder="Aucun cachet">
+                        <span class="company-seal-preview__placeholder">Aucun cachet</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="company-modal__field company-branding-column">
+                    <span class="label-text">Signature</span>
+                    <div class="company-signature-actions">
+                      <div class="company-branding-controls">
+                        <button
+                          id="btnPickSignature"
+                          type="button"
+                          class="btn icon-btn"
+                          title="Joindre une signature"
+                          aria-label="Joindre une signature"
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                            <path d="M4 17.5c2.5-2 4-3.5 5-5 .8-1.1 1.5-1.9 2.3-2.4.7-.5 1.5-.7 2.3-.6 1.4.2 2.6 1.2 4.4 3 .5.5.5 1.3 0 1.8l-.2.2a1.2 1.2 0 0 1-1.6 0l-1.3-1.2c-.4-.3-.9-.3-1.2.1l-1.8 2c-.5.6-1.3.9-2 .9H4Z" fill="currentColor"/>
+                            <path d="M4 19h16v1H4Z" fill="currentColor"/>
+                          </svg>
+                        </button>
+                        <button
+                          id="btnRotateSignature"
+                          type="button"
+                          class="btn ghost company-seal-rotate"
+                          title="Pivoter la signature de 90&deg;"
+                          aria-label="Pivoter la signature de 90 degres"
+                          disabled
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                            <path d="M12 5V3l-4 3 4 3V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7Z" fill="currentColor"/>
+                          </svg>
+                        </button>
+                        <button
+                          id="btnDeleteSignature"
+                          type="button"
+                          class="btn ghost company-signature-delete"
+                          title="Supprimer la signature"
+                          aria-label="Supprimer la signature"
+                          disabled
+                        >
+                          <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                            <path d="M16 1.75V3h5.25a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1 0-1.5H8V1.75C8 .784 8.784 0 9.75 0h4.5C15.216 0 16 .784 16 1.75Zm-6.5 0V3h5V1.75a.25.25 0 0 0-.25-.25h-4.5a.25.25 0 0 0-.25.25ZM4.997 6.178a.75.75 0 1 0-1.493.144L4.916 20.92a1.75 1.75 0 0 0 1.742 1.58h10.684a1.75 1.75 0 0 0 1.742-1.581l1.413-14.597a.75.75 0 0 0-1.494-.144l-1.412 14.596a.25.25 0 0 1-.249.226H6.658a.25.25 0 0 0-.249-.226L4.997 6.178Z"></path>
+                            <path d="M9.206 7.501a.75.75 0 0 1 .793.705l.5 8.5A.75.75 0 1 1 9 16.794l-.5-8.5a.75.75 0 0 1 .705-.793Zm6.293.793A.75.75 0 1 0 14 8.206l-.5 8.5a.75.75 0 0 0 1.498.088l.5-8.5Z"></path>
+                          </svg>
+                        </button>
+                      </div>
+                      <div class="company-seal-preview" id="companySignaturePreview" data-placeholder="Aucune signature">
+                        <span class="company-seal-preview__placeholder">Aucune signature</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
             </div>
+          </div>
         </form>
-        <div class="swbDialog__actions company-modal__actions">
-          <div class="swbDialog__group swbDialog__group--left">
-            <button id="companyContactModalCancel" type="button" class="swbDialog__cancel">Annuler</button>
+        <div class="swbDialog__actions company-modal__actions model-stepper__controls" aria-label="Navigation entre les etapes des coordonnees">
+          <div class="swbDialog__group swbDialog__group--left model-stepper__actions-left">
+            <button id="companyContactModalCancel" type="button" class="btn ghost tiny model-stepper__nav model-stepper__cancel better-style">Annuler</button>
           </div>
-          <div class="swbDialog__group swbDialog__group--right">
-            <button id="companyContactModalSave" type="submit" form="companyContactModalForm" class="swbDialog__ok">Mettre a jour</button>
+          <div class="swbDialog__group swbDialog__group--right model-stepper__actions-right">
+            <button
+              id="companyContactModalPrev"
+              type="button"
+              class="btn ghost tiny model-stepper__nav model-stepper__nav--prev better-style"
+              data-company-contact-step-prev
+              aria-label="Aller a l'etape precedente"
+              disabled
+            >
+              Pr&eacute;c&eacute;dent
+            </button>
+            <button
+              id="companyContactModalNext"
+              type="button"
+              class="btn success tiny model-stepper__nav model-stepper__nav--next better-style"
+              data-company-contact-step-next
+              aria-label="Aller a l'etape suivante"
+            >
+              Suivant
+            </button>
+            <button
+              id="companyContactModalSave"
+              type="submit"
+              form="companyContactModalForm"
+              class="btn success tiny model-stepper__nav model-stepper__nav--next better-style"
+              data-company-contact-step-save
+              hidden
+              aria-hidden="true"
+            >
+              Mettre a jour
+            </button>
           </div>
         </div>
       </div>
     </div>
-
     <div id="companySmtpModal" class="swbDialog smtp-modal" hidden aria-hidden="true">
       <div class="swbDialog__panel smtp-modal__panel" role="dialog" aria-modal="true" aria-labelledby="companySmtpModalTitle">
         <div class="swbDialog__header">

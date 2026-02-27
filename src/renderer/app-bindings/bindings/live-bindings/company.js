@@ -120,6 +120,9 @@
         const videoBtn = getEl("companyContactModalVideo");
         const closeBtn = getEl("companyContactModalClose");
         const cancelBtn = getEl("companyContactModalCancel");
+        const prevBtn = getEl("companyContactModalPrev");
+        const nextBtn = getEl("companyContactModalNext");
+        const saveBtn = getEl("companyContactModalSave");
         const modalFields = {
           mfIdentifiant: getEl("companyModalMfIdentifiant"),
           mfKey: getEl("companyModalMfKey"),
@@ -157,6 +160,12 @@
         const pickSignatureBtn = overlay?.querySelector("#btnPickSignature");
         const rotateSignatureBtn = overlay?.querySelector("#btnRotateSignature");
         const deleteSignatureBtn = overlay?.querySelector("#btnDeleteSignature");
+        const stepTabs = Array.from(
+          overlay?.querySelectorAll("[data-company-contact-step]") || []
+        );
+        const stepPanels = Array.from(
+          overlay?.querySelectorAll("[data-company-contact-step-panel]") || []
+        );
         if (!overlay || !openBtn || !form) return;
 
         const mainFieldIds = {
@@ -168,6 +177,7 @@
         };
 
         let restoreFocusEl = null;
+        let companyContactStep = 1;
         const updateModalLogoPreview = (src) => {
           if (!logoPreview) return;
           logoPreview.innerHTML = "";
@@ -465,6 +475,90 @@
           field.dispatchEvent(new Event("input", { bubbles: true }));
         };
 
+        const resolveCompanyContactStep = (value, fallback = 1) => {
+          const parsed = Number(value);
+          if (!Number.isFinite(parsed)) return fallback;
+          return Math.trunc(parsed);
+        };
+
+        const focusCompanyContactStepPanel = (stepNum) => {
+          const panel = overlay.querySelector(
+            `[data-company-contact-step-panel="${stepNum}"]`
+          );
+          if (!panel) return;
+          let focusTarget = null;
+          if (stepNum === 1) {
+            focusTarget = modalFields.mfIdentifiant || null;
+          } else if (stepNum === 2) {
+            focusTarget = modalFields.customsCode || null;
+          } else if (stepNum === 3) {
+            focusTarget = pickLogoBtn || null;
+          }
+          if (!focusTarget) {
+            focusTarget = panel.querySelector(
+              'input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])'
+            );
+          }
+          if (focusTarget && typeof focusTarget.focus === "function") {
+            try {
+              focusTarget.focus({ preventScroll: true });
+            } catch {
+              try {
+                focusTarget.focus();
+              } catch {}
+            }
+          }
+        };
+
+        const syncCompanyContactStepper = (targetStep, options = {}) => {
+          const maxStep = stepPanels.length || stepTabs.length || 1;
+          const fallbackStep = companyContactStep || 1;
+          const requestedStep = resolveCompanyContactStep(targetStep, fallbackStep);
+          const nextStep = Math.min(Math.max(1, requestedStep), maxStep);
+          companyContactStep = nextStep;
+          overlay.dataset.companyContactStep = String(nextStep);
+          overlay.dataset.companyContactStepMax = String(maxStep);
+
+          stepTabs.forEach((tab) => {
+            const stepNum = resolveCompanyContactStep(tab.dataset.companyContactStep, 0);
+            const isActive = stepNum === nextStep;
+            tab.classList.toggle("is-active", isActive);
+            tab.setAttribute("aria-selected", isActive ? "true" : "false");
+            tab.setAttribute("tabindex", isActive ? "0" : "-1");
+          });
+
+          stepPanels.forEach((panel) => {
+            const stepNum = resolveCompanyContactStep(panel.dataset.companyContactStepPanel, 0);
+            const isActive = stepNum === nextStep;
+            panel.classList.toggle("is-active", isActive);
+            panel.hidden = !isActive;
+            if (isActive) panel.removeAttribute("hidden");
+            else panel.setAttribute("hidden", "");
+          });
+
+          const isFirstStep = nextStep <= 1;
+          const isLastStep = nextStep >= maxStep;
+          if (prevBtn) {
+            prevBtn.disabled = isFirstStep;
+            prevBtn.hidden = isFirstStep;
+            prevBtn.setAttribute("aria-hidden", isFirstStep ? "true" : "false");
+          }
+          if (nextBtn) {
+            nextBtn.disabled = isLastStep;
+            nextBtn.hidden = isLastStep;
+            nextBtn.setAttribute("aria-hidden", isLastStep ? "true" : "false");
+          }
+          if (saveBtn) {
+            saveBtn.disabled = !isLastStep;
+            saveBtn.hidden = !isLastStep;
+            saveBtn.setAttribute("aria-hidden", isLastStep ? "false" : "true");
+          }
+
+          if (options.focusPanel) {
+            focusCompanyContactStepPanel(nextStep);
+          }
+        };
+
         companyTypeMenu?.addEventListener("toggle", () => {
           if (!companyTypeToggle) return;
           companyTypeToggle.setAttribute("aria-expanded", companyTypeMenu.open ? "true" : "false");
@@ -488,6 +582,63 @@
             companyTypeToggle?.setAttribute("aria-expanded", "false");
           });
         }
+
+        const stepperStepMax = stepPanels.length || stepTabs.length || 1;
+        const focusStepTab = (stepNum, { activate = false } = {}) => {
+          const resolvedStep = Math.min(Math.max(1, stepNum), stepperStepMax);
+          const tab = stepTabs.find(
+            (item) =>
+              resolveCompanyContactStep(item.dataset.companyContactStep, 0) === resolvedStep
+          );
+          if (!tab) return;
+          if (activate) {
+            syncCompanyContactStepper(resolvedStep);
+          }
+          if (typeof tab.focus === "function") {
+            try {
+              tab.focus({ preventScroll: true });
+            } catch {
+              try {
+                tab.focus();
+              } catch {}
+            }
+          }
+        };
+
+        stepTabs.forEach((tab) => {
+          tab.addEventListener("click", () => {
+            const targetStep = resolveCompanyContactStep(tab.dataset.companyContactStep, 1);
+            syncCompanyContactStepper(targetStep, { focusPanel: true });
+          });
+          tab.addEventListener("keydown", (evt) => {
+            const currentStep = resolveCompanyContactStep(tab.dataset.companyContactStep, 1);
+            if (evt.key === "ArrowRight" || evt.key === "ArrowDown") {
+              evt.preventDefault();
+              const targetStep = currentStep >= stepperStepMax ? 1 : currentStep + 1;
+              focusStepTab(targetStep, { activate: true });
+            } else if (evt.key === "ArrowLeft" || evt.key === "ArrowUp") {
+              evt.preventDefault();
+              const targetStep = currentStep <= 1 ? stepperStepMax : currentStep - 1;
+              focusStepTab(targetStep, { activate: true });
+            } else if (evt.key === "Home") {
+              evt.preventDefault();
+              focusStepTab(1, { activate: true });
+            } else if (evt.key === "End") {
+              evt.preventDefault();
+              focusStepTab(stepperStepMax, { activate: true });
+            } else if (evt.key === " " || evt.key === "Enter") {
+              evt.preventDefault();
+              syncCompanyContactStepper(currentStep, { focusPanel: true });
+            }
+          });
+        });
+
+        prevBtn?.addEventListener("click", () => {
+          syncCompanyContactStepper(companyContactStep - 1, { focusPanel: true });
+        });
+        nextBtn?.addEventListener("click", () => {
+          syncCompanyContactStepper(companyContactStep + 1, { focusPanel: true });
+        });
 
         phoneAddBtn?.addEventListener("click", () => {
           if (!phoneList) return;
@@ -617,6 +768,7 @@
 
         const openModal = () => {
           syncFromMain();
+          syncCompanyContactStepper(1);
           restoreFocusEl = document.activeElement instanceof HTMLElement ? document.activeElement : null;
           overlay.hidden = false;
           overlay.removeAttribute("hidden");
@@ -628,6 +780,7 @@
         };
 
         const closeModal = () => {
+          syncCompanyContactStepper(1);
           overlay.classList.remove("is-open");
           overlay.hidden = true;
           overlay.setAttribute("hidden", "");
@@ -641,6 +794,7 @@
           }
         };
 
+        syncCompanyContactStepper(1);
         openBtn.addEventListener("click", openModal);
         closeBtn?.addEventListener("click", closeModal);
         cancelBtn?.addEventListener("click", closeModal);
@@ -656,6 +810,11 @@
         });
         form.addEventListener("submit", (evt) => {
           evt.preventDefault();
+          const maxStep = stepPanels.length || stepTabs.length || 1;
+          if (companyContactStep < maxStep) {
+            syncCompanyContactStepper(companyContactStep + 1, { focusPanel: true });
+            return;
+          }
           applyToMain();
           closeModal();
         });
