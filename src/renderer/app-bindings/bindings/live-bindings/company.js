@@ -545,8 +545,9 @@
           }
           if (nextBtn) {
             nextBtn.disabled = isLastStep;
-            nextBtn.hidden = isLastStep;
-            nextBtn.setAttribute("aria-hidden", isLastStep ? "true" : "false");
+            nextBtn.hidden = false;
+            nextBtn.removeAttribute("hidden");
+            nextBtn.setAttribute("aria-hidden", "false");
           }
           if (saveBtn) {
             saveBtn.disabled = !isLastStep;
