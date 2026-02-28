@@ -2,6 +2,7 @@
 const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
+const { AsyncLocalStorage } = require("async_hooks");
 const Database = require("better-sqlite3");
 const { runMigrations: runSchemaMigrations } = require("./migrate");
 const { createDepotMagasinRepository } = require("./depot-magasin");
@@ -41,7 +42,8 @@ const INSTANCE_ID = `${(crypto.randomUUID && crypto.randomUUID()) || crypto.rand
 
 let getRootDir = null;
 let dbFileName = "";
-let dbInstance = null;
+const dbInstances = new Map();
+const dbContextStorage = new AsyncLocalStorage();
 let currentDbPath = "";
 
 const ensureAccessor = () => {
@@ -50,7 +52,35 @@ const ensureAccessor = () => {
   }
 };
 
-const getDatabasePath = () => {
+const normalizeDbContext = (ctx = {}) => {
+  if (!ctx || typeof ctx !== "object") return null;
+  const rootDir = typeof ctx.rootDir === "string" ? ctx.rootDir.trim() : "";
+  if (!rootDir) return null;
+  const filename = typeof ctx.filename === "string" ? ctx.filename.trim() : "";
+  return {
+    rootDir,
+    filename
+  };
+};
+
+const getActiveDbContext = () => normalizeDbContext(dbContextStorage.getStore()) || null;
+
+const resolveDatabaseTarget = () => {
+  const scoped = getActiveDbContext();
+  if (scoped) {
+    const root = scoped.rootDir;
+    const configuredName = scoped.filename;
+    const fallbackFromRoot = (() => {
+      const base = path.basename(String(root || ""));
+      return COMPANY_DB_FILENAME_REGEX.test(base) ? `${base}.db` : DEFAULT_DB_FILENAME;
+    })();
+    const fileName = configuredName || fallbackFromRoot;
+    return {
+      root,
+      fileName,
+      dbPath: path.join(root, fileName)
+    };
+  }
   ensureAccessor();
   const root = getRootDir();
   if (!root) {
@@ -62,43 +92,57 @@ const getDatabasePath = () => {
     return COMPANY_DB_FILENAME_REGEX.test(base) ? `${base}.db` : DEFAULT_DB_FILENAME;
   })();
   const fileName = configuredName || fallbackFromRoot;
-  return path.join(root, fileName);
+  return {
+    root,
+    fileName,
+    dbPath: path.join(root, fileName)
+  };
+};
+
+const getDatabasePath = () => {
+  return resolveDatabaseTarget().dbPath;
 };
 
 const initDatabase = () => {
-  ensureAccessor();
-  const targetPath = getDatabasePath();
-  if (dbInstance && currentDbPath === targetPath) return dbInstance;
-  if (dbInstance) {
-    try {
-      dbInstance.close();
-    } catch (err) {
-      console.warn("Facturance DB close failed", err);
-    }
-    dbInstance = null;
-    currentDbPath = "";
+  const targetPath = resolveDatabaseTarget().dbPath;
+  const existing = dbInstances.get(targetPath);
+  if (existing) {
+    currentDbPath = targetPath;
+    return existing;
   }
   const parentDir = path.dirname(targetPath);
   fs.mkdirSync(parentDir, { recursive: true });
-  dbInstance = new Database(targetPath);
+  const dbInstance = new Database(targetPath);
+  dbInstances.set(targetPath, dbInstance);
   currentDbPath = targetPath;
   ensureTables(dbInstance);
   return dbInstance;
 };
 
 const resetConnection = () => {
-  if (!dbInstance) {
+  if (!dbInstances.size) {
     currentDbPath = "";
     return true;
   }
-  try {
-    dbInstance.close();
-  } catch (err) {
-    console.warn("Facturance DB close failed", err);
-  }
-  dbInstance = null;
+  Array.from(dbInstances.entries()).forEach(([dbPath, db]) => {
+    try {
+      db.close();
+    } catch (err) {
+      console.warn("Facturance DB close failed", dbPath, err);
+    }
+  });
+  dbInstances.clear();
   currentDbPath = "";
   return true;
+};
+
+const runWithContext = (context = {}, fn) => {
+  if (typeof fn !== "function") {
+    throw new Error("Facturance DB context runner requires a function.");
+  }
+  const normalized = normalizeDbContext(context);
+  if (!normalized) return fn();
+  return dbContextStorage.run(normalized, () => fn());
 };
 
 const ensureTables = (db) => {
@@ -5969,5 +6013,6 @@ module.exports = {
   saveCompanyProfile,
   loadSmtpSettings,
   saveSmtpSettings,
+  runWithContext,
   resetConnection
 };

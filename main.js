@@ -8,6 +8,7 @@ const fsp = fs.promises;
 const http = require("http");
 const crypto = require("crypto");
 const os = require("os");
+const { AsyncLocalStorage } = require("async_hooks");
 const dns = require("node:dns");
 const { spawn } = require("child_process");
 const nodemailer = require("nodemailer");
@@ -49,6 +50,7 @@ const { buildUnsignedTeifXml } = require("./src/main/teif-xml");
 const { signTeifXml } = require("./src/main/idtrust-signer");
 const FactDb = require("./src/main/db");
 const CompanyManager = require("./src/main/company-manager");
+const { hasCompanyContextMismatch } = require("./src/main/company-context-guards");
 const APP_VERSION =
   typeof defaults?.APP_VERSION === "string" ? defaults.APP_VERSION.trim() : "";
 const NORMALIZED_APP_VERSION =
@@ -508,9 +510,11 @@ const LAN_SERVER_DEFAULT_PORT = 8080;
 const LAN_SERVER_DEFAULT_HOST = "0.0.0.0";
 const LAN_MDNS_DEFAULT_NAME = "facturance";
 const LAN_HTTP_REDIRECT_PORT = 80;
+const ACTIVE_COMPANY_CHANGED_CHANNEL = "companies:activeChanged";
+const COMPANY_CATALOG_CHANGED_CHANNEL = "companies:catalogChanged";
+const LAN_COMPANY_CATALOG_EVENT = "company-catalog-changed";
 
 let cachedFacturanceRootDir = null;
-let activeCompanyPaths = null;
 const blockedFacturanceRoots = new Set();
 function normalizeFacturanceDir(dir) {
   try {
@@ -584,7 +588,8 @@ async function relocateFacturanceRootDir(failedRoot) {
   const current = failedRoot || cachedFacturanceRootDir;
   if (current) markFacturanceRootAsBlocked(current);
   cachedFacturanceRootDir = null;
-  activeCompanyPaths = null;
+  desktopRendererCompanyContext.clear();
+  lanSessionContexts.clear();
   const nextRoot = getFacturanceRootDir();
   if (nextRoot && current && nextRoot !== current) {
     try {
@@ -645,22 +650,264 @@ function seedBundledGroupCompanies(rootDir) {
   });
 }
 
-function refreshActiveCompanyContext() {
-  const rootDir = getFacturanceRootDir();
-  seedBundledGroupCompanies(rootDir);
-  const nextPaths = CompanyManager.getActiveCompanyPaths(rootDir);
-  activeCompanyPaths = nextPaths;
-  FactDb.configure({
-    getRootDir: () => nextPaths.companyDir,
-    filename: nextPaths.dbFileName
-  });
-  return nextPaths;
-}
-
 function resolveRequestedCompanyId(payload = {}) {
   if (typeof payload === "string") return String(payload).trim();
   if (!payload || typeof payload !== "object") return "";
   return String(payload.id ?? payload.companyId ?? payload.activeCompanyId ?? "").trim();
+}
+
+const companyRequestContextStorage = new AsyncLocalStorage();
+const desktopRendererCompanyContext = new Map();
+const lanSessionContexts = new Map();
+const LAN_SESSION_COOKIE_NAME = "facturance_sid";
+const LAN_SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const LAN_SESSION_COOKIE_MAX_AGE_SEC = Math.floor(LAN_SESSION_TTL_MS / 1000);
+
+function normalizeCompanyIdForContext(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return /^entreprise\d+$/i.test(normalized) ? normalized : "";
+}
+
+function createFallbackActiveCompanyPaths(rootDir) {
+  return {
+    rootDir,
+    activeCompanyId: "entreprise1",
+    id: "entreprise1",
+    name: CompanyManager.getCompanyDisplayName(rootDir, "entreprise1") || "entreprise1",
+    folder: "entreprise1",
+    companyDir: path.join(rootDir, "entreprise1"),
+    dbFileName: "entreprise1.db",
+    dbPath: path.join(rootDir, "entreprise1", "entreprise1.db"),
+    paths: {
+      root: rootDir,
+      company: path.join(rootDir, "entreprise1"),
+      db: path.join(rootDir, "entreprise1", "entreprise1.db"),
+      pdf: path.join(rootDir, "entreprise1", "pdf"),
+      xml: path.join(rootDir, "entreprise1", "xml"),
+      exportedData: path.join(rootDir, "entreprise1", "exportedData"),
+      factures: path.join(rootDir, "entreprise1", "Factures")
+    }
+  };
+}
+
+function resolveDefaultCompanyPaths() {
+  const rootDir = getFacturanceRootDir();
+  seedBundledGroupCompanies(rootDir);
+  try {
+    return CompanyManager.getActiveCompanyPaths(rootDir);
+  } catch (err) {
+    console.error("Unable to resolve default company paths", err);
+    return createFallbackActiveCompanyPaths(rootDir);
+  }
+}
+
+function resolveCompanyPathsById(companyId, options = {}) {
+  const rootDir = getFacturanceRootDir();
+  seedBundledGroupCompanies(rootDir);
+  const normalized = normalizeCompanyIdForContext(companyId);
+  if (!normalized) {
+    if (options?.fallbackToDefault === false) {
+      throw new Error("Invalid company id.");
+    }
+    return resolveDefaultCompanyPaths();
+  }
+  const paths = CompanyManager.getCompanyPaths(rootDir, normalized);
+  if (!paths || String(paths.id || "").toLowerCase() !== normalized) {
+    if (options?.fallbackToDefault === false) {
+      throw new Error("Company not found.");
+    }
+    return resolveDefaultCompanyPaths();
+  }
+  return paths;
+}
+
+function withCompanyRequestContext(context = {}, fn) {
+  if (typeof fn !== "function") {
+    throw new Error("Company request context wrapper requires a callback.");
+  }
+  const initialPaths =
+    context?.companyPaths && typeof context.companyPaths === "object"
+      ? context.companyPaths
+      : resolveCompanyPathsById(
+          context?.companyId || context?.activeCompanyId || "",
+          { fallbackToDefault: true }
+        );
+  const scopedContext = {
+    ...(context && typeof context === "object" ? context : {}),
+    companyId: initialPaths.id,
+    activeCompanyId: initialPaths.id,
+    companyPaths: initialPaths
+  };
+  return companyRequestContextStorage.run(scopedContext, () =>
+    FactDb.runWithContext(
+      {
+        rootDir: initialPaths.companyDir,
+        filename: initialPaths.dbFileName
+      },
+      () => fn(scopedContext)
+    )
+  );
+}
+
+function getCurrentCompanyRequestContext() {
+  const scoped = companyRequestContextStorage.getStore();
+  return scoped && typeof scoped === "object" ? scoped : null;
+}
+
+function listCompanyCatalog() {
+  const rootDir = getFacturanceRootDir();
+  seedBundledGroupCompanies(rootDir);
+  return CompanyManager.listCompanies(rootDir);
+}
+
+function buildCatalogChangePayload(reason = "updated") {
+  const companies = listCompanyCatalog();
+  return {
+    reason: String(reason || "updated"),
+    updatedAt: new Date().toISOString(),
+    companies
+  };
+}
+
+function ensureDesktopRendererContext(webContents) {
+  const webContentsId = Number(webContents?.id);
+  const fallback = resolveDefaultCompanyPaths();
+  if (!Number.isFinite(webContentsId) || webContentsId <= 0) {
+    return {
+      clientId: 0,
+      companyId: fallback.id,
+      companyPaths: fallback
+    };
+  }
+  let entry = desktopRendererCompanyContext.get(webContentsId);
+  if (!entry || !entry.companyId) {
+    entry = { companyId: fallback.id, updatedAt: Date.now() };
+    desktopRendererCompanyContext.set(webContentsId, entry);
+    if (webContents && typeof webContents.once === "function") {
+      webContents.once("destroyed", () => {
+        desktopRendererCompanyContext.delete(webContentsId);
+      });
+    }
+  }
+  const companyPaths = resolveCompanyPathsById(entry.companyId, { fallbackToDefault: true });
+  if (entry.companyId !== companyPaths.id) {
+    entry.companyId = companyPaths.id;
+    entry.updatedAt = Date.now();
+    desktopRendererCompanyContext.set(webContentsId, entry);
+  }
+  return {
+    clientId: webContentsId,
+    companyId: entry.companyId,
+    companyPaths
+  };
+}
+
+function setDesktopRendererCompany(webContents, companyId) {
+  const webContentsId = Number(webContents?.id);
+  if (!Number.isFinite(webContentsId) || webContentsId <= 0) {
+    return resolveCompanyPathsById(companyId, { fallbackToDefault: false });
+  }
+  const nextPaths = resolveCompanyPathsById(companyId, { fallbackToDefault: false });
+  desktopRendererCompanyContext.set(webContentsId, {
+    companyId: nextPaths.id,
+    updatedAt: Date.now()
+  });
+  return nextPaths;
+}
+
+function emitRendererCompanyChanged(webContents, payload = {}) {
+  if (!webContents || webContents.isDestroyed?.()) return;
+  try {
+    webContents.send(ACTIVE_COMPANY_CHANGED_CHANNEL, payload);
+  } catch {}
+}
+
+function parseCookieHeader(headerValue = "") {
+  const out = {};
+  String(headerValue || "")
+    .split(";")
+    .map((token) => token.trim())
+    .filter(Boolean)
+    .forEach((token) => {
+      const idx = token.indexOf("=");
+      if (idx <= 0) return;
+      const key = token.slice(0, idx).trim();
+      const value = token.slice(idx + 1).trim();
+      if (!key) return;
+      out[key] = value;
+    });
+  return out;
+}
+
+function pruneLanSessions(now = Date.now()) {
+  Array.from(lanSessionContexts.entries()).forEach(([sessionId, session]) => {
+    const touchedAt = Number(session?.touchedAt || 0);
+    if (!touchedAt || now - touchedAt > LAN_SESSION_TTL_MS) {
+      lanSessionContexts.delete(sessionId);
+    }
+  });
+}
+
+function createLanSessionContext() {
+  const defaultPaths = resolveDefaultCompanyPaths();
+  return {
+    id: crypto.randomBytes(24).toString("hex"),
+    companyId: defaultPaths.id,
+    createdAt: Date.now(),
+    touchedAt: Date.now()
+  };
+}
+
+function ensureLanSessionContext(req, res) {
+  pruneLanSessions();
+  const cookies = parseCookieHeader(req?.headers?.cookie || "");
+  const cookieSid = String(cookies[LAN_SESSION_COOKIE_NAME] || "").trim();
+  let session = cookieSid ? lanSessionContexts.get(cookieSid) : null;
+  if (!session) {
+    session = createLanSessionContext();
+    lanSessionContexts.set(session.id, session);
+    try {
+      res.setHeader(
+        "Set-Cookie",
+        `${LAN_SESSION_COOKIE_NAME}=${session.id}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${LAN_SESSION_COOKIE_MAX_AGE_SEC}`
+      );
+    } catch {}
+  }
+  session.touchedAt = Date.now();
+  return session;
+}
+
+function getLanSessionCompanyPaths(session) {
+  if (!session || typeof session !== "object") {
+    return resolveDefaultCompanyPaths();
+  }
+  const paths = resolveCompanyPathsById(session.companyId, { fallbackToDefault: true });
+  if (session.companyId !== paths.id) {
+    session.companyId = paths.id;
+    session.touchedAt = Date.now();
+  }
+  return paths;
+}
+
+function setLanSessionCompany(session, companyId) {
+  if (!session || typeof session !== "object") {
+    throw new Error("LAN session is unavailable.");
+  }
+  const paths = resolveCompanyPathsById(companyId, { fallbackToDefault: false });
+  session.companyId = paths.id;
+  session.touchedAt = Date.now();
+  return paths;
+}
+
+function broadcastCompanyCatalogChange(payload = {}) {
+  const data = payload && typeof payload === "object" ? payload : buildCatalogChangePayload("updated");
+  BrowserWindow.getAllWindows().forEach((win) => {
+    if (!win || win.isDestroyed()) return;
+    try {
+      win.webContents.send(COMPANY_CATALOG_CHANGED_CHANNEL, data);
+    } catch {}
+  });
+  pushLanCatalogEvent(data);
 }
 
 function buildCompanySwitchSnapshot(activePaths) {
@@ -700,75 +947,91 @@ function buildCompanySwitchSnapshot(activePaths) {
   };
 }
 
-function switchActiveCompanyRuntime(payload = {}) {
+function createCompanyRuntime(payload = {}, options = {}) {
   const root = getFacturanceRootDir();
+  seedBundledGroupCompanies(root);
+  const created = CompanyManager.createCompany(root, {
+    setActive: false,
+    displayName: payload?.name || payload?.displayName
+  });
+  broadcastCompanyCatalogChange(buildCatalogChangePayload("created"));
+
+  const shouldSetActive = payload?.setActive !== false;
+  if (!shouldSetActive) {
+    const current = getActiveCompanyPaths();
+    return {
+      company: created,
+      switched: false,
+      activeCompanyId: current.id,
+      activeCompany: current
+    };
+  }
+  const switched = switchActiveCompanyRuntime(
+    { id: created.id },
+    { source: options?.source || payload?.source || "unknown", emitLocalEvent: true }
+  );
+  return {
+    company: created,
+    switched: !!switched.switched,
+    activeCompanyId: switched.activeCompanyId,
+    activeCompany: switched.activeCompany
+  };
+}
+
+function switchActiveCompanyRuntime(payload = {}, options = {}) {
   const requestedId = resolveRequestedCompanyId(payload);
   if (!requestedId) {
     throw new Error("Invalid company id.");
   }
-
+  const scoped = getCurrentCompanyRequestContext();
   const previous = getActiveCompanyPaths();
-  const previousId = String(previous?.id || "").trim();
-  const targetId = requestedId;
-  const isSameTarget = previousId && previousId === targetId;
-  try {
-    if (typeof FactDb.resetConnection === "function") {
-      FactDb.resetConnection();
-    }
-    if (!isSameTarget) {
-      CompanyManager.setActiveCompany(root, targetId);
-    }
-    const active = refreshActiveCompanyContext();
-    const snapshot = buildCompanySwitchSnapshot(active);
-    return {
-      switched: !isSameTarget,
-      ...snapshot
-    };
-  } catch (err) {
-    if (previousId && previousId !== targetId) {
-      try {
-        if (typeof FactDb.resetConnection === "function") {
-          FactDb.resetConnection();
-        }
-        CompanyManager.setActiveCompany(root, previousId);
-        refreshActiveCompanyContext();
-      } catch (rollbackErr) {
-        console.error("Unable to rollback company switch after failure", rollbackErr);
-      }
-    }
-    throw err;
+  const nextPaths = resolveCompanyPathsById(requestedId, { fallbackToDefault: false });
+  const switched = String(previous?.id || "") !== String(nextPaths?.id || "");
+
+  if (scoped?.scope === "desktop" && scoped?.webContents) {
+    setDesktopRendererCompany(scoped.webContents, nextPaths.id);
+  } else if (scoped?.scope === "lan" && scoped?.session) {
+    setLanSessionCompany(scoped.session, nextPaths.id);
   }
+
+  const response = withCompanyRequestContext(
+    {
+      ...(scoped && typeof scoped === "object" ? scoped : {}),
+      companyId: nextPaths.id,
+      companyPaths: nextPaths
+    },
+    () => {
+      const snapshot = buildCompanySwitchSnapshot(nextPaths);
+      return {
+        switched,
+        ...snapshot
+      };
+    }
+  );
+
+  if (scoped?.scope === "desktop" && scoped?.webContents && options?.emitLocalEvent !== false) {
+    emitRendererCompanyChanged(scoped.webContents, {
+      source: options?.source || payload?.source || "desktop",
+      switched,
+      switchedAt: new Date().toISOString(),
+      activeCompanyId: response.activeCompanyId,
+      activeCompany: response.activeCompany,
+      snapshot: {
+        company: response.company || {},
+        smtpProfiles: response.smtpProfiles || {}
+      }
+    });
+  }
+
+  return response;
 }
 
 function getActiveCompanyPaths() {
-  const rootDir = getFacturanceRootDir();
-  if (!activeCompanyPaths || activeCompanyPaths.rootDir !== rootDir) {
-    try {
-      return refreshActiveCompanyContext();
-    } catch (err) {
-      console.error("Unable to refresh active company context", err);
-      activeCompanyPaths = {
-        rootDir,
-        activeCompanyId: "entreprise1",
-        id: "entreprise1",
-        name: CompanyManager.getCompanyDisplayName(rootDir, "entreprise1") || "entreprise1",
-        folder: "entreprise1",
-        companyDir: path.join(rootDir, "entreprise1"),
-        dbFileName: "entreprise1.db",
-        dbPath: path.join(rootDir, "entreprise1", "entreprise1.db"),
-        paths: {
-          root: rootDir,
-          company: path.join(rootDir, "entreprise1"),
-          db: path.join(rootDir, "entreprise1", "entreprise1.db"),
-          pdf: path.join(rootDir, "entreprise1", "pdf"),
-          xml: path.join(rootDir, "entreprise1", "xml"),
-          exportedData: path.join(rootDir, "entreprise1", "exportedData"),
-          factures: path.join(rootDir, "entreprise1", "Factures")
-        }
-      };
-    }
+  const scoped = getCurrentCompanyRequestContext();
+  if (scoped?.companyPaths && typeof scoped.companyPaths === "object") {
+    return scoped.companyPaths;
   }
-  return activeCompanyPaths;
+  return resolveDefaultCompanyPaths();
 }
 
 function getActiveCompanyDataDir() {
@@ -776,11 +1039,49 @@ function getActiveCompanyDataDir() {
 }
 
 function getActiveCompanyId() {
-  return getActiveCompanyPaths()?.id || "";
+  return String(getActiveCompanyPaths()?.id || "").trim();
 }
 
+function refreshActiveCompanyContext() {
+  return getActiveCompanyPaths();
+}
+
+function withIpcSenderCompanyContext(event, fn) {
+  if (typeof fn !== "function") return undefined;
+  const sender = event?.sender;
+  if (!sender) return withCompanyRequestContext({}, fn);
+  const rendererContext = ensureDesktopRendererContext(sender);
+  return withCompanyRequestContext(
+    {
+      scope: "desktop",
+      source: "desktop-ipc",
+      clientId: rendererContext.clientId,
+      webContents: sender,
+      companyId: rendererContext.companyId,
+      companyPaths: rendererContext.companyPaths
+    },
+    fn
+  );
+}
+
+const ipcMainHandleBase = ipcMain.handle.bind(ipcMain);
+ipcMain.handle = (channel, listener) =>
+  ipcMainHandleBase(channel, (event, ...args) =>
+    withIpcSenderCompanyContext(event, () => listener(event, ...args))
+  );
+
+const ipcMainOnBase = ipcMain.on.bind(ipcMain);
+ipcMain.on = (channel, listener) =>
+  ipcMainOnBase(channel, (event, ...args) =>
+    withIpcSenderCompanyContext(event, () => listener(event, ...args))
+  );
+
 try {
-  refreshActiveCompanyContext();
+  const defaultPaths = resolveDefaultCompanyPaths();
+  FactDb.configure({
+    getRootDir: () => defaultPaths.companyDir,
+    filename: defaultPaths.dbFileName
+  });
 } catch (err) {
   console.error("Unable to initialize multi-company storage context", err);
   FactDb.configure({
@@ -1059,6 +1360,90 @@ let lanServerMdnsError = "";
 let lanRedirectServer = null;
 let lanRedirectEnabled = false;
 let lanRedirectError = "";
+const lanCatalogEventClients = new Set();
+
+function closeLanCatalogEventClient(client) {
+  if (!client || typeof client !== "object") return;
+  lanCatalogEventClients.delete(client);
+  if (client.heartbeat) {
+    clearInterval(client.heartbeat);
+    client.heartbeat = null;
+  }
+  try {
+    if (client.res && !client.res.writableEnded) {
+      client.res.end();
+    }
+  } catch {}
+}
+
+function closeLanCatalogEventClients() {
+  Array.from(lanCatalogEventClients).forEach((client) => {
+    closeLanCatalogEventClient(client);
+  });
+}
+
+function pushLanCatalogEvent(payload = {}) {
+  if (!lanCatalogEventClients.size) return;
+  const serialized = JSON.stringify(payload && typeof payload === "object" ? payload : {});
+  const packet = `event: ${LAN_COMPANY_CATALOG_EVENT}\ndata: ${serialized}\n\n`;
+  Array.from(lanCatalogEventClients).forEach((client) => {
+    if (!client || !client.res || client.res.destroyed || client.res.writableEnded) {
+      closeLanCatalogEventClient(client);
+      return;
+    }
+    try {
+      client.res.write(packet);
+    } catch {
+      closeLanCatalogEventClient(client);
+    }
+  });
+}
+
+function registerLanCatalogEventClient(req, res) {
+  res.statusCode = 200;
+  res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.flushHeaders?.();
+  try {
+    res.write(": connected\n\n");
+  } catch {}
+
+  const client = {
+    req,
+    res,
+    heartbeat: null
+  };
+  client.heartbeat = setInterval(() => {
+    if (!res || res.writableEnded || res.destroyed) {
+      closeLanCatalogEventClient(client);
+      return;
+    }
+    try {
+      res.write(": ping\n\n");
+    } catch {
+      closeLanCatalogEventClient(client);
+    }
+  }, 25000);
+  lanCatalogEventClients.add(client);
+
+  const initialPayload = buildCatalogChangePayload("init");
+  try {
+    const serialized = JSON.stringify(initialPayload);
+    res.write(`event: ${LAN_COMPANY_CATALOG_EVENT}\ndata: ${serialized}\n\n`);
+  } catch {
+    closeLanCatalogEventClient(client);
+    return;
+  }
+
+  const cleanup = () => {
+    closeLanCatalogEventClient(client);
+  };
+  req.on("close", cleanup);
+  req.on("aborted", cleanup);
+  res.on("close", cleanup);
+}
 
 function normalizeLanPort(value) {
   const num = Number(value);
@@ -1371,7 +1756,10 @@ function normalizeLanApiPath(pathname = "/") {
   return trimmed || "/";
 }
 
-async function handleLanApiRequest(req, res, url, pathname) {
+async function handleLanApiRequest(req, res, url, pathname, requestContext = {}) {
+  const lanSession = requestContext?.session && typeof requestContext.session === "object"
+    ? requestContext.session
+    : null;
   const method = String(req.method || "GET").toUpperCase();
   const pathKey = normalizeLanApiPath(pathname);
 
@@ -1411,8 +1799,13 @@ async function handleLanApiRequest(req, res, url, pathname) {
     }
   }
 
+  if (method === "GET" && pathKey === "/api/companies/events") {
+    registerLanCatalogEventClient(req, res);
+    return;
+  }
+
   if (method !== "POST") {
-    res.setHeader("Allow", "POST, OPTIONS");
+    res.setHeader("Allow", "GET, POST, OPTIONS");
     sendLanServerText(res, 405, "Method Not Allowed");
     return;
   }
@@ -1467,6 +1860,7 @@ async function handleLanApiRequest(req, res, url, pathname) {
             const savedName = normalizeCompanyDisplayName(saved?.name || companySnapshot?.name || "");
             if (savedName) {
               CompanyManager.setCompanyDisplayName(getFacturanceRootDir(), active.id, savedName);
+              broadcastCompanyCatalogChange(buildCatalogChangePayload("metadata-updated"));
             }
             sendLanServerJson(res, 200, { ok: true, data: saved });
             return;
@@ -1477,8 +1871,7 @@ async function handleLanApiRequest(req, res, url, pathname) {
         }
         case "/api/companies/list": {
           try {
-            const root = getFacturanceRootDir();
-            const companies = CompanyManager.listCompanies(root);
+            const companies = listCompanyCatalog();
             const activeCompanyId = getActiveCompanyId();
             sendLanServerJson(res, 200, {
               ok: true,
@@ -1493,15 +1886,16 @@ async function handleLanApiRequest(req, res, url, pathname) {
         }
         case "/api/companies/create": {
           try {
-            const root = getFacturanceRootDir();
-            const created = CompanyManager.createCompany(root, {
-              setActive: body?.setActive !== false,
-              displayName: body?.name || body?.displayName
+            const created = createCompanyRuntime(body || {}, {
+              source: "lan-session"
             });
-            if (body?.setActive !== false) {
-              refreshActiveCompanyContext();
-            }
-            sendLanServerJson(res, 200, { ok: true, company: created });
+            sendLanServerJson(res, 200, {
+              ok: true,
+              company: created.company,
+              switched: !!created.switched,
+              activeCompanyId: created.activeCompanyId,
+              activeCompany: created.activeCompany
+            });
             return;
           } catch (err) {
             sendLanServerJson(res, 200, { ok: false, error: String(err?.message || err) });
@@ -1510,7 +1904,12 @@ async function handleLanApiRequest(req, res, url, pathname) {
         }
         case "/api/companies/set-active": {
           try {
-            const switched = switchActiveCompanyRuntime(body || {});
+            if (!lanSession) {
+              throw new Error("LAN session unavailable.");
+            }
+            const switched = switchActiveCompanyRuntime(body || {}, {
+              source: "lan-session"
+            });
             sendLanServerJson(res, 200, {
               ok: true,
               switched: !!switched.switched,
@@ -1525,7 +1924,12 @@ async function handleLanApiRequest(req, res, url, pathname) {
         }
         case "/api/companies/switch": {
           try {
-            const switched = switchActiveCompanyRuntime(body || {});
+            if (!lanSession) {
+              throw new Error("LAN session unavailable.");
+            }
+            const switched = switchActiveCompanyRuntime(body || {}, {
+              source: "lan-session"
+            });
             sendLanServerJson(res, 200, {
               ok: true,
               switched: !!switched.switched,
@@ -1545,7 +1949,7 @@ async function handleLanApiRequest(req, res, url, pathname) {
         case "/api/companies/active-paths": {
           try {
             const active = getActiveCompanyPaths();
-            sendLanServerJson(res, 200, { ok: true, active });
+            sendLanServerJson(res, 200, { ok: true, activeCompanyId: active.id, active });
             return;
           } catch (err) {
             sendLanServerJson(res, 200, { ok: false, error: String(err?.message || err) });
@@ -2218,7 +2622,19 @@ async function handleLanServerRequest(req, res) {
   }
 
   if (pathname === "/api" || pathname.startsWith("/api/")) {
-    await handleLanApiRequest(req, res, parsedUrl, pathname);
+    const session = ensureLanSessionContext(req, res);
+    const companyPaths = getLanSessionCompanyPaths(session);
+    await withCompanyRequestContext(
+      {
+        scope: "lan",
+        source: "lan-api",
+        sessionId: session.id,
+        session,
+        companyId: companyPaths.id,
+        companyPaths
+      },
+      () => handleLanApiRequest(req, res, parsedUrl, pathname, { session })
+    );
     return;
   }
 
@@ -2341,6 +2757,7 @@ async function stopLanServer() {
   await stopLanRedirectServer();
   lanRedirectEnabled = false;
   stopLanMdnsAdvertisement();
+  closeLanCatalogEventClients();
   if (!lanServer) return getLanServerStatus();
   return await new Promise((resolve) => {
     lanServer.close(() => {
@@ -2351,6 +2768,7 @@ async function stopLanServer() {
 }
 
 app.on("before-quit", () => {
+  closeLanCatalogEventClients();
   try {
     if (lanRedirectServer) lanRedirectServer.close();
   } catch {}
@@ -3150,6 +3568,24 @@ async function openInvoiceJson(payload = {}, options = {}) {
   const allowDialog = options?.allowDialog !== false;
   const directPath = payload?.path;
   const directNumber = typeof payload?.number === "string" ? payload.number.trim() : "";
+  const expectedCompanyId = String(
+    payload?.expectedCompanyId || payload?.activeCompanyId || payload?.companyId || ""
+  )
+    .trim()
+    .toLowerCase();
+  const activeCompanyId = String(getActiveCompanyId() || "").trim().toLowerCase();
+  const staleContextMessage = "La societe active a change. Les donnees ont ete rechargees.";
+  if (hasCompanyContextMismatch({
+    expectedCompanyId,
+    activeCompanyId,
+    path: directPath
+  })) {
+    if (allowDialog) {
+      dialog.showErrorBox("Ouverture impossible", staleContextMessage);
+    }
+    return null;
+  }
+
   if (directPath || directNumber) {
     try {
       const resolveNumberFromPath = (pathValue) => {
@@ -4974,6 +5410,7 @@ ipcMain.handle("company:save", async (_evt, payload = {}) => {
     const savedName = normalizeCompanyDisplayName(saved?.name || companySnapshot?.name || "");
     if (savedName) {
       CompanyManager.setCompanyDisplayName(getFacturanceRootDir(), active.id, savedName);
+      broadcastCompanyCatalogChange(buildCatalogChangePayload("metadata-updated"));
     }
     return { ok: true, data: saved, activeCompanyId: active.id, activeCompany: active };
   } catch (err) {
@@ -4984,8 +5421,7 @@ ipcMain.handle("company:save", async (_evt, payload = {}) => {
 
 ipcMain.handle("companies:list", async () => {
   try {
-    const root = getFacturanceRootDir();
-    const companies = CompanyManager.listCompanies(root);
+    const companies = listCompanyCatalog();
     const activeCompanyId = getActiveCompanyId();
     return { ok: true, companies, activeCompanyId };
   } catch (err) {
@@ -4996,13 +5432,16 @@ ipcMain.handle("companies:list", async () => {
 
 ipcMain.handle("companies:create", async (_evt, payload = {}) => {
   try {
-    const root = getFacturanceRootDir();
-    const created = CompanyManager.createCompany(root, {
-      setActive: payload?.setActive !== false,
-      displayName: payload?.name || payload?.displayName
+    const created = createCompanyRuntime(payload || {}, {
+      source: "desktop-ipc"
     });
-    const active = payload?.setActive === false ? getActiveCompanyPaths() : refreshActiveCompanyContext();
-    return { ok: true, company: created, activeCompanyId: active.id, activeCompany: active };
+    return {
+      ok: true,
+      company: created.company,
+      switched: !!created.switched,
+      activeCompanyId: created.activeCompanyId,
+      activeCompany: created.activeCompany
+    };
   } catch (err) {
     console.error("[companies:create] error:", err);
     return { ok: false, error: String(err?.message || err) };
@@ -5011,7 +5450,10 @@ ipcMain.handle("companies:create", async (_evt, payload = {}) => {
 
 ipcMain.handle("companies:setActive", async (_evt, payload = {}) => {
   try {
-    const switched = switchActiveCompanyRuntime(payload);
+    const switched = switchActiveCompanyRuntime(payload, {
+      source: "desktop-ipc",
+      emitLocalEvent: true
+    });
     return {
       ok: true,
       switched: !!switched.switched,
@@ -5026,7 +5468,10 @@ ipcMain.handle("companies:setActive", async (_evt, payload = {}) => {
 
 ipcMain.handle("companies:switch", async (_evt, payload = {}) => {
   try {
-    const switched = switchActiveCompanyRuntime(payload);
+    const switched = switchActiveCompanyRuntime(payload, {
+      source: "desktop-ipc",
+      emitLocalEvent: true
+    });
     return {
       ok: true,
       switched: !!switched.switched,

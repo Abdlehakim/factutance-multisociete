@@ -6,6 +6,8 @@ const path = require("path");
 
 const defaults = require("./src/renderer/config/defaults.js");
 const APP_VERSION = defaults?.APP_VERSION || "";
+const ACTIVE_COMPANY_CHANGED_CHANNEL = "companies:activeChanged";
+const COMPANY_CATALOG_CHANGED_CHANNEL = "companies:catalogChanged";
 function companyApiKey(name) {
   const normalized = String(name || "")
     .normalize("NFKD")
@@ -89,6 +91,41 @@ function normalizeSavePayload(p) {
   return p;
 }
 
+let activeCompanyIdCache = "";
+
+function extractActiveCompanyId(value) {
+  if (!value || typeof value !== "object") return "";
+  return String(value.activeCompanyId || value.activeCompany?.id || value.active?.id || "")
+    .trim();
+}
+
+function rememberActiveCompanyId(value) {
+  const resolved = String(value || "").trim();
+  if (!resolved) return "";
+  activeCompanyIdCache = resolved;
+  return resolved;
+}
+
+function withExpectedCompanyId(payload = {}) {
+  if (!payload || typeof payload !== "object") return payload;
+  if (payload.expectedCompanyId || payload.activeCompanyId || payload.companyId) return payload;
+  const activeId = String(activeCompanyIdCache || "").trim();
+  if (!activeId) return payload;
+  return { ...payload, expectedCompanyId: activeId };
+}
+
+async function invokeWithCompanyMemory(channel, payload = {}) {
+  const result = await ipcRenderer.invoke(channel, payload);
+  const nextId = extractActiveCompanyId(result);
+  if (nextId) rememberActiveCompanyId(nextId);
+  return result;
+}
+
+ipcRenderer.on(ACTIVE_COMPANY_CHANGED_CHANNEL, (_event, payload = {}) => {
+  const nextId = extractActiveCompanyId(payload);
+  if (nextId) rememberActiveCompanyId(nextId);
+});
+
 const api = {
   // Invoices
   saveInvoiceJSON: async (payload) => {
@@ -99,8 +136,8 @@ const api = {
     const normalized = normalizeSavePayload(payload);
     return await ipcRenderer.invoke("save-invoice-record", normalized);
   },
-  openInvoiceJSON: (opts = {}) => ipcRenderer.invoke("open-invoice-json", opts),
-  openInvoiceRecord: (opts = {}) => ipcRenderer.invoke("open-invoice-record", opts),
+  openInvoiceJSON: (opts = {}) => ipcRenderer.invoke("open-invoice-json", withExpectedCompanyId(opts)),
+  openInvoiceRecord: (opts = {}) => ipcRenderer.invoke("open-invoice-record", withExpectedCompanyId(opts)),
   openInvoiceFolder: (opts = {}) => ipcRenderer.invoke("open-invoice-folder", opts),
   deleteInvoiceFile: (opts = {}) => ipcRenderer.invoke("delete-invoice-file", opts),
   listPdfDocuments: (opts = {}) => ipcRenderer.invoke("list-pdf-documents", opts),
@@ -207,20 +244,52 @@ const api = {
     if (res && Array.isArray(res.companies)) return res.companies;
     return [];
   },
-  createCompany: (payload = {}) => ipcRenderer.invoke("companies:create", payload || {}),
+  createCompany: async (payload = {}) => {
+    const res = await invokeWithCompanyMemory("companies:create", payload || {});
+    return res;
+  },
   setActiveCompany: (payload = {}) => {
-    if (typeof payload === "string") return ipcRenderer.invoke("companies:setActive", { id: payload });
-    return ipcRenderer.invoke("companies:setActive", payload || {});
+    const normalizedPayload = typeof payload === "string" ? { id: payload } : (payload || {});
+    return invokeWithCompanyMemory("companies:setActive", normalizedPayload);
   },
   switchCompany: (payload = {}) => {
-    if (typeof payload === "string") return ipcRenderer.invoke("companies:switch", { id: payload });
-    return ipcRenderer.invoke("companies:switch", payload || {});
+    const normalizedPayload = typeof payload === "string" ? { id: payload } : (payload || {});
+    return invokeWithCompanyMemory("companies:switch", normalizedPayload);
   },
   getActiveCompanyId: async () => {
     const res = await ipcRenderer.invoke("companies:getActivePaths");
-    return String(res?.activeCompanyId || res?.activeCompany?.id || "").trim();
+    const resolved = extractActiveCompanyId(res);
+    if (resolved) rememberActiveCompanyId(resolved);
+    return resolved;
   },
-  getActiveCompanyPaths: () => ipcRenderer.invoke("companies:getActivePaths"),
+  getActiveCompanyPaths: async () => {
+    const res = await ipcRenderer.invoke("companies:getActivePaths");
+    const resolved = extractActiveCompanyId(res);
+    if (resolved) rememberActiveCompanyId(resolved);
+    return res;
+  },
+  onActiveCompanyChanged: (cb) => {
+    if (typeof cb !== "function") return () => {};
+    const listener = (_event, payload = {}) => {
+      const nextId = extractActiveCompanyId(payload);
+      if (nextId) rememberActiveCompanyId(nextId);
+      cb(payload);
+    };
+    ipcRenderer.on(ACTIVE_COMPANY_CHANGED_CHANNEL, listener);
+    return () => {
+      ipcRenderer.removeListener(ACTIVE_COMPANY_CHANGED_CHANNEL, listener);
+    };
+  },
+  onCompanyCatalogChanged: (cb) => {
+    if (typeof cb !== "function") return () => {};
+    const listener = (_event, payload = {}) => {
+      cb(payload && typeof payload === "object" ? payload : {});
+    };
+    ipcRenderer.on(COMPANY_CATALOG_CHANGED_CHANNEL, listener);
+    return () => {
+      ipcRenderer.removeListener(COMPANY_CATALOG_CHANGED_CHANNEL, listener);
+    };
+  },
   loadCompanyData: () => ipcRenderer.invoke("company:load"),
   saveCompanyData: (payload) => ipcRenderer.invoke("company:save", payload || {}),
   saveSealFile: (payload) => ipcRenderer.invoke("company:saveSealFile", payload || {}),

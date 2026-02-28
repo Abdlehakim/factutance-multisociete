@@ -55,6 +55,86 @@
     }
   };
 
+  const COMPANY_CATALOG_EVENT = "company-catalog-changed";
+  let activeCompanyIdCache = "";
+  const activeCompanyListeners = new Set();
+  const companyCatalogListeners = new Set();
+  let companyCatalogEventSource = null;
+
+  const extractActiveCompanyId = (value) => {
+    if (!value || typeof value !== "object") return "";
+    return String(value.activeCompanyId || value.activeCompany?.id || value.active?.id || "").trim();
+  };
+
+  const rememberActiveCompanyId = (value) => {
+    const normalized = String(value || "").trim();
+    if (!normalized) return "";
+    activeCompanyIdCache = normalized;
+    return normalized;
+  };
+
+  const withExpectedCompanyId = (payload = {}) => {
+    if (!payload || typeof payload !== "object") return payload;
+    if (payload.expectedCompanyId || payload.activeCompanyId || payload.companyId) return payload;
+    const activeId = String(activeCompanyIdCache || "").trim();
+    if (!activeId) return payload;
+    return { ...payload, expectedCompanyId: activeId };
+  };
+
+  const emitActiveCompanyChange = (payload = {}) => {
+    const nextId = extractActiveCompanyId(payload);
+    if (nextId) rememberActiveCompanyId(nextId);
+    activeCompanyListeners.forEach((listener) => {
+      try {
+        listener(payload);
+      } catch {
+        // ignore listener failures
+      }
+    });
+  };
+
+  const emitCompanyCatalogChange = (payload = {}) => {
+    const safePayload = payload && typeof payload === "object" ? payload : {};
+    companyCatalogListeners.forEach((listener) => {
+      try {
+        listener(safePayload);
+      } catch {
+        // ignore listener failures
+      }
+    });
+  };
+
+  const ensureCompanyCatalogEventSource = () => {
+    if (companyCatalogEventSource || typeof window.EventSource !== "function") return;
+    try {
+      const source = new window.EventSource("/api/companies/events");
+      source.addEventListener(COMPANY_CATALOG_EVENT, (event) => {
+        let payload = {};
+        try {
+          payload = event?.data ? JSON.parse(event.data) : {};
+        } catch {
+          payload = {};
+        }
+        emitCompanyCatalogChange(payload);
+      });
+      source.onerror = () => {
+        // native EventSource handles retry automatically
+      };
+      companyCatalogEventSource = source;
+    } catch {
+      companyCatalogEventSource = null;
+    }
+  };
+
+  const maybeTearDownCompanyCatalogEventSource = () => {
+    if (companyCatalogListeners.size > 0) return;
+    if (!companyCatalogEventSource) return;
+    try {
+      companyCatalogEventSource.close();
+    } catch {}
+    companyCatalogEventSource = null;
+  };
+
   const api = {
     listCompanies: async () => {
       const res = await postJson("/api/companies/list", {});
@@ -62,35 +142,125 @@
       if (res && Array.isArray(res.companies)) return res.companies;
       return [];
     },
-    createCompany: (payload) => postJson("/api/companies/create", payload || {}),
-    setActiveCompany: (payload = {}) => {
-      if (typeof payload === "string") {
-        return postJson("/api/companies/set-active", { id: payload });
+    createCompany: async (payload) => {
+      const res = await postJson("/api/companies/create", payload || {});
+      const nextId = extractActiveCompanyId(res);
+      if (nextId) {
+        rememberActiveCompanyId(nextId);
+        emitActiveCompanyChange({
+          activeCompanyId: nextId,
+          activeCompany: res?.activeCompany || res?.active || null
+        });
       }
-      return postJson("/api/companies/set-active", payload || {});
+      return res;
+    },
+    setActiveCompany: (payload = {}) => {
+      const normalizedPayload =
+        typeof payload === "string" ? { id: payload } : (payload || {});
+      if (typeof payload === "string") {
+        return postJson("/api/companies/set-active", normalizedPayload).then((res) => {
+          const nextId = extractActiveCompanyId(res);
+          if (nextId) {
+            rememberActiveCompanyId(nextId);
+            emitActiveCompanyChange({
+              activeCompanyId: nextId,
+              activeCompany: res?.activeCompany || res?.active || null
+            });
+          }
+          return res;
+        });
+      }
+      return postJson("/api/companies/set-active", normalizedPayload).then((res) => {
+        const nextId = extractActiveCompanyId(res);
+        if (nextId) {
+          rememberActiveCompanyId(nextId);
+          emitActiveCompanyChange({
+            activeCompanyId: nextId,
+            activeCompany: res?.activeCompany || res?.active || null
+          });
+        }
+        return res;
+      });
     },
     switchCompany: (payload = {}) => {
+      const normalizedPayload =
+        typeof payload === "string" ? { id: payload } : (payload || {});
       if (typeof payload === "string") {
-        return postJson("/api/companies/switch", { id: payload });
+        return postJson("/api/companies/switch", normalizedPayload).then((res) => {
+          const nextId = extractActiveCompanyId(res);
+          if (nextId) {
+            rememberActiveCompanyId(nextId);
+            emitActiveCompanyChange({
+              activeCompanyId: nextId,
+              activeCompany: res?.activeCompany || res?.active || null
+            });
+          }
+          return res;
+        });
       }
-      return postJson("/api/companies/switch", payload || {});
+      return postJson("/api/companies/switch", normalizedPayload).then((res) => {
+        const nextId = extractActiveCompanyId(res);
+        if (nextId) {
+          rememberActiveCompanyId(nextId);
+          emitActiveCompanyChange({
+            activeCompanyId: nextId,
+            activeCompany: res?.activeCompany || res?.active || null
+          });
+        }
+        return res;
+      });
     },
     getActiveCompanyId: async () => {
       const res = await postJson("/api/companies/active-paths", {});
-      return String(res?.activeCompanyId || res?.active?.id || "").trim();
+      const nextId = extractActiveCompanyId(res);
+      if (nextId) {
+        rememberActiveCompanyId(nextId);
+        emitActiveCompanyChange({
+          activeCompanyId: nextId,
+          activeCompany: res?.activeCompany || res?.active || null
+        });
+      }
+      return nextId;
     },
-    getActiveCompanyPaths: () => postJson("/api/companies/active-paths", {}),
+    getActiveCompanyPaths: async () => {
+      const res = await postJson("/api/companies/active-paths", {});
+      const nextId = extractActiveCompanyId(res);
+      if (nextId) {
+        rememberActiveCompanyId(nextId);
+        emitActiveCompanyChange({
+          activeCompanyId: nextId,
+          activeCompany: res?.activeCompany || res?.active || null
+        });
+      }
+      return res;
+    },
+    onActiveCompanyChanged: (cb) => {
+      if (typeof cb !== "function") return () => {};
+      activeCompanyListeners.add(cb);
+      return () => {
+        activeCompanyListeners.delete(cb);
+      };
+    },
+    onCompanyCatalogChanged: (cb) => {
+      if (typeof cb !== "function") return () => {};
+      companyCatalogListeners.add(cb);
+      ensureCompanyCatalogEventSource();
+      return () => {
+        companyCatalogListeners.delete(cb);
+        maybeTearDownCompanyCatalogEventSource();
+      };
+    },
     loadCompanyData: () => postJson("/api/company/load", {}),
     saveCompanyData: (payload) => postJson("/api/company/save", payload),
     saveInvoiceJSON: (payload) => postJson("/api/documents", payload),
     saveInvoiceRecord: (payload) => postJson("/api/documents", payload),
     openInvoiceJSON: async (payload) => {
-      const res = await postJson("/api/invoices/open", payload);
+      const res = await postJson("/api/invoices/open", withExpectedCompanyId(payload));
       if (res && typeof res === "object" && res.ok) return res.data || null;
       return null;
     },
     openInvoiceRecord: async (payload) => {
-      const res = await postJson("/api/invoices/open", payload);
+      const res = await postJson("/api/invoices/open", withExpectedCompanyId(payload));
       if (res && typeof res === "object" && res.ok) return res.data || null;
       return null;
     },

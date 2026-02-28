@@ -249,7 +249,8 @@
     }
   }
 
-  async function rebuildDocumentHistoryFromStorage() {
+  async function rebuildDocumentHistoryFromStorage(options = {}) {
+    const isStale = typeof options?.isStale === "function" ? options.isStale : () => false;
     if (typeof w.clearDocumentHistory === "function") {
       COMPANY_HISTORY_DOC_TYPES.forEach((docType) => {
         try {
@@ -268,8 +269,10 @@
     }
 
     for (const docType of COMPANY_HISTORY_DOC_TYPES) {
+      if (isStale()) return;
       try {
         const res = await w.electronAPI.listInvoiceFiles({ docType });
+        if (isStale()) return;
         if (!res?.ok) continue;
         const items = Array.isArray(res.items) ? res.items : [];
         items.forEach((entry) => {
@@ -312,6 +315,7 @@
       } catch (err) {
         console.warn("document history rebuild failed", docType, err);
       } finally {
+        if (isStale()) return;
         if (typeof w.recomputeDocumentNumbering === "function") {
           try {
             w.recomputeDocumentNumbering(docType);
@@ -323,7 +327,9 @@
     }
   }
 
-  async function rehydrateCompanyRuntimeState(switchResult = {}) {
+  async function rehydrateCompanyRuntimeState(switchResult = {}, options = {}) {
+    const isStale = typeof options?.isStale === "function" ? options.isStale : () => false;
+    if (isStale()) return;
     if (typeof w.invalidatePdfPreviewCache === "function") {
       try {
         w.invalidatePdfPreviewCache({ closeModal: true });
@@ -344,6 +350,7 @@
     if (typeof SEM.newInvoice === "function") {
       SEM.newInvoice();
     }
+    if (isStale()) return;
 
     if (typeof w.resetPaymentHistoryCache === "function") {
       try {
@@ -358,6 +365,7 @@
         ? switchResult.snapshot
         : {};
     applySwitchSnapshotToCompanyState(snapshot);
+    if (isStale()) return;
 
     const jobs = [];
     if (typeof SEM.loadCompanyFromLocal === "function") {
@@ -375,11 +383,12 @@
       );
     }
     jobs.push(
-      Promise.resolve(rebuildDocumentHistoryFromStorage()).catch((err) => {
+      Promise.resolve(rebuildDocumentHistoryFromStorage({ isStale })).catch((err) => {
         console.warn("document history rebuild failed during company switch", err);
       })
     );
     await Promise.all(jobs);
+    if (isStale()) return;
 
     if (typeof w.hydratePaymentHistory === "function") {
       try {
@@ -388,6 +397,7 @@
         console.warn("hydratePaymentHistory failed during company switch", err);
       }
     }
+    if (isStale()) return;
 
     const runtime = AppInit.__runtime && typeof AppInit.__runtime === "object" ? AppInit.__runtime : {};
     const historyApi = runtime.history || {};
@@ -450,6 +460,45 @@
       }
     }
 
+    function setSwitcherDisabled(disabled) {
+      sel.disabled = !!disabled;
+      if (!trigger) return;
+      if (disabled) trigger.setAttribute("aria-disabled", "true");
+      else trigger.removeAttribute("aria-disabled");
+    }
+
+    function hasCompanyOption(id) {
+      const targetId = String(id || "").trim();
+      if (!targetId) return false;
+      return Array.from(sel.options || []).some((option) => option.value === targetId);
+    }
+
+    function renderCompanyOptions(companies = []) {
+      sel.innerHTML = "";
+      if (panel) panel.innerHTML = "";
+      companies.forEach((company) => {
+        const opt = document.createElement("option");
+        opt.value = company.id;
+        opt.textContent = company.name || company.id;
+        sel.appendChild(opt);
+
+        if (panel) {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "model-select-option";
+          btn.setAttribute("role", "option");
+          btn.setAttribute("data-value", company.id);
+          btn.setAttribute("aria-selected", "false");
+          btn.textContent = company.name || company.id;
+          btn.addEventListener("click", () => {
+            chooseCompany(company.id, true);
+            menu?.removeAttribute("open");
+          });
+          panel.appendChild(btn);
+        }
+      });
+    }
+
     if (menu && trigger) {
       menu.addEventListener("toggle", () => {
         trigger.setAttribute("aria-expanded", menu.open ? "true" : "false");
@@ -487,39 +536,234 @@
       return;
     }
 
+    const getSwitchFn = () =>
+      typeof api.switchCompany === "function"
+        ? api.switchCompany.bind(api)
+        : (typeof api.setActiveCompany === "function" ? api.setActiveCompany.bind(api) : null);
+
+    let currentCompanyId = "";
+    let switching = false;
+    let switchEpoch = 0;
+    let pendingExternalPayload = null;
+    let pendingCatalogRefresh = false;
+    let catalogRefreshPromise = null;
+
+    async function refreshCompaniesList(preferredId = "") {
+      const rawList = await api.listCompanies();
+      const companies = parseCompaniesList(rawList);
+      renderCompanyOptions(companies);
+      if (!companies.length) {
+        setSwitcherDisabled(true);
+        const opt = document.createElement("option");
+        opt.value = "";
+        opt.textContent = "-";
+        sel.appendChild(opt);
+        setDisplayText("-");
+        if (panel) {
+          const empty = document.createElement("div");
+          empty.className = "model-select-empty";
+          empty.textContent = "Aucune societe";
+          panel.appendChild(empty);
+        }
+        return companies;
+      }
+      setSwitcherDisabled(false);
+      const candidate =
+        (preferredId && companies.some((company) => company.id === preferredId) && preferredId) ||
+        (currentCompanyId && companies.some((company) => company.id === currentCompanyId) && currentCompanyId) ||
+        companies[0].id;
+      chooseCompany(candidate);
+      return companies;
+    }
+
+    async function runCompanySwitch(nextId, { source = "ui", label = "" } = {}) {
+      if (switching) return;
+      const targetId = String(nextId || "").trim();
+      if (!targetId) return;
+      if (targetId === currentCompanyId) {
+        chooseCompany(currentCompanyId);
+        return;
+      }
+
+      const previousId = currentCompanyId;
+      chooseCompany(targetId);
+      const selectedOption = Array.from(sel.options || []).find((option) => option.value === targetId);
+      const selectedLabel = normalizeCompanyName(label || selectedOption?.textContent, targetId);
+
+      switching = true;
+      const currentToken = ++switchEpoch;
+      setSwitcherDisabled(true);
+      const switchOverlayStartedAt = beginCompanySwitchLoading({
+        targetId,
+        label: selectedLabel
+      });
+      let reloadTriggered = false;
+      const onBeforeUnload = () => {
+        reloadTriggered = true;
+      };
+      w.addEventListener("beforeunload", onBeforeUnload, { once: true });
+
+      try {
+        const switchFn = getSwitchFn();
+        if (!switchFn) {
+          throw new Error("Company switch API is unavailable.");
+        }
+        const result = await switchFn({
+          id: targetId,
+          source: source === "ui" ? "renderer-ui" : "renderer-sync"
+        });
+        if (result && typeof result === "object" && result.ok === false) {
+          throw new Error(String(result.error || "Unable to switch company"));
+        }
+        if (reloadTriggered || currentToken !== switchEpoch) return;
+        const switchedCompanyId = normalizeCompanyId(
+          result?.activeCompanyId || result?.activeCompany?.id || targetId
+        ) || targetId;
+        await rehydrateCompanyRuntimeState(result || {}, {
+          isStale: () => currentToken !== switchEpoch
+        });
+        if (reloadTriggered || currentToken !== switchEpoch) return;
+        currentCompanyId = switchedCompanyId;
+        chooseCompany(switchedCompanyId);
+        if (source !== "ui" && typeof w.showToast === "function") {
+          w.showToast("La societe active a change. Les donnees ont ete rechargees.");
+        }
+      } catch (err) {
+        console.error("Unable to switch active company", err);
+        try {
+          const switchFn = getSwitchFn();
+          if (switchFn && previousId && source === "ui") {
+            const rollbackRes = await switchFn({ id: previousId, source: "renderer-rollback" });
+            if ((!rollbackRes || rollbackRes.ok !== false) && currentToken === switchEpoch) {
+              await rehydrateCompanyRuntimeState(rollbackRes || {}, {
+                isStale: () => currentToken !== switchEpoch
+              });
+            }
+          }
+        } catch (rollbackErr) {
+          console.error("Rollback after company switch failure failed", rollbackErr);
+        }
+        if (currentToken === switchEpoch) {
+          currentCompanyId = previousId;
+          if (previousId) chooseCompany(previousId);
+          const errorMessage = String(err?.message || err || "Switch failed.");
+          if (typeof w.showToast === "function") {
+            if (source === "ui") {
+              w.showToast(`Changement de societe impossible: ${errorMessage}`);
+            } else {
+              w.showToast(`Synchronisation de societe impossible: ${errorMessage}`);
+            }
+          }
+        }
+      } finally {
+        w.removeEventListener("beforeunload", onBeforeUnload);
+        switching = false;
+        setSwitcherDisabled(false);
+        await endCompanySwitchLoading(switchOverlayStartedAt, { keepVisible: reloadTriggered });
+        if (!reloadTriggered && pendingExternalPayload) {
+          const pending = pendingExternalPayload;
+          pendingExternalPayload = null;
+          void handleExternalCompanyChange(pending);
+        }
+        if (!reloadTriggered && pendingCatalogRefresh) {
+          pendingCatalogRefresh = false;
+          void handleCompanyCatalogChange({ reason: "deferred" });
+        }
+      }
+    }
+
+    async function handleExternalCompanyChange(payload = {}) {
+      const incomingId = normalizeCompanyId(
+        payload?.activeCompanyId || payload?.activeCompany?.id || payload?.active?.id || ""
+      );
+      if (!incomingId) return;
+      if (incomingId === currentCompanyId || incomingId === String(sel.value || "").trim()) return;
+      if (switching) {
+        pendingExternalPayload = payload;
+        return;
+      }
+      if (!hasCompanyOption(incomingId)) {
+        try {
+          await refreshCompaniesList(currentCompanyId || incomingId);
+        } catch (err) {
+          console.warn("Unable to refresh company list after external switch", err);
+        }
+      }
+      if (!hasCompanyOption(incomingId)) return;
+      const fallbackLabel = normalizeCompanyName(payload?.activeCompany?.name, incomingId);
+      await runCompanySwitch(incomingId, { source: "external", label: fallbackLabel });
+    }
+
+    async function handleCompanyCatalogChange() {
+      if (switching) {
+        pendingCatalogRefresh = true;
+        return;
+      }
+      if (catalogRefreshPromise) {
+        await catalogRefreshPromise;
+        return;
+      }
+      catalogRefreshPromise = (async () => {
+        const [rawList, activeCompanyId] = await Promise.all([
+          api.listCompanies(),
+          readActiveCompanyId(api)
+        ]);
+        const companies = parseCompaniesList(rawList);
+        renderCompanyOptions(companies);
+        if (!companies.length) {
+          currentCompanyId = "";
+          setSwitcherDisabled(true);
+          const opt = document.createElement("option");
+          opt.value = "";
+          opt.textContent = "-";
+          sel.appendChild(opt);
+          if (panel) {
+            const empty = document.createElement("div");
+            empty.className = "model-select-empty";
+            empty.textContent = "Aucune societe";
+            panel.appendChild(empty);
+          }
+          setDisplayText("-");
+          return;
+        }
+        setSwitcherDisabled(false);
+        const scopedCompanyId = normalizeCompanyId(activeCompanyId);
+        const preferredCompanyId =
+          scopedCompanyId ||
+          normalizeCompanyId(currentCompanyId) ||
+          normalizeCompanyId(sel.value) ||
+          companies[0].id;
+
+        if (!hasCompanyOption(preferredCompanyId)) {
+          chooseCompany(companies[0].id);
+          currentCompanyId = companies[0].id;
+          return;
+        }
+        if (preferredCompanyId !== currentCompanyId) {
+          await runCompanySwitch(preferredCompanyId, { source: "external" });
+          return;
+        }
+        chooseCompany(preferredCompanyId);
+      })()
+        .catch((err) => {
+          console.warn("Unable to refresh company catalog", err);
+        })
+        .finally(() => {
+          catalogRefreshPromise = null;
+        });
+      await catalogRefreshPromise;
+    }
+
     try {
       const [rawList, activeCompanyId] = await Promise.all([
         api.listCompanies(),
         readActiveCompanyId(api)
       ]);
       const companies = parseCompaniesList(rawList);
-
-      sel.innerHTML = "";
-      if (panel) panel.innerHTML = "";
-      companies.forEach((company) => {
-        const opt = document.createElement("option");
-        opt.value = company.id;
-        opt.textContent = company.name || company.id;
-        sel.appendChild(opt);
-
-        if (panel) {
-          const btn = document.createElement("button");
-          btn.type = "button";
-          btn.className = "model-select-option";
-          btn.setAttribute("role", "option");
-          btn.setAttribute("data-value", company.id);
-          btn.setAttribute("aria-selected", "false");
-          btn.textContent = company.name || company.id;
-          btn.addEventListener("click", () => {
-            chooseCompany(company.id, true);
-            menu?.removeAttribute("open");
-          });
-          panel.appendChild(btn);
-        }
-      });
+      renderCompanyOptions(companies);
 
       if (!companies.length) {
-        sel.disabled = true;
+        setSwitcherDisabled(true);
         const opt = document.createElement("option");
         opt.value = "";
         opt.textContent = "-";
@@ -534,93 +778,35 @@
         return;
       }
 
-      if (activeCompanyId && companies.some((c) => c.id === activeCompanyId)) {
+      if (activeCompanyId && companies.some((company) => company.id === activeCompanyId)) {
         chooseCompany(activeCompanyId);
       } else {
         chooseCompany(companies[0].id);
       }
+      currentCompanyId = String(sel.value || "").trim();
 
-      let currentCompanyId = String(sel.value || "").trim();
-      let switching = false;
       sel.addEventListener("change", async () => {
-        if (switching) return;
         const nextId = String(sel.value || "").trim();
         if (!nextId || nextId === currentCompanyId) {
           chooseCompany(currentCompanyId);
           return;
         }
-
-        const previousId = currentCompanyId;
-        chooseCompany(nextId);
-        const selectedOption = Array.from(sel.options || []).find((option) => option.value === nextId);
-        const selectedLabel = normalizeCompanyName(selectedOption?.textContent, nextId);
-
-        switching = true;
-        sel.disabled = true;
-        if (trigger) trigger.setAttribute("aria-disabled", "true");
-        const switchOverlayStartedAt = beginCompanySwitchLoading({
-          targetId: nextId,
-          label: selectedLabel
-        });
-        let reloadTriggered = false;
-        const onBeforeUnload = () => {
-          reloadTriggered = true;
-        };
-        w.addEventListener("beforeunload", onBeforeUnload, { once: true });
-
-        try {
-          const switchFn =
-            typeof api.switchCompany === "function"
-              ? api.switchCompany.bind(api)
-              : (typeof api.setActiveCompany === "function" ? api.setActiveCompany.bind(api) : null);
-          if (!switchFn) {
-            throw new Error("Company switch API is unavailable.");
-          }
-          const result = await switchFn(nextId);
-          if (result && typeof result === "object" && result.ok === false) {
-            throw new Error(String(result.error || "Unable to switch company"));
-          }
-          if (reloadTriggered) return;
-          const switchedCompanyId = normalizeCompanyId(
-            result?.activeCompanyId || result?.activeCompany?.id || nextId
-          ) || nextId;
-          await rehydrateCompanyRuntimeState(result || {});
-          currentCompanyId = switchedCompanyId;
-          chooseCompany(switchedCompanyId);
-        } catch (err) {
-          console.error("Unable to switch active company", err);
-          try {
-            const switchFn =
-              typeof api.switchCompany === "function"
-                ? api.switchCompany.bind(api)
-                : (typeof api.setActiveCompany === "function" ? api.setActiveCompany.bind(api) : null);
-            if (switchFn && previousId) {
-              const rollbackRes = await switchFn(previousId);
-              if (!rollbackRes || rollbackRes.ok !== false) {
-                await rehydrateCompanyRuntimeState(rollbackRes || {});
-              }
-            }
-          } catch (rollbackErr) {
-            console.error("Rollback after company switch failure failed", rollbackErr);
-          }
-          currentCompanyId = previousId;
-          chooseCompany(previousId);
-          const errorMessage = String(err?.message || err || "Switch failed.");
-          if (typeof w.showToast === "function") {
-            w.showToast(`Changement de societe impossible: ${errorMessage}`);
-          }
-        } finally {
-          w.removeEventListener("beforeunload", onBeforeUnload);
-          switching = false;
-          sel.disabled = false;
-          if (trigger) trigger.removeAttribute("aria-disabled");
-          await endCompanySwitchLoading(switchOverlayStartedAt, { keepVisible: reloadTriggered });
-        }
+        await runCompanySwitch(nextId, { source: "ui" });
       });
+
+      if (typeof api.onActiveCompanyChanged === "function") {
+        api.onActiveCompanyChanged((payload = {}) => {
+          void handleExternalCompanyChange(payload);
+        });
+      }
+      if (typeof api.onCompanyCatalogChanged === "function") {
+        api.onCompanyCatalogChanged(() => {
+          void handleCompanyCatalogChange();
+        });
+      }
     } catch (err) {
       console.error("initCompanySwitcher failed", err);
-      sel.disabled = true;
-      if (trigger) trigger.setAttribute("aria-disabled", "true");
+      setSwitcherDisabled(true);
     }
   }
 

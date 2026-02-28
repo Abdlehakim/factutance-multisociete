@@ -10,6 +10,7 @@
     "dev:site:localhost": "http-server ./site -p 8080 -a localhost -c-1",
     "dev:renderer": "http-server ./src/renderer -p 8081 -c-1",
     "start": "electron .",
+    "test:company-sync": "node --test scripts/tests/company-context-guards.test.cjs",
     "dist:win:ia32": "node scripts/sync-version.cjs && electron-builder --win nsis --ia32",
     "dist:win:both": "node scripts/sync-version.cjs && electron-builder --win nsis --x64 --ia32",
     "dist:mac": "node scripts/sync-version.cjs && electron-builder --mac dmg,zip",

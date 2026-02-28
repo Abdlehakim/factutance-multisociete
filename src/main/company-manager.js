@@ -607,20 +607,25 @@ function getActiveCompany(rootDir) {
   return { id, name: getCompanyDisplayName(root, id) || id };
 }
 
-function getActiveCompanyPaths(rootDir) {
+function getCompanyPaths(rootDir, companyId) {
   const root = ensureRootDir(rootDir);
-  const activeCompanyId = getActiveCompanyId(root);
-  const companyDir = path.join(root, activeCompanyId);
-  ensureCompanyDbFile(root, activeCompanyId);
-  const dbFileName = companyDbFileName(activeCompanyId);
+  const state = ensureStorageInitialized(root);
+  const normalizedId = normalizeCompanyId(companyId);
+  const resolvedId =
+    normalizedId && state.companies.includes(normalizedId)
+      ? normalizedId
+      : state.activeCompanyId;
+  const companyDir = path.join(root, resolvedId);
+  ensureCompanyDbFile(root, resolvedId);
+  const dbFileName = companyDbFileName(resolvedId);
   const dbPath = path.join(companyDir, dbFileName);
 
   return {
     rootDir: root,
-    activeCompanyId,
-    id: activeCompanyId,
-    name: getCompanyDisplayName(root, activeCompanyId) || activeCompanyId,
-    folder: activeCompanyId,
+    activeCompanyId: resolvedId,
+    id: resolvedId,
+    name: getCompanyDisplayName(root, resolvedId) || resolvedId,
+    folder: resolvedId,
     companyDir,
     dbFileName,
     dbPath,
@@ -636,6 +641,12 @@ function getActiveCompanyPaths(rootDir) {
   };
 }
 
+function getActiveCompanyPaths(rootDir) {
+  const root = ensureRootDir(rootDir);
+  const activeCompanyId = getActiveCompanyId(root);
+  return getCompanyPaths(root, activeCompanyId);
+}
+
 module.exports = {
   LEGACY_REGISTRY_FILE_NAME,
   LEGACY_ACTIVE_POINTER_FILE_NAME,
@@ -646,6 +657,7 @@ module.exports = {
   getActiveCompany,
   getActiveCompanyId,
   getActiveCompanyPaths,
+  getCompanyPaths,
   listCompanies,
   setCompanyDisplayName,
   setActiveCompany
