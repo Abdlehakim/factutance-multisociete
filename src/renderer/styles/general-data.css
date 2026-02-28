@@ -236,6 +236,42 @@
   color: #94a3b8;
   border-color: #e2e8f0;
 }
+.company-modal__field-head #companyModalPhoneAdd.model-stepper__nav {
+  appearance: none;
+  background: #fff;
+  color: #0b1220;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 5px;
+  padding: 8px 14px;
+  font-weight: 600;
+  font-size: 10px;
+  line-height: 1.2;
+  cursor: pointer;
+  white-space: nowrap;
+  min-width: 80px;
+  min-height: auto;
+  height: auto;
+  justify-content: center;
+}
+.company-modal__field-head #companyModalPhoneAdd.model-stepper__nav:hover:not(:disabled):not([disabled]) {
+  background: #15335e;
+  color: #fff;
+  border-color: #15335e;
+}
+.company-modal__field-head #companyModalPhoneAdd.model-stepper__nav[disabled],
+.company-modal__field-head #companyModalPhoneAdd.model-stepper__nav:disabled {
+  background: #f1f5f9;
+  color: #94a3b8;
+  border-color: #e2e8f0;
+  opacity: 1;
+  cursor: not-allowed;
+}
+.company-modal__field-head #companyModalPhoneAdd.model-stepper__nav[disabled]:hover,
+.company-modal__field-head #companyModalPhoneAdd.model-stepper__nav:disabled:hover {
+  background: #f1f5f9;
+  color: #94a3b8;
+  border-color: #e2e8f0;
+}
 .company-modal__actions [data-company-contact-step-next][hidden],
 .company-modal__actions [data-company-contact-step-save][hidden] {
   display: none !important;

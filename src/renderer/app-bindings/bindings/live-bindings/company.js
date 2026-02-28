@@ -550,8 +550,9 @@
           }
           if (saveBtn) {
             saveBtn.disabled = !isLastStep;
-            saveBtn.hidden = !isLastStep;
-            saveBtn.setAttribute("aria-hidden", isLastStep ? "false" : "true");
+            saveBtn.hidden = false;
+            saveBtn.removeAttribute("hidden");
+            saveBtn.setAttribute("aria-hidden", "false");
           }
 
           if (options.focusPanel) {

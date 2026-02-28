@@ -288,7 +288,13 @@ export function renderGeneralDataSection() {
                 <div class="company-modal__field">
                   <div class="company-modal__field-head">
                     <label for="companyModalPhonePrimary" class="label-text">Telephone(s)</label>
-                    <button type="button" id="companyModalPhoneAdd" class="btn">+ Ajouter un numero</button>
+                    <button
+                      type="button"
+                      id="companyModalPhoneAdd"
+                      class="btn success tiny model-stepper__nav model-stepper__nav--next better-style"
+                    >
+                      + Ajouter un numero
+                    </button>
                   </div>
                   <div id="companyModalPhones" class="company-phone-list">
                     <div class="company-phone-item" data-phone-index="0">
@@ -493,8 +499,8 @@ export function renderGeneralDataSection() {
               form="companyContactModalForm"
               class="btn success tiny model-stepper__nav model-stepper__nav--next better-style"
               data-company-contact-step-save
-              hidden
-              aria-hidden="true"
+              aria-hidden="false"
+              disabled
             >
               Mettre a jour
             </button>
