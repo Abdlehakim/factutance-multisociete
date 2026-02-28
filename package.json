@@ -1,6 +1,6 @@
 {
   "name": "facturance",
-  "version": "2.2.2",
+  "version": "2.2.3",
   "description": "Facturance Maker (Windows) – create, save and export invoices to PDF for development, marketing, graphics and design services.",
   "main": "main.js",
   "author": "Adelhakim Sabkhi",
