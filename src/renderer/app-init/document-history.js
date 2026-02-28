@@ -2866,10 +2866,12 @@
       const renderToken = ++historyRenderToken;
       const filteredEntries = getFilteredHistoryModalEntries();
       const total = filteredEntries.length;
+      const isEmpty = total === 0;
       const totalPages = total ? Math.max(1, Math.ceil(total / HISTORY_MODAL_PAGE_SIZE)) : 1;
       const safePage = Math.min(Math.max(historyModalState.page, 1), totalPages);
       historyModalState.page = safePage;
       historyModalList.innerHTML = "";
+      historyModalList.classList.toggle("is-empty", isEmpty);
       syncHistoryModalFilterControls();
       const hasFilters = hasActiveHistoryFilters();
       const moneyFormatter =
@@ -2994,7 +2996,7 @@
         appendRecapItem("TG Solde d\u00FB:", recapBalance);
       }
 
-      if (!total) {
+      if (isEmpty) {
         const emptyEl = document.createElement("div");
         emptyEl.className = "doc-history-modal__empty";
         emptyEl.textContent = hasFilters

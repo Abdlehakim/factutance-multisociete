@@ -1654,6 +1654,26 @@ aspect-ratio: 1 / 1;
   overflow-y: auto;
   gap:6px;
 }
+#docHistoryModal .doc-history-modal__content .doc-history-modal__list.is-empty,
+#docHistoryModal .doc-history-modal__content .doc-history-modal__list:has(> .doc-history-modal__empty) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  justify-items: stretch;
+  gap: 0;
+  width: 100%;
+  min-height: 0;
+  height: auto;
+  max-height: none;
+  overflow: hidden;
+  padding: 0;
+  margin: 0;
+}
+#docHistoryModal .doc-history-modal__content .doc-history-modal__list.is-empty .doc-history-modal__empty,
+#docHistoryModal .doc-history-modal__content .doc-history-modal__list:has(> .doc-history-modal__empty) > .doc-history-modal__empty {
+  width: 100%;
+  margin: 0;
+}
 .swbDialog__panel.article-saved-modal__panel .article-saved-modal__body {
   min-height: 0;
   height: 100%;
@@ -1690,7 +1710,13 @@ aspect-ratio: 1 / 1;
 }
 #docHistoryModal .doc-history-modal__panel.payments-history-modal__panel .doc-history-modal__body.payments-history-modal__body {
   min-height: 0;
+  height: auto;
+  max-height: none;
+  flex: 1 1 auto;
   overflow-x: hidden;
+}
+#docHistoryModal .doc-history-modal__panel.payments-history-modal__panel {
+  height: 90%;
 }
 #docHistoryModal .doc-history-modal__content {
   flex: 1 1 auto;
@@ -2030,6 +2056,18 @@ aspect-ratio: 1 / 1;
   padding: 10px 12px 12px;
   background: #f9fafb;
   border-top: 1px solid rgba(15, 23, 42, 0.08);
+}
+#docHistoryModal .doc-history-modal__actions,
+#docHistoryExportModal .doc-history-modal__actions,
+#docBulkExportModal .doc-history-modal__actions {
+  margin-top: auto;
+}
+#docHistoryExportModal .doc-export-wizard__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+  max-height: none;
+  overflow-y: auto;
 }
 .client-saved-modal__actions-left,
 .article-saved-modal__actions-left,
