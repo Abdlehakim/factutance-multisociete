@@ -62,6 +62,7 @@
     AppInit.registerPurchaseTaxReportActions?.(context);
     AppInit.registerClientStatementReportActions?.(context);
     AppInit.registerPaymentActions?.(context);
+    AppInit.registerPaymentHistoryExportActions?.(context);
     AppInit.registerCreditClientActions?.(context);
     AppInit.registerClientStatementsActions?.(context);
     AppInit.registerClientLedgerActions?.(context);

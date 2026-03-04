@@ -2586,6 +2586,13 @@ aspect-ratio: 1 / 1;
 .payments-history-modal__body .payments-panel__list {
   max-height: none;
 }
+.payments-history__table-tools {
+  display: flex;
+  justify-content: flex-end;
+}
+.payments-history__table-tools .items-preview-action {
+  flex: 0 0 auto;
+}
 .payments-history__table-wrap {
   max-height: 65vh;
   overflow-y: auto;
