@@ -2593,6 +2593,20 @@ aspect-ratio: 1 / 1;
 .payments-history__table-tools .items-preview-action {
   flex: 0 0 auto;
 }
+#clientStatementsModal .doc-history-modal__status-row {
+  flex-wrap: nowrap;
+}
+#clientStatementsModal .doc-history-modal__status-row .doc-history-modal__recap {
+  flex: 1 1 auto;
+  text-align: left;
+}
+#clientStatementsModal #clientStatementsExportTools {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+#clientStatementsModal #clientStatementsExportTools.payments-history__table-tools {
+  justify-content: flex-end;
+}
 .payments-history__table-wrap {
   max-height: 65vh;
   overflow-y: auto;
@@ -2672,5 +2686,14 @@ aspect-ratio: 1 / 1;
 @media (max-width: 720px) {
   .payment-modal__table {
     min-width: 640px;
+  }
+  #clientStatementsModal .doc-history-modal__status-row {
+    flex-wrap: wrap;
+  }
+  #clientStatementsModal .doc-history-modal__status-row .doc-history-modal__recap {
+    flex: 1 1 100%;
+  }
+  #clientStatementsModal #clientStatementsExportTools {
+    margin-left: 0;
   }
 }

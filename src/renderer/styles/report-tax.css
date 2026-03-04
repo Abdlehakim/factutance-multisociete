@@ -123,6 +123,7 @@
 .report-tax-modal__buttons #salesTaxReportModalPrint,
 .report-tax-modal__buttons #purchaseTaxReportModalPrint,
 .report-tax-modal__buttons #clientStatementDetailPrint,
+.report-tax-modal__buttons #clientStatementsDetailPrint,
 .report-tax-modal__buttons #paymentHistoryDetailPrint {
   margin-left: auto;
 }
@@ -184,6 +185,12 @@
 #paymentHistoryDetailModal .payment-history-export-preview__table td {
   font-size: 10px;
 }
+#clientStatementsDetailModal .client-statements-export-preview__table,
+#clientStatementsDetailModal .client-statements-export-preview__table tbody,
+#clientStatementsDetailModal .client-statements-export-preview__table th,
+#clientStatementsDetailModal .client-statements-export-preview__table td {
+  font-size: 11px;
+}
 .report-tax-preview__status {
   color: #e2e8f0;
   font-weight: 600;
@@ -215,6 +222,13 @@
   z-index: 100020;
 }
 #swbDialog .payment-history-export-dialog .model-select-menu[open] .field-toggle-panel {
+  z-index: 100030;
+}
+#swbDialog .client-statements-export-dialog .model-select-menu[open] {
+  position: relative;
+  z-index: 100020;
+}
+#swbDialog .client-statements-export-dialog .model-select-menu[open] .field-toggle-panel {
   z-index: 100030;
 }
 @media (max-width: 720px) {
