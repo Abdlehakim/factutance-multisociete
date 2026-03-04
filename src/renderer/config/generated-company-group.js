@@ -1,5 +1,5 @@
 // AUTO-GENERATED. Do not commit.
 (function(g){
-  g.__FACTURANCE_BUILD_COMPANY_GROUP__ = {"mode":"group","groupId":"wellcomgroup","groupName":"WELLCOM GROUP","companies":["WELLCOM","ProDisplay"],"createdAt":"2026-02-28T00:25:14.188Z"};
+  g.__FACTURANCE_BUILD_COMPANY_GROUP__ = {"mode":"group","groupId":"wellcomgroup","groupName":"WELLCOM GROUP","companies":["WELLCOM","ProDisplay"],"createdAt":"2026-03-04T21:48:52.728Z"};
   if (typeof module !== "undefined" && module.exports) module.exports = g.__FACTURANCE_BUILD_COMPANY_GROUP__;
 })(typeof window !== "undefined" ? window : (typeof global !== "undefined" ? global : this));
