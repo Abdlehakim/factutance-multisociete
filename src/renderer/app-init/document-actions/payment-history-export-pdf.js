@@ -48,16 +48,44 @@
     const itemsHead = readCssVarValue("--items-head-bg", primary || "#1d4ed8");
     const rootVars = `:root{--primary:${primary};--items-head-bg:${itemsHead};}`;
     const localCss = `
+      .payment-history-export-preview {
+        display: block;
+      }
+      .payment-history-export-preview .pdf-page {
+        width: 210mm;
+        min-height: 296.5mm;
+        height: auto;
+        display: block;
+        overflow: visible;
+        page-break-inside: auto;
+        break-inside: auto;
+        page-break-after: auto;
+        break-after: auto;
+      }
+      .payment-history-export-preview .report-tax-preview__heading,
+      .payment-history-export-preview .payment-history-export-preview__meta {
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
       .payment-history-export-preview__meta {
         margin-bottom: 10px;
       }
       .payment-history-export-preview__table-wrap {
         width: 100%;
         overflow: visible;
+        page-break-inside: auto;
+        break-inside: auto;
       }
       .payment-history-export-preview__table {
         width: 100%;
         border-collapse: collapse;
+        font-size: 11px;
+      }
+      .payment-history-export-preview__table tbody {
+        font-size: 11px;
+      }
+      .payment-history-export-preview__table thead {
+        display: table-header-group;
       }
       .payment-history-export-preview__table th,
       .payment-history-export-preview__table td {
@@ -66,6 +94,10 @@
         font-size: 11px;
         line-height: 1.3;
         vertical-align: top;
+      }
+      .payment-history-export-preview__table tr {
+        page-break-inside: avoid;
+        break-inside: avoid;
       }
       .payment-history-export-preview__table thead th {
         background: #eff6ff;
@@ -82,11 +114,6 @@
         text-align: center;
         color: #64748b;
       }
-      .payment-history-export-preview__total th,
-      .payment-history-export-preview__total td {
-        font-weight: 700;
-        background: #f8fafc;
-      }
     `;
     return [rootVars, pdfCss, tableCss, reportCss, localCss].filter(Boolean).join("\n");
   };
@@ -96,7 +123,7 @@
     if (!list.length) {
       return `
         <tr class="payment-history-export-preview__empty">
-          <td colspan="7">Aucun paiement pour cette periode.</td>
+          <td colspan="6">Aucun paiement pour cette periode.</td>
         </tr>
       `;
     }
@@ -105,7 +132,6 @@
       .map(
         (row) => `
           <tr>
-            <td class="is-center">${safeHtml(row.paymentNumber || "-")}</td>
             <td>${safeHtml(row.invoiceNumber || "-")}</td>
             <td>${safeHtml(row.client || "-")}</td>
             <td class="is-center">${safeHtml(row.paymentDate || "-")}</td>
@@ -127,7 +153,6 @@
     const companyAddress = safeHtml(company?.address || "").replace(/\n/g, "<br>");
     const startDate = safeHtml(snapshot.startDate || "-");
     const endDate = safeHtml(snapshot.endDate || "-");
-    const scopeLabel = safeHtml(snapshot.scopeLabel || "Filtres actifs du tableau");
     const rowCount = Number.isFinite(Number(snapshot.rowCount)) ? Number(snapshot.rowCount) : 0;
     const totalAmountLabel = safeHtml(snapshot.totalAmountLabel || "0.000");
     const rowsHtml = buildRowsHtml(snapshot.rows);
@@ -189,10 +214,6 @@
                 <span class="pdf-meta-value">Du ${startDate} au ${endDate}</span>
               </p>
               <p class="pdf-small pdf-meta-line">
-                <span class="pdf-meta-label">Perimetre :</span>
-                <span class="pdf-meta-value">${scopeLabel}</span>
-              </p>
-              <p class="pdf-small pdf-meta-line">
                 <span class="pdf-meta-label">Paiements :</span>
                 <span class="pdf-meta-value">${safeHtml(String(rowCount))}</span>
               </p>
@@ -206,7 +227,6 @@
             <table class="payment-history-export-preview__table">
               <thead>
                 <tr>
-                  <th class="is-center">Paiement</th>
                   <th>Facture</th>
                   <th>Client</th>
                   <th class="is-center">Date</th>
@@ -216,12 +236,6 @@
                 </tr>
               </thead>
               <tbody>${rowsHtml}</tbody>
-              <tfoot>
-                <tr class="payment-history-export-preview__total">
-                  <th colspan="6" class="is-right">Total</th>
-                  <td class="is-right">${totalAmountLabel}</td>
-                </tr>
-              </tfoot>
             </table>
           </div>
         </div>

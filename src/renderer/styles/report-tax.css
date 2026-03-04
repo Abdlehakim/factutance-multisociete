@@ -122,7 +122,8 @@
 }
 .report-tax-modal__buttons #salesTaxReportModalPrint,
 .report-tax-modal__buttons #purchaseTaxReportModalPrint,
-.report-tax-modal__buttons #clientStatementDetailPrint {
+.report-tax-modal__buttons #clientStatementDetailPrint,
+.report-tax-modal__buttons #paymentHistoryDetailPrint {
   margin-left: auto;
 }
 .report-tax-preview__root {
@@ -177,6 +178,12 @@
   max-width: none;
   width: 100%;
 }
+#paymentHistoryDetailModal .payment-history-export-preview__table,
+#paymentHistoryDetailModal .payment-history-export-preview__table tbody,
+#paymentHistoryDetailModal .payment-history-export-preview__table th,
+#paymentHistoryDetailModal .payment-history-export-preview__table td {
+  font-size: 10px;
+}
 .report-tax-preview__status {
   color: #e2e8f0;
   font-weight: 600;
@@ -202,6 +209,13 @@
 }
 #clientStatementReportModal .doc-dialog-model-picker__field {
   width: 200px;
+}
+#swbDialog .payment-history-export-dialog .model-select-menu[open] {
+  position: relative;
+  z-index: 100020;
+}
+#swbDialog .payment-history-export-dialog .model-select-menu[open] .field-toggle-panel {
+  z-index: 100030;
 }
 @media (max-width: 720px) {
   .report-tax-date-range__selectors {

@@ -44,8 +44,8 @@
     const ui = AppInit.PaymentHistoryExportUi;
     const dialog = AppInit.PaymentHistoryExportDialog;
     const business = AppInit.PaymentHistoryExportBusiness;
-    const pdf = AppInit.PaymentHistoryExportPdf;
-    if (!ui || !dialog || !business || !pdf) {
+    const preview = AppInit.PaymentHistoryExportPreview;
+    if (!ui || !dialog || !business || !preview) {
       console.warn("payment history export modules are missing");
       return;
     }
@@ -81,7 +81,7 @@
           return;
         }
 
-        await pdf.exportPaymentHistoryPdf({
+        await preview.showPaymentHistoryExportPreview({
           snapshot: {
             company: w.SEM?.state?.company || {},
             rows: dataset.rows,

@@ -15,6 +15,9 @@
     { value: "all-records", label: "Tous les paiements" }
   ];
 
+  const FIELD_TOGGLE_CHEVRON_SVG =
+    '<svg class="chevron" aria-hidden="true" focusable="false" stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="none" d="M0 0h24v24H0V0z"></path><path d="M12 4c4.41 0 8 3.59 8 8s-3.59 8-8 8-8-3.59-8-8 3.59-8 8-8m0-2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 13-4-4h8z"></path></svg>';
+
   const getBusiness = () => AppInit.PaymentHistoryExportBusiness || {};
 
   const normalizeIsoDate = (value) => {
@@ -86,11 +89,20 @@
     let endInput = null;
     let scopeSelect = null;
     let presetSelect = null;
+    let scopeMenu = null;
+    let scopeSummary = null;
+    let scopeDisplay = null;
+    let scopePanel = null;
+    let presetMenu = null;
+    let presetSummary = null;
+    let presetDisplay = null;
+    let presetPanel = null;
     let hintEl = null;
     let infoEl = null;
     let dateFields = null;
     let startPicker = null;
     let endPicker = null;
+    let dialogDoc = null;
     const cleanupFns = [];
 
     const addListener = (el, eventName, handler) => {
@@ -120,6 +132,105 @@
         startPicker?.close?.();
         endPicker?.close?.();
       }
+    };
+
+    const optionLabelFor = (options, value, fallback = "") => {
+      const key = String(value ?? "");
+      const match = (Array.isArray(options) ? options : []).find(
+        (opt) => String(opt?.value ?? "") === key
+      );
+      if (match && typeof match.label === "string") return match.label;
+      return fallback || (options && options[0] ? String(options[0].label || "") : "");
+    };
+
+    const setMenuOpenState = (menu, open) => {
+      if (!menu) return;
+      const isOpen = !!open;
+      menu.open = isOpen;
+      const summary = menu.querySelector("summary");
+      if (summary) summary.setAttribute("aria-expanded", isOpen ? "true" : "false");
+    };
+
+    const syncMenuSelection = ({
+      select,
+      display,
+      panel,
+      options,
+      dataAttribute,
+      value
+    }) => {
+      const normalizedOptions = Array.isArray(options) ? options : [];
+      const availableValues = new Set(
+        normalizedOptions.map((opt) => String(opt?.value ?? ""))
+      );
+      const fallbackValue = normalizedOptions.length
+        ? String(normalizedOptions[0].value ?? "")
+        : "";
+      const requested = String(value ?? "");
+      const nextValue = availableValues.has(requested) ? requested : fallbackValue;
+
+      if (select) select.value = nextValue;
+      if (display) {
+        display.textContent = optionLabelFor(normalizedOptions, nextValue, nextValue) || nextValue;
+      }
+      if (panel) {
+        panel.querySelectorAll(`[${dataAttribute}]`).forEach((btn) => {
+          const isActive = String(btn.getAttribute(dataAttribute) || "") === nextValue;
+          btn.classList.toggle("is-active", isActive);
+          btn.setAttribute("aria-selected", isActive ? "true" : "false");
+        });
+      }
+      return nextValue;
+    };
+
+    const wireMenuDropdown = ({
+      menu,
+      summary,
+      panel,
+      select,
+      options,
+      dataAttribute,
+      onChange
+    }) => {
+      if (!menu || !summary || !panel || !select) return;
+
+      addListener(summary, "click", (evt) => {
+        evt.preventDefault();
+        setMenuOpenState(menu, !menu.open);
+        if (!menu.open) summary.focus();
+      });
+
+      addListener(menu, "keydown", (evt) => {
+        if (evt.key !== "Escape") return;
+        if (!menu.open) return;
+        evt.preventDefault();
+        setMenuOpenState(menu, false);
+        summary.focus();
+      });
+
+      addListener(panel, "click", (evt) => {
+        const target = evt.target instanceof Element ? evt.target.closest(`[${dataAttribute}]`) : null;
+        if (!target) return;
+        const nextValue = String(target.getAttribute(dataAttribute) || "");
+        const changed = String(select.value || "") !== nextValue;
+        select.value = nextValue;
+        syncMenuSelection({
+          select,
+          display: menu === scopeMenu ? scopeDisplay : presetDisplay,
+          panel,
+          options,
+          dataAttribute,
+          value: nextValue
+        });
+        setMenuOpenState(menu, false);
+        if (typeof onChange === "function") {
+          if (changed) {
+            select.dispatchEvent(new Event("change", { bubbles: true }));
+          } else {
+            onChange(nextValue);
+          }
+        }
+      });
     };
 
     const updateScopeInfo = () => {
@@ -196,8 +307,33 @@
       container.style.overflow = "visible";
 
       const doc = container.ownerDocument || document;
+      dialogDoc = doc;
       const wrapper = doc.createElement("div");
       wrapper.className = "report-tax-date-range payment-history-export-dialog";
+      const scopeButtons = SCOPE_OPTIONS.map((opt) => {
+        const isActive = opt.value === state.scope;
+        return `
+          <button type="button" class="model-select-option${isActive ? " is-active" : ""}" data-payment-history-export-scope="${opt.value}" role="option" aria-selected="${isActive ? "true" : "false"}">
+            ${opt.label}
+          </button>
+        `;
+      }).join("");
+      const scopeSelectOptions = SCOPE_OPTIONS.map((opt) => {
+        const isSelected = opt.value === state.scope;
+        return `<option value="${opt.value}"${isSelected ? " selected" : ""}>${opt.label}</option>`;
+      }).join("");
+      const presetButtons = PRESET_OPTIONS.map((opt) => {
+        const isActive = opt.value === state.preset;
+        return `
+          <button type="button" class="model-select-option${isActive ? " is-active" : ""}" data-payment-history-export-preset="${opt.value}" role="option" aria-selected="${isActive ? "true" : "false"}">
+            ${opt.label}
+          </button>
+        `;
+      }).join("");
+      const presetSelectOptions = PRESET_OPTIONS.map((opt) => {
+        const isSelected = opt.value === state.preset;
+        return `<option value="${opt.value}"${isSelected ? " selected" : ""}>${opt.label}</option>`;
+      }).join("");
       wrapper.innerHTML = `
         <p class="report-tax-date-range__intro">
           Configurez les options d'export PDF de l'historique des paiements.
@@ -205,28 +341,40 @@
         <p id="paymentHistoryExportInfo" class="report-tax-date-range__intro"></p>
         <div class="report-tax-date-range__selectors report-tax-date-range__selectors--single">
           <label class="report-tax-date-range__selector">
-            <span>Perimetre</span>
-            <select id="paymentHistoryExportScope">
-              ${SCOPE_OPTIONS.map(
-                (opt) =>
-                  `<option value="${opt.value}"${
-                    opt.value === state.scope ? " selected" : ""
-                  }>${opt.label}</option>`
-              ).join("")}
-            </select>
+            <span id="paymentHistoryExportScopeLabel">Perimetre</span>
+            <div class="report-tax-date-range__controls">
+              <details id="paymentHistoryExportScopeMenu" class="field-toggle-menu model-select-menu report-tax-date-range__menu">
+                <summary class="btn success field-toggle-trigger" role="button" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="paymentHistoryExportScopeLabel paymentHistoryExportScopeDisplay">
+                  <span id="paymentHistoryExportScopeDisplay" class="model-select-display"></span>
+                  ${FIELD_TOGGLE_CHEVRON_SVG}
+                </summary>
+                <div id="paymentHistoryExportScopePanel" class="field-toggle-panel model-select-panel report-tax-date-range__panel" role="listbox" aria-labelledby="paymentHistoryExportScopeLabel">
+                  ${scopeButtons}
+                </div>
+              </details>
+              <select id="paymentHistoryExportScope" class="report-tax-date-range__select" aria-hidden="true" tabindex="-1">
+                ${scopeSelectOptions}
+              </select>
+            </div>
           </label>
         </div>
         <div class="report-tax-date-range__selectors report-tax-date-range__selectors--triple">
           <label class="report-tax-date-range__selector">
-            <span>Selection</span>
-            <select id="paymentHistoryExportPreset">
-              ${PRESET_OPTIONS.map(
-                (opt) =>
-                  `<option value="${opt.value}"${
-                    opt.value === state.preset ? " selected" : ""
-                  }>${opt.label}</option>`
-              ).join("")}
-            </select>
+            <span id="paymentHistoryExportPresetLabel">Selection</span>
+            <div class="report-tax-date-range__controls">
+              <details id="paymentHistoryExportPresetMenu" class="field-toggle-menu model-select-menu report-tax-date-range__menu">
+                <summary class="btn success field-toggle-trigger" role="button" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="paymentHistoryExportPresetLabel paymentHistoryExportPresetDisplay">
+                  <span id="paymentHistoryExportPresetDisplay" class="model-select-display"></span>
+                  ${FIELD_TOGGLE_CHEVRON_SVG}
+                </summary>
+                <div id="paymentHistoryExportPresetPanel" class="field-toggle-panel model-select-panel report-tax-date-range__panel" role="listbox" aria-labelledby="paymentHistoryExportPresetLabel">
+                  ${presetButtons}
+                </div>
+              </details>
+              <select id="paymentHistoryExportPreset" class="report-tax-date-range__select" aria-hidden="true" tabindex="-1">
+                ${presetSelectOptions}
+              </select>
+            </div>
           </label>
           <label class="report-tax-date-range__selector">
             <span>Date debut</span>
@@ -317,6 +465,14 @@
 
       scopeSelect = wrapper.querySelector("#paymentHistoryExportScope");
       presetSelect = wrapper.querySelector("#paymentHistoryExportPreset");
+      scopeMenu = wrapper.querySelector("#paymentHistoryExportScopeMenu");
+      scopeSummary = scopeMenu?.querySelector("summary") || null;
+      scopeDisplay = wrapper.querySelector("#paymentHistoryExportScopeDisplay");
+      scopePanel = wrapper.querySelector("#paymentHistoryExportScopePanel");
+      presetMenu = wrapper.querySelector("#paymentHistoryExportPresetMenu");
+      presetSummary = presetMenu?.querySelector("summary") || null;
+      presetDisplay = wrapper.querySelector("#paymentHistoryExportPresetDisplay");
+      presetPanel = wrapper.querySelector("#paymentHistoryExportPresetPanel");
       startInput = wrapper.querySelector("#paymentHistoryExportStart");
       endInput = wrapper.querySelector("#paymentHistoryExportEnd");
       hintEl = wrapper.querySelector("#paymentHistoryExportHint");
@@ -346,14 +502,87 @@
       setInputValue(endInput, endPicker, state.endDate);
       if (scopeSelect) scopeSelect.value = state.scope;
       if (presetSelect) presetSelect.value = state.preset;
+      syncMenuSelection({
+        select: scopeSelect,
+        display: scopeDisplay,
+        panel: scopePanel,
+        options: SCOPE_OPTIONS,
+        dataAttribute: "data-payment-history-export-scope",
+        value: state.scope
+      });
+      syncMenuSelection({
+        select: presetSelect,
+        display: presetDisplay,
+        panel: presetPanel,
+        options: PRESET_OPTIONS,
+        dataAttribute: "data-payment-history-export-preset",
+        value: state.preset
+      });
 
       addListener(scopeSelect, "change", () => {
-        state.scope = String(scopeSelect?.value || "modal-filters").trim();
+        state.scope = syncMenuSelection({
+          select: scopeSelect,
+          display: scopeDisplay,
+          panel: scopePanel,
+          options: SCOPE_OPTIONS,
+          dataAttribute: "data-payment-history-export-scope",
+          value: scopeSelect?.value || "modal-filters"
+        });
         updateScopeInfo();
       });
       addListener(presetSelect, "change", applyPreset);
       addListener(startInput, "input", setOkState);
       addListener(endInput, "input", setOkState);
+      wireMenuDropdown({
+        menu: scopeMenu,
+        summary: scopeSummary,
+        panel: scopePanel,
+        select: scopeSelect,
+        options: SCOPE_OPTIONS,
+        dataAttribute: "data-payment-history-export-scope",
+        onChange: (value) => {
+          state.scope = String(value || "modal-filters").trim();
+          syncMenuSelection({
+            select: scopeSelect,
+            display: scopeDisplay,
+            panel: scopePanel,
+            options: SCOPE_OPTIONS,
+            dataAttribute: "data-payment-history-export-scope",
+            value: state.scope
+          });
+          updateScopeInfo();
+        }
+      });
+      wireMenuDropdown({
+        menu: presetMenu,
+        summary: presetSummary,
+        panel: presetPanel,
+        select: presetSelect,
+        options: PRESET_OPTIONS,
+        dataAttribute: "data-payment-history-export-preset",
+        onChange: (value) => {
+          state.preset = String(value || "custom").trim();
+          syncMenuSelection({
+            select: presetSelect,
+            display: presetDisplay,
+            panel: presetPanel,
+            options: PRESET_OPTIONS,
+            dataAttribute: "data-payment-history-export-preset",
+            value: state.preset
+          });
+          applyPreset();
+        }
+      });
+      addListener(dialogDoc, "click", (evt) => {
+        const target = evt.target;
+        if (!(target instanceof Element)) return;
+        if (scopeMenu?.open && !scopeMenu.contains(target)) {
+          setMenuOpenState(scopeMenu, false);
+        }
+        if (presetMenu?.open && !presetMenu.contains(target)) {
+          setMenuOpenState(presetMenu, false);
+        }
+      });
 
       updateScopeInfo();
       applyPreset();
