@@ -1164,8 +1164,7 @@ border-collapse: separate;
 }
 
 #modelActionsModal #modelDocTypePanel.doc-type-panel--inline {
-  display: flex;
-  flex-wrap: wrap;
+  display: block;
   border: 0;
   background: transparent;
   box-shadow: none;
@@ -1173,12 +1172,18 @@ border-collapse: separate;
   gap: 8px;
 }
 
-#modelActionsModal #modelDocTypePanel.doc-type-panel--inline .doc-type-toggle {
-  white-space: nowrap;
+#modelActionsModal #modelDocTypePanel.doc-type-panel--inline .doc-type-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
-#modelActionsModal #modelDocTypePanel.doc-type-panel--inline .doc-type-toggle[data-doc-type-option="fa"] {
-  flex-basis: 100%;
+#modelActionsModal #modelDocTypePanel.doc-type-panel--inline .doc-type-row + .doc-type-row {
+  margin-top: 8px;
+}
+
+#modelActionsModal #modelDocTypePanel.doc-type-panel--inline .doc-type-toggle {
+  white-space: nowrap;
 }
 
 #modelActionsModal .doc-type-select {

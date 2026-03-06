@@ -299,9 +299,11 @@
       "colToggleTotalPurchaseHtModal",
       "colToggleTotalPurchaseTtcModal"
     ];
-    const MODEL_DOC_TYPE_SWITCH_SET = new Set([
+    const MODEL_DOC_TYPE_SWITCH_EXCLUSIVE_WITH_FA = new Set([
       MODEL_DOC_TYPE_SWITCH_FACTURE,
-      MODEL_DOC_TYPE_SWITCH_FA
+      "avoir",
+      "devis",
+      "bl"
     ]);
     let modelDocTypeFaLockSyncInProgress = false;
 
@@ -309,27 +311,17 @@
       let normalizedList = expandModelDocTypeList(value, getSelectedModelDocTypes());
       if (!normalizedList.length) normalizedList = [DEFAULT_MODEL_DOC_TYPE];
 
-      const hasFacture = normalizedList.includes(MODEL_DOC_TYPE_SWITCH_FACTURE);
       const hasFa = normalizedList.includes(MODEL_DOC_TYPE_SWITCH_FA);
-      if (!hasFacture || !hasFa) return normalizedList;
+      const hasExclusiveWithFa = normalizedList.some(
+        (entry) => entry !== MODEL_DOC_TYPE_SWITCH_FA && MODEL_DOC_TYPE_SWITCH_EXCLUSIVE_WITH_FA.has(entry)
+      );
+      if (!hasFa || !hasExclusiveWithFa) return normalizedList;
 
       const preferredRaw = String(preferredSwitchValue || "").trim().toLowerCase();
-      const preferred =
-        MODEL_DOC_TYPE_SWITCH_SET.has(preferredRaw)
-          ? preferredRaw
-          : "";
-      const factureIndex = normalizedList.indexOf(MODEL_DOC_TYPE_SWITCH_FACTURE);
-      const faIndex = normalizedList.indexOf(MODEL_DOC_TYPE_SWITCH_FA);
-      const keepValue =
-        preferred ||
-        (faIndex > -1 && factureIndex > -1 && faIndex < factureIndex
-          ? MODEL_DOC_TYPE_SWITCH_FA
-          : MODEL_DOC_TYPE_SWITCH_FACTURE);
-      const dropValue =
-        keepValue === MODEL_DOC_TYPE_SWITCH_FA
-          ? MODEL_DOC_TYPE_SWITCH_FACTURE
-          : MODEL_DOC_TYPE_SWITCH_FA;
-      return normalizedList.filter((entry) => entry !== dropValue);
+      if (preferredRaw === MODEL_DOC_TYPE_SWITCH_FA) {
+        return [MODEL_DOC_TYPE_SWITCH_FA];
+      }
+      return normalizedList.filter((entry) => entry !== MODEL_DOC_TYPE_SWITCH_FA);
     };
 
     const setModelColumnToggleDisabledState = (input, disabled) => {
@@ -362,6 +354,24 @@
       if (!id) return null;
       if (typeof getEl === "function") return getEl(id);
       return document.getElementById(id);
+    };
+    const getModelAchatSectionToggles = () => {
+      const fromIds = MODEL_DOC_TYPE_FA_PURCHASE_TOGGLE_IDS.map((id) => getModelColumnToggleById(id)).filter(
+        Boolean
+      );
+      const fallback = Array.from(
+        modelActionsModal?.querySelectorAll?.('input.col-toggle[data-column-key*="purchase"][id]') || []
+      );
+      const merged = fromIds.concat(fallback);
+      const seen = new Set();
+      const resolved = [];
+      merged.forEach((input) => {
+        const inputId = String(input?.id || "").trim();
+        if (!inputId || seen.has(inputId)) return;
+        seen.add(inputId);
+        resolved.push(input);
+      });
+      return resolved;
     };
 
     const syncModelPriceDependentSaleToggles = ({ reapplyTaxLocksOnUnlock = true } = {}) => {
@@ -476,13 +486,15 @@
       modelDocTypeFaLockSyncInProgress = true;
       try {
       const isFaActive = normalizedList.includes(MODEL_DOC_TYPE_SWITCH_FA);
-      const isFactureActive = normalizedList.includes(MODEL_DOC_TYPE_SWITCH_FACTURE);
+      const isPurchaseExclusiveDocTypeActive = normalizedList.some(
+        (value) =>
+          value !== MODEL_DOC_TYPE_SWITCH_FA &&
+          MODEL_DOC_TYPE_SWITCH_EXCLUSIVE_WITH_FA.has(value)
+      );
       const saleToggles = MODEL_DOC_TYPE_FA_VENTE_TOGGLE_IDS
         .map((id) => getModelColumnToggleById(id))
         .filter(Boolean);
-      const purchaseToggles = MODEL_DOC_TYPE_FA_PURCHASE_TOGGLE_IDS
-        .map((id) => getModelColumnToggleById(id))
-        .filter(Boolean);
+      const purchaseToggles = getModelAchatSectionToggles();
       const allToggles = [...saleToggles, ...purchaseToggles];
       const syncTaxLocks = w.SEM?.__bindingHelpers?.syncTaxModeDependentColumnToggles;
       const enforceFaSalesGridLock = () => {
@@ -553,11 +565,15 @@
         syncModelPurchasePriceDependentToggles({ reapplyTaxLocksOnUnlock: true });
         // Keep sales grid locked even after purchase dependency / tax relocking side effects.
         enforceFaSalesGridLock();
-      } else if (isFactureActive) {
-        // Facture has its own rules; clear FA markers before applying them.
+      } else if (isPurchaseExclusiveDocTypeActive) {
+        // Facture/Devis/Avoir/BL must disable and uncheck purchase columns.
         allToggles.forEach((toggle) => {
           const wasForced = toggle.dataset[MODEL_DOC_TYPE_FA_FORCED_DATASET_KEY] === "1";
-          if (wasForced) {
+          const isPurchaseToggle = MODEL_DOC_TYPE_FA_PURCHASE_TOGGLE_IDS.includes(String(toggle.id || ""));
+          const wasFactureLocked = toggle.dataset[MODEL_DOC_TYPE_FACTURE_PURCHASE_LOCK_DATASET_KEY] === "1";
+
+          // Restore FA-lock states on sale columns and clear FA lock markers from previous mode.
+          if (wasForced && !isPurchaseToggle) {
             const previousValue = toggle.dataset[MODEL_DOC_TYPE_FA_LOCK_DATASET_KEY];
             if (previousValue === "true" || previousValue === "false") {
               setModelColumnToggleChecked(toggle, previousValue === "true");
@@ -565,6 +581,12 @@
           }
           delete toggle.dataset[MODEL_DOC_TYPE_FA_FORCED_DATASET_KEY];
           delete toggle.dataset[MODEL_DOC_TYPE_FA_LOCK_DATASET_KEY];
+          if (!isPurchaseToggle && wasFactureLocked) {
+            const previousValue = toggle.dataset[MODEL_DOC_TYPE_FACTURE_PURCHASE_PREV_DATASET_KEY];
+            if (previousValue === "true" || previousValue === "false") {
+              setModelColumnToggleChecked(toggle, previousValue === "true");
+            }
+          }
         });
 
         // Keep tax-mode locks (without taxes) working independently of doc-type.
@@ -581,11 +603,7 @@
         });
 
         enforceFacturePurchaseGridLock();
-
-        // Price is the base sales column: dependent sales columns cannot stay active when it's off.
         syncModelPriceDependentSaleToggles({ reapplyTaxLocksOnUnlock: true });
-        // Keep purchase grid locked even after dependency/tax relocking side effects.
-        enforceFacturePurchaseGridLock();
       } else {
         purchaseToggles.forEach((toggle) => {
           const wasFactureLocked =

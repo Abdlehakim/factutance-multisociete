@@ -1,11 +1,19 @@
 module.exports = {
   groups: [
   {
-    "id": "WELLCOMGROUP",
+    "id": "wellcomgroup",
     "name": "WELLCOM GROUP",
     "companies": [
       "WELLCOM",
       "ProDisplay"
+    ]
+  },
+  {
+    "id": "smartwebify-groupe",
+    "name": "SmartWebify Groupe",
+    "companies": [
+      "SmartWebify",
+      "Facturance"
     ]
   }
 ]

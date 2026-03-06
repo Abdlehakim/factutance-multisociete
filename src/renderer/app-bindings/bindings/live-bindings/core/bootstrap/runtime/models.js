@@ -60,6 +60,37 @@
             }
             return Math.min(MODEL_PREVIEW_ZOOM_MAX, Math.max(MODEL_PREVIEW_ZOOM_MIN, parsed));
           };
+          const MODEL_DOC_TYPE_EXCLUSIVE_WITH_FA = new Set(["facture", "avoir", "devis", "bl"]);
+          const normalizeModelDocTypeSwitchSelection = (value, preferredSwitchValue = "") => {
+            const allowedValues = new Set(["facture", "fa", "devis", "bl", "avoir"]);
+            const normalizedFromString = (source) =>
+              String(source || "")
+                .split(",")
+                .map((entry) => String(entry || "").trim().toLowerCase())
+                .filter(Boolean)
+                .filter((entry) => allowedValues.has(entry) && entry !== "aucun")
+                .filter((entry, index, list) => list.indexOf(entry) === index);
+            let normalizedList = Array.isArray(value)
+              ? value
+                  .map((entry) => String(entry || "").trim().toLowerCase())
+                  .filter(Boolean)
+                  .filter((entry) => allowedValues.has(entry) && entry !== "aucun")
+                  .filter((entry, index, list) => list.indexOf(entry) === index)
+              : normalizedFromString(value);
+            if (!normalizedList.length) normalizedList = ["facture"];
+            const hasFa = normalizedList.includes("fa");
+            const hasExclusiveWithFa = normalizedList.some(
+              (entry) => entry !== "fa" && MODEL_DOC_TYPE_EXCLUSIVE_WITH_FA.has(entry)
+            );
+            if (!hasFa || !hasExclusiveWithFa) {
+              return normalizedList;
+            }
+            const preferred = String(preferredSwitchValue || "").trim().toLowerCase();
+            if (preferred === "fa") {
+              return ["fa"];
+            }
+            return normalizedList.filter((entry) => entry !== "fa");
+          };
           readModelPreviewScale = () => {
             const root = modelActionsModal || getEl("modelActionsModal");
             const styles = root && typeof getComputedStyle === "function"
@@ -438,13 +469,13 @@
               )
                 .map((input) => String(input.value || "").trim().toLowerCase())
                 .filter(Boolean);
-              if (panelValues.length) return panelValues;
+              if (panelValues.length) return normalizeModelDocTypeSwitchSelection(panelValues);
               const selectValues = Array.from(getEl("modelDocType")?.selectedOptions || [])
                 .map((opt) => String(opt.value || "").trim().toLowerCase())
                 .filter(Boolean);
-              if (selectValues.length) return selectValues;
+              if (selectValues.length) return normalizeModelDocTypeSwitchSelection(selectValues);
               const fallback = String(getEl("modelDocType")?.value || "").trim().toLowerCase();
-              return fallback ? [fallback] : [];
+              return normalizeModelDocTypeSwitchSelection(fallback ? [fallback] : []);
             };
             const selectedModelDocTypes = getSelectedModelDocTypes();
             const hasDocTypes = Array.isArray(selectedModelDocTypes) && selectedModelDocTypes.length > 0;
@@ -1059,9 +1090,7 @@
               const panel = getEl("modelDocTypePanel");
               const selectEl = getEl("modelDocType");
               const list = Array.isArray(values) ? values : [values];
-              const normalized = list
-                .map((val) => String(val || "").trim().toLowerCase())
-                .filter(Boolean);
+              const normalized = normalizeModelDocTypeSwitchSelection(list);
               const selectedSet = new Set(normalized.length ? normalized : ["facture"]);
               if (panel) {
                 panel.querySelectorAll("[data-doc-type-option]").forEach((btn) => {
@@ -1561,9 +1590,7 @@
               const panel = getEl("modelDocTypePanel");
               const selectEl = getEl("modelDocType");
               const list = Array.isArray(values) ? values : [values];
-              const normalized = list
-                .map((val) => String(val || "").trim().toLowerCase())
-                .filter(Boolean);
+              const normalized = normalizeModelDocTypeSwitchSelection(list);
               const selectedSet = new Set(normalized.length ? normalized : ["facture"]);
               if (panel) {
                 panel.querySelectorAll("[data-doc-type-option]").forEach((btn) => {

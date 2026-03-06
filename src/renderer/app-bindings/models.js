@@ -126,6 +126,24 @@
     }
     return normalized;
   };
+  const MODEL_DOC_TYPE_SWITCH_EXCLUSIVE_WITH_FA = new Set(["facture", "avoir", "devis", "bl"]);
+  const normalizeModelDocTypeSwitchSelection = (value, preferredSwitchValue = "") => {
+    let normalizedList = normalizeDocTypeList(value, []);
+    if (!normalizedList.length) normalizedList = [DEFAULT_MODEL_DOC_TYPE];
+    const hasFa = normalizedList.includes("fa");
+    const hasExclusiveWithFa = normalizedList.some(
+      (entry) => entry !== "fa" && MODEL_DOC_TYPE_SWITCH_EXCLUSIVE_WITH_FA.has(entry)
+    );
+    if (!hasFa || !hasExclusiveWithFa) {
+      return normalizedList;
+    }
+    const preferred = String(preferredSwitchValue || "").trim().toLowerCase();
+    if (preferred === "fa") {
+      return ["fa"];
+    }
+    return normalizedList.filter((entry) => entry !== "fa");
+  };
+  helpers.normalizeModelDocTypeSwitchSelection = normalizeModelDocTypeSwitchSelection;
   const expandModelDocTypes = (value, fallback = []) => {
     const normalized = normalizeDocTypeList(value, []);
     if (normalized.length) return normalized;
@@ -938,13 +956,13 @@
     )
       .map((input) => String(input.value || "").trim().toLowerCase())
       .filter(Boolean);
-    if (panelValues.length) return normalizeDocTypeList(panelValues, []);
+    if (panelValues.length) return normalizeModelDocTypeSwitchSelection(panelValues);
     const selectValues = Array.from(getEl("modelDocType")?.selectedOptions || [])
       .map((opt) => String(opt.value || "").trim().toLowerCase())
       .filter(Boolean);
-    if (selectValues.length) return normalizeDocTypeList(selectValues, []);
+    if (selectValues.length) return normalizeModelDocTypeSwitchSelection(selectValues);
     const fallbackValue = String(getEl("modelDocType")?.value || "").trim().toLowerCase();
-    return normalizeDocTypeList(fallbackValue, []);
+    return normalizeModelDocTypeSwitchSelection(fallbackValue);
   }
 
   function resolveContextualModelFodecChecked({ docTypes } = {}) {
@@ -1649,13 +1667,13 @@
       )
         .map((input) => String(input.value || "").trim().toLowerCase())
         .filter(Boolean);
-      if (panelValues.length) return normalizeDocTypeList(panelValues, []);
+      if (panelValues.length) return normalizeModelDocTypeSwitchSelection(panelValues);
       const selectValues = Array.from(getEl("modelDocType")?.selectedOptions || [])
         .map((opt) => String(opt.value || "").trim().toLowerCase())
         .filter(Boolean);
-      if (selectValues.length) return normalizeDocTypeList(selectValues, []);
+      if (selectValues.length) return normalizeModelDocTypeSwitchSelection(selectValues);
       const fallbackValue = String(getEl("modelDocType")?.value || "").trim().toLowerCase();
-      return normalizeDocTypeList(fallbackValue, []);
+      return normalizeModelDocTypeSwitchSelection(fallbackValue);
     };
     const docTypesRaw = getSelectedModelDocTypes();
     const docTypes =
