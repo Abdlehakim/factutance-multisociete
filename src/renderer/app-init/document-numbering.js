@@ -15,6 +15,7 @@
     const modelDocTypePanel = getEl("modelDocTypePanel");
     const modelDocTypeDisplay = getEl("modelDocTypeDisplay");
     const modelDocTypeToggle = modelDocTypeMenu?.querySelector("summary") || null;
+    const modelDocTypeField = modelDocTypePanel?.closest(".doc-type-field") || null;
     const modelActionsModal = getEl("modelActionsModal");
     const currencySelect = getEl("currency");
     const currencyMenu = getEl("currencyMenu");
@@ -249,6 +250,8 @@
 
     const MODEL_DOC_TYPE_SWITCH_FACTURE = "facture";
     const MODEL_DOC_TYPE_SWITCH_FA = "fa";
+    const MODEL_DOC_TYPE_OPTION_SELECTOR = "[data-doc-type-option]";
+    const MODEL_DOC_TYPE_CHECKBOX_SELECTOR = 'input[type="checkbox"][name="modelDocTypeChoice"]';
     const MODEL_DOC_TYPE_FA_LOCK_DATASET_KEY = "docTypeFaPrevChecked";
     const MODEL_DOC_TYPE_FA_FORCED_DATASET_KEY = "docTypeFaForced";
     const MODEL_DOC_TYPE_FACTURE_PURCHASE_LOCK_DATASET_KEY = "docTypeFacturePurchaseLocked";
@@ -1205,6 +1208,13 @@
       });
       focusTarget?.focus();
     };
+    const getModelDocTypeOptionContext = (target) => {
+      const optionBtn = target?.closest?.(MODEL_DOC_TYPE_OPTION_SELECTOR);
+      if (!optionBtn || !modelDocTypePanel?.contains(optionBtn)) return null;
+      const checkbox = optionBtn.querySelector(MODEL_DOC_TYPE_CHECKBOX_SELECTOR);
+      if (!checkbox || checkbox.disabled) return null;
+      return { optionBtn, checkbox };
+    };
     const enforceModelFaToggleGuard = (input) => {
       if (!input) return;
       const id = String(input.id || "");
@@ -1212,9 +1222,39 @@
       applyModelDocTypeFaColumnLocks(getSelectedModelDocTypes());
     };
 
+    modelDocTypeField?.addEventListener(
+      "click",
+      (evt) => {
+        if (modelDocTypePanel?.contains(evt.target)) return;
+        evt.preventDefault();
+        evt.stopPropagation();
+      },
+      true
+    );
+    modelDocTypePanel?.addEventListener("click", (evt) => {
+      const context = getModelDocTypeOptionContext(evt.target);
+      if (!context) {
+        evt.preventDefault();
+        evt.stopPropagation();
+        return;
+      }
+      const directCheckboxTarget = evt.target?.closest?.(MODEL_DOC_TYPE_CHECKBOX_SELECTOR);
+      if (directCheckboxTarget === context.checkbox) {
+        // Keep native checkbox toggling for direct checkbox clicks.
+        evt.stopPropagation();
+        return;
+      }
+      evt.preventDefault();
+      evt.stopPropagation();
+      const { checkbox } = context;
+      checkbox.checked = !checkbox.checked;
+      checkbox.setAttribute("aria-checked", checkbox.checked ? "true" : "false");
+      applyModelDocTypeSelection(checkbox);
+    });
     modelDocTypePanel?.addEventListener("change", (evt) => {
-      const checkbox = evt.target.closest('input[type="checkbox"][name="modelDocTypeChoice"]');
-      if (!checkbox) return;
+      const checkbox = evt.target?.closest?.(MODEL_DOC_TYPE_CHECKBOX_SELECTOR);
+      if (!checkbox || !modelDocTypePanel.contains(checkbox)) return;
+      evt.stopPropagation();
       applyModelDocTypeSelection(checkbox);
     });
     modelActionsModal?.addEventListener("change", (evt) => {
