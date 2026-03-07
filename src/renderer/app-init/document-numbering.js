@@ -350,6 +350,39 @@
       return changed;
     };
 
+    const getModelAchatSectionRoot = () => {
+      if (!modelActionsModal) return null;
+      const sections = Array.from(modelActionsModal.querySelectorAll(".field-toggle-section"));
+      return (
+        sections.find((section) => {
+          const sectionTitle = section.querySelector(".field-toggle-section__title");
+          return String(sectionTitle?.textContent || "").trim().toLowerCase() === "achat";
+        }) || null
+      );
+    };
+
+    const setModelAchatSectionLockedState = (locked) => {
+      const section = getModelAchatSectionRoot();
+      if (!section) return;
+      section.classList.toggle("is-disabled", !!locked);
+      if (!!locked) {
+        section.setAttribute("aria-disabled", "true");
+      } else {
+        section.removeAttribute("aria-disabled");
+      }
+    };
+
+    const enforceModelAchatSectionDisabledState = (locked = false) => {
+      const sectionToggles = getModelAchatSectionToggles();
+      if (!sectionToggles.length) return;
+      sectionToggles.forEach((toggle) => {
+        if (locked) {
+          setModelColumnToggleChecked(toggle, false);
+          setModelColumnToggleDisabledState(toggle, true);
+        }
+      });
+    };
+
     const getModelColumnToggleById = (id) => {
       if (!id) return null;
       if (typeof getEl === "function") return getEl(id);
@@ -359,10 +392,14 @@
       const fromIds = MODEL_DOC_TYPE_FA_PURCHASE_TOGGLE_IDS.map((id) => getModelColumnToggleById(id)).filter(
         Boolean
       );
-      const fallback = Array.from(
-        modelActionsModal?.querySelectorAll?.('input.col-toggle[data-column-key*="purchase"][id]') || []
+      const sectionRoot = getModelAchatSectionRoot();
+      const sectionToggles = Array.from(
+        sectionRoot?.querySelectorAll?.('input.col-toggle[data-column-key][id]') || []
       );
-      const merged = fromIds.concat(fallback);
+      const fallback = Array.from(
+        modelActionsModal?.querySelectorAll?.('input.col-toggle[data-column-key][id]') || []
+      ).filter((input) => String(input?.dataset?.columnKey || "").toLowerCase().includes("purchase"));
+      const merged = fromIds.concat(sectionToggles, fallback);
       const seen = new Set();
       const resolved = [];
       merged.forEach((input) => {
@@ -496,6 +533,7 @@
         .filter(Boolean);
       const purchaseToggles = getModelAchatSectionToggles();
       const allToggles = [...saleToggles, ...purchaseToggles];
+      const purchaseToggleIds = new Set(purchaseToggles.map((toggle) => String(toggle?.id || "").trim()));
       const syncTaxLocks = w.SEM?.__bindingHelpers?.syncTaxModeDependentColumnToggles;
       const enforceFaSalesGridLock = () => {
         saleToggles.forEach((toggle) => {
@@ -554,6 +592,7 @@
         }
 
         enforceFaSalesGridLock();
+        setModelAchatSectionLockedState(false);
 
         purchaseToggles.forEach((toggle) => {
           delete toggle.dataset[MODEL_DOC_TYPE_FA_FORCED_DATASET_KEY];
@@ -569,7 +608,7 @@
         // Facture/Devis/Avoir/BL must disable and uncheck purchase columns.
         allToggles.forEach((toggle) => {
           const wasForced = toggle.dataset[MODEL_DOC_TYPE_FA_FORCED_DATASET_KEY] === "1";
-          const isPurchaseToggle = MODEL_DOC_TYPE_FA_PURCHASE_TOGGLE_IDS.includes(String(toggle.id || ""));
+          const isPurchaseToggle = purchaseToggleIds.has(String(toggle.id || ""));
           const wasFactureLocked = toggle.dataset[MODEL_DOC_TYPE_FACTURE_PURCHASE_LOCK_DATASET_KEY] === "1";
 
           // Restore FA-lock states on sale columns and clear FA lock markers from previous mode.
@@ -593,6 +632,7 @@
         if (typeof syncTaxLocks === "function") {
           syncTaxLocks({ scope: "model" });
         }
+        setModelAchatSectionLockedState(true);
 
         saleToggles.forEach((toggle) => {
           const isTaxDependentSale = MODEL_DOC_TYPE_TAX_DEPENDENT_VENTE_TOGGLE_IDS.has(String(toggle.id || ""));
@@ -603,8 +643,12 @@
         });
 
         enforceFacturePurchaseGridLock();
-        syncModelPriceDependentSaleToggles({ reapplyTaxLocksOnUnlock: true });
+        syncModelPriceDependentSaleToggles({ reapplyTaxLocksOnUnlock: false });
+        // Keep the purchase block hard-locked for non-purchase document types.
+        enforceModelAchatSectionDisabledState(true);
       } else {
+        setModelAchatSectionLockedState(false);
+
         purchaseToggles.forEach((toggle) => {
           const wasFactureLocked =
             toggle.dataset[MODEL_DOC_TYPE_FACTURE_PURCHASE_LOCK_DATASET_KEY] === "1";

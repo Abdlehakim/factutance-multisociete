@@ -724,7 +724,10 @@
                 }
               }
               if (updateBtn) {
-                const hideUpdate = isItemsDocOptionsContext || effectiveMode === "create" || isViewMode;
+                const hideUpdate =
+                  effectiveMode === "create" ||
+                  isViewMode ||
+                  (isItemsDocOptionsContext && effectiveMode !== "edit");
                 updateBtn.hidden = hideUpdate;
                 if (hideUpdate) {
                   updateBtn.disabled = true;

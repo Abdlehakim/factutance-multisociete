@@ -875,7 +875,7 @@
     window.electronAPI.__baselineWrappedOpenClient = true;
   }
 
-  SEM.evaluateClientDirtyState = function () {
+  SEM.evaluateClientDirtyState = function (scopeHint) {
     const baseline = SEM.clientFormBaseline;
     const currentState = state().client || {};
     if (!baseline?.__path) {
@@ -884,7 +884,7 @@
       SEM.refreshUpdateClientButton();
       return;
     }
-    const current = getCurrentClientSnapshot();
+    const current = getCurrentClientSnapshot(scopeHint);
     const dirty = CLIENT_SNAPSHOT_FIELDS.some((field) => current[field] !== baseline[field]);
     SEM.clientFormDirty = dirty;
     if (currentState) currentState.__dirty = dirty;

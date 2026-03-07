@@ -1213,9 +1213,12 @@
 
             if (SEM.setClientFormBaseline) {
               const baselineEntityType = formScope ? resolveClientEntityType(formScope) : null;
+              const baselineScope = formScope || options.formScope || null;
               const snapshot =
-                (typeof SEM.getClientFormSnapshot === "function" && SEM.getClientFormSnapshot()) ||
-                SEM.forms?.captureClientFromForm?.() ||
+                (typeof SEM.getClientFormSnapshot === "function" &&
+                  SEM.getClientFormSnapshot(baselineScope)) ||
+                (typeof SEM.forms?.captureClientFromForm === "function" &&
+                  SEM.forms.captureClientFromForm(baselineScope)) ||
                 { ...payload };
               snapshot.__path = selectedPath;
               if (selectedPath) {
@@ -1236,9 +1239,9 @@
             if (state().client) state().client.__dirty = false;
 
             if (!options.skipDirtyEval && typeof SEM.evaluateClientDirtyState === "function") {
-              SEM.evaluateClientDirtyState();
+              SEM.evaluateClientDirtyState(formScope || options.formScope || null);
             } else {
-              SEM.refreshUpdateClientButton?.();
+              SEM.refreshUpdateClientButton?.(formScope || options.formScope || null);
             }
           };
 
