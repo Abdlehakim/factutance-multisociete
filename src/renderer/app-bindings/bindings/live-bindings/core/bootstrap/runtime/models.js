@@ -480,6 +480,7 @@
             const selectedModelDocTypes = getSelectedModelDocTypes();
             const hasDocTypes = Array.isArray(selectedModelDocTypes) && selectedModelDocTypes.length > 0;
             const effectiveDocType = selectedModelDocTypes[0] || "facture";
+            const isPurchaseDocType = selectedModelDocTypes.includes("fa") || effectiveDocType === "fa";
             const currency =
               checkedValue(getEl("modelCurrencyPanel")) || getEl("modelCurrency")?.value || "DT";
             const taxMode =
@@ -515,6 +516,12 @@
 
             if (modelPreviewDoc) {
               modelPreviewDoc.textContent = DOC_TYPE_LABELS[effectiveDocType] || effectiveDocType || "N/A";
+            }
+            const previewPartyLegend =
+              previewRoot.querySelector('[data-model-preview-party-legend]') ||
+              previewRoot.querySelector(".doc-design1__section > .doc-design1__section-title");
+            if (previewPartyLegend) {
+              previewPartyLegend.textContent = isPurchaseDocType ? "Fournisseur" : "Client";
             }
             const prefixMap = {
               facture: "Fact",
@@ -797,7 +804,6 @@
             };
             setPreviewLabels(taxesEnabled);
             previewRoot.classList.toggle("tax-disabled", !taxesEnabled);
-            const isPurchaseDocType = effectiveDocType === "fa";
             const saleFodecChecked = saleFodecToggle ? !!saleFodecToggle.checked : isColumnChecked("fodec");
             const purchaseFodecChecked = purchaseFodecToggle
               ? !!purchaseFodecToggle.checked

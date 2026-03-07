@@ -262,7 +262,7 @@ export const template2 = `
                   </div>
 
                   <fieldset class="doc-design1__section">
-                    <legend class="doc-design1__section-title">Client</legend>
+                    <legend class="doc-design1__section-title" data-model-preview-party-legend>Client</legend>
                     <p class="doc-design1__client-name">${DOC_DESIGN1_DATA.client.name}</p>
                     <p class="doc-design1__meta-line"><span class="doc-design1__meta-label">MF&nbsp;:</span><span class="doc-design1__meta-value">${DOC_DESIGN1_DATA.client.mf}</span></p>
                     <p class="doc-design1__meta-line"><span class="doc-design1__meta-label">T&eacute;l&eacute;phone&nbsp;:</span><span class="doc-design1__meta-value">${DOC_DESIGN1_DATA.client.phone}</span></p>

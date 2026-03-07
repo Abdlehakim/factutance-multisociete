@@ -926,6 +926,9 @@
         modelDocTypeToggle.setAttribute("aria-expanded", modelDocTypeMenu?.open ? "true" : "false");
       }
       applyModelDocTypeFaColumnLocks(normalizedList);
+      try {
+        window.SEM?.__bindingHelpers?.updateModelPreview?.();
+      } catch {}
       return normalizedList;
     }
 
