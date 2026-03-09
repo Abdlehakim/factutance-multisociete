@@ -4937,12 +4937,21 @@ function resolveArticleUpdateTarget(targetPath, article = {}) {
 function buildArticleDuplicateCheckPayload(article = {}, baselineArticle = null) {
   if (!baselineArticle || typeof baselineArticle !== "object") return article;
   const payload = article && typeof article === "object" ? { ...article } : {};
-  ["ref", "product", "desc"].forEach((field) => {
+  const nextRef = normalizeArticleDuplicateField(article?.ref);
+  const nextProduct = normalizeArticleDuplicateField(article?.product);
+  const previousRef = normalizeArticleDuplicateField(baselineArticle?.ref);
+  const previousProduct = normalizeArticleDuplicateField(baselineArticle?.product);
+  const nextKey = nextRef ? "ref" : nextProduct ? "product" : "";
+  const previousKey = previousRef ? "ref" : previousProduct ? "product" : "";
+  ["ref", "product"].forEach((field) => {
     const nextValue = normalizeArticleDuplicateField(payload[field]);
     const previousValue = normalizeArticleDuplicateField(baselineArticle[field]);
-    // Allow editing existing duplicate records as long as the duplicate key value itself is unchanged.
-    if (nextValue === previousValue) payload[field] = "";
+    const becamePrimaryKey = field === nextKey && nextKey !== previousKey;
+    // Allow editing existing duplicate records as long as the active key did not change.
+    if (nextValue === previousValue && !becamePrimaryKey) payload[field] = "";
   });
+  if (nextKey === "ref") payload.product = "";
+  payload.desc = "";
   return payload;
 }
 

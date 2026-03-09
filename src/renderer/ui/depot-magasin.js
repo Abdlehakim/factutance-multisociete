@@ -60,7 +60,7 @@ export const renderDepotMagasinFormPopover = () => `
               <button
                 type="button"
                 id="depotMagasinAddEmplacement"
-                class="swbDialog__cancel depot-magasin-modal__emplacement-add"
+                class="client-search__edit depot-magasin-modal__emplacement-add"
               >
                 Ajouter
               </button>

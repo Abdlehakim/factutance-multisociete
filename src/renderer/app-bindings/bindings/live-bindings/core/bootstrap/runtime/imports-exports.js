@@ -729,13 +729,129 @@
             if (Number.isFinite(numeric)) return numeric > 0;
             return null;
           };
+          normalizeArticleImportDepotLinkedId = (value = "") =>
+            String(value ?? "")
+              .trim()
+              .replace(/^sqlite:\/\/depots\//i, "");
+          normalizeArticleImportDepotTabId = (value = "", fallback = 1) => {
+            const match = String(value || "").trim().match(/^depot[-_\s]?(\d+)$/i);
+            const fallbackNumber = Number(fallback);
+            const rawNumber = Number(match?.[1] || fallbackNumber || 1);
+            const boundedNumber =
+              Number.isFinite(rawNumber) && rawNumber > 0
+                ? Math.min(6, Math.max(1, Math.trunc(rawNumber)))
+                : 1;
+            return `depot-${boundedNumber}`;
+          };
+          isArticleImportDepotTabId = (value = "") => /^depot[-_\s]?\d+$/i.test(String(value || "").trim());
+          parseArticleImportStockDepotsPayload = (rawValue = "") => {
+            const raw = normalizeImportValue(rawValue);
+            if (!raw) return null;
+            try {
+              const parsed = JSON.parse(raw);
+              if (Array.isArray(parsed)) return parsed;
+              if (parsed && typeof parsed === "object") return parsed;
+            } catch {}
+            return null;
+          };
+          sanitizeArticleImportDepotConfig = (article = {}) => {
+            const source = article && typeof article === "object" ? article : {};
+            const parsedStockDepots = parseArticleImportStockDepotsPayload(source.stockDepotsJson);
+            const payloadSource =
+              Array.isArray(source.depots) && source.depots.length
+                ? { tabs: source.depots, activeTabId: source.activeDepotId || source.selectedDepotId }
+                : parsedStockDepots || {};
+            const payloadTabs = Array.isArray(payloadSource)
+              ? payloadSource
+              : Array.isArray(payloadSource.tabs)
+              ? payloadSource.tabs
+              : Array.isArray(payloadSource.depots)
+              ? payloadSource.depots
+              : [];
+            const usedLinkedDepotIds = new Set();
+            const depots = payloadTabs
+              .slice(0, 6)
+              .map((entry, index) => {
+                const tab = entry && typeof entry === "object" ? { ...entry } : {};
+                const rawId = normalizeImportValue(tab.id || tab.tabId || tab.depotId || tab.value || "");
+                const id = normalizeArticleImportDepotTabId(rawId, index + 1);
+                const linkedDepotId = normalizeArticleImportDepotLinkedId(
+                  tab.linkedDepotId ??
+                    tab.depotDbId ??
+                    tab.magasinId ??
+                    tab.magasin_id ??
+                    tab.defaultDepotSourceId ??
+                    tab.selectedDepotSourceId ??
+                    tab.sourceDepotId ??
+                    tab.defaultDepotId ??
+                    ""
+                );
+                let finalLinkedDepotId = linkedDepotId;
+                if (finalLinkedDepotId) {
+                  const key = finalLinkedDepotId.toLowerCase();
+                  if (usedLinkedDepotIds.has(key)) finalLinkedDepotId = "";
+                  else usedLinkedDepotIds.add(key);
+                }
+                const next = { ...tab, id };
+                if (finalLinkedDepotId) next.linkedDepotId = finalLinkedDepotId;
+                else delete next.linkedDepotId;
+                return next;
+              })
+              .filter(Boolean);
+            if (!depots.length) {
+              depots.push({
+                id: "depot-1",
+                stockQty: Number.isFinite(Number(source.stockQty)) ? Number(source.stockQty) : 0
+              });
+            }
+            const activeDepotRaw = normalizeImportValue(
+              source.activeDepotId ??
+                source.selectedDepotId ??
+                (payloadSource && typeof payloadSource === "object"
+                  ? payloadSource.activeTabId ??
+                    payloadSource.activeDepotId ??
+                    payloadSource.selectedDepotId ??
+                    payloadSource.defaultDepot
+                  : "") ??
+                ""
+            );
+            let activeDepotId = isArticleImportDepotTabId(activeDepotRaw)
+              ? normalizeArticleImportDepotTabId(activeDepotRaw, 1)
+              : normalizeArticleImportDepotTabId(depots[0]?.id || "depot-1", 1);
+            if (!depots.some((entry) => normalizeArticleImportDepotTabId(entry?.id || "", 1) === activeDepotId)) {
+              activeDepotId = normalizeArticleImportDepotTabId(depots[0]?.id || "depot-1", 1);
+            }
+            const customizedRaw =
+              source.depotStockCustomized ??
+              source.stockManagement?.depotStockCustomized ??
+              (payloadSource && typeof payloadSource === "object"
+                ? payloadSource.customized ??
+                  payloadSource.depotStockCustomized ??
+                  payloadSource.stockCustomized
+                : undefined);
+            const customized = normalizeArticleImportBool(customizedRaw);
+            const nextArticle = {
+              ...source,
+              depots,
+              activeDepotId,
+              selectedDepotId: activeDepotId
+            };
+            if (customized !== null) {
+              nextArticle.depotStockCustomized = customized === true;
+              nextArticle.stockManagement = {
+                ...(nextArticle.stockManagement && typeof nextArticle.stockManagement === "object"
+                  ? nextArticle.stockManagement
+                  : {}),
+                depotStockCustomized: customized === true
+              };
+            }
+            return nextArticle;
+          };
           getArticleImportDedupeKey = (article = {}) => {
             const refKey = normalizeImportHeaderKey(article.ref || "");
             if (refKey) return refKey;
             const productKey = normalizeImportHeaderKey(article.product || "");
-            if (productKey) return productKey;
-            const descKey = normalizeImportHeaderKey(article.desc || "");
-            return descKey;
+            return productKey;
           };
           getArticleImportDedupeKeyFromRecord = (record = {}) => {
             const source =
@@ -948,7 +1064,6 @@
               if (!Array.isArray(row) || !row.some((cell) => String(cell ?? "").trim().length > 0)) {
                 continue;
               }
-              result.totalRows += 1;
               const data = {};
               headerFields.forEach((field, idx) => {
                 if (!field) return;
@@ -958,9 +1073,9 @@
               const product = data.product || "";
               const desc = data.desc || "";
               if (!ref && !product && !desc) {
-                result.errors.push(`Ligne ${i + 1}: reference, designation ou description manquante.`);
                 continue;
               }
+              result.totalRows += 1;
               const stockQty = normalizeArticleImportNumber(data.stockQty, 0);
               const purchasePrice = normalizeArticleImportNumber(data.purchasePrice, 0);
               const purchaseTva = normalizeArticleImportNumber(data.purchaseTva, 19);
@@ -974,22 +1089,6 @@
               const stockMin = normalizeArticleImportNumber(data.stockMin, null);
               const stockMax = normalizeArticleImportNumber(data.stockMax, null);
               const stockDepotsJsonRaw = normalizeImportValue(data.stockDepotsJson);
-              let stockDepotsPayload = null;
-              if (stockDepotsJsonRaw) {
-                try {
-                  stockDepotsPayload = JSON.parse(stockDepotsJsonRaw);
-                } catch {
-                  result.errors.push(`Ligne ${i + 1}: StockDepotsJson invalide (JSON attendu).`);
-                  continue;
-                }
-                const isValidPayload =
-                  Array.isArray(stockDepotsPayload) ||
-                  (stockDepotsPayload && typeof stockDepotsPayload === "object");
-                if (!isValidPayload) {
-                  result.errors.push(`Ligne ${i + 1}: StockDepotsJson invalide (objet ou tableau attendu).`);
-                  continue;
-                }
-              }
               const fodecRate = normalizeArticleImportNumber(data.fodecRate, null);
               const fodecTva = normalizeArticleImportNumber(data.fodecTva, null);
               const fodecEnabled = normalizeArticleImportBool(data.fodecEnabled);
@@ -1013,6 +1112,9 @@
                 tva: Number.isFinite(tva) ? tva : 19,
                 discount: Number.isFinite(discount) ? discount : 0
               };
+              if (stockDepotsJsonRaw) {
+                article.stockDepotsJson = stockDepotsJsonRaw;
+              }
               if (stockAllowNegative !== null || stockBlockInsufficient !== null || stockAlertEnabled !== null) {
                 const allowNegative = stockAllowNegative === true;
                 const blockInsufficient =
@@ -1051,41 +1153,6 @@
               if (stockAlertEnabled !== null) {
                 article.stockAlert = stockAlertEnabled === true;
               }
-              if (stockDepotsPayload) {
-                if (Array.isArray(stockDepotsPayload)) {
-                  article.depots = stockDepotsPayload;
-                } else {
-                  const payloadTabs = Array.isArray(stockDepotsPayload.tabs)
-                    ? stockDepotsPayload.tabs
-                    : Array.isArray(stockDepotsPayload.depots)
-                    ? stockDepotsPayload.depots
-                    : [];
-                  article.depots = payloadTabs;
-                  const payloadActiveDepotId =
-                    stockDepotsPayload.activeTabId ||
-                    stockDepotsPayload.activeDepotId ||
-                    stockDepotsPayload.selectedDepotId ||
-                    "";
-                  if (payloadActiveDepotId) {
-                    article.activeDepotId = String(payloadActiveDepotId || "").trim();
-                    article.selectedDepotId = String(payloadActiveDepotId || "").trim();
-                  }
-                  const payloadCustomized =
-                    stockDepotsPayload.customized ??
-                    stockDepotsPayload.depotStockCustomized ??
-                    stockDepotsPayload.stockCustomized;
-                  if (payloadCustomized !== undefined) {
-                    const customized = !!payloadCustomized;
-                    article.depotStockCustomized = customized;
-                    article.stockManagement = {
-                      ...(article.stockManagement && typeof article.stockManagement === "object"
-                        ? article.stockManagement
-                        : {}),
-                      depotStockCustomized: customized
-                    };
-                  }
-                }
-              }
               if (fodecEnabled === true) {
                 const resolvedFodecRate = Number.isFinite(fodecRate) ? fodecRate : 0;
                 const resolvedFodecTva = Number.isFinite(fodecTva) ? fodecTva : 0;
@@ -1110,14 +1177,15 @@
                   tva: resolvedPurchaseFodecTva
                 };
               }
-              const dedupeKey = getArticleImportDedupeKey(article);
+              const sanitizedArticle = sanitizeArticleImportDepotConfig(article);
+              const dedupeKey = getArticleImportDedupeKey(sanitizedArticle);
               if (dedupeKey && seen.has(dedupeKey)) {
                 const existingIndex = seen.get(dedupeKey);
-                result.items[existingIndex] = article;
+                result.items[existingIndex] = sanitizedArticle;
                 continue;
               }
               if (dedupeKey) seen.set(dedupeKey, result.items.length);
-              result.items.push(article);
+              result.items.push(sanitizedArticle);
             }
             return result;
           };
@@ -1229,8 +1297,7 @@
               if (fieldKey && fieldKey === expectedKey) return true;
               const refKey = normalizeImportHeaderKey(article.ref || "");
               const productKey = normalizeImportHeaderKey(article.product || "");
-              const descKey = normalizeImportHeaderKey(article.desc || "");
-              return refKey === expectedKey || productKey === expectedKey || descKey === expectedKey;
+              return refKey === expectedKey || productKey === expectedKey;
             });
             if (!matches.length) return 0;
             let deleted = 0;
@@ -2066,7 +2133,7 @@
             let failedCount = 0;
             const saveErrors = [];
             for (let i = 0; i < articleImportModalState.items.length; i += 1) {
-              const article = articleImportModalState.items[i];
+              const article = sanitizeArticleImportDepotConfig(articleImportModalState.items[i]);
               const dedupeKey = getArticleImportDedupeKey(article);
               const suggested =
                 SEM.forms?.pickSuggestedName?.(article) ||

@@ -76,11 +76,16 @@
 
 .depot-magasin-modal__emplacement-add {
   min-width: 96px;
-  min-height: 22px;
+  height: 39px;
+  min-height: 39px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  padding-top: 0;
+  padding-bottom: 0;
   white-space: nowrap;
+      font-size: 12px;
+    font-weight: 600;
 }
 
 .depot-magasin-modal__emplacements-chips {

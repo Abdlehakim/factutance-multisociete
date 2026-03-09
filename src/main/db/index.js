@@ -4520,16 +4520,13 @@ const searchArticles = ({ query = "", limit, offset } = {}) => {
 
 const findDuplicateArticle = (article = {}, { excludeId } = {}) => {
   const db = initDatabase();
-  const normalized = {
-    ref: normalizeArticleField(article.ref),
-    product: normalizeArticleField(article.product),
-    desc: normalizeArticleField(article.desc)
-  };
-  const checks = [
-    { column: "ref_normalized", value: normalized.ref, field: "reference" },
-    { column: "product_normalized", value: normalized.product, field: "product" },
-    { column: "desc_normalized", value: normalized.desc, field: "description" }
-  ];
+  const normalizedRef = normalizeArticleField(article.ref);
+  const normalizedProduct = normalizeArticleField(article.product);
+  const checks = normalizedRef
+    ? [{ column: "ref_normalized", value: normalizedRef, field: "reference" }]
+    : normalizedProduct
+    ? [{ column: "product_normalized", value: normalizedProduct, field: "product" }]
+    : [];
   for (const check of checks) {
     if (!check.value) continue;
     let sql = `SELECT id, name FROM articles WHERE ${check.column} = ?`;
