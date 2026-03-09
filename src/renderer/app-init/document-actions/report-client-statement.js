@@ -450,6 +450,17 @@
       if (reportClientState.presetSelect && reportClientState.presetSelect.value !== preset) {
         reportClientState.presetSelect.value = preset;
       }
+      if (reportClientState.presetDisplay) {
+        reportClientState.presetDisplay.textContent =
+          presetLabelMap.get(preset) || presetLabelMap.get(fallbackPreset) || "Par dates";
+      }
+      reportClientState.presetPanel
+        ?.querySelectorAll("[data-report-client-preset]")
+        .forEach((btn) => {
+          const isActive = btn.dataset.reportClientPreset === preset;
+          btn.classList.toggle("is-active", isActive);
+          btn.setAttribute("aria-selected", isActive ? "true" : "false");
+        });
       if (preset === "custom") {
         setClientReportFieldsEnabled(true);
         updateClientReportActions();
@@ -488,11 +499,11 @@
       if (reportClientState.presetSelect) {
         reportClientState.presetSelect.value = nextValue;
       }
-      const display = scope?.display || reportClientState.presetDisplay;
+      const display = reportClientState.presetDisplay || scope?.display;
       if (display) {
         display.textContent = presetLabelMap.get(nextValue) || "Par dates";
       }
-      const panel = scope?.panel || reportClientState.presetPanel;
+      const panel = reportClientState.presetPanel || scope?.panel;
       panel
         ?.querySelectorAll("[data-report-client-preset]")
         .forEach((btn) => {
@@ -1600,16 +1611,18 @@
       reportClientState.clientPanel?.addEventListener("mousedown", onClientPanelPointerSelect, true);
       reportClientState.startInput?.addEventListener("input", onDateInputChange);
       reportClientState.endInput?.addEventListener("input", onDateInputChange);
-      overlay.addEventListener("click", (evt) => {
-        const presetBtn = evt.target.closest("[data-report-client-preset]");
-        if (presetBtn) {
-          const scope = resolveReportMenuScope(presetBtn.closest("details"));
-          setClientReportPresetSelection(presetBtn.dataset.reportClientPreset || "custom", {
-            closeMenu: true,
-            notify: true,
-            menuScope: scope
-          });
-        }
+      reportClientState.presetPanel?.addEventListener("click", (evt) => {
+        const target = evt.target;
+        if (!(target instanceof Element)) return;
+        const presetBtn = target.closest("[data-report-client-preset]");
+        if (!(presetBtn instanceof HTMLElement)) return;
+        evt.preventDefault();
+        evt.stopPropagation();
+        setClientReportPresetSelection(presetBtn.dataset.reportClientPreset || "custom", {
+          closeMenu: true,
+          notify: true,
+          menuScope: resolveReportMenuScope(reportClientState.presetMenu)
+        });
       });
       reportClientState.presetMenu?.querySelector("summary")?.addEventListener("click", (evt) => {
         evt.preventDefault();
@@ -1653,8 +1666,7 @@
       if (reportClientState.presetSelect) {
         reportClientState.presetSelect.addEventListener("change", (evt) => {
           const select = evt.currentTarget;
-          const root = select.closest(".report-tax-date-range__controls");
-          const scope = resolveReportMenuScope(root?.querySelector("details"));
+          const scope = resolveReportMenuScope(reportClientState.presetMenu);
           rebuildClientReportPresetPanel();
           setClientReportPresetSelection(select.value, { menuScope: scope });
         });
