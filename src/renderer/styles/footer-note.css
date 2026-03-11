@@ -112,6 +112,6 @@
   pointer-events: none;
 }
 
-#modelActionsModal [data-footer-note-section="modal"] #footerNoteEditorModal > [data-size-root="true"] {
+.wh-note-box.footer-note-box .note-editor > [data-size-root="true"] {
   zoom: 1.5 !important;
 }

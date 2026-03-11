@@ -200,6 +200,15 @@
             const lexicalApi = SEM.__whNoteLexicalModal || whNoteLexicalModal;
             if (typeof lexicalApi.mount === "function") {
               lexicalApi.mount({ onChange });
+              if (typeof lexicalApi.syncFromHidden === "function") {
+                const scheduleSync =
+                  typeof requestAnimationFrame === "function"
+                    ? requestAnimationFrame
+                    : (cb) => setTimeout(cb, 0);
+                scheduleSync(() => {
+                  lexicalApi.syncFromHidden();
+                });
+              }
               return;
             }
             if (typeof whPdfNoteComponent.initGroup !== "function") return;
@@ -239,6 +248,30 @@
                 initModalWhNoteEditor();
               });
             });
+          };
+          const stripNoteText = (value) =>
+            String(value || "")
+              .replace(/<[^>]+>/g, " ")
+              .replace(/&nbsp;|\u00a0/g, " ")
+              .trim();
+          const resolveDocumentWhNoteForModal = () => {
+            const fromMeta = state()?.meta?.withholding?.note;
+            if (typeof fromMeta === "string") return fromMeta;
+            const fromMainHidden = getEl("whNote")?.value;
+            if (typeof fromMainHidden === "string") return fromMainHidden;
+            const fromModalHidden = getEl("whNoteModal")?.value;
+            return typeof fromModalHidden === "string" ? fromModalHidden : "";
+          };
+          const hydrateModalWhNoteFromDocument = () => {
+            const noteValue = String(resolveDocumentWhNoteForModal() || "");
+            const noteHidden = getEl("whNoteModal");
+            if (noteHidden && noteHidden.value !== noteValue) {
+              noteHidden.value = noteValue;
+            }
+            if (typeof setWhNoteEditorContent === "function") {
+              setWhNoteEditorContent(noteValue, { group: "modal" });
+            }
+            setModelNotePlaceholder(!stripNoteText(noteValue));
           };
           const footerNoteComponent = SEM.__footerNoteComponent || {};
           const FOOTER_NOTE_FONT_SIZES =
@@ -1330,6 +1363,7 @@
                 modelActionsModal.removeAttribute("hidden");
                 modelActionsModal.setAttribute("aria-hidden", "false");
                 modelActionsModal.classList.add("is-open");
+                hydrateModalWhNoteFromDocument();
                 scheduleModalWhNoteMount();
                 if (!wasOpen) {
                   resetModelStepperFlow();

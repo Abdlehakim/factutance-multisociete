@@ -259,25 +259,46 @@ import {
         () => {
           const root = $getRoot();
           root.clear();
+          const appendPlainText = (textValue) => {
+            const normalizedText = String(textValue || "")
+              .replace(/\u00a0/g, " ")
+              .replace(/\u200b/g, "")
+              .replace(/\r\n|\r/g, "\n");
+            if (!normalizedText.trim()) return false;
+            const lines = normalizedText.split("\n");
+            lines.forEach((line) => {
+              const paragraph = $createParagraphNode();
+              paragraph.append($createTextNode(line));
+              root.append(paragraph);
+            });
+            return true;
+          };
 
           if (isBlankHtml(payload.html)) {
             root.append($createParagraphNode());
           } else {
             const parser = new DOMParser();
             const dom = parser.parseFromString(payload.html, "text/html");
-            const nodes = $generateNodesFromDOM(editor, dom);
-            if (nodes.length) {
-              root.append(...nodes);
+            const plainFallback = String(dom.body?.textContent || payload.html || "");
+            const hasMarkup = /<[^>]+>/.test(String(payload.html || ""));
+            if (!hasMarkup) {
+              if (!appendPlainText(plainFallback)) {
+                root.append($createParagraphNode());
+              }
             } else {
-              root.append($createParagraphNode());
+              const nodes = $generateNodesFromDOM(editor, dom);
+              if (nodes.length) {
+                root.append(...nodes);
+              } else if (!appendPlainText(plainFallback)) {
+                root.append($createParagraphNode());
+              }
             }
-            const children = root.getChildren();
-            const allEmpty =
-              children.length === 0 ||
-              children.every((node) => !normalizePlainText(node.getTextContent() || ""));
-            if (allEmpty) {
+            const importedText = normalizePlainText(root.getTextContent() || "");
+            if (!importedText) {
               root.clear();
-              root.append($createParagraphNode());
+              if (!appendPlainText(plainFallback)) {
+                root.append($createParagraphNode());
+              }
             }
           }
 

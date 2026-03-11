@@ -204,7 +204,9 @@
       setVal("whLabelModal", String(wh.label ?? "Retenue a la source"));
       const whNoteValue = String(wh.note ?? "");
       setVal("whNote", whNoteValue);
-      setWhNoteEditorContent(whNoteValue);
+      setVal("whNoteModal", whNoteValue);
+      setWhNoteEditorContent(whNoteValue, { group: "main" });
+      setWhNoteEditorContent(whNoteValue, { group: "modal" });
       setVal("whThreshold", String(wh.threshold ?? 1000));
       setVal("whThresholdModal", String(wh.threshold ?? 1000));
       setVal("noteInterne", String(st.meta?.noteInterne ?? ""));
