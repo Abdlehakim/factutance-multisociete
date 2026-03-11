@@ -61,46 +61,19 @@ const DEFAULT_COMPANY_TEMPLATE =
     : (defaults?.DEFAULT_COMPANY && typeof defaults.DEFAULT_COMPANY === "object")
       ? defaults.DEFAULT_COMPANY
       : {};
+const BRANDED_COMPANY_NAME = String(DEFAULT_COMPANY_TEMPLATE?.name || "")
+  .replace(/\s+/g, " ")
+  .trim()
+  .slice(0, 120);
 const DEFAULT_COMPANY_NAME =
-  (DEFAULT_COMPANY_TEMPLATE?.name && String(DEFAULT_COMPANY_TEMPLATE.name).trim()) ||
+  BRANDED_COMPANY_NAME ||
   "Facturance";
-let BUNDLED_COMPANY_GROUP = null;
-try {
-  BUNDLED_COMPANY_GROUP = require("./src/renderer/config/generated-company-group.js");
-} catch {
-  try {
-    const branding = require("./src/renderer/config/branding.js");
-    BUNDLED_COMPANY_GROUP = branding?.companyGroup || null;
-  } catch {
-    BUNDLED_COMPANY_GROUP = null;
-  }
-}
 
 function normalizeCompanyDisplayName(value) {
   return String(value ?? "")
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 120);
-}
-
-function getBundledGroupCompanyNames() {
-  const group = BUNDLED_COMPANY_GROUP && typeof BUNDLED_COMPANY_GROUP === "object"
-    ? BUNDLED_COMPANY_GROUP
-    : null;
-  if (!group) return [];
-  if (String(group.mode || "").trim().toLowerCase() !== "group") return [];
-  const source = Array.isArray(group.companies) ? group.companies : [];
-  const seen = new Set();
-  const out = [];
-  source.forEach((entry) => {
-    const name = normalizeCompanyDisplayName(entry);
-    if (!name) return;
-    const key = name.toLowerCase();
-    if (seen.has(key)) return;
-    seen.add(key);
-    out.push(name);
-  });
-  return out;
 }
 function companyNameSlug(name, fallback = "company") {
   const normalized = String(name || fallback)
@@ -624,32 +597,6 @@ function getFacturanceRootDir() {
   return cachedFacturanceRootDir;
 }
 
-function seedBundledGroupCompanies(rootDir) {
-  const bundledCompanyNames = getBundledGroupCompanyNames();
-  if (!bundledCompanyNames.length) return;
-  const root = rootDir || getFacturanceRootDir();
-  let companies = CompanyManager.listCompanies(root);
-  let safety = 0;
-  while (companies.length < bundledCompanyNames.length && safety < 256) {
-    const nextName = bundledCompanyNames[companies.length] || "";
-    CompanyManager.createCompany(root, {
-      setActive: false,
-      displayName: nextName
-    });
-    companies = CompanyManager.listCompanies(root);
-    safety += 1;
-  }
-  companies.forEach((company, index) => {
-    const name = bundledCompanyNames[index] || "";
-    if (!company?.id || !name) return;
-    try {
-      CompanyManager.setCompanyDisplayName(root, company.id, name, { ifEmpty: true });
-    } catch (err) {
-      console.warn("Unable to seed bundled company display name", company.id, err?.message || err);
-    }
-  });
-}
-
 function resolveRequestedCompanyId(payload = {}) {
   if (typeof payload === "string") return String(payload).trim();
   if (!payload || typeof payload !== "object") return "";
@@ -669,11 +616,17 @@ function normalizeCompanyIdForContext(value) {
 }
 
 function createFallbackActiveCompanyPaths(rootDir) {
+  const displayName =
+    CompanyManager.getCompanyDisplayName(rootDir, "entreprise1") ||
+    normalizeCompanyDisplayName(BRANDED_COMPANY_NAME);
+  const companyName = displayName || "entreprise1";
   return {
     rootDir,
     activeCompanyId: "entreprise1",
     id: "entreprise1",
-    name: CompanyManager.getCompanyDisplayName(rootDir, "entreprise1") || "entreprise1",
+    name: companyName,
+    displayName: displayName || "",
+    companyName: displayName || "",
     folder: "entreprise1",
     companyDir: path.join(rootDir, "entreprise1"),
     dbFileName: "entreprise1.db",
@@ -692,7 +645,6 @@ function createFallbackActiveCompanyPaths(rootDir) {
 
 function resolveDefaultCompanyPaths() {
   const rootDir = getFacturanceRootDir();
-  seedBundledGroupCompanies(rootDir);
   try {
     return CompanyManager.getActiveCompanyPaths(rootDir);
   } catch (err) {
@@ -703,7 +655,6 @@ function resolveDefaultCompanyPaths() {
 
 function resolveCompanyPathsById(companyId, options = {}) {
   const rootDir = getFacturanceRootDir();
-  seedBundledGroupCompanies(rootDir);
   const normalized = normalizeCompanyIdForContext(companyId);
   if (!normalized) {
     if (options?.fallbackToDefault === false) {
@@ -756,7 +707,6 @@ function getCurrentCompanyRequestContext() {
 
 function listCompanyCatalog() {
   const rootDir = getFacturanceRootDir();
-  seedBundledGroupCompanies(rootDir);
   return CompanyManager.listCompanies(rootDir);
 }
 
@@ -921,12 +871,6 @@ function buildCompanySwitchSnapshot(activePaths) {
     console.warn("Unable to load company profile during company switch", err);
   }
   const profileData = profile && typeof profile === "object" ? profile : {};
-  const profileName = normalizeCompanyDisplayName(profileData?.name || "");
-  if (profileName) {
-    CompanyManager.setCompanyDisplayName(root, active.id, profileName, {
-      ifEmpty: true
-    });
-  }
   const fallbackName = CompanyManager.getCompanyDisplayName(root, active.id) || active.id;
   const company =
     !String(profileData?.name || "").trim() && fallbackName
@@ -949,10 +893,9 @@ function buildCompanySwitchSnapshot(activePaths) {
 
 function createCompanyRuntime(payload = {}, options = {}) {
   const root = getFacturanceRootDir();
-  seedBundledGroupCompanies(root);
   const created = CompanyManager.createCompany(root, {
     setActive: false,
-    displayName: payload?.name || payload?.displayName
+    displayName: payload?.displayName || payload?.companyName || payload?.name
   });
   broadcastCompanyCatalogChange(buildCatalogChangePayload("created"));
 
@@ -1829,12 +1772,6 @@ async function handleLanApiRequest(req, res, url, pathname, requestContext = {})
               await ensureEntrepriseDir();
             }
             const active = getActiveCompanyPaths();
-            const profileName = normalizeCompanyDisplayName(data?.name || "");
-            if (profileName) {
-              CompanyManager.setCompanyDisplayName(getFacturanceRootDir(), active.id, profileName, {
-                ifEmpty: true
-              });
-            }
             const fallbackName =
               CompanyManager.getCompanyDisplayName(getFacturanceRootDir(), active.id) || active.id;
             if ((!data || typeof data !== "object")) {
@@ -5388,12 +5325,6 @@ ipcMain.handle("company:load", async () => {
       await ensureEntrepriseDir();
     }
     const active = getActiveCompanyPaths();
-    const profileName = normalizeCompanyDisplayName(data?.name || "");
-    if (profileName) {
-      CompanyManager.setCompanyDisplayName(getFacturanceRootDir(), active.id, profileName, {
-        ifEmpty: true
-      });
-    }
     const fallbackName =
       CompanyManager.getCompanyDisplayName(getFacturanceRootDir(), active.id) || active.id;
     if ((!data || typeof data !== "object")) {

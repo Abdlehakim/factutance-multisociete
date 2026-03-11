@@ -1,6 +1,6 @@
 {
   "name": "facturance",
-  "version": "2.2.5",
+  "version": "2.2.6",
   "description": "Facturance Maker (Windows) – create, save and export invoices to PDF for development, marketing, graphics and design services.",
   "main": "main.js",
   "author": "Adelhakim Sabkhi",
@@ -71,7 +71,7 @@
       "target": [
         "nsis"
       ],
-      "artifactName": "Facturance v${version} Fehri Ouaz - Electrique Auto Marine-${arch}.exe",
+      "artifactName": "Facturance v${version} Societe Atelier Mecanique Bouzid Lotfi (AMB)-${arch}.exe",
       "publisherName": "smartwebify",
       "rfc3161TimeStampServer": "http://timestamp.digicert.com",
       "requestedExecutionLevel": "requireAdministrator"

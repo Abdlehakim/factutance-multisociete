@@ -163,6 +163,27 @@
     return normalized || fallback || "";
   }
 
+  function isInternalCompanyLabel(label, companyId) {
+    const normalizedLabel = String(label || "").trim().toLowerCase();
+    const normalizedId = String(companyId || "").trim().toLowerCase();
+    return !!normalizedLabel && !!normalizedId && normalizedLabel === normalizedId;
+  }
+
+  function resolveCompanyDisplayName(rawCompany, companyId) {
+    if (!rawCompany || typeof rawCompany !== "object") {
+      return normalizeCompanyName("", companyId);
+    }
+    const candidates = [
+      rawCompany.displayName,
+      rawCompany.companyName,
+      rawCompany.name
+    ]
+      .map((value) => normalizeCompanyName(value))
+      .filter(Boolean);
+    const preferred = candidates.find((value) => !isInternalCompanyLabel(value, companyId));
+    return normalizeCompanyName(preferred || candidates[0] || "", companyId);
+  }
+
   function parseCompaniesList(raw) {
     const source = Array.isArray(raw)
       ? raw
@@ -175,11 +196,7 @@
       const id = normalizeCompanyId(item);
       if (!id || seen.has(id)) return;
       seen.add(id);
-      const nameCandidate =
-        item && typeof item === "object"
-          ? item.name ?? item.displayName ?? item.companyName
-          : "";
-      const name = normalizeCompanyName(nameCandidate, id);
+      const name = resolveCompanyDisplayName(item, id);
       out.push({ id, name });
     });
     out.sort((a, b) => {
@@ -690,7 +707,7 @@
         }
       }
       if (!hasCompanyOption(incomingId)) return;
-      const fallbackLabel = normalizeCompanyName(payload?.activeCompany?.name, incomingId);
+      const fallbackLabel = resolveCompanyDisplayName(payload?.activeCompany, incomingId);
       await runCompanySwitch(incomingId, { source: "external", label: fallbackLabel });
     }
 

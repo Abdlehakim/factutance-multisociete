@@ -18,6 +18,8 @@ const ROOT_SKIP_FILE_NAMES = new Set([
 ]);
 
 let getUserDataDir = null;
+let cachedBuildGeneratedCompanyNames = null;
+let BetterSqlite3 = undefined;
 
 function configure(options = {}) {
   const accessor = options?.getUserDataDir;
@@ -85,6 +87,144 @@ function normalizeCompanyDisplayName(value) {
   return normalized;
 }
 
+function isInternalCompanyLabel(value, companyId) {
+  const normalizedId = normalizeCompanyId(companyId);
+  if (!normalizedId) return false;
+  return String(value || "").trim().toLowerCase() === normalizedId.toLowerCase();
+}
+
+function resolveStoredCompanyDisplayName(settings, companyId) {
+  const source = settings && typeof settings === "object" ? settings : {};
+  const candidates = [
+    source.companyName,
+    source.displayName,
+    source.name
+  ]
+    .map((value) => normalizeCompanyDisplayName(value))
+    .filter(Boolean);
+  const preferred = candidates.find((value) => !isInternalCompanyLabel(value, companyId));
+  return preferred || "";
+}
+
+function sanitizeBuildCompanyNameList(list) {
+  const source = Array.isArray(list) ? list : [];
+  const out = [];
+  const seen = new Set();
+  source.forEach((value) => {
+    const normalized = normalizeCompanyDisplayName(value);
+    if (!normalized) return;
+    const key = normalized.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(normalized);
+  });
+  return out;
+}
+
+function extractGroupCompanyNames(payload) {
+  const group = payload && typeof payload === "object" ? payload : null;
+  if (!group) return [];
+  if (String(group.mode || "").trim().toLowerCase() !== "group") return [];
+  return sanitizeBuildCompanyNameList(group.companies);
+}
+
+function readBuildGeneratedCompanyNames() {
+  if (cachedBuildGeneratedCompanyNames) {
+    return cachedBuildGeneratedCompanyNames.slice();
+  }
+  let generatedGroup = null;
+  let branding = null;
+  try {
+    generatedGroup = require("../renderer/config/generated-company-group.js");
+  } catch {
+    generatedGroup = null;
+  }
+  try {
+    branding = require("../renderer/config/branding.js");
+  } catch {
+    branding = null;
+  }
+
+  let names = extractGroupCompanyNames(generatedGroup);
+  if (!names.length) {
+    names = extractGroupCompanyNames(branding?.companyGroup);
+  }
+  if (!names.length) {
+    const brandedName = normalizeCompanyDisplayName(branding?.companyName || "");
+    if (brandedName) names = [brandedName];
+  }
+  cachedBuildGeneratedCompanyNames = names;
+  return names.slice();
+}
+
+function getBuildGeneratedCompanyName(companyId) {
+  const index = parseFolderIndex(companyId);
+  if (!Number.isFinite(index) || index <= 0) return "";
+  const names = readBuildGeneratedCompanyNames();
+  return normalizeCompanyDisplayName(names[index - 1] || "");
+}
+
+function getBuildGeneratedCompanyIds() {
+  const names = readBuildGeneratedCompanyNames();
+  if (!names.length) return [];
+  const out = [];
+  for (let i = 0; i < names.length; i += 1) {
+    out.push(`${COMPANY_FOLDER_PREFIX}${i + 1}`);
+  }
+  return out;
+}
+
+function mergeBuildCatalogCompanies(rootDir, companyIds = []) {
+  const normalized = Array.isArray(companyIds)
+    ? companyIds.map((value) => normalizeCompanyId(value)).filter(Boolean)
+    : [];
+  const merged = new Set(normalized);
+  const buildIds = getBuildGeneratedCompanyIds();
+  buildIds.forEach((id) => {
+    if (!id || merged.has(id)) return;
+    ensureCompanyDbFile(rootDir, id);
+    merged.add(id);
+  });
+  return Array.from(merged).sort(compareCompanyIds);
+}
+
+function getSqliteDriver() {
+  if (BetterSqlite3 !== undefined) return BetterSqlite3;
+  try {
+    BetterSqlite3 = require("better-sqlite3");
+  } catch {
+    BetterSqlite3 = null;
+  }
+  return BetterSqlite3;
+}
+
+function getLegacyCompanyProfileName(rootDir, companyId) {
+  const normalizedId = normalizeCompanyId(companyId);
+  if (!normalizedId) return "";
+  const dbPath = path.join(resolveCompanyDir(rootDir, normalizedId), companyDbFileName(normalizedId));
+  if (!dbPath || !fs.existsSync(dbPath)) return "";
+  const Sqlite = getSqliteDriver();
+  if (!Sqlite) return "";
+  let db = null;
+  try {
+    db = new Sqlite(dbPath, { readonly: true, fileMustExist: true });
+    const row = db.prepare("SELECT name FROM company_profile WHERE id = 1 LIMIT 1").get();
+    const profileName = normalizeCompanyDisplayName(row?.name || "");
+    if (!profileName || isInternalCompanyLabel(profileName, normalizedId)) return "";
+    return profileName;
+  } catch {
+    return "";
+  } finally {
+    if (db) {
+      try {
+        db.close();
+      } catch {
+        // ignore close errors
+      }
+    }
+  }
+}
+
 function resolveCompanyDir(rootDir, companyId) {
   const root = normalizeRootDir(rootDir);
   const normalizedId = normalizeCompanyId(companyId);
@@ -126,10 +266,27 @@ function getCompanyDisplayName(rootDir, companyId) {
   const normalizedId = normalizeCompanyId(companyId);
   if (!normalizedId) return "";
   const settings = readCompanySettings(rootDir, normalizedId);
-  const fromName = normalizeCompanyDisplayName(
-    settings.name ?? settings.companyName ?? settings.displayName
-  );
-  return fromName || "";
+  const storedName = resolveStoredCompanyDisplayName(settings, normalizedId);
+  if (storedName) return storedName;
+  const legacyProfileName = getLegacyCompanyProfileName(rootDir, normalizedId);
+  if (legacyProfileName) return legacyProfileName;
+  return getBuildGeneratedCompanyName(normalizedId);
+}
+
+function buildCompanyDescriptor(rootDir, companyId) {
+  const normalizedId = normalizeCompanyId(companyId);
+  if (!normalizedId) {
+    return { id: "", name: "", displayName: "", companyName: "", folder: "" };
+  }
+  const displayName = getCompanyDisplayName(rootDir, normalizedId);
+  const name = displayName || normalizedId;
+  return {
+    id: normalizedId,
+    name,
+    displayName: displayName || "",
+    companyName: displayName || "",
+    folder: normalizedId
+  };
 }
 
 function setCompanyDisplayName(rootDir, companyId, displayName, options = {}) {
@@ -140,20 +297,31 @@ function setCompanyDisplayName(rootDir, companyId, displayName, options = {}) {
 
   const normalizedDisplayName = normalizeCompanyDisplayName(displayName);
   if (!normalizedDisplayName) {
-    return { id: normalizedId, name: getCompanyDisplayName(root, normalizedId) || normalizedId };
+    return buildCompanyDescriptor(root, normalizedId);
   }
 
   const existing = getCompanyDisplayName(root, normalizedId);
   const shouldTreatAsEmpty =
     !existing || existing.toLowerCase() === normalizedId.toLowerCase();
   if (options?.ifEmpty && !shouldTreatAsEmpty) {
-    return { id: normalizedId, name: existing };
+    return {
+      id: normalizedId,
+      name: existing,
+      displayName: existing,
+      companyName: existing,
+      folder: normalizedId
+    };
   }
 
   const settings = readCompanySettings(root, normalizedId);
-  const nextSettings = { ...settings, name: normalizedDisplayName };
+  const nextSettings = {
+    ...settings,
+    name: normalizedDisplayName,
+    displayName: normalizedDisplayName,
+    companyName: normalizedDisplayName
+  };
   writeCompanySettings(root, normalizedId, nextSettings);
-  return { id: normalizedId, name: normalizedDisplayName };
+  return buildCompanyDescriptor(root, normalizedId);
 }
 
 function getLegacyRegistryPath(rootDir) {
@@ -527,6 +695,7 @@ function ensureStorageInitialized(rootDir) {
     }
   }
 
+  companyIds = mergeBuildCatalogCompanies(root, companyIds);
   normalizeAllCompanyDbFiles(root, companyIds);
 
   const userDataActive = readUserDataActiveCompanyId();
@@ -559,10 +728,7 @@ function ensureStorageInitialized(rootDir) {
 
 function listCompanies(rootDir) {
   const state = ensureStorageInitialized(rootDir);
-  return state.companies.map((id) => ({
-    id,
-    name: getCompanyDisplayName(state.root, id) || id
-  }));
+  return state.companies.map((id) => buildCompanyDescriptor(state.root, id));
 }
 
 function createCompany(rootDir, options = {}) {
@@ -579,7 +745,7 @@ function createCompany(rootDir, options = {}) {
   if (options?.setActive !== false) {
     writeUserDataActiveCompanyId(nextId);
   }
-  return { id: nextId, name: getCompanyDisplayName(root, nextId) || nextId };
+  return buildCompanyDescriptor(root, nextId);
 }
 
 function setActiveCompany(rootDir, companyId) {
@@ -594,7 +760,7 @@ function setActiveCompany(rootDir, companyId) {
   }
   ensureCompanyDbFile(root, normalized);
   writeUserDataActiveCompanyId(normalized);
-  return { id: normalized, name: getCompanyDisplayName(root, normalized) || normalized };
+  return buildCompanyDescriptor(root, normalized);
 }
 
 function getActiveCompanyId(rootDir) {
@@ -604,7 +770,7 @@ function getActiveCompanyId(rootDir) {
 function getActiveCompany(rootDir) {
   const root = ensureRootDir(rootDir);
   const id = getActiveCompanyId(root);
-  return { id, name: getCompanyDisplayName(root, id) || id };
+  return buildCompanyDescriptor(root, id);
 }
 
 function getCompanyPaths(rootDir, companyId) {
@@ -619,12 +785,16 @@ function getCompanyPaths(rootDir, companyId) {
   ensureCompanyDbFile(root, resolvedId);
   const dbFileName = companyDbFileName(resolvedId);
   const dbPath = path.join(companyDir, dbFileName);
+  const displayName = getCompanyDisplayName(root, resolvedId);
+  const companyName = displayName || resolvedId;
 
   return {
     rootDir: root,
     activeCompanyId: resolvedId,
     id: resolvedId,
-    name: getCompanyDisplayName(root, resolvedId) || resolvedId,
+    name: companyName,
+    displayName: displayName || "",
+    companyName: displayName || "",
     folder: resolvedId,
     companyDir,
     dbFileName,
