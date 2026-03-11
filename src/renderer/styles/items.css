@@ -579,6 +579,26 @@
   gap: 10px 12px;
 }
 
+#articleFormPopover .add-pricing-row[data-visible-count="1"],
+#articleFormPopover .add-totals-row:not(.add-totals-row--stock-values)[data-visible-count="1"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+#articleFormPopover .add-pricing-row[data-visible-count="2"],
+#articleFormPopover .add-totals-row:not(.add-totals-row--stock-values)[data-visible-count="2"] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+#articleFormPopover .add-pricing-row[data-visible-count="3"],
+#articleFormPopover .add-totals-row:not(.add-totals-row--stock-values)[data-visible-count="3"] {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+#articleFormPopover .add-pricing-row[data-visible-count="4"],
+#articleFormPopover .add-totals-row:not(.add-totals-row--stock-values)[data-visible-count="4"] {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 #articleFormPopover .add-fodec-row--purchase {
   grid-column: 1 / -1;
 }

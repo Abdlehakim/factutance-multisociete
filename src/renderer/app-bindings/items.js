@@ -2833,6 +2833,33 @@
   }
 
   function setAddInputVisibility(options = {}) {
+    const applyDynamicRowLayout = (root) => {
+      if (!root || typeof root.querySelectorAll !== "function") return;
+      const rowConfigs = [
+        { selector: ".add-pricing-row--purchase", maxCols: 4 },
+        { selector: ".add-pricing-row--sales", maxCols: 4 },
+        { selector: ".add-totals-row:not(.add-totals-row--stock-values)", maxCols: 4 }
+      ];
+      rowConfigs.forEach(({ selector, maxCols }) => {
+        root.querySelectorAll(selector).forEach((row) => {
+          const fields = Array.from(row.children || []).filter(
+            (child) => child instanceof HTMLElement && child.classList.contains("add-item-field")
+          );
+          const visibleCount = fields.filter((field) => {
+            if (field.hidden || field.style.display === "none") return false;
+            if (typeof window !== "undefined" && typeof window.getComputedStyle === "function") {
+              return window.getComputedStyle(field).display !== "none";
+            }
+            return true;
+          }).length;
+          if (visibleCount > 0) {
+            row.dataset.visibleCount = String(Math.min(maxCols, Math.max(1, visibleCount)));
+          } else {
+            delete row.dataset.visibleCount;
+          }
+        });
+      });
+    };
     const mainscreenForm = typeof document !== "undefined" ? document.getElementById("addItemBoxMainscreen") : null;
     const scope = typeof SEM.resolveAddFormScope === "function" ? SEM.resolveAddFormScope() : null;
     const roots = [];
@@ -2952,6 +2979,7 @@
         const salesColumn = pricingLayout.querySelector(".article-pricing-column--sales");
         if (salesColumn) salesColumn.style.display = showSalesSection ? "" : "none";
       }
+      applyDynamicRowLayout(root);
     });
   }
   function setReadOnlyNumberValue(id, value) {
