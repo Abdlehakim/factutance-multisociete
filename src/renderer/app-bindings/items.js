@@ -1992,8 +1992,11 @@
   };
   const formatAddFormPriceInputValue = (value) => {
     const safe = normalizeAddFormPriceNumber(value, 0);
-    const rounded = Math.round((safe + Number.EPSILON) * 1e6) / 1e6;
-    return Number.isFinite(rounded) ? String(rounded) : "0";
+    const rounded = Math.round((safe + Number.EPSILON) * 1e3) / 1e3;
+    if (!Number.isFinite(rounded)) return "0";
+    const fixed = rounded.toFixed(3);
+    const trimmed = fixed.replace(/\.?0+$/, "");
+    return trimmed || "0";
   };
   const getEffectiveAddFormTvaRate = () => {
     if (!isTaxesEnabled(state().meta?.taxesEnabled)) return 0;
@@ -2005,7 +2008,7 @@
   };
   const roundAddFormCurrencyValue = (value) => {
     const safe = normalizeAddFormPriceNumber(value, 0);
-    return Math.round((safe + Number.EPSILON) * 100) / 100;
+    return Math.round((safe + Number.EPSILON) * 1e3) / 1e3;
   };
   const roundAddFormCalcValue = (value, decimals = 6) => {
     const safe = normalizeAddFormPriceNumber(value, 0);
@@ -2233,7 +2236,7 @@
     setVal("addRef", it.ref ?? ""); setVal("addProduct", it.product ?? "");
     setVal("addDesc", it.desc ?? ""); setVal("addStockQty", String(it.stockQty ?? 0));
     setVal("addUnit", it.unit ?? "");
-    setVal("addPurchasePrice", String(pricing.purchasePrice));
+    setVal("addPurchasePrice", formatAddFormPriceInputValue(pricing.purchasePrice));
     setVal(
       "addPurchasePriceTtc",
       formatAddFormPriceInputValue(
@@ -2246,7 +2249,7 @@
     );
     setVal("addPurchaseTva", String(pricing.purchaseTva));
     setVal("addPurchaseDiscount", String(discounts.purchaseDiscount));
-    setVal("addPrice", String(pricing.salesPrice));
+    setVal("addPrice", formatAddFormPriceInputValue(pricing.salesPrice));
     setVal("addTva", String(salesTva));
     setVal(
       "addPriceTtc",
@@ -3061,9 +3064,7 @@
   function setReadOnlyNumberValue(id, value) {
     const el = getEl(id);
     if (!el) return;
-    const currency = state().meta.currency || "DT";
-    const dec = String(currency || "").trim().toUpperCase() === "DT" ? 3 : 2;
-    const safe = Number.isFinite(value) ? value.toFixed(dec) : (dec === 3 ? "0.000" : "0.00");
+    const safe = formatAddFormPriceInputValue(value);
     if (el.value !== safe) el.value = safe;
   }
 

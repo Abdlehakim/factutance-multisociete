@@ -4174,7 +4174,8 @@ const normalizeArticleRecord = (raw = {}) => {
     purchaseTva: normalizeArticleNumber(raw?.purchaseTva ?? raw?.purchase_tva, 0),
     purchaseDiscount,
     price: Number(raw?.price ?? 0) || 0,
-    tva: Number(raw?.tva ?? 19) || 19,
+    // Keep explicit 0 as a valid value; fallback to 19 only when tva is nullish.
+    tva: normalizeArticleNumber(raw?.tva ?? 19, 19),
     discount: Number(raw?.discount ?? 0) || 0,
     fodec: normalizeArticleFodec(raw),
     purchaseFodec: normalizeArticlePurchaseFodec(raw),

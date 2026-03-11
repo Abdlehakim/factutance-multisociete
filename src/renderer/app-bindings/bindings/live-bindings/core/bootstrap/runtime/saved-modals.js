@@ -1276,7 +1276,7 @@
                 (1 + purchaseFodecRate / 100);
               setVal(
                 "addPurchasePriceTtc",
-                String(Math.round((purchasePriceTtcRaw + Number.EPSILON) * 100) / 100)
+                String(Math.round((purchasePriceTtcRaw + Number.EPSILON) * 1e3) / 1e3)
               );
               setVal("addPurchaseTva", String(articleForFill.purchaseTva ?? 0));
               setVal("addPurchaseDiscount", String(articleForFill.purchaseDiscount ?? 0));
@@ -1303,7 +1303,7 @@
                 (1 + saleFodecRate / 100);
               setVal(
                 "addPriceTtc",
-                String(Math.round((salePriceTtcRaw + Number.EPSILON) * 100) / 100)
+                String(Math.round((salePriceTtcRaw + Number.EPSILON) * 1e3) / 1e3)
               );
               setVal("addDiscount", String(articleForFill.discount ?? 0));
             }
@@ -1354,8 +1354,8 @@
                 const safeTva = Number.isFinite(tva) ? Math.max(0, tva) : 0;
                 const safeFodec = fodecEnabled && Number.isFinite(fodecRate) ? Math.max(0, fodecRate) : 0;
                 return Math.round(
-                  (safeHt * (1 + safeTva / 100) * (1 + safeFodec / 100) + Number.EPSILON) * 100
-                ) / 100;
+                  (safeHt * (1 + safeTva / 100) * (1 + safeFodec / 100) + Number.EPSILON) * 1e3
+                ) / 1e3;
               })(),
               addPurchaseTva: article.purchaseTva ?? 0,
               addPurchaseDiscount: article.purchaseDiscount ?? 0,
@@ -1371,8 +1371,8 @@
                 const safeTva = Number.isFinite(tva) ? Math.max(0, tva) : 0;
                 const safeFodec = fodecEnabled && Number.isFinite(fodecRate) ? Math.max(0, fodecRate) : 0;
                 return Math.round(
-                  (safeHt * (1 + safeTva / 100) * (1 + safeFodec / 100) + Number.EPSILON) * 100
-                ) / 100;
+                  (safeHt * (1 + safeTva / 100) * (1 + safeFodec / 100) + Number.EPSILON) * 1e3
+                ) / 1e3;
               })(),
               addTva: article.tva ?? 19,
               addDiscount: article.discount ?? 0

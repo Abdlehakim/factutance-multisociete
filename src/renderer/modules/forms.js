@@ -54,6 +54,14 @@
       st.meta.columns[key] = !!enabled;
     }
   }
+  function formatArticlePriceInputValue(value, maxDecimals = 3) {
+    const num = Number(typeof value === "string" ? value.replace(",", ".") : value);
+    const safe = Number.isFinite(num) ? Math.max(0, num) : 0;
+    const rounded = Math.round((safe + Number.EPSILON) * 10 ** maxDecimals) / 10 ** maxDecimals;
+    const fixed = rounded.toFixed(maxDecimals);
+    const trimmed = fixed.replace(/\.?0+$/, "");
+    return trimmed || "0";
+  }
 
   function captureArticleFromForm() {
     const use = {};
@@ -168,7 +176,7 @@
     const salesFodecRate =
       fodec.enabled && Number.isFinite(salesFodecRateRaw) ? Math.max(0, salesFodecRateRaw) : 0;
     const salesPriceTtc =
-      Math.round((salesPrice * (1 + salesTva / 100) * (1 + salesFodecRate / 100) + Number.EPSILON) * 100) / 100;
+      Math.round((salesPrice * (1 + salesTva / 100) * (1 + salesFodecRate / 100) + Number.EPSILON) * 1e3) / 1e3;
     const purchasePriceRaw = Number(a.purchasePrice ?? 0);
     const purchasePrice = Number.isFinite(purchasePriceRaw) ? Math.max(0, purchasePriceRaw) : 0;
     const purchaseTvaRaw = Number(a.purchaseTva ?? 0);
@@ -178,13 +186,13 @@
     const purchaseFodecRate =
       purchaseFodec.enabled && Number.isFinite(purchaseFodecRateRaw) ? Math.max(0, purchaseFodecRateRaw) : 0;
     const purchasePriceTtc =
-      Math.round((purchasePrice * (1 + purchaseTva / 100) * (1 + purchaseFodecRate / 100) + Number.EPSILON) * 100) /
-      100;
+      Math.round((purchasePrice * (1 + purchaseTva / 100) * (1 + purchaseFodecRate / 100) + Number.EPSILON) * 1e3) /
+      1e3;
     setVal("addRef", a.ref ?? ""); setVal("addProduct", a.product ?? ""); setVal("addDesc", a.desc ?? "");
-    setVal("addStockQty", String(a.stockQty ?? 0)); setVal("addUnit", a.unit ?? ""); setVal("addPrice", String(salesPrice));
-    setVal("addPriceTtc", String(salesPriceTtc));
-    setVal("addPurchasePrice", String(purchasePrice));
-    setVal("addPurchasePriceTtc", String(purchasePriceTtc));
+    setVal("addStockQty", String(a.stockQty ?? 0)); setVal("addUnit", a.unit ?? ""); setVal("addPrice", formatArticlePriceInputValue(salesPrice));
+    setVal("addPriceTtc", formatArticlePriceInputValue(salesPriceTtc));
+    setVal("addPurchasePrice", formatArticlePriceInputValue(purchasePrice));
+    setVal("addPurchasePriceTtc", formatArticlePriceInputValue(purchasePriceTtc));
     setVal("addPurchaseTva", String(purchaseTva));
     setVal("addPurchaseDiscount", String(a.purchaseDiscount ?? 0));
     setVal("addTva", String(salesTva)); setVal("addDiscount", String(a.discount ?? 0));
