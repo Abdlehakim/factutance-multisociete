@@ -247,6 +247,11 @@ const renderArticleFormFields = ({ idPrefix = "", preview = false } = {}) => {
                 <input id="${id("addPurchasePrice")}" type="number" min="0" step="0.01" value="0"${readOnlyNumberInput} />
               </div>
 
+              <div class="add-item-field"${previewField("purchasePrice")}>
+                <label for="${id("addPurchasePriceTtc")}" class="label-text">P.U A. TTC</label>
+                <input id="${id("addPurchasePriceTtc")}" type="number" min="0" step="0.01" value="0"${readOnlyNumberInput} />
+              </div>
+
               <div class="add-item-field"${previewField("purchaseTva")}>
                 <label for="${id("addPurchaseTva")}" class="label-text" data-article-field-label="purchaseTva">TVA &agrave; l'achat&nbsp;%</label>
                 <input id="${id("addPurchaseTva")}" type="number" min="0" step="0.01" value="0"${previewDefault("purchaseTva")}${readOnlyNumberInput} />
@@ -295,6 +300,11 @@ const renderArticleFormFields = ({ idPrefix = "", preview = false } = {}) => {
               <div class="add-item-field"${previewField("price")}>
                 <label for="${id("addPrice")}" class="label-text" id="${id("addPriceLabel")}" data-article-field-label="price">PU HT</label>
                 <input id="${id("addPrice")}" type="number" min="0" step="0.01" value="0"${readOnlyNumberInput} />
+              </div>
+
+              <div class="add-item-field">
+                <label for="${id("addPriceTtc")}" class="label-text">P.U TTC</label>
+                <input id="${id("addPriceTtc")}" type="number" min="0" step="0.01" value="0"${readOnlyNumberInput} />
               </div>
 
               <div class="add-item-field"${previewField("tva")}>

@@ -1959,6 +1959,136 @@
     const num = Number(value);
     return Number.isFinite(num) ? num : fallback;
   };
+  let addFormUnitPriceSyncLock = false;
+  let lastEditedPriceField = "ht";
+  let addFormPurchaseUnitPriceSyncLock = false;
+  let lastEditedPurchasePriceField = "ht";
+  const setLastEditedUnitPriceSource = (id = "") => {
+    if (id === "addPrice") {
+      lastEditedPriceField = "ht";
+    } else if (id === "addPriceTtc") {
+      lastEditedPriceField = "ttc";
+    } else if (id === "addPurchasePrice") {
+      lastEditedPurchasePriceField = "ht";
+    } else if (id === "addPurchasePriceTtc") {
+      lastEditedPurchasePriceField = "ttc";
+    }
+  };
+  const normalizeAddFormPriceNumber = (value, fallback = 0) => {
+    const normalized = typeof value === "string" ? value.replace(",", ".") : value;
+    const num = Number(normalized);
+    return Number.isFinite(num) ? Math.max(0, num) : fallback;
+  };
+  const parseEditableAddFormPriceInput = (inputEl) => {
+    const raw = String(inputEl?.value ?? "");
+    const trimmed = raw.trim();
+    if (!trimmed) return { kind: "empty", value: null };
+    const validPattern = /^[+-]?(?:\d+(?:[.,]\d*)?|[.,]\d+)$/;
+    if (!validPattern.test(trimmed)) return { kind: "invalid", value: null };
+    const normalized = trimmed.replace(",", ".");
+    const num = Number(normalized);
+    if (!Number.isFinite(num) || num < 0) return { kind: "invalid", value: null };
+    return { kind: "number", value: num };
+  };
+  const formatAddFormPriceInputValue = (value) => {
+    const safe = normalizeAddFormPriceNumber(value, 0);
+    const rounded = Math.round((safe + Number.EPSILON) * 1e6) / 1e6;
+    return Number.isFinite(rounded) ? String(rounded) : "0";
+  };
+  const getEffectiveAddFormTvaRate = () => {
+    if (!isTaxesEnabled(state().meta?.taxesEnabled)) return 0;
+    return normalizeAddFormPriceNumber(getNum("addTva", 19), 0);
+  };
+  const computeAddFormTtcFromHt = (htValue, tvaRate = 0) => {
+    const safeHt = normalizeAddFormPriceNumber(htValue, 0);
+    const safeTva = normalizeAddFormPriceNumber(tvaRate, 0);
+    return safeHt * (1 + safeTva / 100);
+  };
+  const computeAddFormHtFromTtc = (ttcValue, tvaRate = 0) => {
+    const safeTtc = normalizeAddFormPriceNumber(ttcValue, 0);
+    const safeTva = normalizeAddFormPriceNumber(tvaRate, 0);
+    const divisor = 1 + safeTva / 100;
+    return divisor > 0 ? safeTtc / divisor : safeTtc;
+  };
+  const getEffectiveAddFormPurchaseTvaRate = () => {
+    if (!isTaxesEnabled(state().meta?.taxesEnabled)) return 0;
+    return normalizeAddFormPriceNumber(getNum("addPurchaseTva", 0), 0);
+  };
+  const computeAddFormPurchaseTtcFromHt = (htValue, tvaRate = 0) => {
+    const safeHt = normalizeAddFormPriceNumber(htValue, 0);
+    const safeTva = normalizeAddFormPriceNumber(tvaRate, 0);
+    return safeHt * (1 + safeTva / 100);
+  };
+  const computeAddFormPurchaseHtFromTtc = (ttcValue, tvaRate = 0) => {
+    const safeTtc = normalizeAddFormPriceNumber(ttcValue, 0);
+    const safeTva = normalizeAddFormPriceNumber(tvaRate, 0);
+    const divisor = 1 + safeTva / 100;
+    return divisor > 0 ? safeTtc / divisor : safeTtc;
+  };
+  const syncAddFormPurchaseUnitPrices = (source = "ht") => {
+    if (addFormPurchaseUnitPriceSyncLock) return;
+    const addPurchasePriceInput = getEl("addPurchasePrice");
+    const addPurchasePriceTtcInput = getEl("addPurchasePriceTtc");
+    if (!addPurchasePriceInput || !addPurchasePriceTtcInput) return;
+    const resolvedSource =
+      source === "ht" || source === "ttc"
+        ? source
+        : source === "tva"
+        ? (lastEditedPurchasePriceField === "ttc" ? "ttc" : "ht")
+        : (lastEditedPurchasePriceField === "ttc" ? "ttc" : "ht");
+    const sourceInput = resolvedSource === "ttc" ? addPurchasePriceTtcInput : addPurchasePriceInput;
+    const oppositeInput = resolvedSource === "ttc" ? addPurchasePriceInput : addPurchasePriceTtcInput;
+    const sourceState = parseEditableAddFormPriceInput(sourceInput);
+    if (sourceState.kind === "invalid") return;
+    if (sourceState.kind === "empty") {
+      if (source !== "tva" && oppositeInput.value !== "") oppositeInput.value = "";
+      return;
+    }
+    const tvaRate = getEffectiveAddFormPurchaseTvaRate();
+    const nextOppositeValue =
+      resolvedSource === "ttc"
+        ? computeAddFormPurchaseHtFromTtc(sourceState.value, tvaRate)
+        : computeAddFormPurchaseTtcFromHt(sourceState.value, tvaRate);
+    const nextOppositeText = formatAddFormPriceInputValue(nextOppositeValue);
+    addFormPurchaseUnitPriceSyncLock = true;
+    try {
+      if (oppositeInput.value !== nextOppositeText) oppositeInput.value = nextOppositeText;
+    } finally {
+      addFormPurchaseUnitPriceSyncLock = false;
+    }
+  };
+  const syncAddFormUnitPrices = (source = "ht") => {
+    if (addFormUnitPriceSyncLock) return;
+    const addPriceInput = getEl("addPrice");
+    const addPriceTtcInput = getEl("addPriceTtc");
+    if (!addPriceInput || !addPriceTtcInput) return;
+    const resolvedSource =
+      source === "ht" || source === "ttc"
+        ? source
+        : source === "tva"
+        ? (lastEditedPriceField === "ttc" ? "ttc" : "ht")
+        : (lastEditedPriceField === "ttc" ? "ttc" : "ht");
+    const sourceInput = resolvedSource === "ttc" ? addPriceTtcInput : addPriceInput;
+    const oppositeInput = resolvedSource === "ttc" ? addPriceInput : addPriceTtcInput;
+    const sourceState = parseEditableAddFormPriceInput(sourceInput);
+    if (sourceState.kind === "invalid") return;
+    if (sourceState.kind === "empty") {
+      if (source !== "tva" && oppositeInput.value !== "") oppositeInput.value = "";
+      return;
+    }
+    const tvaRate = getEffectiveAddFormTvaRate();
+    const nextOppositeValue =
+      resolvedSource === "ttc"
+        ? computeAddFormHtFromTtc(sourceState.value, tvaRate)
+        : computeAddFormTtcFromHt(sourceState.value, tvaRate);
+    const nextOppositeText = formatAddFormPriceInputValue(nextOppositeValue);
+    addFormUnitPriceSyncLock = true;
+    try {
+      if (oppositeInput.value !== nextOppositeText) oppositeInput.value = nextOppositeText;
+    } finally {
+      addFormUnitPriceSyncLock = false;
+    }
+  };
 
   const getAddFormDefaults = () => {
     const meta = state()?.meta || {};
@@ -1986,15 +2116,19 @@
   SEM.clearAddForm = function () {
     if (shouldSkipMainscreenAddFormUpdate()) return;
     const defaults = getAddFormDefaults();
+    lastEditedPriceField = "ht";
+    lastEditedPurchasePriceField = "ht";
     setVal("addRef","");
     setVal("addProduct","");
     setVal("addDesc","");
     setVal("addStockQty","0");
     setVal("addUnit","");
     setVal("addPurchasePrice","0");
+    setVal("addPurchasePriceTtc","0");
     setVal("addPurchaseTva", String(defaults.purchaseTva));
     setVal("addPurchaseDiscount", String(defaults.purchaseDiscount));
     setVal("addPrice","0");
+    setVal("addPriceTtc","0");
     setVal("addTva", String(defaults.tva));
     setVal("addDiscount","0");
     const fodecToggle = getEl("addFodecEnabled");
@@ -2014,6 +2148,8 @@
   };
   SEM.fillAddFormFromItem = function (it) {
     if (shouldSkipMainscreenAddFormUpdate()) return;
+    lastEditedPriceField = "ht";
+    lastEditedPurchasePriceField = "ht";
     const pricing = resolveItemPricingValues(it);
     const docType = normalizeDocType(state().meta?.docType || getStr("docType", "facture"));
     const discounts = resolveItemDiscountValues(it, { usePurchasePricing: docType === "fa" });
@@ -2022,9 +2158,28 @@
     setVal("addDesc", it.desc ?? ""); setVal("addStockQty", String(it.stockQty ?? 0));
     setVal("addUnit", it.unit ?? "");
     setVal("addPurchasePrice", String(pricing.purchasePrice));
+    setVal(
+      "addPurchasePriceTtc",
+      formatAddFormPriceInputValue(
+        computeAddFormPurchaseTtcFromHt(
+          pricing.purchasePrice,
+          isTaxesEnabled(state().meta?.taxesEnabled) ? Math.max(0, pricing.purchaseTva) : 0
+        )
+      )
+    );
     setVal("addPurchaseTva", String(pricing.purchaseTva));
     setVal("addPurchaseDiscount", String(discounts.purchaseDiscount));
-    setVal("addPrice", String(pricing.salesPrice)); setVal("addTva", String(salesTva));
+    setVal("addPrice", String(pricing.salesPrice));
+    setVal("addTva", String(salesTva));
+    setVal(
+      "addPriceTtc",
+      formatAddFormPriceInputValue(
+        computeAddFormTtcFromHt(
+          pricing.salesPrice,
+          isTaxesEnabled(state().meta?.taxesEnabled) ? Math.max(0, salesTva) : 0
+        )
+      )
+    );
     setVal("addDiscount", String(discounts.salesDiscount));
     const fodec = it.fodec && typeof it.fodec === "object" ? it.fodec : {};
     const fodecToggle = getEl("addFodecEnabled");
@@ -2661,9 +2816,11 @@
       getEl("addStockBlockInsufficient"),
       getEl("addUnit"),
       getEl("addPurchasePrice"),
+      getEl("addPurchasePriceTtc"),
       getEl("addPurchaseTva"),
       getEl("addPurchaseDiscount"),
       getEl("addPrice"),
+      getEl("addPriceTtc"),
       getEl("addTva"),
       getEl("addDiscount"),
       getEl("addFodecEnabled"),
@@ -2696,6 +2853,7 @@
       stockQty: true,
       unit: true,
       purchasePrice: true,
+      purchasePriceTtc: true,
       purchaseTva: true,
       purchaseDiscount: true,
       totalPurchaseHt: true,
@@ -2720,10 +2878,12 @@
       addStockQty: resolved.stockQty,
       addUnit: resolved.unit,
       addPurchasePrice: resolved.purchasePrice,
+      addPurchasePriceTtc: resolved.purchasePriceTtc,
       addPurchaseTva: resolved.purchaseTva,
       addPurchaseDiscount: resolved.purchaseDiscount,
       addTotalPurchaseHt: resolved.totalPurchaseHt,
       addPrice: resolved.price,
+      addPriceTtc: resolved.price,
       addTva: resolved.tva,
       addDiscount: resolved.discount,
       addTotalPurchaseTtc: resolved.totalPurchaseTtc,
@@ -2969,9 +3129,11 @@
         "addStockBlockInsufficient",
         "addUnit",
         "addPurchasePrice",
+        "addPurchasePriceTtc",
         "addPurchaseTva",
         "addPurchaseDiscount",
         "addPrice",
+        "addPriceTtc",
         "addTva",
         "addDiscount",
         "addFodecEnabled",
@@ -2982,12 +3144,44 @@
         "addPurchaseFodecTva"
       ]);
       const scopeSelector = "#addItemBox, #addItemBoxMainscreen, #articleFormPopover";
+      const primePriceSourceFromEvent = (evt) => {
+        const target = evt?.target;
+        if (!target || typeof target.id !== "string") return;
+        setLastEditedUnitPriceSource(target.id);
+      };
       const handleDirtyInput = (evt) => {
         const target = evt?.target;
         if (!target || !watchedIds.has(target.id)) return;
         const scope = typeof target.closest === "function" ? target.closest(scopeSelector) : null;
         if (scope && typeof SEM.setActiveAddFormScope === "function") {
           SEM.setActiveAddFormScope(scope);
+        }
+        if (target.id === "addPurchasePrice") {
+          setLastEditedUnitPriceSource(target.id);
+          syncAddFormPurchaseUnitPrices("ht");
+        } else if (target.id === "addPurchasePriceTtc") {
+          setLastEditedUnitPriceSource(target.id);
+          syncAddFormPurchaseUnitPrices("ttc");
+        } else if (target.id === "addPurchaseTva") {
+          syncAddFormPurchaseUnitPrices("tva");
+        } else if (target.id === "addPrice") {
+          setLastEditedUnitPriceSource(target.id);
+          syncAddFormUnitPrices("ht");
+        } else if (target.id === "addPriceTtc") {
+          setLastEditedUnitPriceSource(target.id);
+          syncAddFormUnitPrices("ttc");
+        } else if (target.id === "addTva") {
+          syncAddFormUnitPrices("tva");
+        }
+        if (
+          target.id === "addPurchasePrice" ||
+          target.id === "addPurchasePriceTtc" ||
+          target.id === "addPurchaseTva" ||
+          target.id === "addPrice" ||
+          target.id === "addPriceTtc" ||
+          target.id === "addTva"
+        ) {
+          SEM.stockWindow?.syncReadOnlyInfo?.();
         }
         SEM._markAddFormDirty();
         if (typeof SEM.evaluateArticleDirtyState === "function") {
@@ -2998,6 +3192,27 @@
         }
         SEM.updateAddFormTotals?.();
       };
+      document.addEventListener("beforeinput", primePriceSourceFromEvent, true);
+      document.addEventListener("input", primePriceSourceFromEvent, true);
+      document.addEventListener(
+        "keydown",
+        (evt) => {
+          const key = String(evt?.key || "");
+          if (!key) return;
+          if (
+            key === "Backspace" ||
+            key === "Delete" ||
+            key === "." ||
+            key === "," ||
+            key === "Decimal" ||
+            key === "NumpadDecimal" ||
+            key.length === 1
+          ) {
+            primePriceSourceFromEvent(evt);
+          }
+        },
+        true
+      );
       document.addEventListener("input", handleDirtyInput);
       document.addEventListener("change", handleDirtyInput);
     })();
@@ -3007,8 +3222,10 @@
     if (shouldSkipMainscreenAddFormUpdate()) return;
     const qty = getNum("addQty", 1);
     const stockQty = getNum("addStockQty", 0);
+    syncAddFormPurchaseUnitPrices(lastEditedPurchasePriceField);
     const purchasePrice = getNum("addPurchasePrice", 0);
     const purchaseTva = getNum("addPurchaseTva", 0);
+    syncAddFormUnitPrices(lastEditedPriceField);
     const price = getNum("addPrice", 0);
     const discount = getNum("addDiscount", 0);
     const purchaseDiscount = getNum("addPurchaseDiscount", 0);
@@ -3148,6 +3365,7 @@
       stockQty: columns.stockQty !== false,
       unit: formUnitVis,
       purchasePrice: purchaseSectionEnabled && columns.purchasePrice !== false,
+      purchasePriceTtc: purchaseSectionEnabled && columns.purchasePrice !== false,
       purchaseTva: purchaseSectionEnabled && columns.purchaseTva !== false,
       purchaseDiscount:
         purchaseSectionEnabled && columns.purchasePrice !== false && columns.purchaseDiscount !== false,

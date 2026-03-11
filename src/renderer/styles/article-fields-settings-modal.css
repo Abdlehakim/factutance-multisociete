@@ -559,12 +559,12 @@
 }
 
 .article-fields-settings-preview .add-pricing-row--purchase {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px 12px;
 }
 
 .article-fields-settings-preview .add-pricing-row--sales {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px 12px;
 }
 

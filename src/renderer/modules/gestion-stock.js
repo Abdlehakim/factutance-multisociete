@@ -2455,7 +2455,7 @@
     );
 
   const shouldSyncReadOnlyTarget = (target) =>
-    target?.matches?.("#addUnit, #addStockQty, #addStockDepotQty, #addPurchasePrice, #addPrice");
+    target?.matches?.("#addUnit, #addStockQty, #addStockDepotQty, #addPurchasePrice, #addPurchasePriceTtc, #addPrice, #addPriceTtc");
 
   const bindEvents = () => {
     if (SEM.__stockWindowEventsBound || typeof document === "undefined") return;

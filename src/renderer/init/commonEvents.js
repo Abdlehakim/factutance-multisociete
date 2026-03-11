@@ -69,7 +69,7 @@
     SEM.setSubmitMode?.("add");
 
     UI()?.installFocusGuards?.();
-  ["addPurchasePrice","addPurchaseTva","addPurchaseDiscount","addPrice","addTva","addDiscount","addStockQty"].forEach(id =>
+  ["addPurchasePrice","addPurchasePriceTtc","addPurchaseTva","addPurchaseDiscount","addPrice","addPriceTtc","addTva","addDiscount","addStockQty"].forEach(id =>
     UI()?.enableFirstClickSelectSecondClickCaret?.(getEl(id))
   );
 
@@ -143,7 +143,7 @@
       });
     }
 
-  ["addRef","addProduct","addDesc","addUnit","addStockQty","addPurchasePrice","addPurchaseTva","addPurchaseDiscount","addPurchaseFodecRate","addPurchaseFodecTva","addPrice","addTva","addDiscount","addFodecRate","addFodecTva"].forEach((id) => {
+  ["addRef","addProduct","addDesc","addUnit","addStockQty","addPurchasePrice","addPurchasePriceTtc","addPurchaseTva","addPurchaseDiscount","addPurchaseFodecRate","addPurchaseFodecTva","addPrice","addPriceTtc","addTva","addDiscount","addFodecRate","addFodecTva"].forEach((id) => {
       const el = getEl(id);
       el?.addEventListener("keydown", (e) => { if (e.key === "Enter"){ e.preventDefault(); SEM.submitItemForm?.(); } });
       el?.addEventListener("focus", () => { try { el.select(); } catch {} });

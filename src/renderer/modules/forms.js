@@ -159,12 +159,24 @@
     };
   }
   function fillArticleToForm(a = {}) {
+    const salesPriceRaw = Number(a.price ?? 0);
+    const salesPrice = Number.isFinite(salesPriceRaw) ? Math.max(0, salesPriceRaw) : 0;
+    const salesTvaRaw = Number(a.tva ?? 19);
+    const salesTva = Number.isFinite(salesTvaRaw) ? Math.max(0, salesTvaRaw) : 19;
+    const salesPriceTtc = Math.round((salesPrice * (1 + salesTva / 100) + Number.EPSILON) * 1e6) / 1e6;
+    const purchasePriceRaw = Number(a.purchasePrice ?? 0);
+    const purchasePrice = Number.isFinite(purchasePriceRaw) ? Math.max(0, purchasePriceRaw) : 0;
+    const purchaseTvaRaw = Number(a.purchaseTva ?? 0);
+    const purchaseTva = Number.isFinite(purchaseTvaRaw) ? Math.max(0, purchaseTvaRaw) : 0;
+    const purchasePriceTtc = Math.round((purchasePrice * (1 + purchaseTva / 100) + Number.EPSILON) * 1e6) / 1e6;
     setVal("addRef", a.ref ?? ""); setVal("addProduct", a.product ?? ""); setVal("addDesc", a.desc ?? "");
-    setVal("addStockQty", String(a.stockQty ?? 0)); setVal("addUnit", a.unit ?? ""); setVal("addPrice", String(a.price ?? 0));
-    setVal("addPurchasePrice", String(a.purchasePrice ?? 0));
-    setVal("addPurchaseTva", String(a.purchaseTva ?? 0));
+    setVal("addStockQty", String(a.stockQty ?? 0)); setVal("addUnit", a.unit ?? ""); setVal("addPrice", String(salesPrice));
+    setVal("addPriceTtc", String(salesPriceTtc));
+    setVal("addPurchasePrice", String(purchasePrice));
+    setVal("addPurchasePriceTtc", String(purchasePriceTtc));
+    setVal("addPurchaseTva", String(purchaseTva));
     setVal("addPurchaseDiscount", String(a.purchaseDiscount ?? 0));
-    setVal("addTva", String(a.tva ?? 19)); setVal("addDiscount", String(a.discount ?? 0));
+    setVal("addTva", String(salesTva)); setVal("addDiscount", String(a.discount ?? 0));
     const fodec = a.fodec && typeof a.fodec === "object" ? a.fodec : {};
     const fodecToggle = getEl("addFodecEnabled");
     if (fodecToggle) fodecToggle.checked = !!fodec.enabled;

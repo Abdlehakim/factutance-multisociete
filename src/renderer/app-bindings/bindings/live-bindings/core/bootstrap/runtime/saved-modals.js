@@ -468,10 +468,12 @@
             "addStockQty",
             "addUnit",
             "addPurchasePrice",
+            "addPurchasePriceTtc",
             "addPurchaseTva",
             "addPurchaseFodecRate",
             "addPurchaseFodecTva",
             "addPrice",
+            "addPriceTtc",
             "addPriceLabel",
             "addTva",
             "addDiscount"
@@ -488,6 +490,7 @@
             "addStockQty",
             "addUnit",
             "addPurchasePrice",
+            "addPurchasePriceTtc",
             "addPurchaseTva",
             "addPurchaseDiscount",
             "addPurchaseFodecRow",
@@ -496,6 +499,7 @@
             "addPurchaseFodecTva",
             "addPurchaseFodecAmount",
             "addPrice",
+            "addPriceTtc",
             "addTva",
             "addDiscount",
             "addQty",
@@ -1261,6 +1265,13 @@
               setVal("addStockQty", String(articleForFill.stockQty ?? 0));
               setVal("addUnit", articleForFill.unit ?? "");
               setVal("addPurchasePrice", String(articleForFill.purchasePrice ?? 0));
+              setVal(
+                "addPurchasePriceTtc",
+                String(
+                  (Number(articleForFill.purchasePrice ?? 0) || 0) *
+                    (1 + Math.max(0, Number(articleForFill.purchaseTva ?? 0) || 0) / 100)
+                )
+              );
               setVal("addPurchaseTva", String(articleForFill.purchaseTva ?? 0));
               setVal("addPurchaseDiscount", String(articleForFill.purchaseDiscount ?? 0));
               if (getEl("addPurchaseFodecEnabled")) {
@@ -1270,6 +1281,13 @@
               setVal("addPurchaseFodecTva", String(articleForFill.purchaseFodec?.tva ?? 19));
               setVal("addPrice", String(articleForFill.price ?? 0));
               setVal("addTva", String(articleForFill.tva ?? 19));
+              setVal(
+                "addPriceTtc",
+                String(
+                  (Number(articleForFill.price ?? 0) || 0) *
+                    (1 + Math.max(0, Number(articleForFill.tva ?? 19) || 0) / 100)
+                )
+              );
               setVal("addDiscount", String(articleForFill.discount ?? 0));
             }
             SEM.selectedItemIndex = null;
@@ -1310,11 +1328,25 @@
               addStockQty: article.stockQty ?? 0,
               addUnit: article.unit ?? "",
               addPurchasePrice: article.purchasePrice ?? 0,
+              addPurchasePriceTtc: (() => {
+                const ht = Number(article.purchasePrice ?? 0);
+                const tva = Number(article.purchaseTva ?? 0);
+                const safeHt = Number.isFinite(ht) ? Math.max(0, ht) : 0;
+                const safeTva = Number.isFinite(tva) ? Math.max(0, tva) : 0;
+                return safeHt * (1 + safeTva / 100);
+              })(),
               addPurchaseTva: article.purchaseTva ?? 0,
               addPurchaseDiscount: article.purchaseDiscount ?? 0,
               addPurchaseFodecRate: article.purchaseFodec?.rate ?? 1,
               addPurchaseFodecTva: article.purchaseFodec?.tva ?? 19,
               addPrice: article.price ?? 0,
+              addPriceTtc: (() => {
+                const ht = Number(article.price ?? 0);
+                const tva = Number(article.tva ?? 19);
+                const safeHt = Number.isFinite(ht) ? Math.max(0, ht) : 0;
+                const safeTva = Number.isFinite(tva) ? Math.max(0, tva) : 0;
+                return safeHt * (1 + safeTva / 100);
+              })(),
               addTva: article.tva ?? 19,
               addDiscount: article.discount ?? 0
             };
@@ -1323,11 +1355,13 @@
             setVal(id, String(valMap[id]));
             if ([
               "addPurchasePrice",
+              "addPurchasePriceTtc",
               "addPurchaseTva",
               "addPurchaseDiscount",
               "addPurchaseFodecRate",
               "addPurchaseFodecTva",
               "addPrice",
+              "addPriceTtc",
               "addTva",
               "addDiscount"
             ].includes(id)) {

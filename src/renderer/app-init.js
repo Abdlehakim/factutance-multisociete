@@ -833,11 +833,13 @@
     focus.installFocusGuards?.();
     [
       "addPurchasePrice",
+      "addPurchasePriceTtc",
       "addPurchaseTva",
       "addPurchaseDiscount",
       "addPurchaseFodecRate",
       "addPurchaseFodecTva",
       "addPrice",
+      "addPriceTtc",
       "addTva",
       "addDiscount",
       "addFodecRate",
