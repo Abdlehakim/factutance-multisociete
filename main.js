@@ -5042,6 +5042,17 @@ ipcMain.handle("articles:open", async () => {
     if (canceled || !filePaths?.[0]) return null;
     const txt = await fsp.readFile(filePaths[0], "utf-8");
     const data = JSON.parse(txt);
+    const salesTvaRaw =
+      data.tva ??
+      data.vat ??
+      data.tax ??
+      data.taxRate ??
+      data.tax_rate ??
+      data.tvaRate ??
+      data.tva_rate ??
+      data.tvaPct ??
+      data.tva_pct ??
+      19;
     return {
       ref: data.ref ?? "",
       product: data.product ?? "",
@@ -5049,7 +5060,7 @@ ipcMain.handle("articles:open", async () => {
       qty: Number(data.qty ?? 1),
       stockQty: Number(data.stockQty ?? 0),
       price: Number(data.price ?? 0),
-      tva: Number(data.tva ?? 19),
+      tva: normalizeArticleNumber(salesTvaRaw, 19),
       discount: Number(data.discount ?? 0),
       fodec: normalizeArticleFodec(data)
     };

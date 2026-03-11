@@ -167,9 +167,9 @@
     };
   }
   function fillArticleToForm(a = {}) {
-    const salesPriceRaw = Number(a.price ?? 0);
+    const salesPriceRaw = Number(a.price ?? a.priceHt ?? a.prix ?? a.prixHt ?? 0);
     const salesPrice = Number.isFinite(salesPriceRaw) ? Math.max(0, salesPriceRaw) : 0;
-    const salesTvaRaw = Number(a.tva ?? 19);
+    const salesTvaRaw = Number(a.tva ?? a.vat ?? a.tvaRate ?? a.tvaPct ?? 19);
     const salesTva = Number.isFinite(salesTvaRaw) ? Math.max(0, salesTvaRaw) : 19;
     const fodec = a.fodec && typeof a.fodec === "object" ? a.fodec : {};
     const salesFodecRateRaw = Number(fodec.rate ?? 1);
@@ -177,9 +177,20 @@
       fodec.enabled && Number.isFinite(salesFodecRateRaw) ? Math.max(0, salesFodecRateRaw) : 0;
     const salesPriceTtc =
       Math.round((salesPrice * (1 + salesTva / 100) * (1 + salesFodecRate / 100) + Number.EPSILON) * 1e3) / 1e3;
-    const purchasePriceRaw = Number(a.purchasePrice ?? 0);
+    const purchasePriceRaw = Number(
+      a.purchasePrice ?? a.purchase_price ?? a.buyPrice ?? a.buy_price ?? a.prixAchat ?? a.prix_achat ?? 0
+    );
     const purchasePrice = Number.isFinite(purchasePriceRaw) ? Math.max(0, purchasePriceRaw) : 0;
-    const purchaseTvaRaw = Number(a.purchaseTva ?? 0);
+    const purchaseTvaRaw = Number(
+      a.purchaseTva ??
+        a.purchase_tva ??
+        a.purchaseVat ??
+        a.buyTva ??
+        a.buy_tva ??
+        a.tvaAchat ??
+        a.tva_achat ??
+        0
+    );
     const purchaseTva = Number.isFinite(purchaseTvaRaw) ? Math.max(0, purchaseTvaRaw) : 0;
     const purchaseFodec = a.purchaseFodec && typeof a.purchaseFodec === "object" ? a.purchaseFodec : {};
     const purchaseFodecRateRaw = Number(purchaseFodec.rate ?? 1);

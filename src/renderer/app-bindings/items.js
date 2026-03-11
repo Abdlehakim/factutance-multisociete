@@ -707,9 +707,11 @@
   const normalizeArticleSnapshotText = (value) => String(value ?? "").trim();
   const normalizeArticleSnapshotNumber = (value, fallback = 0) => {
     const normalized = String(value ?? "").replace(",", ".").trim();
-    if (!normalized) return String(Number(fallback) || 0);
+    const fallbackNumber = Number(fallback);
+    const safeFallback = Number.isFinite(fallbackNumber) ? fallbackNumber : 0;
+    if (!normalized) return String(safeFallback);
     const num = Number(normalized);
-    return Number.isFinite(num) ? String(num) : String(Number(fallback) || 0);
+    return Number.isFinite(num) ? String(num) : String(safeFallback);
   };
   const normalizeArticleSnapshotOptionalNumber = (value) => {
     const normalized = String(value ?? "").replace(",", ".").trim();
@@ -1643,8 +1645,10 @@
       "tvaRate",
       "tva_rate"
     ]);
-    const salesPrice = hasItemValue(salesPriceSource) ? parseItemNumber(salesPriceSource, 0) : 0;
-    const salesTva = hasItemValue(salesTvaSource) ? parseItemNumber(salesTvaSource, 0) : 0;
+    const hasSalesPrice = hasItemValue(salesPriceSource);
+    const hasSalesTva = hasItemValue(salesTvaSource);
+    const salesPrice = hasSalesPrice ? parseItemNumber(salesPriceSource, 0) : 0;
+    const salesTva = hasSalesTva ? parseItemNumber(salesTvaSource, 0) : 0;
     const purchasePriceSource = pickItemNumericValue(source, [
       "purchasePrice",
       "purchase_price",
@@ -1673,13 +1677,20 @@
       "purchaseTax",
       "purchase_tax"
     ]);
-    const purchasePrice = hasItemValue(purchasePriceSource)
-      ? parseItemNumber(purchasePriceSource, 0)
-      : 0;
-    const purchaseTva = hasItemValue(purchaseTvaSource)
-      ? parseItemNumber(purchaseTvaSource, 0)
-      : 0;
-    return { salesPrice, salesTva, purchasePrice, purchaseTva };
+    const hasPurchasePrice = hasItemValue(purchasePriceSource);
+    const hasPurchaseTva = hasItemValue(purchaseTvaSource);
+    const purchasePrice = hasPurchasePrice ? parseItemNumber(purchasePriceSource, 0) : 0;
+    const purchaseTva = hasPurchaseTva ? parseItemNumber(purchaseTvaSource, 0) : 0;
+    return {
+      salesPrice,
+      salesTva,
+      purchasePrice,
+      purchaseTva,
+      hasSalesPrice,
+      hasSalesTva,
+      hasPurchasePrice,
+      hasPurchaseTva
+    };
   }
 
   function resolveItemDiscountValues(rawItem = {}, options = {}) {
@@ -2228,7 +2239,7 @@
     const purchaseFodecRate = purchaseFodec.enabled
       ? normalizeAddFormPriceNumber(purchaseFodec.rate ?? 1, 0)
       : 0;
-    const salesTva = hasItemValue(it?.tva) ? parseItemNumber(it.tva, 0) : 19;
+    const salesTva = pricing.hasSalesTva ? pricing.salesTva : 19;
     const fodec = it.fodec && typeof it.fodec === "object" ? it.fodec : {};
     const saleFodecRate = fodec.enabled
       ? normalizeAddFormPriceNumber(fodec.rate ?? 1, 0)

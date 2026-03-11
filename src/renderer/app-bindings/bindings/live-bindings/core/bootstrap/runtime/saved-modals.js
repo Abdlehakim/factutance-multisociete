@@ -1249,6 +1249,41 @@
             }
           };
 
+          resolveArticleSalesTvaValue = (source = {}, fallback = 19) => {
+            const record = source && typeof source === "object" ? source : {};
+            const raw =
+              record.tva ??
+              record.vat ??
+              record.tax ??
+              record.taxRate ??
+              record.tax_rate ??
+              record.tvaRate ??
+              record.tva_rate ??
+              record.tvaPct ??
+              record.tva_pct ??
+              fallback;
+            const parsed = Number(typeof raw === "string" ? raw.replace(",", ".") : raw);
+            return Number.isFinite(parsed) ? parsed : fallback;
+          };
+
+          resolveArticlePurchaseTvaValue = (source = {}, fallback = 0) => {
+            const record = source && typeof source === "object" ? source : {};
+            const raw =
+              record.purchaseTva ??
+              record.purchase_tva ??
+              record.purchaseVat ??
+              record.purchase_vat ??
+              record.buyTva ??
+              record.buy_tva ??
+              record.tvaAchat ??
+              record.tva_achat ??
+              record.purchaseTax ??
+              record.purchase_tax ??
+              fallback;
+            const parsed = Number(typeof raw === "string" ? raw.replace(",", ".") : raw);
+            return Number.isFinite(parsed) ? parsed : fallback;
+          };
+
           applyArticleFromSearch = (article = {}, { applyUse = true, formScope = null } = {}) => {
             if (!article) return;
             const scope = resolveAddFormScope(formScope);
@@ -1259,6 +1294,8 @@
             } else if (typeof SEM.fillAddFormFromItem === "function") {
               SEM.fillAddFormFromItem(articleForFill);
             } else {
+              const purchaseTvaValue = Math.max(0, resolveArticlePurchaseTvaValue(articleForFill, 0));
+              const salesTvaValue = Math.max(0, resolveArticleSalesTvaValue(articleForFill, 19));
               setVal("addRef", articleForFill.ref ?? "");
               setVal("addProduct", articleForFill.product ?? "");
               setVal("addDesc", articleForFill.desc ?? "");
@@ -1272,13 +1309,13 @@
                   : 0;
               const purchasePriceTtcRaw =
                 (Number(articleForFill.purchasePrice ?? 0) || 0) *
-                (1 + Math.max(0, Number(articleForFill.purchaseTva ?? 0) || 0) / 100) *
+                (1 + purchaseTvaValue / 100) *
                 (1 + purchaseFodecRate / 100);
               setVal(
                 "addPurchasePriceTtc",
                 String(Math.round((purchasePriceTtcRaw + Number.EPSILON) * 1e3) / 1e3)
               );
-              setVal("addPurchaseTva", String(articleForFill.purchaseTva ?? 0));
+              setVal("addPurchaseTva", String(purchaseTvaValue));
               setVal("addPurchaseDiscount", String(articleForFill.purchaseDiscount ?? 0));
               if (getEl("addPurchaseFodecEnabled")) {
                 getEl("addPurchaseFodecEnabled").checked = !!articleForFill.purchaseFodec?.enabled;
@@ -1286,7 +1323,7 @@
               setVal("addPurchaseFodecRate", String(articleForFill.purchaseFodec?.rate ?? 1));
               setVal("addPurchaseFodecTva", String(articleForFill.purchaseFodec?.tva ?? 19));
               setVal("addPrice", String(articleForFill.price ?? 0));
-              setVal("addTva", String(articleForFill.tva ?? 19));
+              setVal("addTva", String(salesTvaValue));
               if (getEl("addFodecEnabled")) {
                 getEl("addFodecEnabled").checked = !!articleForFill.fodec?.enabled;
               }
@@ -1299,7 +1336,7 @@
                   : 0;
               const salePriceTtcRaw =
                 (Number(articleForFill.price ?? 0) || 0) *
-                (1 + Math.max(0, Number(articleForFill.tva ?? 19) || 0) / 100) *
+                (1 + salesTvaValue / 100) *
                 (1 + saleFodecRate / 100);
               setVal(
                 "addPriceTtc",
@@ -1338,6 +1375,8 @@
             if (!inputEl) return false;
             const scope = resolveAddFormScope(formScope || inputEl);
             if (scope) setActiveAddFormScope(scope);
+            const purchaseTvaValue = resolveArticlePurchaseTvaValue(article, 0);
+            const salesTvaValue = resolveArticleSalesTvaValue(article, 19);
             const valMap = {
               addRef: article.ref ?? "",
               addProduct: article.product ?? "",
@@ -1347,7 +1386,7 @@
               addPurchasePrice: article.purchasePrice ?? 0,
               addPurchasePriceTtc: (() => {
                 const ht = Number(article.purchasePrice ?? 0);
-                const tva = Number(article.purchaseTva ?? 0);
+                const tva = Number(purchaseTvaValue);
                 const fodecRate = Number(article.purchaseFodec?.rate ?? 1);
                 const fodecEnabled = !!article.purchaseFodec?.enabled;
                 const safeHt = Number.isFinite(ht) ? Math.max(0, ht) : 0;
@@ -1357,14 +1396,14 @@
                   (safeHt * (1 + safeTva / 100) * (1 + safeFodec / 100) + Number.EPSILON) * 1e3
                 ) / 1e3;
               })(),
-              addPurchaseTva: article.purchaseTva ?? 0,
+              addPurchaseTva: purchaseTvaValue,
               addPurchaseDiscount: article.purchaseDiscount ?? 0,
               addPurchaseFodecRate: article.purchaseFodec?.rate ?? 1,
               addPurchaseFodecTva: article.purchaseFodec?.tva ?? 19,
               addPrice: article.price ?? 0,
               addPriceTtc: (() => {
                 const ht = Number(article.price ?? 0);
-                const tva = Number(article.tva ?? 19);
+                const tva = Number(salesTvaValue);
                 const fodecRate = Number(article.fodec?.rate ?? 1);
                 const fodecEnabled = !!article.fodec?.enabled;
                 const safeHt = Number.isFinite(ht) ? Math.max(0, ht) : 0;
@@ -1374,7 +1413,7 @@
                   (safeHt * (1 + safeTva / 100) * (1 + safeFodec / 100) + Number.EPSILON) * 1e3
                 ) / 1e3;
               })(),
-              addTva: article.tva ?? 19,
+              addTva: salesTvaValue,
               addDiscount: article.discount ?? 0
             };
             const id = inputEl.id;
@@ -1766,10 +1805,10 @@
               qty: toNumber(article.qty ?? 1, 1) || 1,
               unit: article.unit ?? "",
               purchasePrice: toNumber(article.purchasePrice ?? article.purchase_price ?? 0, 0),
-              purchaseTva: toNumber(article.purchaseTva ?? article.purchase_tva ?? 0, 0),
+              purchaseTva: toNumber(resolveArticlePurchaseTvaValue(article, 0), 0),
               purchaseDiscount: purchaseDiscountValue,
               price: toNumber(article.price ?? 0, 0),
-              tva: toNumber(article.tva ?? 19, 19),
+              tva: toNumber(resolveArticleSalesTvaValue(article, 19), 19),
               discount: usePurchasePricing ? purchaseDiscountValue : salesDiscountValue,
               fodec: normalizeArticleFodecForItem(article),
               purchaseFodec: normalizeArticlePurchaseFodecForItem(article)
