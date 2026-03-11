@@ -1265,12 +1265,18 @@
               setVal("addStockQty", String(articleForFill.stockQty ?? 0));
               setVal("addUnit", articleForFill.unit ?? "");
               setVal("addPurchasePrice", String(articleForFill.purchasePrice ?? 0));
+              const purchaseFodecRateRaw = Number(articleForFill.purchaseFodec?.rate ?? 1);
+              const purchaseFodecRate =
+                articleForFill.purchaseFodec?.enabled && Number.isFinite(purchaseFodecRateRaw)
+                  ? Math.max(0, purchaseFodecRateRaw)
+                  : 0;
+              const purchasePriceTtcRaw =
+                (Number(articleForFill.purchasePrice ?? 0) || 0) *
+                (1 + Math.max(0, Number(articleForFill.purchaseTva ?? 0) || 0) / 100) *
+                (1 + purchaseFodecRate / 100);
               setVal(
                 "addPurchasePriceTtc",
-                String(
-                  (Number(articleForFill.purchasePrice ?? 0) || 0) *
-                    (1 + Math.max(0, Number(articleForFill.purchaseTva ?? 0) || 0) / 100)
-                )
+                String(Math.round((purchasePriceTtcRaw + Number.EPSILON) * 100) / 100)
               );
               setVal("addPurchaseTva", String(articleForFill.purchaseTva ?? 0));
               setVal("addPurchaseDiscount", String(articleForFill.purchaseDiscount ?? 0));
@@ -1281,12 +1287,23 @@
               setVal("addPurchaseFodecTva", String(articleForFill.purchaseFodec?.tva ?? 19));
               setVal("addPrice", String(articleForFill.price ?? 0));
               setVal("addTva", String(articleForFill.tva ?? 19));
+              if (getEl("addFodecEnabled")) {
+                getEl("addFodecEnabled").checked = !!articleForFill.fodec?.enabled;
+              }
+              setVal("addFodecRate", String(articleForFill.fodec?.rate ?? 1));
+              setVal("addFodecTva", String(articleForFill.fodec?.tva ?? 19));
+              const saleFodecRateRaw = Number(articleForFill.fodec?.rate ?? 1);
+              const saleFodecRate =
+                articleForFill.fodec?.enabled && Number.isFinite(saleFodecRateRaw)
+                  ? Math.max(0, saleFodecRateRaw)
+                  : 0;
+              const salePriceTtcRaw =
+                (Number(articleForFill.price ?? 0) || 0) *
+                (1 + Math.max(0, Number(articleForFill.tva ?? 19) || 0) / 100) *
+                (1 + saleFodecRate / 100);
               setVal(
                 "addPriceTtc",
-                String(
-                  (Number(articleForFill.price ?? 0) || 0) *
-                    (1 + Math.max(0, Number(articleForFill.tva ?? 19) || 0) / 100)
-                )
+                String(Math.round((salePriceTtcRaw + Number.EPSILON) * 100) / 100)
               );
               setVal("addDiscount", String(articleForFill.discount ?? 0));
             }
@@ -1331,9 +1348,14 @@
               addPurchasePriceTtc: (() => {
                 const ht = Number(article.purchasePrice ?? 0);
                 const tva = Number(article.purchaseTva ?? 0);
+                const fodecRate = Number(article.purchaseFodec?.rate ?? 1);
+                const fodecEnabled = !!article.purchaseFodec?.enabled;
                 const safeHt = Number.isFinite(ht) ? Math.max(0, ht) : 0;
                 const safeTva = Number.isFinite(tva) ? Math.max(0, tva) : 0;
-                return safeHt * (1 + safeTva / 100);
+                const safeFodec = fodecEnabled && Number.isFinite(fodecRate) ? Math.max(0, fodecRate) : 0;
+                return Math.round(
+                  (safeHt * (1 + safeTva / 100) * (1 + safeFodec / 100) + Number.EPSILON) * 100
+                ) / 100;
               })(),
               addPurchaseTva: article.purchaseTva ?? 0,
               addPurchaseDiscount: article.purchaseDiscount ?? 0,
@@ -1343,9 +1365,14 @@
               addPriceTtc: (() => {
                 const ht = Number(article.price ?? 0);
                 const tva = Number(article.tva ?? 19);
+                const fodecRate = Number(article.fodec?.rate ?? 1);
+                const fodecEnabled = !!article.fodec?.enabled;
                 const safeHt = Number.isFinite(ht) ? Math.max(0, ht) : 0;
                 const safeTva = Number.isFinite(tva) ? Math.max(0, tva) : 0;
-                return safeHt * (1 + safeTva / 100);
+                const safeFodec = fodecEnabled && Number.isFinite(fodecRate) ? Math.max(0, fodecRate) : 0;
+                return Math.round(
+                  (safeHt * (1 + safeTva / 100) * (1 + safeFodec / 100) + Number.EPSILON) * 100
+                ) / 100;
               })(),
               addTva: article.tva ?? 19,
               addDiscount: article.discount ?? 0

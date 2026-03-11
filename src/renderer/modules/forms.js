@@ -163,12 +163,23 @@
     const salesPrice = Number.isFinite(salesPriceRaw) ? Math.max(0, salesPriceRaw) : 0;
     const salesTvaRaw = Number(a.tva ?? 19);
     const salesTva = Number.isFinite(salesTvaRaw) ? Math.max(0, salesTvaRaw) : 19;
-    const salesPriceTtc = Math.round((salesPrice * (1 + salesTva / 100) + Number.EPSILON) * 1e6) / 1e6;
+    const fodec = a.fodec && typeof a.fodec === "object" ? a.fodec : {};
+    const salesFodecRateRaw = Number(fodec.rate ?? 1);
+    const salesFodecRate =
+      fodec.enabled && Number.isFinite(salesFodecRateRaw) ? Math.max(0, salesFodecRateRaw) : 0;
+    const salesPriceTtc =
+      Math.round((salesPrice * (1 + salesTva / 100) * (1 + salesFodecRate / 100) + Number.EPSILON) * 100) / 100;
     const purchasePriceRaw = Number(a.purchasePrice ?? 0);
     const purchasePrice = Number.isFinite(purchasePriceRaw) ? Math.max(0, purchasePriceRaw) : 0;
     const purchaseTvaRaw = Number(a.purchaseTva ?? 0);
     const purchaseTva = Number.isFinite(purchaseTvaRaw) ? Math.max(0, purchaseTvaRaw) : 0;
-    const purchasePriceTtc = Math.round((purchasePrice * (1 + purchaseTva / 100) + Number.EPSILON) * 1e6) / 1e6;
+    const purchaseFodec = a.purchaseFodec && typeof a.purchaseFodec === "object" ? a.purchaseFodec : {};
+    const purchaseFodecRateRaw = Number(purchaseFodec.rate ?? 1);
+    const purchaseFodecRate =
+      purchaseFodec.enabled && Number.isFinite(purchaseFodecRateRaw) ? Math.max(0, purchaseFodecRateRaw) : 0;
+    const purchasePriceTtc =
+      Math.round((purchasePrice * (1 + purchaseTva / 100) * (1 + purchaseFodecRate / 100) + Number.EPSILON) * 100) /
+      100;
     setVal("addRef", a.ref ?? ""); setVal("addProduct", a.product ?? ""); setVal("addDesc", a.desc ?? "");
     setVal("addStockQty", String(a.stockQty ?? 0)); setVal("addUnit", a.unit ?? ""); setVal("addPrice", String(salesPrice));
     setVal("addPriceTtc", String(salesPriceTtc));
@@ -177,12 +188,10 @@
     setVal("addPurchaseTva", String(purchaseTva));
     setVal("addPurchaseDiscount", String(a.purchaseDiscount ?? 0));
     setVal("addTva", String(salesTva)); setVal("addDiscount", String(a.discount ?? 0));
-    const fodec = a.fodec && typeof a.fodec === "object" ? a.fodec : {};
     const fodecToggle = getEl("addFodecEnabled");
     if (fodecToggle) fodecToggle.checked = !!fodec.enabled;
     setVal("addFodecRate", String(fodec.rate ?? 1));
     setVal("addFodecTva", String(fodec.tva ?? 19));
-    const purchaseFodec = a.purchaseFodec && typeof a.purchaseFodec === "object" ? a.purchaseFodec : {};
     const purchaseFodecToggle = getEl("addPurchaseFodecEnabled");
     if (purchaseFodecToggle) purchaseFodecToggle.checked = !!purchaseFodec.enabled;
     setVal("addPurchaseFodecRate", String(purchaseFodec.rate ?? 1));

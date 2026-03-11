@@ -1999,31 +1999,97 @@
     if (!isTaxesEnabled(state().meta?.taxesEnabled)) return 0;
     return normalizeAddFormPriceNumber(getNum("addTva", 19), 0);
   };
-  const computeAddFormTtcFromHt = (htValue, tvaRate = 0) => {
+  const getEffectiveAddFormSaleFodecRate = () => {
+    if (!getEl("addFodecEnabled")?.checked) return 0;
+    return normalizeAddFormPriceNumber(getNum("addFodecRate", 1), 0);
+  };
+  const roundAddFormCurrencyValue = (value) => {
+    const safe = normalizeAddFormPriceNumber(value, 0);
+    return Math.round((safe + Number.EPSILON) * 100) / 100;
+  };
+  const roundAddFormCalcValue = (value, decimals = 6) => {
+    const safe = normalizeAddFormPriceNumber(value, 0);
+    const safeDecimals = Number.isInteger(decimals) ? Math.max(0, Math.min(8, decimals)) : 6;
+    const factor = 10 ** safeDecimals;
+    return Math.round((safe + Number.EPSILON) * factor) / factor;
+  };
+  const getAddFormDiscountFactor = (discountRate = 0) => {
+    const safeDiscount = normalizeAddFormPriceNumber(discountRate, 0);
+    return Math.max(0, 1 - safeDiscount / 100);
+  };
+  const getAddFormEditablePriceValueById = (id, fallback = 0) => {
+    const input = getEl(id);
+    const parsed = parseEditableAddFormPriceInput(input);
+    if (parsed.kind === "number") return parsed.value;
+    return parsed.kind === "empty" ? 0 : normalizeAddFormPriceNumber(fallback, 0);
+  };
+  const resolveAddFormLineTotalsFromUnit = ({
+    unitHt = 0,
+    unitTtc = 0,
+    qty = 0,
+    discountRate = 0,
+    source = "ht",
+    compositeFactor = 1
+  } = {}) => {
+    const safeQty = normalizeAddFormPriceNumber(qty, 0);
+    const discountFactor = getAddFormDiscountFactor(discountRate);
+    const safeCompositeFactor = Number.isFinite(compositeFactor) && compositeFactor > 0 ? compositeFactor : 1;
+    if (source === "ttc") {
+      const safeUnitTtc = normalizeAddFormPriceNumber(unitTtc, 0);
+      const totalTtc = roundAddFormCalcValue(safeQty * safeUnitTtc * discountFactor);
+      const totalHt = roundAddFormCalcValue(totalTtc / safeCompositeFactor);
+      return { totalHt, totalTtc };
+    }
+    const safeUnitHt = normalizeAddFormPriceNumber(unitHt, 0);
+    const totalHt = roundAddFormCalcValue(safeQty * safeUnitHt * discountFactor);
+    const totalTtc = roundAddFormCalcValue(totalHt * safeCompositeFactor);
+    return { totalHt, totalTtc };
+  };
+  const computeAddFormTtcFromHt = (htValue, tvaRate = 0, fodecRate = getEffectiveAddFormSaleFodecRate()) => {
     const safeHt = normalizeAddFormPriceNumber(htValue, 0);
     const safeTva = normalizeAddFormPriceNumber(tvaRate, 0);
-    return safeHt * (1 + safeTva / 100);
+    const safeFodec = normalizeAddFormPriceNumber(fodecRate, 0);
+    return roundAddFormCurrencyValue(safeHt * (1 + safeTva / 100) * (1 + safeFodec / 100));
   };
-  const computeAddFormHtFromTtc = (ttcValue, tvaRate = 0) => {
+  const computeAddFormHtFromTtc = (
+    ttcValue,
+    tvaRate = 0,
+    fodecRate = getEffectiveAddFormSaleFodecRate()
+  ) => {
     const safeTtc = normalizeAddFormPriceNumber(ttcValue, 0);
     const safeTva = normalizeAddFormPriceNumber(tvaRate, 0);
-    const divisor = 1 + safeTva / 100;
-    return divisor > 0 ? safeTtc / divisor : safeTtc;
+    const safeFodec = normalizeAddFormPriceNumber(fodecRate, 0);
+    const divisor = (1 + safeTva / 100) * (1 + safeFodec / 100);
+    return roundAddFormCurrencyValue(divisor > 0 ? safeTtc / divisor : safeTtc);
   };
   const getEffectiveAddFormPurchaseTvaRate = () => {
     if (!isTaxesEnabled(state().meta?.taxesEnabled)) return 0;
     return normalizeAddFormPriceNumber(getNum("addPurchaseTva", 0), 0);
   };
-  const computeAddFormPurchaseTtcFromHt = (htValue, tvaRate = 0) => {
+  const getEffectiveAddFormPurchaseFodecRate = () => {
+    if (!getEl("addPurchaseFodecEnabled")?.checked) return 0;
+    return normalizeAddFormPriceNumber(getNum("addPurchaseFodecRate", 1), 0);
+  };
+  const computeAddFormPurchaseTtcFromHt = (
+    htValue,
+    tvaRate = 0,
+    fodecRate = getEffectiveAddFormPurchaseFodecRate()
+  ) => {
     const safeHt = normalizeAddFormPriceNumber(htValue, 0);
     const safeTva = normalizeAddFormPriceNumber(tvaRate, 0);
-    return safeHt * (1 + safeTva / 100);
+    const safeFodec = normalizeAddFormPriceNumber(fodecRate, 0);
+    return roundAddFormCurrencyValue(safeHt * (1 + safeTva / 100) * (1 + safeFodec / 100));
   };
-  const computeAddFormPurchaseHtFromTtc = (ttcValue, tvaRate = 0) => {
+  const computeAddFormPurchaseHtFromTtc = (
+    ttcValue,
+    tvaRate = 0,
+    fodecRate = getEffectiveAddFormPurchaseFodecRate()
+  ) => {
     const safeTtc = normalizeAddFormPriceNumber(ttcValue, 0);
     const safeTva = normalizeAddFormPriceNumber(tvaRate, 0);
-    const divisor = 1 + safeTva / 100;
-    return divisor > 0 ? safeTtc / divisor : safeTtc;
+    const safeFodec = normalizeAddFormPriceNumber(fodecRate, 0);
+    const divisor = (1 + safeTva / 100) * (1 + safeFodec / 100);
+    return roundAddFormCurrencyValue(divisor > 0 ? safeTtc / divisor : safeTtc);
   };
   const syncAddFormPurchaseUnitPrices = (source = "ht") => {
     if (addFormPurchaseUnitPriceSyncLock) return;
@@ -2045,10 +2111,11 @@
       return;
     }
     const tvaRate = getEffectiveAddFormPurchaseTvaRate();
+    const fodecRate = getEffectiveAddFormPurchaseFodecRate();
     const nextOppositeValue =
       resolvedSource === "ttc"
-        ? computeAddFormPurchaseHtFromTtc(sourceState.value, tvaRate)
-        : computeAddFormPurchaseTtcFromHt(sourceState.value, tvaRate);
+        ? computeAddFormPurchaseHtFromTtc(sourceState.value, tvaRate, fodecRate)
+        : computeAddFormPurchaseTtcFromHt(sourceState.value, tvaRate, fodecRate);
     const nextOppositeText = formatAddFormPriceInputValue(nextOppositeValue);
     addFormPurchaseUnitPriceSyncLock = true;
     try {
@@ -2077,10 +2144,11 @@
       return;
     }
     const tvaRate = getEffectiveAddFormTvaRate();
+    const fodecRate = getEffectiveAddFormSaleFodecRate();
     const nextOppositeValue =
       resolvedSource === "ttc"
-        ? computeAddFormHtFromTtc(sourceState.value, tvaRate)
-        : computeAddFormTtcFromHt(sourceState.value, tvaRate);
+        ? computeAddFormHtFromTtc(sourceState.value, tvaRate, fodecRate)
+        : computeAddFormTtcFromHt(sourceState.value, tvaRate, fodecRate);
     const nextOppositeText = formatAddFormPriceInputValue(nextOppositeValue);
     addFormUnitPriceSyncLock = true;
     try {
@@ -2153,7 +2221,15 @@
     const pricing = resolveItemPricingValues(it);
     const docType = normalizeDocType(state().meta?.docType || getStr("docType", "facture"));
     const discounts = resolveItemDiscountValues(it, { usePurchasePricing: docType === "fa" });
+    const purchaseFodec = it.purchaseFodec && typeof it.purchaseFodec === "object" ? it.purchaseFodec : {};
+    const purchaseFodecRate = purchaseFodec.enabled
+      ? normalizeAddFormPriceNumber(purchaseFodec.rate ?? 1, 0)
+      : 0;
     const salesTva = hasItemValue(it?.tva) ? parseItemNumber(it.tva, 0) : 19;
+    const fodec = it.fodec && typeof it.fodec === "object" ? it.fodec : {};
+    const saleFodecRate = fodec.enabled
+      ? normalizeAddFormPriceNumber(fodec.rate ?? 1, 0)
+      : 0;
     setVal("addRef", it.ref ?? ""); setVal("addProduct", it.product ?? "");
     setVal("addDesc", it.desc ?? ""); setVal("addStockQty", String(it.stockQty ?? 0));
     setVal("addUnit", it.unit ?? "");
@@ -2163,7 +2239,8 @@
       formatAddFormPriceInputValue(
         computeAddFormPurchaseTtcFromHt(
           pricing.purchasePrice,
-          isTaxesEnabled(state().meta?.taxesEnabled) ? Math.max(0, pricing.purchaseTva) : 0
+          isTaxesEnabled(state().meta?.taxesEnabled) ? Math.max(0, pricing.purchaseTva) : 0,
+          purchaseFodecRate
         )
       )
     );
@@ -2176,17 +2253,16 @@
       formatAddFormPriceInputValue(
         computeAddFormTtcFromHt(
           pricing.salesPrice,
-          isTaxesEnabled(state().meta?.taxesEnabled) ? Math.max(0, salesTva) : 0
+          isTaxesEnabled(state().meta?.taxesEnabled) ? Math.max(0, salesTva) : 0,
+          saleFodecRate
         )
       )
     );
     setVal("addDiscount", String(discounts.salesDiscount));
-    const fodec = it.fodec && typeof it.fodec === "object" ? it.fodec : {};
     const fodecToggle = getEl("addFodecEnabled");
     if (fodecToggle) fodecToggle.checked = !!fodec.enabled;
     setVal("addFodecRate",  String(fodec.rate  ?? 1));
     setVal("addFodecTva",   String(fodec.tva   ?? 19));
-    const purchaseFodec = it.purchaseFodec && typeof it.purchaseFodec === "object" ? it.purchaseFodec : {};
     const purchaseFodecToggle = getEl("addPurchaseFodecEnabled");
     if (purchaseFodecToggle) purchaseFodecToggle.checked = !!purchaseFodec.enabled;
     setVal("addPurchaseFodecRate", String(purchaseFodec.rate ?? 1));
@@ -3192,6 +3268,8 @@
           syncAddFormPurchaseUnitPrices("ttc");
         } else if (target.id === "addPurchaseTva") {
           syncAddFormPurchaseUnitPrices("tva");
+        } else if (target.id === "addPurchaseFodecEnabled" || target.id === "addPurchaseFodecRate") {
+          syncAddFormPurchaseUnitPrices("tva");
         } else if (target.id === "addPrice") {
           setLastEditedUnitPriceSource(target.id);
           syncAddFormUnitPrices("ht");
@@ -3248,46 +3326,90 @@
 
   SEM.updateAddFormTotals = function () {
     if (shouldSkipMainscreenAddFormUpdate()) return;
-    const qty = getNum("addQty", 1);
-    const stockQty = getNum("addStockQty", 0);
+    const qty = normalizeAddFormPriceNumber(getNum("addQty", 1), 1);
+    const stockQty = normalizeAddFormPriceNumber(getNum("addStockQty", 0), 0);
     syncAddFormPurchaseUnitPrices(lastEditedPurchasePriceField);
-    const purchasePrice = getNum("addPurchasePrice", 0);
-    const purchaseTva = getNum("addPurchaseTva", 0);
+    const purchasePrice = normalizeAddFormPriceNumber(getNum("addPurchasePrice", 0), 0);
+    const purchaseTva = normalizeAddFormPriceNumber(getNum("addPurchaseTva", 0), 0);
     syncAddFormUnitPrices(lastEditedPriceField);
-    const price = getNum("addPrice", 0);
-    const discount = getNum("addDiscount", 0);
-    const purchaseDiscount = getNum("addPurchaseDiscount", 0);
-    const tva = getNum("addTva", 19);
+    const price = normalizeAddFormPriceNumber(getNum("addPrice", 0), 0);
+    const discount = normalizeAddFormPriceNumber(getNum("addDiscount", 0), 0);
+    const purchaseDiscount = normalizeAddFormPriceNumber(getNum("addPurchaseDiscount", 0), 0);
+    const tva = normalizeAddFormPriceNumber(getNum("addTva", 19), 19);
     const fodecEnabled = !!getEl("addFodecEnabled")?.checked;
-    const fodecRate = getNum("addFodecRate", 1);
-    const fodecTvaRate = getNum("addFodecTva", 19);
+    const fodecRate = normalizeAddFormPriceNumber(getNum("addFodecRate", 1), 1);
+    const fodecTvaRate = normalizeAddFormPriceNumber(getNum("addFodecTva", 19), 19);
     const purchaseFodecEnabled = !!getEl("addPurchaseFodecEnabled")?.checked;
-    const purchaseFodecRate = getNum("addPurchaseFodecRate", 1);
-    const purchaseFodecTvaRate = getNum("addPurchaseFodecTva", 19);
+    const purchaseFodecRate = normalizeAddFormPriceNumber(getNum("addPurchaseFodecRate", 1), 1);
+    const purchaseFodecTvaRate = normalizeAddFormPriceNumber(getNum("addPurchaseFodecTva", 19), 19);
     const taxesEnabled = isTaxesEnabled(state().meta?.taxesEnabled);
     const docType = normalizeDocType(state().meta?.docType || getStr("docType", "facture"));
     const usePurchasePricing = docType === "fa";
 
-    const salesBase = qty * price;
-    const purchaseBase = qty * purchasePrice;
-    const activeBase = usePurchasePricing ? purchaseBase : salesBase;
-    const activeDiscountRate = usePurchasePricing ? purchaseDiscount : discount;
-    const discountAmount = activeBase * (activeDiscountRate / 100);
-    const totalHT = Math.max(0, activeBase - discountAmount);
-    const activeTvaRate = usePurchasePricing ? purchaseTva : tva;
-    const tax = taxesEnabled ? totalHT * (activeTvaRate / 100) : 0;
-    const fodec = !usePurchasePricing && fodecEnabled ? totalHT * (fodecRate / 100) : 0;
-    const fodecTva = taxesEnabled && !usePurchasePricing && fodecEnabled ? fodec * (fodecTvaRate / 100) : 0;
-    const purchaseDiscountAmount = purchaseBase * (purchaseDiscount / 100);
-    const totalPurchaseHT = Math.max(0, purchaseBase - purchaseDiscountAmount);
-    const purchaseTax = taxesEnabled ? totalPurchaseHT * (purchaseTva / 100) : 0;
-    const purchaseFodec = purchaseFodecEnabled ? totalPurchaseHT * (purchaseFodecRate / 100) : 0;
+    const saleTvaRate = taxesEnabled ? normalizeAddFormPriceNumber(tva, 0) : 0;
+    const saleFodecRate = fodecEnabled ? normalizeAddFormPriceNumber(fodecRate, 0) : 0;
+    const purchaseTvaRate = taxesEnabled ? normalizeAddFormPriceNumber(purchaseTva, 0) : 0;
+    const purchaseSaleFodecRate =
+      purchaseFodecEnabled ? normalizeAddFormPriceNumber(purchaseFodecRate, 0) : 0;
+
+    const saleCompositeFactor = (1 + saleTvaRate / 100) * (1 + saleFodecRate / 100);
+    const purchaseCompositeFactor = (1 + purchaseTvaRate / 100) * (1 + purchaseSaleFodecRate / 100);
+
+    const saleUnitTtc = getAddFormEditablePriceValueById(
+      "addPriceTtc",
+      computeAddFormTtcFromHt(price, saleTvaRate, saleFodecRate)
+    );
+    const purchaseUnitTtc = getAddFormEditablePriceValueById(
+      "addPurchasePriceTtc",
+      computeAddFormPurchaseTtcFromHt(purchasePrice, purchaseTvaRate, purchaseSaleFodecRate)
+    );
+
+    const salesLineTotals = resolveAddFormLineTotalsFromUnit({
+      unitHt: price,
+      unitTtc: saleUnitTtc,
+      qty,
+      discountRate: discount,
+      source: lastEditedPriceField === "ttc" ? "ttc" : "ht",
+      compositeFactor: saleCompositeFactor
+    });
+    const purchaseLineTotals = resolveAddFormLineTotalsFromUnit({
+      unitHt: purchasePrice,
+      unitTtc: purchaseUnitTtc,
+      qty,
+      discountRate: purchaseDiscount,
+      source: lastEditedPurchasePriceField === "ttc" ? "ttc" : "ht",
+      compositeFactor: purchaseCompositeFactor
+    });
+
+    const salesTax = taxesEnabled ? roundAddFormCalcValue(salesLineTotals.totalHt * (saleTvaRate / 100)) : 0;
+    const fodec = fodecEnabled ? roundAddFormCalcValue(salesLineTotals.totalHt * (saleFodecRate / 100)) : 0;
+    const fodecTva =
+      taxesEnabled && fodecEnabled
+        ? roundAddFormCalcValue(fodec * (normalizeAddFormPriceNumber(fodecTvaRate, 0) / 100))
+        : 0;
+
+    const purchaseTax =
+      taxesEnabled ? roundAddFormCalcValue(purchaseLineTotals.totalHt * (purchaseTvaRate / 100)) : 0;
+    const purchaseFodec =
+      purchaseFodecEnabled ? roundAddFormCalcValue(purchaseLineTotals.totalHt * (purchaseSaleFodecRate / 100)) : 0;
     const purchaseFodecTva =
-      taxesEnabled && purchaseFodecEnabled ? purchaseFodec * (purchaseFodecTvaRate / 100) : 0;
-    const purchaseTtc = totalPurchaseHT + purchaseTax + purchaseFodec + purchaseFodecTva;
-    const totalTTC = usePurchasePricing
-      ? totalHT + tax + purchaseFodec + purchaseFodecTva
-      : totalHT + tax + fodec + fodecTva;
+      taxesEnabled && purchaseFodecEnabled
+        ? roundAddFormCalcValue(purchaseFodec * (normalizeAddFormPriceNumber(purchaseFodecTvaRate, 0) / 100))
+        : 0;
+
+    const salesTtcFromComponents = roundAddFormCalcValue(
+      salesLineTotals.totalHt + salesTax + fodec + fodecTva
+    );
+    const purchaseTtcFromComponents = roundAddFormCalcValue(
+      purchaseLineTotals.totalHt + purchaseTax + purchaseFodec + purchaseFodecTva
+    );
+
+    const totalPurchaseHT = purchaseLineTotals.totalHt;
+    const purchaseTtc =
+      lastEditedPurchasePriceField === "ttc" ? purchaseLineTotals.totalTtc : purchaseTtcFromComponents;
+    const salesTtc = lastEditedPriceField === "ttc" ? salesLineTotals.totalTtc : salesTtcFromComponents;
+    const totalHT = usePurchasePricing ? purchaseLineTotals.totalHt : salesLineTotals.totalHt;
+    const totalTTC = usePurchasePricing ? purchaseTtc : salesTtc;
 
     const fodecRow = getEl("addFodecRow");
     if (fodecRow) fodecRow.dataset.fodecActive = fodecEnabled ? "true" : "false";
@@ -3300,8 +3422,8 @@
     setReadOnlyNumberValue("addPurchaseFodecAmount", purchaseFodecEnabled ? purchaseFodec : 0);
     setReadOnlyNumberValue("addFodecAmount", fodecEnabled ? fodec : 0);
     setReadOnlyNumberValue("addTotalTtc", totalTTC);
-    setReadOnlyNumberValue("addTotalStockCostPurchase", stockQty * purchaseTtc);
-    setReadOnlyNumberValue("addTotalStockValueSale", stockQty * totalTTC);
+    setReadOnlyNumberValue("addTotalStockCostPurchase", roundAddFormCalcValue(stockQty * purchaseTtc));
+    setReadOnlyNumberValue("addTotalStockValueSale", roundAddFormCalcValue(stockQty * totalTTC));
   };
 
   SEM.applyColumnHiding = function () {
