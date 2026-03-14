@@ -169,8 +169,61 @@
   function fillArticleToForm(a = {}) {
     const salesPriceRaw = Number(a.price ?? a.priceHt ?? a.prix ?? a.prixHt ?? 0);
     const salesPrice = Number.isFinite(salesPriceRaw) ? Math.max(0, salesPriceRaw) : 0;
-    const salesTvaRaw = Number(a.tva ?? a.vat ?? a.tvaRate ?? a.tvaPct ?? 19);
+    const salesTvaRaw = Number(
+      a.tva ??
+        a.vat ??
+        a.tax ??
+        a.taxRate ??
+        a.tax_rate ??
+        a.tvaRate ??
+        a.tva_rate ??
+        a.tvaPct ??
+        a.tva_pct ??
+        19
+    );
     const salesTva = Number.isFinite(salesTvaRaw) ? Math.max(0, salesTvaRaw) : 19;
+    const resolveFodecTvaValue = (source = {}, { purchase = false, fallback = 19 } = {}) => {
+      const article = source && typeof source === "object" ? source : {};
+      const fodecSource = purchase
+        ? article.purchaseFodec && typeof article.purchaseFodec === "object"
+          ? article.purchaseFodec
+          : {}
+        : article.fodec && typeof article.fodec === "object"
+        ? article.fodec
+        : {};
+      const raw = purchase
+        ? fodecSource.tva ??
+          fodecSource.vat ??
+          fodecSource.tax ??
+          fodecSource.taxRate ??
+          fodecSource.tax_rate ??
+          fodecSource.tvaRate ??
+          fodecSource.tva_rate ??
+          fodecSource.tvaPct ??
+          fodecSource.tva_pct ??
+          article.purchaseFodecTva ??
+          article.purchase_fodec_tva ??
+          article.purchaseFodecTvaPct ??
+          article.purchase_fodec_tva_pct ??
+          fallback
+        : fodecSource.tva ??
+          fodecSource.vat ??
+          fodecSource.tax ??
+          fodecSource.taxRate ??
+          fodecSource.tax_rate ??
+          fodecSource.tvaRate ??
+          fodecSource.tva_rate ??
+          fodecSource.tvaPct ??
+          fodecSource.tva_pct ??
+          article.fodecTva ??
+          article.fodec_tva ??
+          article.fodecTvaPct ??
+          article.fodec_tva_pct ??
+          fallback;
+      const parsed = Number(typeof raw === "string" ? raw.replace(",", ".") : raw);
+      return Number.isFinite(parsed) ? Math.max(0, parsed) : fallback;
+    };
+    const salesFodecTvaValue = resolveFodecTvaValue(a, { purchase: false, fallback: 19 });
     const fodec = a.fodec && typeof a.fodec === "object" ? a.fodec : {};
     const salesFodecRateRaw = Number(fodec.rate ?? 1);
     const salesFodecRate =
@@ -192,6 +245,7 @@
         0
     );
     const purchaseTva = Number.isFinite(purchaseTvaRaw) ? Math.max(0, purchaseTvaRaw) : 0;
+    const purchaseFodecTvaValue = resolveFodecTvaValue(a, { purchase: true, fallback: 19 });
     const purchaseFodec = a.purchaseFodec && typeof a.purchaseFodec === "object" ? a.purchaseFodec : {};
     const purchaseFodecRateRaw = Number(purchaseFodec.rate ?? 1);
     const purchaseFodecRate =
@@ -210,11 +264,11 @@
     const fodecToggle = getEl("addFodecEnabled");
     if (fodecToggle) fodecToggle.checked = !!fodec.enabled;
     setVal("addFodecRate", String(fodec.rate ?? 1));
-    setVal("addFodecTva", String(fodec.tva ?? 19));
+    setVal("addFodecTva", String(salesFodecTvaValue));
     const purchaseFodecToggle = getEl("addPurchaseFodecEnabled");
     if (purchaseFodecToggle) purchaseFodecToggle.checked = !!purchaseFodec.enabled;
     setVal("addPurchaseFodecRate", String(purchaseFodec.rate ?? 1));
-    setVal("addPurchaseFodecTva", String(purchaseFodec.tva ?? 19));
+    setVal("addPurchaseFodecTva", String(purchaseFodecTvaValue));
     getStockWindowApi()?.fillToForm?.(a);
     if (a.use && typeof a.use === "object") {
       Object.keys(MAP()).forEach((k) => typeof a.use[k] === "boolean" && setEnabled(k, a.use[k]));

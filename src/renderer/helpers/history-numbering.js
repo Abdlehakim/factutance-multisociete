@@ -137,7 +137,6 @@
 
   const HISTORY_KEY = "facturance.history.v1";
   const HISTORY_VISIBLE_LIMIT = 3;
-  const HISTORY_STORE_LIMIT = 50;
   const DEFAULT_HISTORY_STATUS = "payee";
 
   const stripHistoryStatus = (store) => {
@@ -494,7 +493,7 @@
     }
     const existing = existingBucket.filter((item) => item && item.path !== normalized.path);
     const updated = [normalized, ...existing];
-    documentHistoryStore[docType] = updated.slice(0, HISTORY_STORE_LIMIT);
+    documentHistoryStore[docType] = updated;
     writeHistoryStorage(documentHistoryStore);
     try {
       window.dispatchEvent(
@@ -510,7 +509,7 @@
     const bucket = documentHistoryStore[key];
     if (!Array.isArray(bucket)) return [];
     const filtered = bucket.filter((item) => item && item.path !== path);
-    documentHistoryStore[key] = filtered.slice(0, HISTORY_STORE_LIMIT);
+    documentHistoryStore[key] = filtered;
     writeHistoryStorage(documentHistoryStore);
     try {
       window.dispatchEvent(new CustomEvent("document-history-updated", { detail: { docType: key, removed: path } }));
@@ -530,7 +529,7 @@
       if (!item || item.path !== path) return item;
       return { ...item, note_interne: normalizedNote, has_comment: hasComment };
     });
-    documentHistoryStore[key] = updated.slice(0, HISTORY_STORE_LIMIT);
+    documentHistoryStore[key] = updated;
     writeHistoryStorage(documentHistoryStore);
     try {
       const entry = updated.find((item) => item && item.path === path);

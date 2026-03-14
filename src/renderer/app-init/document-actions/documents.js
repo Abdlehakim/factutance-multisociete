@@ -341,18 +341,19 @@
           }
           const res = await w.electronAPI.listInvoiceFiles({ docType: type });
           if (!res?.ok || !Array.isArray(res.items)) continue;
-          res.items.forEach((item) => {
+          for (let idx = res.items.length - 1; idx >= 0; idx -= 1) {
+            const item = res.items[idx];
             const entryDocType = item?.docType || type;
-              w.addDocumentHistory({
-                docType: entryDocType,
-                path: item?.path,
-                number: item?.number,
-                date: item?.date,
-                createdAt: item?.createdAt || item?.modifiedAt,
-                name: item?.name,
-                clientName: item?.clientName,
-                clientAccount: item?.clientAccount,
-                totalHT: item?.totalHT,
+            w.addDocumentHistory({
+              docType: entryDocType,
+              path: item?.path,
+              number: item?.number,
+              date: item?.date,
+              createdAt: item?.createdAt || item?.modifiedAt,
+              name: item?.name,
+              clientName: item?.clientName,
+              clientAccount: item?.clientAccount,
+              totalHT: item?.totalHT,
               totalTTC: item?.totalTTC,
               currency: item?.currency,
               paid: item?.paid,
@@ -370,7 +371,7 @@
               has_comment: item?.has_comment,
               convertedFrom: item?.convertedFrom
             });
-          });
+          }
         } catch (err) {
           console.warn("hydrate history from disk failed", err);
         }

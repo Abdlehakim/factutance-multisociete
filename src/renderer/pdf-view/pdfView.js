@@ -1352,10 +1352,7 @@
         usePurchasePricing && purchasePriceRaw === 0 && salesPrice !== 0
           ? salesPrice
           : purchasePriceRaw;
-      const purchaseTva =
-        usePurchasePricing && purchaseTvaRaw === 0 && salesTva !== 0
-          ? salesTva
-          : purchaseTvaRaw;
+      const purchaseTva = purchaseTvaRaw;
       return {
         ref: source.ref || "",
         product: source.product || "",

@@ -786,10 +786,20 @@
       discount: normalizeArticleSnapshotNumber(article?.discount, 0),
       fodecEnabled: fodec?.enabled ? "1" : "0",
       fodecRate: normalizeArticleSnapshotNumber(fodec?.rate, 1),
-      fodecTva: normalizeArticleSnapshotNumber(fodec?.tva, 19),
+      fodecTva: normalizeArticleSnapshotNumber(
+        fodec?.tva ?? article?.fodecTva ?? article?.fodec_tva ?? article?.fodecTvaPct ?? article?.fodec_tva_pct,
+        19
+      ),
       purchaseFodecEnabled: purchaseFodec?.enabled ? "1" : "0",
       purchaseFodecRate: normalizeArticleSnapshotNumber(purchaseFodec?.rate, 1),
-      purchaseFodecTva: normalizeArticleSnapshotNumber(purchaseFodec?.tva, 19),
+      purchaseFodecTva: normalizeArticleSnapshotNumber(
+        purchaseFodec?.tva ??
+          article?.purchaseFodecTva ??
+          article?.purchase_fodec_tva ??
+          article?.purchaseFodecTvaPct ??
+          article?.purchase_fodec_tva_pct,
+        19
+      ),
       __path: normalizeArticleSnapshotText(
         pathHint || article?.__path || article?.__articlePath || SEM.articleEditContext?.path || ""
       )
@@ -1623,6 +1633,54 @@
     }
     return undefined;
   }
+  function resolveItemFodecTvaValue(rawItem = {}, { purchase = false, fallback = 19 } = {}) {
+    const source = rawItem && typeof rawItem === "object" ? rawItem : {};
+    const fodecSource = purchase
+      ? source.purchaseFodec && typeof source.purchaseFodec === "object"
+        ? source.purchaseFodec
+        : {}
+      : source.fodec && typeof source.fodec === "object"
+      ? source.fodec
+      : {};
+    const valueSource = purchase
+      ? pickItemNumericValue(
+        { ...source, ...fodecSource },
+        [
+          "tva",
+          "vat",
+          "tax",
+          "taxRate",
+          "tax_rate",
+          "tvaRate",
+          "tva_rate",
+          "tvaPct",
+          "tva_pct",
+          "purchaseFodecTva",
+          "purchase_fodec_tva",
+          "purchaseFodecTvaPct",
+          "purchase_fodec_tva_pct"
+        ]
+      )
+      : pickItemNumericValue(
+        { ...source, ...fodecSource },
+        [
+          "tva",
+          "vat",
+          "tax",
+          "taxRate",
+          "tax_rate",
+          "tvaRate",
+          "tva_rate",
+          "tvaPct",
+          "tva_pct",
+          "fodecTva",
+          "fodec_tva",
+          "fodecTvaPct",
+          "fodec_tva_pct"
+        ]
+      );
+    return hasItemValue(valueSource) ? parseItemNumber(valueSource, fallback) : fallback;
+  }
 
   function resolveItemPricingValues(rawItem = {}) {
     const source = rawItem && typeof rawItem === "object" ? rawItem : {};
@@ -1643,7 +1701,9 @@
       "taxRate",
       "tax_rate",
       "tvaRate",
-      "tva_rate"
+      "tva_rate",
+      "tvaPct",
+      "tva_pct"
     ]);
     const hasSalesPrice = hasItemValue(salesPriceSource);
     const hasSalesTva = hasItemValue(salesTvaSource);
@@ -1675,7 +1735,11 @@
       "tvaAchat",
       "tva_achat",
       "purchaseTax",
-      "purchase_tax"
+      "purchase_tax",
+      "purchaseTvaRate",
+      "purchase_tva_rate",
+      "purchaseTvaPct",
+      "purchase_tva_pct"
     ]);
     const hasPurchasePrice = hasItemValue(purchasePriceSource);
     const hasPurchaseTva = hasItemValue(purchaseTvaSource);
@@ -2241,6 +2305,8 @@
       : 0;
     const salesTva = pricing.hasSalesTva ? pricing.salesTva : 19;
     const fodec = it.fodec && typeof it.fodec === "object" ? it.fodec : {};
+    const salesFodecTva = resolveItemFodecTvaValue(it, { purchase: false, fallback: 19 });
+    const purchaseFodecTva = resolveItemFodecTvaValue(it, { purchase: true, fallback: 19 });
     const saleFodecRate = fodec.enabled
       ? normalizeAddFormPriceNumber(fodec.rate ?? 1, 0)
       : 0;
@@ -2276,11 +2342,11 @@
     const fodecToggle = getEl("addFodecEnabled");
     if (fodecToggle) fodecToggle.checked = !!fodec.enabled;
     setVal("addFodecRate",  String(fodec.rate  ?? 1));
-    setVal("addFodecTva",   String(fodec.tva   ?? 19));
+    setVal("addFodecTva",   String(salesFodecTva));
     const purchaseFodecToggle = getEl("addPurchaseFodecEnabled");
     if (purchaseFodecToggle) purchaseFodecToggle.checked = !!purchaseFodec.enabled;
     setVal("addPurchaseFodecRate", String(purchaseFodec.rate ?? 1));
-    setVal("addPurchaseFodecTva", String(purchaseFodec.tva ?? 19));
+    setVal("addPurchaseFodecTva", String(purchaseFodecTva));
     SEM.stockWindow?.fillToForm?.(it);
     SEM.forms?.syncStockManagementUi?.();
     if (typeof SEM.updateAddFormTotals === "function") SEM.updateAddFormTotals();

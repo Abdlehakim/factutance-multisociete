@@ -292,9 +292,10 @@
         if (isStale()) return;
         if (!res?.ok) continue;
         const items = Array.isArray(res.items) ? res.items : [];
-        items.forEach((entry) => {
+        for (let idx = items.length - 1; idx >= 0; idx -= 1) {
+          const entry = items[idx];
           const pathValue = String(entry?.path || entry?.docPath || "").trim();
-          if (!pathValue) return;
+          if (!pathValue) continue;
           w.addDocumentHistory({
             id: entry?.id,
             docType,
@@ -328,7 +329,7 @@
             pdfPath: entry?.pdfPath || "",
             pdfExportedAt: entry?.pdfExportedAt || ""
           });
-        });
+        }
       } catch (err) {
         console.warn("document history rebuild failed", docType, err);
       } finally {

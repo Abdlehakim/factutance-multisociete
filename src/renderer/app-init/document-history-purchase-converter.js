@@ -210,8 +210,7 @@
         : salesTva;
       const purchasePrice =
         purchasePriceRaw === 0 && salesPrice !== 0 ? salesPrice : purchasePriceRaw;
-      const purchaseTva =
-        purchaseTvaRaw === 0 && salesTva !== 0 ? salesTva : purchaseTvaRaw;
+      const purchaseTva = purchaseTvaRaw;
       return {
         ...source,
         price: salesPrice,

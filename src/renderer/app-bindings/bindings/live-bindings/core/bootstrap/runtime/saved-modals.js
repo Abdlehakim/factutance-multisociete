@@ -372,7 +372,7 @@
               const key = resetBtn.dataset.articleFieldLabelReset;
               if (!key) return;
               const defaults = resolveArticleFieldLabelDefaults();
-              const nextValue = defaults[key] || "";
+              const nextValue = defaults[key] ?? "";
               updateArticleFieldLabelsDraft({ [key]: nextValue });
             });
           document.addEventListener("click", (evt) => {
@@ -401,7 +401,7 @@
             const key = resetBtn.dataset.fieldLabelReset;
             if (!key) return;
             const defaults = resolveClientFieldLabelDefaults();
-            const nextValue = defaults[key] || "";
+            const nextValue = defaults[key] ?? "";
             updateClientFieldLabelsDraft({ [key]: nextValue });
           });
 
@@ -1283,6 +1283,49 @@
             const parsed = Number(typeof raw === "string" ? raw.replace(",", ".") : raw);
             return Number.isFinite(parsed) ? parsed : fallback;
           };
+          resolveArticleFodecTvaValue = (source = {}, fallback = 19) => {
+            const record = source && typeof source === "object" ? source : {};
+            const fodec = record.fodec && typeof record.fodec === "object" ? record.fodec : {};
+            const raw =
+              fodec.tva ??
+              fodec.vat ??
+              fodec.tax ??
+              fodec.taxRate ??
+              fodec.tax_rate ??
+              fodec.tvaRate ??
+              fodec.tva_rate ??
+              fodec.tvaPct ??
+              fodec.tva_pct ??
+              record.fodecTva ??
+              record.fodec_tva ??
+              record.fodecTvaPct ??
+              record.fodec_tva_pct ??
+              fallback;
+            const parsed = Number(typeof raw === "string" ? raw.replace(",", ".") : raw);
+            return Number.isFinite(parsed) ? parsed : fallback;
+          };
+          resolveArticlePurchaseFodecTvaValue = (source = {}, fallback = 19) => {
+            const record = source && typeof source === "object" ? source : {};
+            const purchaseFodec =
+              record.purchaseFodec && typeof record.purchaseFodec === "object" ? record.purchaseFodec : {};
+            const raw =
+              purchaseFodec.tva ??
+              purchaseFodec.vat ??
+              purchaseFodec.tax ??
+              purchaseFodec.taxRate ??
+              purchaseFodec.tax_rate ??
+              purchaseFodec.tvaRate ??
+              purchaseFodec.tva_rate ??
+              purchaseFodec.tvaPct ??
+              purchaseFodec.tva_pct ??
+              record.purchaseFodecTva ??
+              record.purchase_fodec_tva ??
+              record.purchaseFodecTvaPct ??
+              record.purchase_fodec_tva_pct ??
+              fallback;
+            const parsed = Number(typeof raw === "string" ? raw.replace(",", ".") : raw);
+            return Number.isFinite(parsed) ? parsed : fallback;
+          };
 
           applyArticleFromSearch = (article = {}, { applyUse = true, formScope = null } = {}) => {
             if (!article) return;
@@ -1296,6 +1339,8 @@
             } else {
               const purchaseTvaValue = Math.max(0, resolveArticlePurchaseTvaValue(articleForFill, 0));
               const salesTvaValue = Math.max(0, resolveArticleSalesTvaValue(articleForFill, 19));
+              const saleFodecTvaValue = Math.max(0, resolveArticleFodecTvaValue(articleForFill, 19));
+              const purchaseFodecTvaValue = Math.max(0, resolveArticlePurchaseFodecTvaValue(articleForFill, 19));
               setVal("addRef", articleForFill.ref ?? "");
               setVal("addProduct", articleForFill.product ?? "");
               setVal("addDesc", articleForFill.desc ?? "");
@@ -1321,14 +1366,14 @@
                 getEl("addPurchaseFodecEnabled").checked = !!articleForFill.purchaseFodec?.enabled;
               }
               setVal("addPurchaseFodecRate", String(articleForFill.purchaseFodec?.rate ?? 1));
-              setVal("addPurchaseFodecTva", String(articleForFill.purchaseFodec?.tva ?? 19));
+              setVal("addPurchaseFodecTva", String(purchaseFodecTvaValue));
               setVal("addPrice", String(articleForFill.price ?? 0));
               setVal("addTva", String(salesTvaValue));
               if (getEl("addFodecEnabled")) {
                 getEl("addFodecEnabled").checked = !!articleForFill.fodec?.enabled;
               }
               setVal("addFodecRate", String(articleForFill.fodec?.rate ?? 1));
-              setVal("addFodecTva", String(articleForFill.fodec?.tva ?? 19));
+              setVal("addFodecTva", String(saleFodecTvaValue));
               const saleFodecRateRaw = Number(articleForFill.fodec?.rate ?? 1);
               const saleFodecRate =
                 articleForFill.fodec?.enabled && Number.isFinite(saleFodecRateRaw)
@@ -1377,6 +1422,8 @@
             if (scope) setActiveAddFormScope(scope);
             const purchaseTvaValue = resolveArticlePurchaseTvaValue(article, 0);
             const salesTvaValue = resolveArticleSalesTvaValue(article, 19);
+            const salesFodecTvaValue = resolveArticleFodecTvaValue(article, 19);
+            const purchaseFodecTvaValue = resolveArticlePurchaseFodecTvaValue(article, 19);
             const valMap = {
               addRef: article.ref ?? "",
               addProduct: article.product ?? "",
@@ -1399,7 +1446,7 @@
               addPurchaseTva: purchaseTvaValue,
               addPurchaseDiscount: article.purchaseDiscount ?? 0,
               addPurchaseFodecRate: article.purchaseFodec?.rate ?? 1,
-              addPurchaseFodecTva: article.purchaseFodec?.tva ?? 19,
+              addPurchaseFodecTva: purchaseFodecTvaValue,
               addPrice: article.price ?? 0,
               addPriceTtc: (() => {
                 const ht = Number(article.price ?? 0);
@@ -1414,6 +1461,7 @@
                 ) / 1e3;
               })(),
               addTva: salesTvaValue,
+              addFodecTva: salesFodecTvaValue,
               addDiscount: article.discount ?? 0
             };
             const id = inputEl.id;
@@ -1444,10 +1492,42 @@
                 ? record
                 : {};
             const mapNumber = (value, fallback = 0) => {
-              const num = Number(
-                typeof value === "string" ? value.replace(",", ".") : value
-              );
-              return Number.isFinite(num) ? num : fallback;
+              const normalizeCandidate = (candidate) =>
+                Number(typeof candidate === "string" ? candidate.replace(",", ".") : candidate);
+              const num = normalizeCandidate(value);
+              if (Number.isFinite(num)) return num;
+              const fallbackNum = normalizeCandidate(fallback);
+              return Number.isFinite(fallbackNum) ? fallbackNum : fallback;
+            };
+            const normalizeFodecConfig = (rawConfig = {}, keys = {}) => {
+              const cfg = rawConfig && typeof rawConfig === "object" ? rawConfig : {};
+              return {
+                ...cfg,
+                enabled: !!(cfg.enabled ?? source[keys.enabled] ?? source[keys.enabledLegacy]),
+                rate: mapNumber(
+                  cfg.rate ??
+                    cfg.ratePct ??
+                    source[keys.rate] ??
+                    source[keys.rateLegacy] ??
+                    source[keys.ratePct],
+                  source[keys.ratePctLegacy]
+                ),
+                tva: mapNumber(
+                  cfg.tva ??
+                    cfg.vat ??
+                    cfg.tax ??
+                    cfg.taxRate ??
+                    cfg.tax_rate ??
+                    cfg.tvaRate ??
+                    cfg.tva_rate ??
+                    cfg.tvaPct ??
+                    cfg.tva_pct ??
+                    source[keys.tva] ??
+                    source[keys.tvaLegacy] ??
+                    source[keys.tvaPct],
+                  source[keys.tvaPctLegacy]
+                )
+              };
             };
             const normalized = {
               ref:
@@ -1490,7 +1570,18 @@
                 0
               ),
               price: mapNumber(source.price ?? source.priceHt ?? source.prix ?? source.prixHt, 0),
-              tva: mapNumber(source.tva ?? source.vat ?? source.tvaRate ?? source.tvaPct, 19),
+              tva: mapNumber(
+                source.tva ??
+                  source.vat ??
+                  source.tax ??
+                  source.taxRate ??
+                  source.tax_rate ??
+                  source.tvaRate ??
+                  source.tva_rate ??
+                  source.tvaPct ??
+                  source.tva_pct,
+                19
+              ),
               purchaseDiscount: mapNumber(
                 source.purchaseDiscount ??
                   source.purchase_discount ??
@@ -1507,28 +1598,30 @@
                 0
               ),
               discount: mapNumber(source.discount ?? source.remise ?? source.discountPct ?? source.remisePct, 0),
-              fodec:
-                source.fodec && typeof source.fodec === "object"
-                  ? source.fodec
-                  : {
-                      enabled: !!(source.fodecEnabled ?? source.fodec_enabled),
-                      rate: mapNumber(source.fodecRate ?? source.fodec_rate ?? source.fodecRatePct, source.fodec_rate_pct),
-                      tva: mapNumber(source.fodecTva ?? source.fodec_tva ?? source.fodecTvaPct, source.fodec_tva_pct)
-                    },
-              purchaseFodec:
-                source.purchaseFodec && typeof source.purchaseFodec === "object"
-                  ? source.purchaseFodec
-                  : {
-                      enabled: !!(source.purchaseFodecEnabled ?? source.purchase_fodec_enabled),
-                      rate: mapNumber(
-                        source.purchaseFodecRate ?? source.purchase_fodec_rate ?? source.purchaseFodecRatePct,
-                        source.purchase_fodec_rate_pct
-                      ),
-                      tva: mapNumber(
-                        source.purchaseFodecTva ?? source.purchase_fodec_tva ?? source.purchaseFodecTvaPct,
-                        source.purchase_fodec_tva_pct
-                      )
-                    }
+              fodec: normalizeFodecConfig(source.fodec, {
+                enabled: "fodecEnabled",
+                enabledLegacy: "fodec_enabled",
+                rate: "fodecRate",
+                rateLegacy: "fodec_rate",
+                ratePct: "fodecRatePct",
+                ratePctLegacy: "fodec_rate_pct",
+                tva: "fodecTva",
+                tvaLegacy: "fodec_tva",
+                tvaPct: "fodecTvaPct",
+                tvaPctLegacy: "fodec_tva_pct"
+              }),
+              purchaseFodec: normalizeFodecConfig(source.purchaseFodec, {
+                enabled: "purchaseFodecEnabled",
+                enabledLegacy: "purchase_fodec_enabled",
+                rate: "purchaseFodecRate",
+                rateLegacy: "purchase_fodec_rate",
+                ratePct: "purchaseFodecRatePct",
+                ratePctLegacy: "purchase_fodec_rate_pct",
+                tva: "purchaseFodecTva",
+                tvaLegacy: "purchase_fodec_tva",
+                tvaPct: "purchaseFodecTvaPct",
+                tvaPctLegacy: "purchase_fodec_tva_pct"
+              })
             };
             const stockManagement =
               source.stockManagement && typeof source.stockManagement === "object"
@@ -1700,7 +1793,8 @@
             hideArticleSearchResults(scopedResults);
             clearArticleSearchInputValue(scopedInput);
 
-            const forceFullLoad = options.forceFullLoad === true;
+            const forceFullLoad =
+              options.forceFullLoad === true || scope?.id === "articleFormPopover";
             const activeInput = forceFullLoad ? null : getActiveAddFormInput(scope);
             const appliedSingleField = activeInput ? applyArticleFieldToInput(activeInput, article, scope) : false;
             if (!appliedSingleField) {

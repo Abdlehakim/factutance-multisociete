@@ -1076,10 +1076,7 @@
           isPurchaseDoc && purchasePriceRaw === 0 && price !== 0
             ? price
             : purchasePriceRaw;
-        const purchaseTva =
-          isPurchaseDoc && purchaseTvaRaw === 0 && tva !== 0
-            ? tva
-            : purchaseTvaRaw;
+        const purchaseTva = purchaseTvaRaw;
         return {
           ...source,
           qty,

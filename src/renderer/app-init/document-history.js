@@ -1160,7 +1160,8 @@
         const res = await w.electronAPI.listInvoiceFiles({ docType: normalized });
         if (!isTokenValid()) return;
         if (!res?.ok || !Array.isArray(res.items)) return;
-        res.items.forEach((item) => {
+        for (let idx = res.items.length - 1; idx >= 0; idx -= 1) {
+          const item = res.items[idx];
           const entryDocType = item?.docType || normalized;
           w.addDocumentHistory({
             id: item?.id,
@@ -1192,7 +1193,7 @@
             has_comment: item?.has_comment,
             convertedFrom: item?.convertedFrom
           });
-        });
+        }
       } catch (err) {
         console.warn("document history hydrate failed", err);
       }

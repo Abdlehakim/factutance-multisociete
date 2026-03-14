@@ -510,10 +510,7 @@
         usePurchasePricing && purchasePriceRaw === 0 && salesPrice !== 0
           ? salesPrice
           : purchasePriceRaw;
-      const purchaseTva =
-        usePurchasePricing && purchaseTvaRaw === 0 && salesTva !== 0
-          ? salesTva
-          : purchaseTvaRaw;
+      const purchaseTva = purchaseTvaRaw;
       const qty = toNum(it.qty, 0);
       const unitPrice = usePurchasePricing ? purchasePrice : salesPrice;
       const base = qty * unitPrice;
