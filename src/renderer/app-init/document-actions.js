@@ -29,6 +29,7 @@
     const docTypeChoices = [
       { label: "Facture", docType: "facture" },
       { label: "Facture d'achat", docType: "fa" },
+      { label: "Bon de commande", docType: "bc" },
       { label: "Facture d'avoir", docType: "avoir" },
       { label: "Devis", docType: "devis" },
       { label: "Bon de livraison", docType: "bl" }

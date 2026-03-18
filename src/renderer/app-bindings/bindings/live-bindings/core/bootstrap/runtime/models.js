@@ -60,9 +60,12 @@
             }
             return Math.min(MODEL_PREVIEW_ZOOM_MAX, Math.max(MODEL_PREVIEW_ZOOM_MIN, parsed));
           };
-          const MODEL_DOC_TYPE_EXCLUSIVE_WITH_FA = new Set(["facture", "avoir", "devis", "bl"]);
+          const MODEL_DOC_TYPE_EXCLUSIVE_WITH_PURCHASE = new Set(["facture", "avoir", "devis", "bl"]);
+          const MODEL_DOC_TYPE_PURCHASE_VALUES = new Set(["fa", "bc"]);
+          const isModelPurchaseDocType = (value) =>
+            MODEL_DOC_TYPE_PURCHASE_VALUES.has(String(value || "").trim().toLowerCase());
           const normalizeModelDocTypeSwitchSelection = (value, preferredSwitchValue = "") => {
-            const allowedValues = new Set(["facture", "fa", "devis", "bl", "avoir"]);
+            const allowedValues = new Set(["facture", "fa", "bc", "devis", "bl", "avoir"]);
             const normalizedFromString = (source) =>
               String(source || "")
                 .split(",")
@@ -78,18 +81,20 @@
                   .filter((entry, index, list) => list.indexOf(entry) === index)
               : normalizedFromString(value);
             if (!normalizedList.length) normalizedList = ["facture"];
-            const hasFa = normalizedList.includes("fa");
-            const hasExclusiveWithFa = normalizedList.some(
-              (entry) => entry !== "fa" && MODEL_DOC_TYPE_EXCLUSIVE_WITH_FA.has(entry)
+            const hasPurchaseDocType = normalizedList.some((entry) => isModelPurchaseDocType(entry));
+            const hasExclusiveWithPurchase = normalizedList.some(
+              (entry) =>
+                !isModelPurchaseDocType(entry) &&
+                MODEL_DOC_TYPE_EXCLUSIVE_WITH_PURCHASE.has(entry)
             );
-            if (!hasFa || !hasExclusiveWithFa) {
+            if (!hasPurchaseDocType || !hasExclusiveWithPurchase) {
               return normalizedList;
             }
             const preferred = String(preferredSwitchValue || "").trim().toLowerCase();
-            if (preferred === "fa") {
-              return ["fa"];
+            if (isModelPurchaseDocType(preferred)) {
+              return [preferred];
             }
-            return normalizedList.filter((entry) => entry !== "fa");
+            return normalizedList.filter((entry) => !isModelPurchaseDocType(entry));
           };
           readModelPreviewScale = () => {
             const root = modelActionsModal || getEl("modelActionsModal");
@@ -375,6 +380,7 @@
               aucun: "Compatible avec tous les types",
               facture: "Facture",
               fa: "Facture d'achat",
+              bc: "Bon de commande",
               devis: "Devis",
               bl: "Bon de livraison",
               avoir: "Facture d'avoir"
@@ -513,7 +519,7 @@
             const selectedModelDocTypes = getSelectedModelDocTypes();
             const hasDocTypes = Array.isArray(selectedModelDocTypes) && selectedModelDocTypes.length > 0;
             const effectiveDocType = selectedModelDocTypes[0] || "facture";
-            const isPurchaseDocType = selectedModelDocTypes.includes("fa") || effectiveDocType === "fa";
+            const isPurchaseDocType = selectedModelDocTypes.some((docType) => isModelPurchaseDocType(docType));
             const currency =
               checkedValue(getEl("modelCurrencyPanel")) || getEl("modelCurrency")?.value || "DT";
             const taxMode =
@@ -559,6 +565,7 @@
             const prefixMap = {
               facture: "Fact",
               fa: "FA",
+              bc: "BC",
               devis: "Dev",
               bl: "BL",
               avoir: "AV"
@@ -723,7 +730,7 @@
             const saleFodecToggle = getEl("colToggleFodecModal");
             const purchaseFodecToggle = getEl("colTogglePurchaseFodecModal");
             const contextualFodecToggle =
-              effectiveDocType === "fa"
+              isPurchaseDocType
                 ? purchaseFodecToggle || saleFodecToggle
                 : saleFodecToggle || purchaseFodecToggle;
             if (contextualFodecToggle) {
@@ -1587,7 +1594,7 @@
               const raw = String(value || "").trim().toLowerCase();
               if (!raw || raw === "aucun") return "";
               if (raw === "all") return "all";
-              if (["facture", "fa", "devis", "bl", "avoir"].includes(raw)) return raw;
+              if (["facture", "fa", "bc", "devis", "bl", "avoir"].includes(raw)) return raw;
               return "";
             };
             const expandDocTypesLocal = (value, fallback = "facture") => {
@@ -1602,7 +1609,7 @@
                 .filter((entry) => entry && entry !== "all");
               if (normalizedList.length) return Array.from(new Set(normalizedList));
               const single = normalizeDocTypeValue(value);
-              if (single === "all") return ["facture", "fa", "devis", "bl", "avoir"];
+              if (single === "all") return ["facture", "fa", "bc", "devis", "bl", "avoir"];
               if (single) return [single];
               const normalizedFallback = normalizeDocTypeValue(fallback);
               return normalizedFallback ? [normalizedFallback] : ["facture"];

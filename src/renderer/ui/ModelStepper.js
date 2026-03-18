@@ -233,11 +233,20 @@ export const ModelStepper = `
                                     <input type="checkbox" name="modelDocTypeChoice" value="fa" class="col-toggle" />
                                     <span class="model-save-dot">Facture d'achat</span>
                                   </label>
+                                  <label
+                                    class="toggle-option doc-type-toggle"
+                                    data-doc-type-option="bc"
+                                    aria-selected="false"
+                                  >
+                                    <input type="checkbox" name="modelDocTypeChoice" value="bc" class="col-toggle" />
+                                    <span class="model-save-dot">Bon de commande</span>
+                                  </label>
                                 </div>
                               </div>
                                 <select id="modelDocType" class="doc-type-select" aria-hidden="true" tabindex="-1" multiple>
                                   <option value="facture" selected>Facture</option>
                                 <option value="fa">Facture d'achat</option>
+                                <option value="bc">Bon de commande</option>
                                 <option value="avoir">Facture d'avoir</option>
                                 <option value="devis">Devis</option>
                                 <option value="bl">Bon de livraison</option>

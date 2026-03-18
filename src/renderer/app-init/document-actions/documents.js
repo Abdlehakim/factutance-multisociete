@@ -4,6 +4,7 @@
   const DEFAULT_DOC_TYPES = [
     { label: "Facture", docType: "facture" },
     { label: "Facture d'achat", docType: "fa" },
+    { label: "Bon de commande", docType: "bc" },
     { label: "Facture d'avoir", docType: "avoir" },
     { label: "Devis", docType: "devis" },
     { label: "Bon de livraison", docType: "bl" }
@@ -12,6 +13,7 @@
   const DOC_TYPE_GRAMMAR = {
     facture: { article: "La", feminine: true },
     fa: { article: "La", feminine: true },
+    bc: { article: "Le", feminine: false },
     devis: { article: "Le", feminine: false },
     bl: { article: "Le", feminine: false },
     avoir: { article: "La", feminine: true },
@@ -774,11 +776,15 @@
     };
     registerCloseGuard();
 
-    const ensureFaNumberPrefix = (value) => {
+    const PURCHASE_DOC_TYPES = new Set(["fa", "bc"]);
+    const isPurchaseDocType = (value) =>
+      PURCHASE_DOC_TYPES.has(String(value || "").trim().toLowerCase());
+    const ensurePurchaseNumberPrefix = (value, docType) => {
       const raw = String(value || "").trim();
       if (!raw) return "";
       if (/^[a-z]/i.test(raw)) return raw;
-      return `fa${raw}`;
+      const prefix = isPurchaseDocType(docType) ? String(docType || "").trim().toLowerCase() : "fa";
+      return `${prefix || "fa"}${raw}`;
     };
 
     const getInvoiceMeta =
@@ -3399,7 +3405,7 @@
       const docTypes = collectDocTypesForUniqueness();
       docTypes.forEach((docTypeValue) => {
         const docType = String(docTypeValue || "").trim().toLowerCase();
-        if (!docType || docType === "fa") return;
+        if (!docType || isPurchaseDocType(docType)) return;
         const entries = historyFn(docType) || [];
         entries.forEach((entry) => {
           if (!entry) return;
@@ -3480,7 +3486,7 @@
       }
       if (typeof w.recomputeDocumentNumbering === "function") {
         recomputeTargets.forEach((docType) => {
-          if (!docType || docType === "fa") return;
+          if (!docType || isPurchaseDocType(docType)) return;
           try {
             w.recomputeDocumentNumbering(docType);
           } catch (err) {
@@ -3610,7 +3616,7 @@
         }
 
         const normalizedDocType = String(docType || "").trim().toLowerCase();
-        if (!hasServerNumbering && normalizedDocType !== "fa" && number) {
+        if (!hasServerNumbering && !isPurchaseDocType(normalizedDocType) && number) {
           try {
             await hydrateHistoryFromDiskOnce();
           } catch {}
@@ -3856,7 +3862,9 @@
 
           const label = typeof w.docTypeLabel === "function" ? w.docTypeLabel(docType) : "Document";
           const docReferenceRaw = String(savedNumber || "").trim();
-          const docReference = docType === "fa" ? ensureFaNumberPrefix(docReferenceRaw) : docReferenceRaw;
+          const docReference = isPurchaseDocType(docType)
+            ? ensurePurchaseNumberPrefix(docReferenceRaw, docType)
+            : docReferenceRaw;
           const fileDisplayName = cleanDocNameForDialog({
             rawName: docReference || displayFileTitle(res.path, label),
             docType,
@@ -4246,7 +4254,7 @@
       let finalDocType = fallbackDocType;
       const MODEL_DOC_TYPE_ALL = "all";
       const DEFAULT_MODEL_DOC_TYPE = "facture";
-      const MODEL_DOC_TYPE_LIST = ["facture", "fa", "devis", "bl", "avoir"];
+      const MODEL_DOC_TYPE_LIST = ["facture", "fa", "bc", "devis", "bl", "avoir"];
       const normalizeDocType = (value) => String(value || "").trim().toLowerCase();
       const normalizeModelDocType = (value, fallback = "") => {
         const normalized = normalizeDocType(value);

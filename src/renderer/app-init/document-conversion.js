@@ -216,7 +216,7 @@
     let lastPaymentMethod = "";
     let selectedPaidAmount = 0;
     const promptOptions = options && typeof options === "object" ? options : {};
-    const SELECTABLE_DOC_TYPES = new Set(["facture", "fa", "avoir", "devis", "bl"]);
+    const SELECTABLE_DOC_TYPES = new Set(["facture", "fa", "bc", "avoir", "devis", "bl"]);
     const targetDocTypesRaw = Array.isArray(promptOptions.targetDocTypes)
       ? promptOptions.targetDocTypes
       : ["facture", "bl"];
@@ -245,10 +245,14 @@
     const DOC_TYPE_LABELS = {
       facture: "Facture",
       fa: "Facture d'achat",
+      bc: "Bon de commande",
       avoir: "Facture d'avoir",
       devis: "Devis",
       bl: "Bon de livraison"
     };
+    const PURCHASE_DOC_TYPES = new Set(["fa", "bc"]);
+    const isPurchaseDocType = (value) =>
+      PURCHASE_DOC_TYPES.has(String(value || "").trim().toLowerCase());
     const getDocTypeDisplayLabel = (value) => {
       const normalized = String(value || "").trim().toLowerCase();
       if (!normalized) return "Document";
@@ -332,7 +336,7 @@
         modelLabel.htmlFor = modelSelect.id;
 
         const seenModels = new Set();
-        const MODEL_DOC_TYPE_LIST = ["facture", "fa", "devis", "bl", "avoir"];
+        const MODEL_DOC_TYPE_LIST = ["facture", "fa", "bc", "devis", "bl", "avoir"];
         const normalizeModelDocType = (value, fallback = "") => {
           const normalized = String(value || "").trim().toLowerCase();
           if (!normalized || normalized === "aucun") return fallback;
@@ -1411,7 +1415,7 @@
     const meta = st.meta || (st.meta = {});
     const normalizedDocType = String(docType || meta.docType || "facture").toLowerCase();
     meta.docType = normalizedDocType;
-    if (normalizedDocType === "fa") {
+    if (isPurchaseDocType(normalizedDocType)) {
       const inputNumber = getEl("invNumber")?.value;
       const resolved = String(inputNumber ?? meta.number ?? "").trim();
       if (resolved && meta.number !== resolved) meta.number = resolved;
@@ -1532,7 +1536,7 @@
       if ("paymentDate" in meta) delete meta.paymentDate;
       if ("status" in meta) delete meta.status;
     }
-    if (!meta.number && normalizedDocType !== "fa") {
+    if (!meta.number && !isPurchaseDocType(normalizedDocType)) {
       const fallbackPrefix =
         normalizedDocType === "facture"
           ? "Fact"

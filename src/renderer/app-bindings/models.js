@@ -76,10 +76,12 @@
   });
   const MODEL_DOC_TYPE_ALL = "all";
   const MODEL_DOC_TYPE_LEGACY_NONE = "aucun";
-  const MODEL_DOC_TYPE_LIST = ["facture", "fa", "devis", "bl", "avoir"];
+  const MODEL_DOC_TYPE_LIST = ["facture", "fa", "bc", "devis", "bl", "avoir"];
+  const MODEL_DOC_TYPE_PURCHASE_SET = new Set(["fa", "bc"]);
   const DOC_TYPE_VALUES = new Set([
     "facture",
     "fa",
+    "bc",
     "devis",
     "bl",
     "avoir",
@@ -90,6 +92,8 @@
     ...MODEL_DOC_TYPE_LIST,
     MODEL_DOC_TYPE_ALL
   ]);
+  const isModelPurchaseDocType = (value) =>
+    MODEL_DOC_TYPE_PURCHASE_SET.has(String(value || "").trim().toLowerCase());
   const normalizeDocTypeValue = (value, fallback = "") => {
     const raw = String(value || "").trim().toLowerCase();
     if (!raw || raw === MODEL_DOC_TYPE_LEGACY_NONE) return fallback;
@@ -126,22 +130,24 @@
     }
     return normalized;
   };
-  const MODEL_DOC_TYPE_SWITCH_EXCLUSIVE_WITH_FA = new Set(["facture", "avoir", "devis", "bl"]);
+  const MODEL_DOC_TYPE_SWITCH_EXCLUSIVE_WITH_PURCHASE = new Set(["facture", "avoir", "devis", "bl"]);
   const normalizeModelDocTypeSwitchSelection = (value, preferredSwitchValue = "") => {
     let normalizedList = normalizeDocTypeList(value, []);
     if (!normalizedList.length) normalizedList = [DEFAULT_MODEL_DOC_TYPE];
-    const hasFa = normalizedList.includes("fa");
-    const hasExclusiveWithFa = normalizedList.some(
-      (entry) => entry !== "fa" && MODEL_DOC_TYPE_SWITCH_EXCLUSIVE_WITH_FA.has(entry)
+    const hasPurchaseDocType = normalizedList.some((entry) => isModelPurchaseDocType(entry));
+    const hasExclusiveWithPurchase = normalizedList.some(
+      (entry) =>
+        !isModelPurchaseDocType(entry) &&
+        MODEL_DOC_TYPE_SWITCH_EXCLUSIVE_WITH_PURCHASE.has(entry)
     );
-    if (!hasFa || !hasExclusiveWithFa) {
+    if (!hasPurchaseDocType || !hasExclusiveWithPurchase) {
       return normalizedList;
     }
     const preferred = String(preferredSwitchValue || "").trim().toLowerCase();
-    if (preferred === "fa") {
-      return ["fa"];
+    if (isModelPurchaseDocType(preferred)) {
+      return [preferred];
     }
-    return normalizedList.filter((entry) => entry !== "fa");
+    return normalizedList.filter((entry) => !isModelPurchaseDocType(entry));
   };
   helpers.normalizeModelDocTypeSwitchSelection = normalizeModelDocTypeSwitchSelection;
   const expandModelDocTypes = (value, fallback = []) => {
@@ -906,7 +912,7 @@
   function normalizeModelColumnState(rawColumns = {}, { docTypes = [], taxesEnabled = true } = {}) {
     const source = rawColumns && typeof rawColumns === "object" ? rawColumns : {};
     const normalizedDocTypes = normalizeDocTypeList(docTypes, []);
-    const isPurchaseContext = normalizedDocTypes.includes("fa");
+    const isPurchaseContext = normalizedDocTypes.some((entry) => isModelPurchaseDocType(entry));
     const normalized = {};
     Object.entries(MODEL_COLUMN_STATE_DEFAULTS).forEach(([key, fallback]) => {
       if (hasOwn(source, key)) normalized[key] = !!source[key];
@@ -970,7 +976,7 @@
       Array.isArray(docTypes) ? docTypes : getSelectedModelDocTypesFromUi(),
       []
     );
-    const isPurchaseContext = normalizedDocTypes.includes("fa");
+    const isPurchaseContext = normalizedDocTypes.some((entry) => isModelPurchaseDocType(entry));
     const saleToggle = resolveColumnEl("colToggleFodecModal");
     const purchaseToggle = resolveColumnEl("colTogglePurchaseFodecModal");
     const activeToggle = isPurchaseContext ? purchaseToggle || saleToggle : saleToggle || purchaseToggle;

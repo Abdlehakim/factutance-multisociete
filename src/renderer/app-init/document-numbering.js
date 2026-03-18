@@ -98,6 +98,7 @@
     const DOC_TYPE_LABELS = {
       facture: "Facture",
       fa: "Facture d'achat",
+      bc: "Bon de commande",
       devis: "Devis",
       bl: "Bon de livraison",
       avoir: "Facture d'avoir"
@@ -105,7 +106,7 @@
 
     const MODEL_DOC_TYPE_ALL = "all";
     const MODEL_DOC_TYPE_ALL_LABEL = "Compatible avec tous les types";
-    const MODEL_DOC_TYPE_LIST = ["facture", "fa", "devis", "bl", "avoir"];
+    const MODEL_DOC_TYPE_LIST = ["facture", "fa", "bc", "devis", "bl", "avoir"];
     const MODEL_DOC_TYPE_SET = new Set(MODEL_DOC_TYPE_LIST);
     const MODEL_DOC_TYPE_ALIAS_MAP = {
       factureavoir: "avoir",
@@ -120,6 +121,7 @@
     const DOC_TYPE_PREFIX_DEFAULTS = {
       facture: "Fact",
       fa: "FA",
+      bc: "BC",
       devis: "Dev",
       bl: "BL",
       avoir: "AV"
@@ -249,7 +251,10 @@
     }
 
     const MODEL_DOC_TYPE_SWITCH_FACTURE = "facture";
-    const MODEL_DOC_TYPE_SWITCH_FA = "fa";
+    const MODEL_DOC_TYPE_SWITCH_PURCHASE_DEFAULT = "fa";
+    const MODEL_DOC_TYPE_SWITCH_PURCHASE_VALUES = new Set(["fa", "bc"]);
+    const isModelPurchaseDocType = (value) =>
+      MODEL_DOC_TYPE_SWITCH_PURCHASE_VALUES.has(String(value || "").trim().toLowerCase());
     const MODEL_DOC_TYPE_OPTION_SELECTOR = "[data-doc-type-option]";
     const MODEL_DOC_TYPE_CHECKBOX_SELECTOR = 'input[type="checkbox"][name="modelDocTypeChoice"]';
     const MODEL_DOC_TYPE_FA_LOCK_DATASET_KEY = "docTypeFaPrevChecked";
@@ -314,17 +319,17 @@
       let normalizedList = expandModelDocTypeList(value, getSelectedModelDocTypes());
       if (!normalizedList.length) normalizedList = [DEFAULT_MODEL_DOC_TYPE];
 
-      const hasFa = normalizedList.includes(MODEL_DOC_TYPE_SWITCH_FA);
-      const hasExclusiveWithFa = normalizedList.some(
-        (entry) => entry !== MODEL_DOC_TYPE_SWITCH_FA && MODEL_DOC_TYPE_SWITCH_EXCLUSIVE_WITH_FA.has(entry)
+      const hasPurchaseDocType = normalizedList.some((entry) => isModelPurchaseDocType(entry));
+      const hasExclusiveWithPurchase = normalizedList.some(
+        (entry) => !isModelPurchaseDocType(entry) && MODEL_DOC_TYPE_SWITCH_EXCLUSIVE_WITH_FA.has(entry)
       );
-      if (!hasFa || !hasExclusiveWithFa) return normalizedList;
+      if (!hasPurchaseDocType || !hasExclusiveWithPurchase) return normalizedList;
 
       const preferredRaw = String(preferredSwitchValue || "").trim().toLowerCase();
-      if (preferredRaw === MODEL_DOC_TYPE_SWITCH_FA) {
-        return [MODEL_DOC_TYPE_SWITCH_FA];
+      if (isModelPurchaseDocType(preferredRaw)) {
+        return [preferredRaw || MODEL_DOC_TYPE_SWITCH_PURCHASE_DEFAULT];
       }
-      return normalizedList.filter((entry) => entry !== MODEL_DOC_TYPE_SWITCH_FA);
+      return normalizedList.filter((entry) => !isModelPurchaseDocType(entry));
     };
 
     const setModelColumnToggleDisabledState = (input, disabled) => {
@@ -495,7 +500,7 @@
 
     const syncModelContextualFodecToggles = (modelDocTypes = getSelectedModelDocTypes()) => {
       const normalizedList = normalizeModelDocTypeSwitchSelection(modelDocTypes);
-      const isPurchaseContext = normalizedList.includes(MODEL_DOC_TYPE_SWITCH_FA);
+      const isPurchaseContext = normalizedList.some((entry) => isModelPurchaseDocType(entry));
       const saleToggle = getModelColumnToggleById(MODEL_DOC_TYPE_CONTEXTUAL_SALE_FODEC_TOGGLE_ID);
       const purchaseToggle = getModelColumnToggleById(MODEL_DOC_TYPE_CONTEXTUAL_PURCHASE_FODEC_TOGGLE_ID);
       if (!saleToggle && !purchaseToggle) return;
@@ -525,10 +530,10 @@
       }
       modelDocTypeFaLockSyncInProgress = true;
       try {
-      const isFaActive = normalizedList.includes(MODEL_DOC_TYPE_SWITCH_FA);
+      const isPurchaseDocTypeActive = normalizedList.some((entry) => isModelPurchaseDocType(entry));
       const isPurchaseExclusiveDocTypeActive = normalizedList.some(
         (value) =>
-          value !== MODEL_DOC_TYPE_SWITCH_FA &&
+          !isModelPurchaseDocType(value) &&
           MODEL_DOC_TYPE_SWITCH_EXCLUSIVE_WITH_FA.has(value)
       );
       const saleToggles = MODEL_DOC_TYPE_FA_VENTE_TOGGLE_IDS
@@ -568,7 +573,7 @@
         return normalizedList;
       }
 
-      if (isFaActive) {
+      if (isPurchaseDocTypeActive) {
         MODEL_DOC_TYPE_PRICE_DEPENDENT_VENTE_TOGGLE_IDS.forEach((id) => {
           const toggle = getModelColumnToggleById(id);
           if (!toggle) return;
@@ -1192,7 +1197,7 @@
           : "";
       if (!selected.length) {
         const fallbackValue =
-          String(focusTarget?.value || "").trim().toLowerCase() === MODEL_DOC_TYPE_SWITCH_FA
+          isModelPurchaseDocType(String(focusTarget?.value || "").trim().toLowerCase())
             ? MODEL_DOC_TYPE_SWITCH_FACTURE
             : DEFAULT_MODEL_DOC_TYPE;
         selected = [fallbackValue];
@@ -1542,7 +1547,7 @@
     }
 
     function isManualNumberDocType(docTypeValue) {
-      return String(docTypeValue || "").toLowerCase() === "fa";
+      return isModelPurchaseDocType(docTypeValue);
     }
 
     function getDatePartsForNumber(dateValue, fallbackDate) {

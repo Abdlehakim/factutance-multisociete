@@ -133,12 +133,12 @@
     const DOC_HISTORY_SELECTABLE_TYPE_LABELS = {
       facture: "Facture",
       fa: "Facture d'achat",
+      bc: "Bon de commande",
       avoir: "Facture d'avoir",
       devis: "Devis",
       bl: "Bon de livraison"
     };
     const DOC_HISTORY_LEGACY_TYPE_LABELS = {
-      bc: "Bon de commande",
       be: "Bon d'entr\u00e9e",
       bs: "Bon de sortie"
     };

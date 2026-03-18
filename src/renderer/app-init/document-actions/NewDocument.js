@@ -60,6 +60,7 @@
       const prefixMap = {
         facture: "Fact",
         fa: "FA",
+        bc: "BC",
         devis: "Dev",
         bl: "BL",
         avoir: "AV"
@@ -69,6 +70,9 @@
       const letters = normalized.replace(/[^a-z]/gi, "").slice(0, 3);
       return letters ? letters.toUpperCase() : "DOC";
     };
+    const PURCHASE_DOC_TYPE_VALUES = new Set(["fa", "bc"]);
+    const isPurchaseDocType = (value) =>
+      PURCHASE_DOC_TYPE_VALUES.has(String(value || "").trim().toLowerCase());
 
     const parseNumericSuffix = (value) => {
       const match = String(value ?? "").match(/(\d+)\s*$/);
@@ -154,7 +158,7 @@
       const numberFormat = getNumberFormat(meta);
       const docTypeValue = String(meta.docType || getEl("docType")?.value || "facture").toLowerCase();
       const hiddenInput = docMetaBox.querySelector("#invNumber");
-      if (docTypeValue === "fa") {
+      if (isPurchaseDocType(docTypeValue)) {
         const inputValue = hiddenInput ? String(hiddenInput.value || "") : "";
         const metaValue = meta.number ?? "";
         const resolved = inputValue.trim() ? inputValue.trim() : String(metaValue || "").trim();
@@ -248,7 +252,7 @@
       const meta = getInvoiceMeta() || {};
       const numberFormat = getNumberFormat(meta);
       const docTypeValue = String(meta.docType || getEl("docType")?.value || "facture").toLowerCase();
-      if (docTypeValue === "fa") {
+      if (isPurchaseDocType(docTypeValue)) {
         if (typeof SEM?.refreshInvoiceSummary === "function") {
           SEM.refreshInvoiceSummary();
         }
@@ -334,7 +338,7 @@
       ).toLowerCase();
       const hiddenInput = docMetaBox.querySelector("#invNumber");
       if (!hiddenInput) return;
-      if (docTypeValue === "fa") {
+      if (isPurchaseDocType(docTypeValue)) {
         meta.number = String(hiddenInput.value || "").trim();
         meta.docType = docTypeValue;
         if (typeof SEM?.refreshInvoiceSummary === "function") {
@@ -444,7 +448,7 @@
       const hiddenInput = metaBox.querySelector("#invNumber");
       if (!hiddenInput) return true;
       const numberValue = String(meta.number || "").trim();
-      if (docTypeValue === "fa") {
+      if (isPurchaseDocType(docTypeValue)) {
         if (hiddenInput.value !== numberValue) hiddenInput.value = numberValue;
         if (typeof SEM?.refreshInvoiceSummary === "function") {
           SEM.refreshInvoiceSummary();
@@ -751,9 +755,8 @@
 
     const MODEL_DOC_TYPE_ALL = "all";
     const DEFAULT_MODEL_DOC_TYPE = "facture";
-    const MODEL_DOC_TYPE_LIST = ["facture", "fa", "devis", "bl", "avoir"];
+    const MODEL_DOC_TYPE_LIST = ["facture", "fa", "bc", "devis", "bl", "avoir"];
     const MODEL_DOC_TYPE_SWITCH_FACTURE = "facture";
-    const MODEL_DOC_TYPE_SWITCH_FA = "fa";
     const ITEMS_DOC_TYPE_FA_LOCK_DATASET_KEY = "docTypeFaPrevChecked";
     const ITEMS_DOC_TYPE_FA_FORCED_DATASET_KEY = "docTypeFaForced";
     const ITEMS_DOC_TYPE_FA_VENTE_COLUMN_KEYS = [
@@ -1091,8 +1094,8 @@
       let normalizedList = expandModelDocTypes(value, []);
       if (!normalizedList.length) normalizedList = [DEFAULT_MODEL_DOC_TYPE];
       const hasFacture = normalizedList.includes(MODEL_DOC_TYPE_SWITCH_FACTURE);
-      const hasFa = normalizedList.includes(MODEL_DOC_TYPE_SWITCH_FA);
-      if (!hasFacture || !hasFa) return normalizedList;
+      const hasPurchaseDocType = normalizedList.some((entry) => isPurchaseDocType(entry));
+      if (!hasFacture || !hasPurchaseDocType) return normalizedList;
       return normalizedList.filter((entry) => entry !== MODEL_DOC_TYPE_SWITCH_FACTURE);
     };
 
@@ -1431,6 +1434,7 @@
           .trim();
         const fromDisplay = (() => {
           if (/^facture\s+d\s+achat\b/.test(normalizedDisplay)) return "fa";
+          if (/^bon\s+de\s+commande\b/.test(normalizedDisplay)) return "bc";
           if (/^facture\s+d\s+avoir\b/.test(normalizedDisplay)) return "avoir";
           if (/^devis\b/.test(normalizedDisplay)) return "devis";
           if (/^bon\s+de\s+livraison\b/.test(normalizedDisplay)) return "bl";
@@ -1706,7 +1710,7 @@
     const applyItemsModalFaColumnLocks = (modelDocTypes = []) => {
       const normalizedList = normalizeModelDocTypeSwitchSelection(modelDocTypes);
       const hasModelDocTypes = normalizedList.length > 0;
-      const isFaActive = normalizedList.includes(MODEL_DOC_TYPE_SWITCH_FA);
+      const isPurchaseDocTypeActive = normalizedList.some((entry) => isPurchaseDocType(entry));
       const isFactureActive = normalizedList.includes(MODEL_DOC_TYPE_SWITCH_FACTURE);
       const saleToggles = resolveItemsModalColumnTogglesByKeys(ITEMS_DOC_TYPE_FA_VENTE_COLUMN_KEYS);
       const purchaseToggles = resolveItemsModalColumnTogglesByKeys(ITEMS_DOC_TYPE_FA_PURCHASE_COLUMN_KEYS);
@@ -1739,7 +1743,7 @@
         return;
       }
 
-      if (isFaActive) {
+      if (isPurchaseDocTypeActive) {
         saleToggles.forEach((toggle) => {
           if (toggle.dataset[ITEMS_DOC_TYPE_FA_FORCED_DATASET_KEY] !== "1") {
             toggle.dataset[ITEMS_DOC_TYPE_FA_LOCK_DATASET_KEY] = String(!!toggle.checked);
@@ -1924,7 +1928,7 @@
       const CLIENT_BOX_SELECTOR = "#clientBoxNewDoc, #FournisseurBoxNewDoc";
       const resolveDocTypeValue = () =>
         String(getInvoiceMeta()?.docType || getEl("docType")?.value || "facture").toLowerCase();
-      const shouldUseVendorBox = (docTypeValue) => String(docTypeValue || "").toLowerCase() === "fa";
+      const shouldUseVendorBox = (docTypeValue) => isPurchaseDocType(docTypeValue);
       const renderClientBox = (docTypeValue) => {
         try {
           if (shouldUseVendorBox(docTypeValue) && typeof w.FournisseurBoxNewDoc?.render === "function") {
