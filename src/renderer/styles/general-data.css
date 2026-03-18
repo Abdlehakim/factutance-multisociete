@@ -2265,12 +2265,48 @@ aspect-ratio: 1 / 1;
   grid-template-columns: repeat(auto-fit, minmax(173px, 1fr));
   gap: 12px;
 }
-.payment-modal__row--actions {
-    height: 71px;
-    display: flex;
-    justify-content: center;
-    gap: 30px;
-    align-items: center;
+.payment-modal__row--header {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: nowrap;
+}
+.payment-modal__row--header .payment-modal__field--client {
+  flex: 1 1 480px;
+  min-width: 320px;
+}
+.payment-modal__field--sold {
+  flex: 0 0 210px;
+  min-width: 210px;
+  align-self: flex-end;
+}
+.payment-modal__field-input {
+  width: 100%;
+}
+.payment-modal__field-input--readonly {
+  cursor: default;
+}
+.payment-modal__add-sold-btn {
+  flex: 0 0 auto;
+  align-self: flex-end;
+  min-height: 40px;
+  white-space: nowrap;
+}
+@media (max-width: 1024px) {
+  .payment-modal__row--header {
+    flex-wrap: wrap;
+    align-items: stretch;
+  }
+  .payment-modal__row--header .payment-modal__field--client {
+    flex-basis: 100%;
+    min-width: 100%;
+  }
+  .payment-modal__field--sold {
+    flex: 1 1 220px;
+  }
+  .payment-modal__add-sold-btn {
+    flex: 0 0 auto;
+  }
 }
 .payment-modal__field {
   display: flex;
@@ -2684,6 +2720,16 @@ aspect-ratio: 1 / 1;
 }
 
 @media (max-width: 720px) {
+  .payment-modal__row--header {
+    gap: 10px;
+  }
+  .payment-modal__field--sold,
+  .payment-modal__add-sold-btn {
+    flex: 1 1 100%;
+  }
+  .payment-modal__add-sold-btn {
+    width: 100%;
+  }
   .payment-modal__table {
     min-width: 640px;
   }

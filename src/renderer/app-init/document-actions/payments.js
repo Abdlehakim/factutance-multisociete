@@ -2,6 +2,19 @@
   const AppInit = (w.AppInit = w.AppInit || {});
   const MIN_CLIENT_QUERY_LENGTH = 2;
   const UNPAID_STATUSES = new Set(["partiellement-payee", "impayee", "impaye", "pas-encore-payer"]);
+  const PAYMENT_METHOD_OPTIONS = [
+    { value: "cash", label: "Espèces" },
+    { value: "cash_deposit", label: "Versement Espèces" },
+    { value: "cheque", label: "Chèque" },
+    { value: "bill_of_exchange", label: "Effet" },
+    { value: "transfer", label: "Virement" },
+    { value: "card", label: "Carte bancaire" },
+    { value: "withholding_tax", label: "Retenue à la source" },
+    { value: "sold_client", label: "Solde client" }
+  ];
+  const CREDIT_PAYMENT_METHOD_OPTIONS = PAYMENT_METHOD_OPTIONS.filter(
+    (option) => option.value !== "sold_client"
+  );
 
   const getElSafe = (id) =>
     typeof getEl === "function"
@@ -107,6 +120,15 @@
   const toNumber = (value) => {
     const num = Number(value);
     return Number.isFinite(num) ? num : null;
+  };
+
+  const getLocalIsoDate = (date = new Date()) => {
+    const dt = date instanceof Date ? date : new Date(date);
+    if (Number.isNaN(dt.getTime())) return "";
+    const year = dt.getFullYear();
+    const month = String(dt.getMonth() + 1).padStart(2, "0");
+    const day = String(dt.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
   };
 
   const formatMoneySafe =
@@ -1514,9 +1536,6 @@
         if (state.historyOpen) renderPaymentsHistoryList(state.paymentHistoryList);
       });
 
-      if (state.dateInput && w.AppDatePicker?.create) {
-        state.datePicker = w.AppDatePicker.create(state.dateInput, { allowManualInput: true });
-      }
       if (state.paymentHistoryFilterDate && w.AppDatePicker?.create) {
         state.historyDatePicker = w.AppDatePicker.create(state.paymentHistoryFilterDate, {
           allowManualInput: false,
@@ -1531,7 +1550,6 @@
         });
       }
 
-      wirePaymentMethodMenu();
       wirePaymentInvoiceYearMenu(() => {
         state.invoicePage = 1;
         renderInvoiceTable();
@@ -1593,15 +1611,6 @@
         applySelectedClient(selected);
       });
 
-      state.amountInput?.addEventListener("input", () => {
-        renderInvoiceTable();
-      });
-      state.amountInput?.addEventListener("blur", () => {
-        if (!state.amountInput) return;
-        const nextValue = formatAmountInputValue(state.amountInput.value);
-        if (nextValue) state.amountInput.value = nextValue;
-      });
-
       state.invoicesBody?.addEventListener("click", async (evt) => {
         const actionBtn = evt.target.closest("[data-payment-action]");
         if (!actionBtn) return;
@@ -1619,9 +1628,6 @@
         if (action === "fill-amount") {
           const amount = Number(actionBtn.dataset.paymentAmount || "");
           if (!Number.isFinite(amount) || amount <= 0) return;
-          if (state.amountInput) state.amountInput.value = formatAmountInputValue(amount);
-          renderInvoiceTable();
-          return;
         }
         if (action === "remove") {
           const confirmed = await confirmAction(
@@ -1632,20 +1638,34 @@
           renderInvoiceTable();
           return;
         }
-        if (action === "pay") {
-          const targetAmount = getPaymentAmount();
-          if (!Number.isFinite(targetAmount) || targetAmount <= 0) return;
+        if (action === "pay" || action === "fill-amount") {
           const { balance } = resolveInvoiceTotals(invoice);
+          const quickAmount =
+            action === "fill-amount" ? Number(actionBtn.dataset.paymentAmount || "") : null;
+          const defaultAmount =
+            Number.isFinite(quickAmount) && quickAmount > 0
+              ? quickAmount
+              : Number.isFinite(balance) && balance > 0
+                ? balance
+                : null;
+          const paymentInput = await promptInvoicePaymentDialog({
+            invoice,
+            defaultAmount
+          });
+          if (!paymentInput) return;
+          const targetAmount = paymentInput.amount;
+          if (!Number.isFinite(targetAmount) || targetAmount <= 0) return;
           const appliedAmount = Number.isFinite(balance)
             ? Math.min(targetAmount, balance)
             : targetAmount;
-          const paymentMethod = getPaymentMethodValue();
+          if (!Number.isFinite(appliedAmount) || appliedAmount <= 0) {
+            await showPaymentError("Montant invalide.");
+            return;
+          }
+          const paymentMethod = paymentInput.paymentMethod;
+          const paymentDate = paymentInput.paymentDate;
+          const paymentReference = paymentInput.paymentReference;
           const isSoldePayment = isSoldClientPaymentMethod(paymentMethod);
-          const amountLabel = formatMoneySafe(targetAmount, invoice.currency);
-          const confirmed = await confirmAction(
-            `Appliquer le paiement de ${amountLabel} \u00e0 la facture ${invoice.number || "-"} ?`
-          );
-          if (!confirmed) return;
           const clientName = invoice.clientName || state.selectedClient?.name || "";
           let soldClientPath = "";
           let adjustedSoldeValue = null;
@@ -1688,7 +1708,12 @@
             }
           }
           try {
-            await applyPaymentToInvoice(invoice, targetAmount, { invoiceKeyHint: key });
+            await applyPaymentToInvoice(invoice, targetAmount, {
+              invoiceKeyHint: key,
+              paymentDate,
+              paymentMethod,
+              paymentReference
+            });
             await refreshClientSoldeDisplay({
               clientName,
               clientPath: isSoldePayment ? soldClientPath : "",
@@ -1705,11 +1730,12 @@
               loadInvoicesForClient(state.selectedClient.name);
             } else {
               renderInvoiceTable();
-              }
+            }
             renderPaymentsHistoryList(state.paymentHistoryList);
           } catch (err) {
             await showPaymentError(err?.message || err);
           }
+          return;
         }
       });
 
@@ -1860,7 +1886,7 @@
       initializePaymentSoldeBase();
       document.addEventListener("keydown", onModalKeyDown);
       document.addEventListener("click", onDocumentClick, true);
-      const focusTarget = state.dateInput || state.clientInput || state.amountInput || state.closeBtn;
+      const focusTarget = state.clientInput || state.closeBtn;
       if (focusTarget && typeof focusTarget.focus === "function") {
         try {
           focusTarget.focus();
@@ -1876,7 +1902,6 @@
       state.overlay.setAttribute("aria-hidden", "true");
       state.isOpen = false;
       setPaymentInvoiceYearMenuState(false);
-      setPaymentMethodMenuState(false);
       document.removeEventListener("keydown", onModalKeyDown);
       document.removeEventListener("click", onDocumentClick, true);
       hideClientResults();
@@ -1895,14 +1920,6 @@
           setPaymentInvoiceYearMenuState(false);
           try {
             state.paymentInvoiceFilterYearMenuToggle?.focus?.();
-          } catch {}
-          return;
-        }
-        if (state.methodMenu?.open) {
-          evt.preventDefault();
-          setPaymentMethodMenuState(false);
-          try {
-            state.methodMenuToggle?.focus?.();
           } catch {}
           return;
         }
@@ -1992,21 +2009,7 @@
     };
 
     const resetPaymentForm = () => {
-      const today = new Date().toISOString().slice(0, 10);
-      if (state.datePicker) {
-        state.datePicker.setValue(today, { silent: true });
-      } else if (state.dateInput) {
-        state.dateInput.value = today;
-      }
-      if (state.amountInput) state.amountInput.value = "";
-      if (state.paymentReferenceInput) state.paymentReferenceInput.value = "";
       state.invoicePage = 1;
-      if (state.methodSelect && state.methodSelect.options.length) {
-        const options = Array.from(state.methodSelect.options || []);
-        const firstValueOption = options.find((opt) => opt.value) || options[0] || null;
-        state.methodSelect.value = firstValueOption ? firstValueOption.value : "";
-        syncPaymentMethodMenuUi(state.methodSelect.value);
-      }
       if (state.clientInput) state.clientInput.value = "";
       state.clientQuery = "";
       state.clientLoading = false;
@@ -2517,11 +2520,21 @@ const normalizePaymentModeLabel = (value) => {
       const num = Number(cleaned);
       return Number.isFinite(num) ? num : fallback;
     };
-
-    const getPaymentAmount = () => {
-      const raw = state.amountInput?.value ?? "";
-      const value = Number(String(raw).replace(",", "."));
-      return Number.isFinite(value) ? value : null;
+    const getClientSoldeDisplayValue = () => {
+      if (!state.clientSoldeValueEl) return "";
+      if ("value" in state.clientSoldeValueEl) {
+        return String(state.clientSoldeValueEl.value || "");
+      }
+      return String(state.clientSoldeValueEl.textContent || "");
+    };
+    const setClientSoldeDisplayValue = (value) => {
+      if (!state.clientSoldeValueEl) return;
+      const nextValue = String(value ?? "");
+      if ("value" in state.clientSoldeValueEl) {
+        state.clientSoldeValueEl.value = nextValue;
+        return;
+      }
+      state.clientSoldeValueEl.textContent = nextValue;
     };
     const getSoldeBaseValue = () => {
       const raw =
@@ -2534,7 +2547,7 @@ const normalizePaymentModeLabel = (value) => {
     const updateClientSoldePreview = () => {
       if (!state.clientSoldeValueEl) return;
       state.baseSoldeReference = parseMoneyValue(
-        state.clientSoldeValueEl.dataset?.baseSolde ?? state.clientSoldeValueEl.textContent,
+        state.clientSoldeValueEl.dataset?.baseSolde ?? getClientSoldeDisplayValue(),
         state.baseSoldeReference
       );
     };
@@ -2542,7 +2555,7 @@ const normalizePaymentModeLabel = (value) => {
     const initializePaymentSoldeBase = async () => {
       if (!state.clientSoldeValueEl) return;
       state.baseSoldeReference = parseMoneyValue(
-        state.clientSoldeValueEl.dataset?.baseSolde ?? state.clientSoldeValueEl.textContent,
+        state.clientSoldeValueEl.dataset?.baseSolde ?? getClientSoldeDisplayValue(),
         state.baseSoldeReference
       );
       const clientPath = String(state.selectedClient?.path || "").trim();
@@ -3138,11 +3151,6 @@ const normalizePaymentModeLabel = (value) => {
     w.deletePaymentHistoryEntryByKey = deletePaymentHistoryEntryByKey;
 
     const applyAmountToClientSolde = async () => {
-      const amount = getPaymentAmount();
-      if (!Number.isFinite(amount) || amount <= 0) {
-        await showPaymentError("Montant invalide.");
-        return;
-      }
       const inputName = String(
         state.selectedClient?.name || state.clientInput?.value || ""
       ).trim();
@@ -3150,21 +3158,35 @@ const normalizePaymentModeLabel = (value) => {
         await showPaymentError("Selectionnez un client en premier.");
         return;
       }
-      const amountLabel = formatMoneySafe(amount);
-      const confirmed = await confirmAction(
-        `Ajouter ${amountLabel} au solde du client ${inputName} ?`
-      );
-      if (!confirmed) return;
-      if (!w.electronAPI?.adjustClientSold) {
-        await showPaymentError("Enregistrement indisponible.");
+      const paymentInput = await promptSoldCreditPaymentDialog({
+        clientName: inputName
+      });
+      if (!paymentInput) return;
+      const amount = paymentInput.amount;
+      const paymentDate = paymentInput.paymentDate;
+      const paymentRef = paymentInput.paymentReference;
+      const paymentMode = paymentInput.paymentMethod;
+      if (!Number.isFinite(amount) || amount <= 0) {
+        await showPaymentError("Montant invalide.");
         return;
       }
-
+      if (!paymentDate) {
+        await showPaymentError("Date de paiement invalide.");
+        return;
+      }
+      if (!paymentMode) {
+        await showPaymentError("Mode de paiement invalide.");
+        return;
+      }
       const { clientPath, client } = await resolveClientForHistoryEntry({
         clientPath: state.selectedClient?.path || "",
         clientName: inputName,
         clientAccount: state.selectedClient?.identifier || ""
       });
+      if (!w.electronAPI?.adjustClientSold) {
+        await showPaymentError("Enregistrement indisponible.");
+        return;
+      }
       if (!clientPath) {
         await showPaymentError("Client introuvable.");
         return;
@@ -3183,9 +3205,6 @@ const normalizePaymentModeLabel = (value) => {
       ).trim();
       const suggestedName = resolvedName || inputName || "client";
       const historyId = generatePaymentHistoryId("credit");
-      const paymentDate = getPaymentDateValue();
-      const paymentRef = getPaymentReferenceValue();
-      const paymentMode = getPaymentMethodValue() || "sold_client";
       const historyResult = addPaymentHistoryEntry({
         id: historyId,
         invoiceNumber: "",
@@ -3263,23 +3282,12 @@ const normalizePaymentModeLabel = (value) => {
           state.clientInput.value = resolvedName;
         }
       }
-      if (state.amountInput) {
-        state.amountInput.value = "";
-        renderInvoiceTable();
-        updateClientSoldePreview();
-      }
+      renderInvoiceTable();
+      updateClientSoldePreview();
       if (historyResult?.entry && state.historyOpen) {
         state.historyPage = 1;
         renderPaymentsHistoryList(state.paymentHistoryList);
       }
-    };
-
-    const formatAmountInputValue = (value) => {
-      const raw = String(value ?? "").replace(",", ".").trim();
-      if (!raw) return "";
-      const parsed = Number(raw);
-      if (!Number.isFinite(parsed)) return raw;
-      return parsed.toFixed(3);
     };
 
     const invoiceKey = (invoice) => `${invoice?.number || ""}__${invoice?.date || ""}`;
@@ -3298,21 +3306,302 @@ const normalizePaymentModeLabel = (value) => {
       return typeof window.confirm === "function" ? window.confirm(message) : false;
     };
 
-    const getPaymentDateValue = () => {
-      const raw = state.dateInput?.value ?? "";
-      const trimmed = String(raw || "").trim();
-      return trimmed || new Date().toISOString().slice(0, 10);
+    const parseDialogAmountValue = (value) => {
+      const raw = String(value ?? "").replace(",", ".").trim();
+      if (!raw) return null;
+      const parsed = Number(raw);
+      return Number.isFinite(parsed) ? parsed : null;
     };
 
-    const getPaymentMethodValue = () => {
-      const raw = state.methodSelect?.value ?? "";
-      return String(raw || "").trim();
+    const formatDialogAmountValue = (value) => {
+      const parsed = parseDialogAmountValue(value);
+      if (!Number.isFinite(parsed)) return "";
+      return parsed.toFixed(3);
     };
 
-    const getPaymentReferenceValue = () => {
-      const raw = state.paymentReferenceInput?.value ?? "";
-      return String(raw || "").trim();
+    const normalizeDialogMethodValue = (value, options = PAYMENT_METHOD_OPTIONS) => {
+      const allowed = new Set((Array.isArray(options) ? options : []).map((opt) => String(opt?.value || "")));
+      const raw = String(value || "").trim();
+      if (allowed.has(raw)) return raw;
+      const fallback = Array.isArray(options) ? options.find((opt) => String(opt?.value || "").trim()) : null;
+      return String(fallback?.value || "").trim();
     };
+
+    const showPaymentInputDialog = async ({
+      title = "Paiement",
+      message = "",
+      okText = "Valider",
+      amountLabel = "Montant",
+      methodOptions = PAYMENT_METHOD_OPTIONS,
+      fieldOrder = ["date", "amount", "method", "reference"],
+      initialAmount = "",
+      initialDate = "",
+      initialMethod = "",
+      initialReference = ""
+    } = {}) => {
+      const options = Array.isArray(methodOptions) && methodOptions.length
+        ? methodOptions
+        : PAYMENT_METHOD_OPTIONS;
+      let amountValue = formatDialogAmountValue(initialAmount);
+      let paymentDateValue = normalizeIsoDateValue(initialDate) || getLocalIsoDate();
+      let paymentMethodValue = normalizeDialogMethodValue(initialMethod, options);
+      let paymentReferenceValue = String(initialReference || "").trim();
+
+      if (typeof w.showConfirm === "function") {
+        const confirmed = await w.showConfirm(message || "Confirmer le paiement ?", {
+          title,
+          okText,
+          cancelText: "Annuler",
+          renderMessage(container) {
+            if (!container) return;
+            container.innerHTML = "";
+            container.style.maxHeight = "none";
+            container.style.overflow = "visible";
+
+            const createDatePicker =
+              w.AppDatePicker && typeof w.AppDatePicker.create === "function"
+                ? w.AppDatePicker.create.bind(w.AppDatePicker)
+                : null;
+            const okBtn =
+              (typeof getEl === "function" && getEl("swbDialogOk")) ||
+              document.getElementById("swbDialogOk");
+
+            const messageEl = document.createElement("p");
+            messageEl.textContent = message || "Confirmer le paiement ?";
+            const row = document.createElement("div");
+            row.className = "payment-modal__row";
+
+            const amountField = document.createElement("label");
+            amountField.className = "payment-modal__field";
+            const amountLabelEl = document.createElement("span");
+            amountLabelEl.textContent = amountLabel;
+            const amountInput = document.createElement("input");
+            amountInput.type = "text";
+            amountInput.inputMode = "decimal";
+            amountInput.placeholder = "0.000";
+            amountInput.value = amountValue;
+            amountField.append(amountLabelEl, amountInput);
+
+            const dateField = document.createElement("label");
+            dateField.className = "payment-modal__field";
+            const dateLabel = document.createElement("span");
+            dateLabel.textContent = "Date de paiement";
+            const dateInputId = `paymentDialogDate-${Date.now()}`;
+            const datePanelId = `${dateInputId}Panel`;
+            const datePicker = document.createElement("div");
+            datePicker.className = "swb-date-picker";
+            datePicker.setAttribute("data-date-picker", "");
+            datePicker.innerHTML = `
+              <input
+                id="${dateInputId}"
+                type="text"
+                inputmode="numeric"
+                placeholder="AAAA-MM-JJ"
+                autocomplete="off"
+                spellcheck="false"
+                aria-haspopup="dialog"
+                aria-expanded="false"
+                role="combobox"
+                aria-controls="${datePanelId}"
+              >
+              <button
+                type="button"
+                class="swb-date-picker__toggle"
+                data-date-picker-toggle
+                aria-label="Choisir une date"
+                aria-haspopup="dialog"
+                aria-expanded="false"
+                aria-controls="${datePanelId}"
+              >
+                <svg class="swb-date-picker__toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" focusable="false">
+                  <rect x="3.5" y="5" width="17" height="15" rx="2"></rect>
+                  <path d="M8 3.5v3M16 3.5v3M3.5 10h17" stroke-linecap="round"></path>
+                </svg>
+              </button>
+              <div
+                class="swb-date-picker__panel"
+                data-date-picker-panel
+                hidden
+                role="dialog"
+                aria-modal="false"
+                aria-label="Choisir une date"
+                tabindex="-1"
+                id="${datePanelId}"
+              ></div>
+            `;
+            dateField.append(dateLabel, datePicker);
+
+            const methodField = document.createElement("label");
+            methodField.className = "payment-modal__field";
+            const methodLabel = document.createElement("span");
+            methodLabel.textContent = "Mode de paiement";
+            const methodSelect = document.createElement("select");
+            const placeholder = document.createElement("option");
+            placeholder.value = "";
+            placeholder.textContent = "Choisir un mode";
+            methodSelect.appendChild(placeholder);
+            options.forEach((opt) => {
+              const option = document.createElement("option");
+              option.value = String(opt?.value || "");
+              option.textContent = String(opt?.label || opt?.value || "");
+              methodSelect.appendChild(option);
+            });
+            methodSelect.value = paymentMethodValue || "";
+            methodField.append(methodLabel, methodSelect);
+
+            const referenceField = document.createElement("label");
+            referenceField.className = "payment-modal__field";
+            const referenceLabel = document.createElement("span");
+            referenceLabel.textContent = "Réf. paiement";
+            const referenceInput = document.createElement("input");
+            referenceInput.type = "text";
+            referenceInput.placeholder = "Réf. paiement";
+            referenceInput.value = paymentReferenceValue;
+            referenceField.append(referenceLabel, referenceInput);
+
+            const fieldById = {
+              amount: amountField,
+              date: dateField,
+              method: methodField,
+              reference: referenceField
+            };
+            const order = Array.isArray(fieldOrder) ? fieldOrder : ["date", "amount", "method", "reference"];
+            order.forEach((key) => {
+              if (fieldById[key]) row.appendChild(fieldById[key]);
+            });
+            Object.keys(fieldById).forEach((key) => {
+              if (!order.includes(key)) row.appendChild(fieldById[key]);
+            });
+
+            const syncState = () => {
+              const parsedAmount = parseDialogAmountValue(amountInput.value);
+              const normalizedDate = normalizeIsoDateValue(
+                datePicker.querySelector(`#${dateInputId}`)?.value || paymentDateValue
+              );
+              const selectedMethod = String(methodSelect.value || "").trim();
+              const methodAllowed = options.some(
+                (option) => String(option?.value || "").trim() === selectedMethod
+              );
+              const nextMethod = methodAllowed ? selectedMethod : "";
+              const isValid =
+                Number.isFinite(parsedAmount) &&
+                parsedAmount > 0 &&
+                !!normalizedDate &&
+                !!nextMethod;
+              amountValue = Number.isFinite(parsedAmount) ? parsedAmount.toFixed(3) : amountInput.value;
+              paymentDateValue = normalizedDate || "";
+              paymentMethodValue = nextMethod || "";
+              paymentReferenceValue = String(referenceInput.value || "").trim();
+              if (okBtn) {
+                okBtn.disabled = !isValid;
+                okBtn.setAttribute("aria-disabled", isValid ? "false" : "true");
+              }
+            };
+
+            amountInput.addEventListener("input", syncState);
+            amountInput.addEventListener("blur", () => {
+              const nextValue = formatDialogAmountValue(amountInput.value);
+              if (nextValue) amountInput.value = nextValue;
+              syncState();
+            });
+            referenceInput.addEventListener("input", syncState);
+            methodSelect.addEventListener("change", syncState);
+
+            const dateInput = datePicker.querySelector(`#${dateInputId}`);
+            if (dateInput) {
+              dateInput.value = paymentDateValue;
+              dateInput.addEventListener("input", syncState);
+              if (createDatePicker) {
+                const picker = createDatePicker(dateInput, {
+                  allowManualInput: true,
+                  onChange(value) {
+                    dateInput.value = normalizeIsoDateValue(value) || String(value || "");
+                    syncState();
+                  }
+                });
+                if (picker) picker.setValue(paymentDateValue, { silent: true });
+              }
+            }
+
+            container.append(messageEl, row);
+            syncState();
+            requestAnimationFrame(() => {
+              try {
+                amountInput.focus();
+              } catch {}
+            });
+          }
+        });
+
+        if (!confirmed) return null;
+        const amount = parseDialogAmountValue(amountValue);
+        const paymentDate = normalizeIsoDateValue(paymentDateValue);
+        const paymentMethod = String(paymentMethodValue || "").trim();
+        const methodAllowed = options.some(
+          (option) => String(option?.value || "").trim() === paymentMethod
+        );
+        if (!Number.isFinite(amount) || amount <= 0 || !paymentDate || !methodAllowed) {
+          return null;
+        }
+        return {
+          amount,
+          paymentDate,
+          paymentMethod,
+          paymentReference: String(paymentReferenceValue || "").trim()
+        };
+      }
+
+      if (typeof window.prompt === "function") {
+        const raw = window.prompt(amountLabel, amountValue || "");
+        const amount = parseDialogAmountValue(raw);
+        if (!Number.isFinite(amount) || amount <= 0) return null;
+        return {
+          amount,
+          paymentDate: paymentDateValue || getLocalIsoDate(),
+          paymentMethod: paymentMethodValue || normalizeDialogMethodValue("", options),
+          paymentReference: paymentReferenceValue
+        };
+      }
+      return null;
+    };
+
+    const promptInvoicePaymentDialog = async ({ invoice, defaultAmount } = {}) => {
+      const invoiceNumber = String(invoice?.number || "-").trim() || "-";
+      const clientLabel = String(invoice?.clientName || state.selectedClient?.name || "").trim();
+      const balance = Number(resolveInvoiceTotals(invoice).balance);
+      const initialAmount =
+        Number.isFinite(defaultAmount) && defaultAmount > 0
+          ? defaultAmount
+          : Number.isFinite(balance) && balance > 0
+            ? balance
+            : "";
+      return showPaymentInputDialog({
+        title: "Paiement facture",
+        okText: "Payer",
+        message: `Paiement de la facture ${invoiceNumber}${clientLabel ? ` - ${clientLabel}` : ""}`,
+        amountLabel: "Montant",
+        methodOptions: PAYMENT_METHOD_OPTIONS,
+        fieldOrder: ["date", "amount", "method", "reference"],
+        initialAmount,
+        initialDate: invoice?.paymentDate || "",
+        initialMethod: invoice?.mode || "",
+        initialReference: invoice?.paymentRef || invoice?.paymentReference || ""
+      });
+    };
+
+    const promptSoldCreditPaymentDialog = async ({ clientName } = {}) =>
+      showPaymentInputDialog({
+        title: "Ajouter au solde client",
+        okText: "Ajouter",
+        message: `Ajouter un crédit au solde du client ${String(clientName || "").trim() || "-"}`,
+        amountLabel: "Montant",
+        methodOptions: CREDIT_PAYMENT_METHOD_OPTIONS,
+        fieldOrder: ["amount", "date", "method", "reference"],
+        initialAmount: "",
+        initialDate: getLocalIsoDate(),
+        initialMethod: "cash",
+        initialReference: ""
+      });
 
     const formatSoldValue = (value) => {
       const num = Number(String(value ?? "").replace(",", "."));
@@ -3334,7 +3623,7 @@ const normalizePaymentModeLabel = (value) => {
     const setClientSoldeEmpty = () => {
       if (!state.clientSoldeValueEl) return;
       setPaymentSoldClientVisibility(true);
-      state.clientSoldeValueEl.textContent = formatSoldValue(0);
+      setClientSoldeDisplayValue(formatSoldValue(0));
       state.clientSoldeValueEl.dataset.baseSolde = "";
       state.baseSoldeReference = null;
     };
@@ -3400,7 +3689,7 @@ const normalizePaymentModeLabel = (value) => {
     const setClientSoldeDisplay = (value, options = {}) => {
       if (!state.clientSoldeValueEl) return;
       const storeBase = options.storeBase !== false;
-      state.clientSoldeValueEl.textContent = formatSoldValue(value);
+      setClientSoldeDisplayValue(formatSoldValue(value));
       if (storeBase) {
         state.baseSoldeReference = parseMoneyValue(value);
         const cleaned = String(value ?? "").replace(",", ".").trim();
@@ -3469,9 +3758,10 @@ const normalizePaymentModeLabel = (value) => {
           : nextPaid > 0
             ? "partiellement-payee"
             : "pas-encore-payer";
-      const paymentDate = getPaymentDateValue();
-      const paymentMethod = getPaymentMethodValue();
-      const paymentReference = getPaymentReferenceValue();
+      const paymentDate =
+        normalizeIsoDateValue(options?.paymentDate || "") || getLocalIsoDate();
+      const paymentMethod = String(options?.paymentMethod || "").trim() || "cash";
+      const paymentReference = String(options?.paymentReference || "").trim();
       const shouldSkipLedgerJournal = isSoldClientPaymentMethod(paymentMethod);
 
       if (!w.electronAPI?.openInvoiceJSON || !w.electronAPI?.saveInvoiceJSON) {
@@ -3644,10 +3934,12 @@ const normalizePaymentModeLabel = (value) => {
             currency,
             paid,
             balanceDue,
-            mode: String(entry?.paymentMethod || entry?.mode || "").trim(),
+            mode: String(entry?.paymentMethod || entry?.mode || entry?.meta?.paymentMethod || "").trim(),
             status: String(statusValue || "").trim(),
-          clientName: resolveHistoryClientName(entry) || "",
-            paymentDate: String(entry?.paymentDate || "").trim()
+            clientName: resolveHistoryClientName(entry) || "",
+            paymentDate: String(entry?.paymentDate || entry?.meta?.paymentDate || "").trim(),
+            paymentRef: String(entry?.paymentRef || entry?.paymentReference || "").trim(),
+            paymentReference: String(entry?.paymentReference || entry?.paymentRef || "").trim()
           };
         });
         if (requestId !== state.invoiceRequestId) return;
@@ -3851,8 +4143,7 @@ const normalizePaymentModeLabel = (value) => {
         payBtn.textContent = "Payer";
         payBtn.dataset.paymentAction = "pay";
         payBtn.dataset.paymentInvoiceKey = invoiceKey(invoice);
-        const payAmount = getPaymentAmount();
-        payBtn.disabled = !Number.isFinite(payAmount) || payAmount <= 0;
+        payBtn.disabled = !(Number.isFinite(balanceValue) && balanceValue > 0);
         const removeBtn = document.createElement("button");
         removeBtn.type = "button";
         removeBtn.className = "client-search__delete";

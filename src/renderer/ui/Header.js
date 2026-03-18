@@ -544,38 +544,7 @@ export function renderHeader() {
         </div>
         <div class="payment-modal__body swbDialog__msg">
           <div class="payment-modal__form">
-            <div class="payment-modal__row">
-              <label class="payment-modal__field">
-                <span>Date de paiement</span>
-                <div class="swb-date-picker" data-date-picker>
-                  <input
-                    id="paymentDate"
-                    type="text"
-                    inputmode="numeric"
-                    placeholder="AAAA-MM-JJ"
-                  />
-                  <button
-                    type="button"
-                    class="swb-date-picker__toggle"
-                    data-date-picker-toggle
-                    aria-label="Choisir une date"
-                  >
-                    <svg
-                      class="swb-date-picker__toggle-icon"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="1.5"
-                      aria-hidden="true"
-                      focusable="false"
-                    >
-                      <rect x="3.5" y="5" width="17" height="15" rx="2" />
-                      <path d="M8 3.5v3M16 3.5v3M3.5 10h17" stroke-linecap="round" />
-                    </svg>
-                  </button>
-                  <div class="swb-date-picker__panel" data-date-picker-panel hidden></div>
-                </div>
-              </label>
+            <div class="payment-modal__row payment-modal__row--header">
               <label class="payment-modal__field payment-modal__field--client">
                 <span>Client</span>
                 <input id="paymentClientSearch" type="text" placeholder="Rechercher un client" autocomplete="off" />
@@ -587,97 +556,23 @@ export function renderHeader() {
                   hidden
                 ></div>
               </label>
-              <label class="payment-modal__field">
-                <span>Montant</span>
-                <input id="paymentAmount" type="number" min="0" step="0.001" placeholder="0.000" />
+              <label class="payment-modal__field payment-modal__field--sold" data-client-field="soldClient">
+                <span>Solde client actuel</span>
+                <input
+                  id="paymentClientSoldeValue"
+                  class="payment-modal__field-input payment-modal__field-input--readonly"
+                  type="text"
+                  inputmode="decimal"
+                  placeholder="0.000"
+                  value="0.000"
+                  readonly
+                  aria-readonly="true"
+                  data-base-solde=""
+                />
               </label>
-              <label class="payment-modal__field">
-                <span id="paymentMethodLabel">Mode de paiement</span>
-                <div class="doc-dialog-model-picker__field">
-                    <details
-                      id="paymentMethodMenu"
-                      class="field-toggle-menu doc-dialog-model-menu doc-history-model-menu"
-                    >
-                      <summary
-                        class="btn success field-toggle-trigger"
-                        role="button"
-                        aria-haspopup="listbox"
-                        aria-expanded="false"
-                        aria-labelledby="paymentMethodLabel paymentMethodDisplay"
-                      >
-                        <span id="paymentMethodDisplay" class="model-select-display">Esp&egrave;ces</span>
-                        <svg class="chevron" aria-hidden="true" focusable="false" stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="none" d="M0 0h24v24H0V0z"></path><path d="M12 4c4.41 0 8 3.59 8 8s-3.59 8-8 8-8-3.59-8-8 3.59-8 8-8m0-2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 13-4-4h8z"></path></svg>
-                      </summary>
-                      <!--payment-method-panel-placeholder-->
-                      <div
-                        id="paymentMethodPanel"
-                        class="field-toggle-panel model-select-panel doc-history-model-panel"
-                        role="listbox"
-                        aria-labelledby="paymentMethodLabel"
-                      >
-                        <button type="button" class="model-select-option is-active" data-value="cash" role="option" aria-selected="true">
-                          Esp&egrave;ces
-                        </button>
-                        <button type="button" class="model-select-option" data-value="cash_deposit" role="option" aria-selected="false">
-                          Versement Esp&egrave;ces
-                        </button>
-                        <button type="button" class="model-select-option" data-value="cheque" role="option" aria-selected="false">
-                          Ch&egrave;que
-                        </button>
-                        <button type="button" class="model-select-option" data-value="bill_of_exchange" role="option" aria-selected="false">
-                          Effet
-                        </button>
-                        <button type="button" class="model-select-option" data-value="transfer" role="option" aria-selected="false">
-                          Virement
-                        </button>
-                        <button type="button" class="model-select-option" data-value="card" role="option" aria-selected="false">
-                          Carte bancaire
-                        </button>
-                        <button type="button" class="model-select-option" data-value="withholding_tax" role="option" aria-selected="false">
-                          Retenue &agrave; la source
-                        </button>
-                        <button type="button" class="model-select-option" data-value="sold_client" role="option" aria-selected="false">
-                          Solde client
-                        </button>
-                      </div>
-                    </details>
-                    <select id="paymentMethod" class="model-select doc-dialog-model-select" aria-hidden="true" tabindex="-1">
-                      <option value="">Choisir un mode</option>
-                      <option value="cash" selected>Esp&egrave;ces</option>
-                      <option value="cash_deposit">Versement Esp&egrave;ces</option>
-                      <option value="cheque">Ch&egrave;que</option>
-                      <option value="bill_of_exchange">Effet</option>
-                      <option value="transfer">Virement</option>
-                      <option value="card">Carte bancaire</option>
-                      <option value="withholding_tax">Retenue &agrave; la source</option>
-                      <option value="sold_client">Solde client</option>
-                    </select>
-                </div>
-              </label>
-              <label class="payment-modal__field">
-                <span>R&eacute;f. paiement</span>
-                <input id="paymentReference" type="text" placeholder="R&eacute;f. paiement" />
-              </label>
-            </div>
-            <div class="payment-modal__row payment-modal__row--actions">
-              <div class="doc-history-convert__field" data-client-field="soldClient">
-                <label class="doc-history-convert__label doc-dialog-model-picker__label">
-                  Solde client actuel
-                </label>
-                <div class="payment-modal__amount-cell">
-                  <span
-                    id="paymentClientSoldeValue"
-                    class="payment-modal__field-value"
-                    data-base-solde=""
-                  >-</span>
-                </div>
-              </div>
-              <button id="paymentAddToSold" type="button" class="btn better-style">
+              <button id="paymentAddToSold" type="button" class="btn better-style payment-modal__add-sold-btn">
                 Ajouter au solde client
               </button>
-              <span class="payment-modal__or-pay">
-                ou payer les factures qui apparaissent dans le tableau ci-dessous
-              </span>
             </div>
           </div>
           <div class="payment-modal__invoices">
