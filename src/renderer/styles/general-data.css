@@ -2538,7 +2538,8 @@ aspect-ratio: 1 / 1;
   gap: 6px;
   width: 100%;
 }
-.payment-modal__amount-transfer {
+.payment-modal__amount-transfer,
+.payment-modal__copy-btn {
   border: 1px solid #caddff;
   background: #f3f8ff;
   color: #15335e;
@@ -2551,12 +2552,14 @@ aspect-ratio: 1 / 1;
   cursor: pointer;
   padding: 0;
 }
-.payment-modal__amount-transfer:hover {
+.payment-modal__amount-transfer:hover,
+.payment-modal__copy-btn:hover {
   background: #15335e;
   border-color: #15335e;
   color: #ffffff;
 }
-.payment-modal__amount-transfer svg {
+.payment-modal__amount-transfer svg,
+.payment-modal__copy-btn svg {
   width: 14px;
   height: 14px;
   fill: currentColor;

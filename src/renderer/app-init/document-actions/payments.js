@@ -16,6 +16,8 @@
   const CREDIT_PAYMENT_METHOD_OPTIONS = PAYMENT_METHOD_OPTIONS.filter(
     (option) => option.value !== "sold_client"
   );
+  const CHEVRON_SVG =
+    '<svg class="chevron" aria-hidden="true" focusable="false" stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="none" d="M0 0h24v24H0V0z"></path><path d="M12 4c4.41 0 8 3.59 8 8s-3.59 8-8 8-8-3.59-8-8 3.59-8 8-8m0-2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 13-4-4h8z"></path></svg>';
 
   const getElSafe = (id) =>
     typeof getEl === "function"
@@ -1730,10 +1732,6 @@
         if (!key) return;
         const invoice = state.invoices.find((item) => invoiceKey(item) === key);
         if (!invoice) return;
-        if (action === "fill-amount") {
-          const amount = Number(actionBtn.dataset.paymentAmount || "");
-          if (!Number.isFinite(amount) || amount <= 0) return;
-        }
         if (action === "remove") {
           const confirmed = await confirmAction(
             `Retirer la facture ${invoice.number || "-"} de la liste ?`
@@ -1743,16 +1741,12 @@
           renderInvoiceTable();
           return;
         }
-        if (action === "pay" || action === "fill-amount") {
+        if (action === "pay") {
           const { balance } = resolveInvoiceTotals(invoice);
-          const quickAmount =
-            action === "fill-amount" ? Number(actionBtn.dataset.paymentAmount || "") : null;
           const defaultAmount =
-            Number.isFinite(quickAmount) && quickAmount > 0
-              ? quickAmount
-              : Number.isFinite(balance) && balance > 0
-                ? balance
-                : null;
+            Number.isFinite(balance) && balance > 0
+              ? balance
+              : null;
           const paymentInput = await promptInvoicePaymentDialog({
             invoice,
             defaultAmount
@@ -3587,6 +3581,7 @@ const normalizePaymentModeLabel = (value) => {
       let paymentDateValue = normalizeIsoDateValue(initialDate) || getLocalIsoDate();
       let paymentMethodValue = normalizeDialogMethodValue(initialMethod, options);
       let paymentReferenceValue = String(initialReference || "").trim();
+      let detachMethodMenuListeners = null;
 
       if (typeof w.showConfirm === "function") {
         const confirmed = await w.showConfirm(message || "Confirmer le paiement ?", {
@@ -3595,6 +3590,10 @@ const normalizePaymentModeLabel = (value) => {
           cancelText: "Annuler",
           renderMessage(container) {
             if (!container) return;
+            if (typeof detachMethodMenuListeners === "function") {
+              detachMethodMenuListeners();
+              detachMethodMenuListeners = null;
+            }
             container.innerHTML = "";
             container.style.maxHeight = "none";
             container.style.overflow = "visible";
@@ -3672,23 +3671,132 @@ const normalizePaymentModeLabel = (value) => {
             `;
             dateField.append(dateLabel, datePicker);
 
-            const methodField = document.createElement("label");
+            const methodField = document.createElement("div");
             methodField.className = "payment-modal__field";
-            const methodLabel = document.createElement("span");
+            const methodIdPrefix = `paymentDialogMethod-${Date.now()}`;
+            const methodLabel = document.createElement("label");
+            methodLabel.className = "doc-history-convert__label doc-dialog-model-picker__label";
+            methodLabel.id = `${methodIdPrefix}Label`;
             methodLabel.textContent = "Mode de paiement";
+            const methodPickerField = document.createElement("div");
+            methodPickerField.className = "doc-dialog-model-picker__field";
+            const methodMenu = document.createElement("details");
+            methodMenu.className = "field-toggle-menu model-select-menu doc-dialog-model-menu doc-history-model-menu";
+            methodMenu.id = `${methodIdPrefix}Menu`;
+            methodMenu.dataset.wired = "1";
+            const methodSummary = document.createElement("summary");
+            methodSummary.className = "btn success field-toggle-trigger";
+            methodSummary.setAttribute("role", "button");
+            methodSummary.setAttribute("aria-haspopup", "listbox");
+            methodSummary.setAttribute("aria-expanded", "false");
+            methodSummary.setAttribute("aria-labelledby", `${methodLabel.id} ${methodIdPrefix}Display`);
+            const methodDisplay = document.createElement("span");
+            methodDisplay.id = `${methodIdPrefix}Display`;
+            methodDisplay.className = "model-select-display";
+            methodDisplay.textContent = "Choisir un mode";
+            methodSummary.appendChild(methodDisplay);
+            methodSummary.insertAdjacentHTML("beforeend", CHEVRON_SVG);
+            methodMenu.appendChild(methodSummary);
+            const methodPanel = document.createElement("div");
+            methodPanel.id = `${methodIdPrefix}Panel`;
+            methodPanel.className = "field-toggle-panel model-select-panel doc-history-model-panel";
+            methodPanel.setAttribute("role", "listbox");
+            methodPanel.setAttribute("aria-labelledby", methodLabel.id);
+            const methodPanelPlaceholder = document.createComment("doc-history-model-panel-placeholder");
+            methodMenu.appendChild(methodPanelPlaceholder);
+            methodMenu.appendChild(methodPanel);
             const methodSelect = document.createElement("select");
+            methodSelect.id = `${methodIdPrefix}Select`;
+            methodSelect.className = "model-select doc-dialog-model-select";
+            methodSelect.setAttribute("aria-hidden", "true");
+            methodSelect.tabIndex = -1;
             const placeholder = document.createElement("option");
             placeholder.value = "";
             placeholder.textContent = "Choisir un mode";
             methodSelect.appendChild(placeholder);
+            methodLabel.setAttribute("for", methodSelect.id);
+            const getMethodOptionLabel = (value) => {
+              if (!value) return "";
+              const match = options.find((opt) => String(opt?.value || "").trim() === value);
+              return String(match?.label || "").trim();
+            };
             options.forEach((opt) => {
+              const optionValue = String(opt?.value || "").trim();
+              const optionLabel = String(opt?.label || opt?.value || "").trim();
+              const button = document.createElement("button");
+              button.type = "button";
+              button.className = "model-select-option";
+              button.dataset.value = optionValue;
+              button.setAttribute("role", "option");
+              button.setAttribute("aria-selected", "false");
+              button.textContent = optionLabel;
+              methodPanel.appendChild(button);
               const option = document.createElement("option");
-              option.value = String(opt?.value || "");
-              option.textContent = String(opt?.label || opt?.value || "");
+              option.value = optionValue;
+              option.textContent = optionLabel;
               methodSelect.appendChild(option);
             });
-            methodSelect.value = paymentMethodValue || "";
-            methodField.append(methodLabel, methodSelect);
+            const setMethodSelection = (
+              value,
+              { closeMenu = true, notify = true } = {}
+            ) => {
+              const nextValue = String(value || "").trim();
+              const allowed = options.some(
+                (opt) => String(opt?.value || "").trim() === nextValue
+              );
+              const resolved = allowed ? nextValue : "";
+              methodSelect.value = resolved;
+              paymentMethodValue = resolved;
+              methodDisplay.textContent = getMethodOptionLabel(resolved) || "Choisir un mode";
+              methodPanel.querySelectorAll(".model-select-option").forEach((btn) => {
+                const isActive = String(btn.dataset.value || "").trim() === resolved;
+                btn.classList.toggle("is-active", isActive);
+                btn.setAttribute("aria-selected", isActive ? "true" : "false");
+              });
+              if (notify) syncState();
+              if (closeMenu) closeMethodMenu();
+            };
+            const closeMethodMenu = ({ focusSummary = false } = {}) => {
+              if (!methodMenu.open) return;
+              methodMenu.open = false;
+              methodSummary.setAttribute("aria-expanded", "false");
+              if (focusSummary) methodSummary.focus();
+            };
+            const onMethodPanelClick = (evt) => {
+              const btn = evt.target.closest(".model-select-option");
+              if (!btn) return;
+              setMethodSelection(btn.dataset.value || "");
+            };
+            const onMethodSummaryClick = (evt) => {
+              evt.preventDefault();
+              methodMenu.open = !methodMenu.open;
+              methodSummary.setAttribute("aria-expanded", methodMenu.open ? "true" : "false");
+              if (!methodMenu.open) methodSummary.focus();
+            };
+            const onMethodMenuKeydown = (evt) => {
+              if (evt.key !== "Escape") return;
+              if (!methodMenu.open) return;
+              evt.preventDefault();
+              evt.stopPropagation();
+              closeMethodMenu({ focusSummary: true });
+            };
+            const onMethodDocumentClick = (evt) => {
+              if (!methodMenu.open) return;
+              if (methodMenu.contains(evt.target)) return;
+              closeMethodMenu();
+            };
+            methodPanel.addEventListener("click", onMethodPanelClick);
+            methodSummary.addEventListener("click", onMethodSummaryClick);
+            methodMenu.addEventListener("keydown", onMethodMenuKeydown);
+            document.addEventListener("click", onMethodDocumentClick, true);
+            detachMethodMenuListeners = () => {
+              methodPanel.removeEventListener("click", onMethodPanelClick);
+              methodSummary.removeEventListener("click", onMethodSummaryClick);
+              methodMenu.removeEventListener("keydown", onMethodMenuKeydown);
+              document.removeEventListener("click", onMethodDocumentClick, true);
+            };
+            methodPickerField.append(methodMenu, methodSelect);
+            methodField.append(methodLabel, methodPickerField);
 
             const referenceField = document.createElement("label");
             referenceField.className = "payment-modal__field";
@@ -3719,7 +3827,7 @@ const normalizePaymentModeLabel = (value) => {
               const normalizedDate = normalizeIsoDateValue(
                 datePicker.querySelector(`#${dateInputId}`)?.value || paymentDateValue
               );
-              const selectedMethod = String(methodSelect.value || "").trim();
+              const selectedMethod = String(paymentMethodValue || "").trim();
               const methodAllowed = options.some(
                 (option) => String(option?.value || "").trim() === selectedMethod
               );
@@ -3746,7 +3854,6 @@ const normalizePaymentModeLabel = (value) => {
               syncState();
             });
             referenceInput.addEventListener("input", syncState);
-            methodSelect.addEventListener("change", syncState);
 
             const dateInput = datePicker.querySelector(`#${dateInputId}`);
             if (dateInput) {
@@ -3765,6 +3872,7 @@ const normalizePaymentModeLabel = (value) => {
             }
 
             container.append(messageEl, row);
+            setMethodSelection(paymentMethodValue, { closeMenu: false, notify: false });
             syncState();
             requestAnimationFrame(() => {
               try {
@@ -3773,6 +3881,10 @@ const normalizePaymentModeLabel = (value) => {
             });
           }
         });
+        if (typeof detachMethodMenuListeners === "function") {
+          detachMethodMenuListeners();
+          detachMethodMenuListeners = null;
+        }
 
         if (!confirmed) return null;
         const amount = parseDialogAmountValue(amountValue);
@@ -4325,7 +4437,7 @@ const normalizePaymentModeLabel = (value) => {
         numberText.textContent = invoice.number || "-";
         const copyBtn = document.createElement("button");
         copyBtn.type = "button";
-        copyBtn.className = "payment-modal__amount-transfer payment-modal__copy";
+        copyBtn.className = "payment-modal__copy-btn payment-modal__copy";
         copyBtn.setAttribute("aria-label", "Copier N\u00b0 de facture");
         copyBtn.title = "Copier N\u00b0 de facture";
         copyBtn.dataset.paymentAction = "copy-invoice";
@@ -4355,21 +4467,8 @@ const normalizePaymentModeLabel = (value) => {
         const paidCell = document.createElement("td");
         const { balance: balanceValue } = resolveInvoiceTotals(invoice);
         if (Number.isFinite(balanceValue)) {
-          paidCell.className = "payment-modal__amount-cell";
-          const amountValue = document.createElement("span");
-          amountValue.className = "num";
-          amountValue.textContent = formatMoneySafe(balanceValue, invoice.currency);
-          const transferBtn = document.createElement("button");
-          transferBtn.type = "button";
-          transferBtn.className = "payment-modal__amount-transfer";
-          transferBtn.setAttribute("aria-label", "Utiliser ce montant");
-          transferBtn.title = "Utiliser ce montant";
-          transferBtn.dataset.paymentAction = "fill-amount";
-          transferBtn.dataset.paymentInvoiceKey = invoiceKey(invoice);
-          transferBtn.dataset.paymentAmount = String(balanceValue);
-          transferBtn.innerHTML =
-            '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 6h10v10h-2V9.41l-9.29 9.3-1.42-1.42 9.3-9.29H8z"/></svg>';
-          paidCell.append(amountValue, transferBtn);
+          paidCell.className = "num";
+          paidCell.textContent = formatMoneySafe(balanceValue, invoice.currency);
         } else {
           paidCell.className = "num";
           paidCell.textContent = "-";
