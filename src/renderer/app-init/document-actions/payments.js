@@ -1002,6 +1002,10 @@
       clientRequestId: 0,
       invoiceRequestId: 0,
       suppressClientInputOpenUntil: 0,
+      clientFetchQueryInFlight: "",
+      clientLastFetchedQuery: "",
+      clientPanelActiveLabel: "",
+      clientResultsRenderKey: "",
       clientQuery: "",
       clientLoading: false,
       clientError: "",
@@ -1072,9 +1076,12 @@
     const setPaymentClientPanelOpen = (isOpen) => {
       const open = !!isOpen;
       if (state.clientResults) {
-        state.clientResults.hidden = !open;
-        state.clientResults.classList.toggle("is-open", open);
-        state.clientResults.style.display = open ? "flex" : "none";
+        const currentlyOpen = !state.clientResults.hidden;
+        if (currentlyOpen !== open) {
+          state.clientResults.hidden = !open;
+          state.clientResults.classList.toggle("is-open", open);
+          state.clientResults.style.display = open ? "flex" : "none";
+        }
       }
       if (state.clientInput) {
         state.clientInput.setAttribute("aria-expanded", open ? "true" : "false");
@@ -1620,7 +1627,7 @@
           setClientSoldeEmpty();
         }
         renderClientResults();
-        setPaymentClientPanelOpen(true);
+        if (!isPaymentClientPanelOpen()) setPaymentClientPanelOpen(true);
         renderInvoiceTable();
         clearTimeout(state.searchTimer);
         state.searchTimer = setTimeout(() => {
@@ -1653,6 +1660,7 @@
         const first = panel.querySelector("[data-payment-client-index]");
         if (first instanceof HTMLElement) {
           evt.preventDefault();
+          state.clientPanelActiveLabel = String(first.dataset.paymentClientOption || "").trim();
           first.focus();
         }
       });
@@ -1686,7 +1694,10 @@
           const start = activeIndex >= 0 ? activeIndex : evt.key === "ArrowDown" ? -1 : 0;
           const nextIndex = (start + step + options.length) % options.length;
           const next = options[nextIndex];
-          if (next instanceof HTMLElement) next.focus();
+          if (next instanceof HTMLElement) {
+            state.clientPanelActiveLabel = String(next.dataset.paymentClientOption || "").trim();
+            next.focus();
+          }
         }
       });
       const onClientPanelPointerSelect = (evt) => {
@@ -2119,6 +2130,10 @@
       state.clientError = "";
       state.clientResultsData = [];
       state.suppressClientInputOpenUntil = 0;
+      state.clientFetchQueryInFlight = "";
+      state.clientLastFetchedQuery = "";
+      state.clientPanelActiveLabel = "";
+      state.clientResultsRenderKey = "";
       state.selectedClient = null;
       state.invoices = [];
       state.removedInvoices = new Set();
@@ -2131,13 +2146,17 @@
         closeMenu: true
       });
       setClientSoldeEmpty();
-      hideClientResults();
+      hideClientResults({ clear: true });
       renderInvoiceTable();
     };
 
-    const hideClientResults = () => {
+    const hideClientResults = ({ clear = false } = {}) => {
       if (!state.clientResults) return;
-      state.clientResults.innerHTML = "";
+      if (clear) {
+        state.clientResults.innerHTML = "";
+        state.clientPanelActiveLabel = "";
+        state.clientResultsRenderKey = "";
+      }
       setPaymentClientPanelOpen(false);
     };
 
@@ -2150,53 +2169,175 @@
     const buildPaymentClientOptionLabel = (item) => {
       const name = String(resolveClientName(item) || "").trim();
       const account = String(resolveClientAccount(item) || "").trim();
+      if (name && account && name !== account) return `${name} (${account})`;
       return name || account || "Sans nom";
+    };
+
+    const getFilteredPaymentClientOptions = (query) => {
+      const token = normalizeClientLookup(query);
+      const mapped = state.clientResultsData.map((item, index) => {
+        const label = buildPaymentClientOptionLabel(item);
+        return {
+          item,
+          index,
+          label,
+          name: String(resolveClientName(item) || "").trim(),
+          account: String(resolveClientAccount(item) || "").trim()
+        };
+      });
+      if (!token) return mapped;
+      return mapped.filter((entry) => {
+        const labelToken = normalizeClientLookup(entry.label);
+        const nameToken = normalizeClientLookup(entry.name);
+        const accountToken = normalizeClientLookup(entry.account);
+        return (
+          labelToken.includes(token) ||
+          nameToken.includes(token) ||
+          accountToken.includes(token)
+        );
+      });
     };
 
     const renderClientResults = () => {
       if (!state.clientResults) return;
-      state.clientResults.innerHTML = "";
-      if (state.clientLoading) {
-        const loading = document.createElement("p");
-        loading.className = "model-select-empty";
-        loading.textContent = "Chargement...";
-        state.clientResults.appendChild(loading);
-        return;
+      const panel = state.clientResults;
+      const query = String(state.clientQuery || state.clientInput?.value || "").trim();
+      const options = getFilteredPaymentClientOptions(query);
+      const activeInputValue = String(state.clientInput?.value || "").trim();
+      let activeLabel = String(state.clientPanelActiveLabel || "").trim();
+      if (
+        !activeLabel &&
+        activeInputValue
+      ) {
+        const match = options.find(
+          (entry) => entry.label === activeInputValue || entry.name === activeInputValue
+        );
+        activeLabel = String(match?.label || "").trim();
       }
+      if (activeLabel && !options.some((entry) => entry.label === activeLabel)) {
+        activeLabel = "";
+      }
+      state.clientPanelActiveLabel = activeLabel;
+
+      const focusedBefore = document.activeElement;
+      const focusedLabelBefore =
+        focusedBefore instanceof HTMLElement && panel.contains(focusedBefore)
+          ? String(focusedBefore.dataset.paymentClientOption || "").trim()
+          : "";
+
       if (state.clientError) {
-        const empty = document.createElement("p");
-        empty.className = "model-select-empty";
-        empty.textContent = String(state.clientError || "").trim();
-        state.clientResults.appendChild(empty);
+        const message = String(state.clientError || "").trim() || "Recherche impossible.";
+        const renderKey = `error|${message}`;
+        if (state.clientResultsRenderKey === renderKey) return;
+        state.clientResultsRenderKey = renderKey;
+        const current = panel.querySelector(".model-select-empty");
+        if (current && panel.childElementCount === 1) {
+          current.textContent = message;
+        } else {
+          const empty = document.createElement("p");
+          empty.className = "model-select-empty";
+          empty.textContent = message;
+          panel.replaceChildren(empty);
+        }
         return;
       }
-      if (!state.clientResultsData.length) {
-        const empty = document.createElement("p");
-        empty.className = "model-select-empty";
-        empty.textContent = state.clientQuery
-          ? "Aucun client."
-          : "Aucun client disponible.";
-        state.clientResults.appendChild(empty);
+
+      if (state.clientLoading && !options.length) {
+        if (panel.querySelector("[data-payment-client-index]")) {
+          return;
+        }
+        const renderKey = "loading";
+        if (state.clientResultsRenderKey === renderKey) return;
+        state.clientResultsRenderKey = renderKey;
+        const current = panel.querySelector(".model-select-empty");
+        if (current && panel.childElementCount === 1) {
+          current.textContent = "Chargement...";
+        } else {
+          const loading = document.createElement("p");
+          loading.className = "model-select-empty";
+          loading.textContent = "Chargement...";
+          panel.replaceChildren(loading);
+        }
         return;
       }
-      const activeLabel = String(state.clientInput?.value || "").trim();
-      const fragment = document.createDocumentFragment();
-      state.clientResultsData.forEach((item, index) => {
-        const label = buildPaymentClientOptionLabel(item);
-        const option = document.createElement("button");
-        option.type = "button";
-        option.className = "model-select-option";
-        option.dataset.paymentClientIndex = String(index);
-        option.dataset.paymentClientOption = label;
-        option.setAttribute("role", "option");
-        const isActive = label === activeLabel;
-        option.classList.toggle("is-active", isActive);
-        option.setAttribute("aria-selected", isActive ? "true" : "false");
-        option.title = label;
-        option.textContent = truncateClientPanelLabel(label, 30);
-        fragment.appendChild(option);
+
+      if (!options.length) {
+        const text = query ? "Aucun client." : "Aucun client disponible.";
+        const renderKey = `empty|${text}`;
+        if (state.clientResultsRenderKey === renderKey) return;
+        state.clientResultsRenderKey = renderKey;
+        const current = panel.querySelector(".model-select-empty");
+        if (current && panel.childElementCount === 1) {
+          current.textContent = text;
+        } else {
+          const empty = document.createElement("p");
+          empty.className = "model-select-empty";
+          empty.textContent = text;
+          panel.replaceChildren(empty);
+        }
+        return;
+      }
+
+      const nextKey = `options|${activeLabel}|${options
+        .map((entry) => `${entry.index}:${entry.label}`)
+        .join("||")}`;
+      if (state.clientResultsRenderKey !== nextKey) {
+        state.clientResultsRenderKey = nextKey;
+        const existing = Array.from(
+          panel.querySelectorAll("button.model-select-option[data-payment-client-index]")
+        );
+        const sameShape =
+          existing.length === options.length &&
+          options.every(
+            (entry, index) =>
+              String(existing[index]?.dataset?.paymentClientOption || "") === entry.label
+          );
+        if (sameShape) {
+          options.forEach((entry, index) => {
+            const btn = existing[index];
+            if (!btn) return;
+            btn.dataset.paymentClientIndex = String(entry.index);
+            btn.title = entry.label;
+            const label = truncateClientPanelLabel(entry.label, 30);
+            if (btn.textContent !== label) btn.textContent = label;
+          });
+        } else {
+          const fragment = document.createDocumentFragment();
+          options.forEach((entry) => {
+            const option = document.createElement("button");
+            option.type = "button";
+            option.className = "model-select-option";
+            option.dataset.paymentClientIndex = String(entry.index);
+            option.dataset.paymentClientOption = entry.label;
+            option.setAttribute("role", "option");
+            option.title = entry.label;
+            option.textContent = truncateClientPanelLabel(entry.label, 30);
+            fragment.appendChild(option);
+          });
+          panel.replaceChildren(fragment);
+        }
+      }
+
+      panel.querySelectorAll("button.model-select-option[data-payment-client-index]").forEach((btn) => {
+        const isActive = !!activeLabel && String(btn.dataset.paymentClientOption || "") === activeLabel;
+        btn.classList.toggle("is-active", isActive);
+        btn.setAttribute("aria-selected", isActive ? "true" : "false");
       });
-      state.clientResults.appendChild(fragment);
+
+      if (focusedLabelBefore && !(state.clientInput && document.activeElement === state.clientInput)) {
+        const nextFocused = Array.from(
+          panel.querySelectorAll("button.model-select-option[data-payment-client-index]")
+        ).find(
+          (btn) => String(btn.dataset.paymentClientOption || "").trim() === focusedLabelBefore
+        );
+        if (nextFocused instanceof HTMLElement && document.activeElement !== nextFocused) {
+          try {
+            nextFocused.focus({ preventScroll: true });
+          } catch {
+            nextFocused.focus();
+          }
+        }
+      }
     };
 
     const resolvePaymentDate = (item) => {
@@ -2526,9 +2667,16 @@ const normalizePaymentModeLabel = (value) => {
       listEl.appendChild(fragment);
     };
 
-    const fetchClientResults = async (query) => {
+    const fetchClientResults = async (query, { force = false } = {}) => {
       if (!state.clientResults) return;
       const trimmed = String(query || "").trim();
+      if (!force) {
+        if (state.clientLoading && state.clientFetchQueryInFlight === trimmed) return;
+        if (!state.clientLoading && state.clientLastFetchedQuery === trimmed && !state.clientError) {
+          renderClientResults();
+          return;
+        }
+      }
       if (!w.electronAPI?.searchClients) {
         state.clientResultsData = [];
         state.clientLoading = false;
@@ -2538,6 +2686,7 @@ const normalizePaymentModeLabel = (value) => {
       }
       const requestId = ++state.clientRequestId;
       state.clientLoading = true;
+      state.clientFetchQueryInFlight = trimmed;
       state.clientError = "";
       renderClientResults();
       try {
@@ -2554,14 +2703,17 @@ const normalizePaymentModeLabel = (value) => {
           return;
         }
         state.clientResultsData = Array.isArray(res.results) ? res.results : [];
+        state.clientLastFetchedQuery = trimmed;
         state.clientError = "";
       } catch (err) {
         if (requestId !== state.clientRequestId) return;
         state.clientResultsData = [];
+        state.clientLastFetchedQuery = "";
         state.clientError = "Erreur de recherche.";
       } finally {
         if (requestId !== state.clientRequestId) return;
         state.clientLoading = false;
+        state.clientFetchQueryInFlight = "";
         renderClientResults();
       }
     };
@@ -2569,6 +2721,7 @@ const normalizePaymentModeLabel = (value) => {
     const applySelectedClient = (item) => {
       const name = resolveClientName(item) || resolveClientAccount(item);
       if (!name) return;
+      state.clientPanelActiveLabel = buildPaymentClientOptionLabel(item);
       const soldValue = item?.client?.soldClient ?? item?.soldClient ?? "";
       state.selectedClient = {
         name,
