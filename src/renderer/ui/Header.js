@@ -583,7 +583,7 @@ export function renderHeader() {
                 />
               </label>
               <button id="paymentAddToSold" type="button" class="btn better-style payment-modal__add-sold-btn">
-                Ajouter au solde client
+                Ajouter solde
               </button>
             </div>
           </div>

@@ -3944,7 +3944,7 @@ const normalizePaymentModeLabel = (value) => {
 
     const promptSoldCreditPaymentDialog = async ({ clientName } = {}) =>
       showPaymentInputDialog({
-        title: "Ajouter au solde client",
+        title: "Ajouter solde",
         okText: "Ajouter",
         message: `Ajouter un crédit au solde du client ${String(clientName || "").trim() || "-"}`,
         amountLabel: "Montant",
