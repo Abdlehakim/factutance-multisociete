@@ -2619,6 +2619,33 @@ aspect-ratio: 1 / 1;
 #clientStatementsModal #clientStatementsExportTools.payments-history__table-tools {
   justify-content: flex-end;
 }
+#clientStatementsModal .payments-history-modal__panel {
+  min-height: 0;
+}
+#clientStatementsModal .payments-history-modal__body.credit-clients__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+  max-height: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: hidden;
+}
+#clientStatementsModal .payments-history-modal__body.credit-clients__body > .doc-history-modal__filters,
+#clientStatementsModal .payments-history-modal__body.credit-clients__body > .doc-history-modal__status-row {
+  flex: 0 0 auto;
+}
+#clientStatementsModal .payments-history__table-wrap.credit-clients__table-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+  max-height: none;
+  overflow: auto;
+}
+#clientStatementsModal .doc-history-modal__actions {
+  flex: 0 0 auto;
+}
 .payments-history__table-wrap {
   max-height: 65vh;
   overflow-y: auto;
