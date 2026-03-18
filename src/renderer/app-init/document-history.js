@@ -251,6 +251,14 @@
       const day = String(dt.getDate()).padStart(2, "0");
       return `${year}-${month}-${day}`;
     };
+    const getLocalIsoDateToday = (date = new Date()) => {
+      const dt = date instanceof Date ? date : new Date(date);
+      if (Number.isNaN(dt.getTime())) return "";
+      const year = dt.getFullYear();
+      const month = String(dt.getMonth() + 1).padStart(2, "0");
+      const day = String(dt.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    };
     const parseHistoryDayMonthParts = (value) => {
       const text = String(value || "").trim();
       if (!text) return null;
@@ -348,18 +356,24 @@
             ? root.meta
             : {};
       const paymentMethod = normalizePaymentMetaValue(meta.paymentMethod || meta.mode);
+      const paymentDate = normalizePaymentMetaValue(meta.paymentDate);
       const paymentReference = normalizePaymentMetaValue(
         meta.paymentReference || meta.paymentRef
       );
-      return { paymentMethod, paymentReference };
+      return { paymentMethod, paymentDate, paymentReference };
     };
     const applyHistoryPaymentMeta = (entry, meta) => {
       if (!entry || !meta) return false;
       let updated = false;
       const currentMethod = normalizePaymentMetaValue(entry.paymentMethod || entry.mode);
+      const currentDate = normalizePaymentMetaValue(entry.paymentDate);
       const currentRef = normalizePaymentMetaValue(entry.paymentReference || entry.paymentRef);
       if (meta.paymentMethod && !currentMethod) {
         entry.paymentMethod = meta.paymentMethod;
+        updated = true;
+      }
+      if (meta.paymentDate && !currentDate) {
+        entry.paymentDate = meta.paymentDate;
         updated = true;
       }
       if (meta.paymentReference && !currentRef) {
@@ -382,8 +396,10 @@
         const resolvedDocType = String(entry.docType || entryDocType || "").trim().toLowerCase();
         if (resolvedDocType && resolvedDocType !== "facture") return;
         const currentMethod = normalizePaymentMetaValue(entry.paymentMethod || entry.mode);
+        const currentDate = normalizePaymentMetaValue(entry.paymentDate);
         const currentRef = normalizePaymentMetaValue(entry.paymentReference || entry.paymentRef);
-        if (currentMethod && currentRef) return;
+        const needsPaymentDate = isPaidStatus(entry?.status);
+        if (currentMethod && currentRef && (!needsPaymentDate || currentDate)) return;
         const path = String(entry.path || "").trim();
         if (!path || seenPaths.has(path)) return;
         const cached = historyPaymentMetaCache.get(path);
@@ -4149,9 +4165,10 @@
         const maxAllowed = Number(entry?.totalTTC);
         const hasMax = Number.isFinite(maxAllowed) && maxAllowed > 0;
         const paymentDateInitial = (() => {
-          const rawPaymentDate = entry?.paymentDate || entry?.date || "";
-          if (rawPaymentDate) return String(rawPaymentDate).slice(0, 10);
-          return new Date().toISOString().slice(0, 10);
+          const rawPaymentDate = entry?.paymentDate || "";
+          const normalized = normalizeHistoryIsoDateValue(rawPaymentDate);
+          if (normalized) return normalized;
+          return getLocalIsoDateToday();
         })();
         let paymentDateValue = paymentDateInitial;
         let paymentReference = String(
@@ -4438,7 +4455,13 @@
                 paidAmount = parsed;
                 const withinMax = !hasMax || (Number.isFinite(parsed) && parsed <= maxAllowed);
                 const hasMethod = !!selectedPaymentMethod;
-                const isValid = Number.isFinite(parsed) && parsed > 0 && withinMax && hasMethod;
+                const hasValidPaymentDate = !!normalizeHistoryIsoDateValue(paymentDateValue);
+                const isValid =
+                  Number.isFinite(parsed) &&
+                  parsed > 0 &&
+                  withinMax &&
+                  hasMethod &&
+                  hasValidPaymentDate;
                 if (okBtn) okBtn.disabled = !isValid;
                 if (hasMax && Number.isFinite(parsed)) {
                   const nextBalance = Math.max(0, maxAllowed - parsed);
@@ -4469,17 +4492,18 @@
               );
               if (paymentDateInput) {
                 paymentDateInput.value = paymentDateInitial;
+                paymentDateInput.addEventListener("input", () => {
+                  paymentDateValue = normalizeHistoryIsoDateValue(paymentDateInput.value);
+                  updateState();
+                });
                 if (createDatePicker) {
                   const picker = createDatePicker(paymentDateInput, {
                     onChange: (value) => {
-                      paymentDateValue = String(value || "").slice(0, 10);
+                      paymentDateValue = normalizeHistoryIsoDateValue(value);
+                      updateState();
                     }
                   });
                   if (picker) picker.setValue(paymentDateInitial, { silent: true });
-                } else {
-                  paymentDateInput.addEventListener("input", () => {
-                    paymentDateValue = paymentDateInput.value || "";
-                  });
                 }
               }
               field.append(label, input);
@@ -4531,6 +4555,13 @@
         let paymentReference = String(
           entry?.paymentReference || entry?.paymentRef || ""
         ).trim();
+        const paymentDateInitial = (() => {
+          const rawPaymentDate = entry?.paymentDate || "";
+          const normalized = normalizeHistoryIsoDateValue(rawPaymentDate);
+          if (normalized) return normalized;
+          return getLocalIsoDateToday();
+        })();
+        let paymentDateValue = paymentDateInitial;
         if (typeof w.showConfirm === "function") {
           const confirmed = await w.showConfirm(message, {
             title: "Statut de facture",
@@ -4543,6 +4574,55 @@
               container.style.overflow = "visible";
               const messageEl = document.createElement("p");
               messageEl.textContent = message;
+              const paymentDateInputId = `docHistoryPaymentDateInput-${Date.now()}`;
+              const paymentDatePanelId = `${paymentDateInputId}Panel`;
+              const paymentDateField = document.createElement("div");
+              paymentDateField.className = "payment-modal__field";
+              const paymentDateLabel = document.createElement("label");
+              paymentDateLabel.textContent = "Date de paiement";
+              paymentDateLabel.setAttribute("for", paymentDateInputId);
+              const paymentDatePicker = document.createElement("div");
+              paymentDatePicker.className = "swb-date-picker";
+              paymentDatePicker.setAttribute("data-date-picker", "");
+              paymentDatePicker.innerHTML = `
+                <input
+                  id="${paymentDateInputId}"
+                  type="text"
+                  inputmode="numeric"
+                  placeholder="AAAA-MM-JJ"
+                  autocomplete="off"
+                  spellcheck="false"
+                  aria-haspopup="dialog"
+                  aria-expanded="false"
+                  role="combobox"
+                  aria-controls="${paymentDatePanelId}"
+                >
+                <button
+                  type="button"
+                  class="swb-date-picker__toggle"
+                  data-date-picker-toggle
+                  aria-label="Choisir une date"
+                  aria-haspopup="dialog"
+                  aria-expanded="false"
+                  aria-controls="${paymentDatePanelId}"
+                >
+                  <svg class="swb-date-picker__toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" focusable="false">
+                    <rect x="3.5" y="5" width="17" height="15" rx="2"></rect>
+                    <path d="M8 3.5v3M16 3.5v3M3.5 10h17" stroke-linecap="round"></path>
+                  </svg>
+                </button>
+                <div
+                  class="swb-date-picker__panel"
+                  data-date-picker-panel
+                  hidden
+                  role="dialog"
+                  aria-modal="false"
+                  aria-label="Choisir une date"
+                  tabindex="-1"
+                  id="${paymentDatePanelId}"
+                ></div>
+              `;
+              paymentDateField.append(paymentDateLabel, paymentDatePicker);
 
               const createMenuGroup = ({
                 idPrefix,
@@ -4684,6 +4764,7 @@
                 selectedValue: selectedPaymentMethod,
                 onChange: (value) => {
                   selectedPaymentMethod = value || "";
+                  setOkState();
                 }
               });
               const refField = document.createElement("div");
@@ -4709,11 +4790,32 @@
                 document.getElementById("swbDialogOk");
               const setOkState = () => {
                 const hasMethod = !!selectedPaymentMethod;
+                const hasValidPaymentDate = !!normalizeHistoryIsoDateValue(paymentDateValue);
+                const isValid = hasMethod && hasValidPaymentDate;
                 if (okBtn) {
-                  okBtn.disabled = !hasMethod;
-                  okBtn.setAttribute("aria-disabled", hasMethod ? "false" : "true");
+                  okBtn.disabled = !isValid;
+                  okBtn.setAttribute("aria-disabled", isValid ? "false" : "true");
                 }
               };
+              const paymentDateInput = paymentDatePicker.querySelector(
+                `#${paymentDateInputId}`
+              );
+              if (paymentDateInput) {
+                paymentDateInput.value = paymentDateInitial;
+                paymentDateInput.addEventListener("input", () => {
+                  paymentDateValue = normalizeHistoryIsoDateValue(paymentDateInput.value);
+                  setOkState();
+                });
+                if (createDatePicker) {
+                  const picker = createDatePicker(paymentDateInput, {
+                    onChange: (value) => {
+                      paymentDateValue = normalizeHistoryIsoDateValue(value);
+                      setOkState();
+                    }
+                  });
+                  if (picker) picker.setValue(paymentDateInitial, { silent: true });
+                }
+              }
 
               const totalField = document.createElement("div");
               totalField.className = "doc-history-convert__field";
@@ -4739,7 +4841,7 @@
 
               const row = document.createElement("div");
               row.className = "payment-modal__row";
-              row.append(methodGroup, refField, totalField);
+              row.append(paymentDateField, methodGroup, refField, totalField);
 
               container.append(messageEl, row);
               setOkState();
@@ -4749,6 +4851,7 @@
             ? {
                 confirmed: true,
                 paymentMethod: selectedPaymentMethod,
+                paymentDate: paymentDateValue,
                 paymentReference
               }
             : { confirmed: false };
