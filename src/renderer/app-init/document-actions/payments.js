@@ -1,6 +1,7 @@
 (function (w) {
   const AppInit = (w.AppInit = w.AppInit || {});
   const MIN_CLIENT_QUERY_LENGTH = 2;
+  const CLIENT_PANEL_REOPEN_SUPPRESS_MS = 200;
   const UNPAID_STATUSES = new Set(["partiellement-payee", "impayee", "impaye", "pas-encore-payer"]);
   const PAYMENT_METHOD_OPTIONS = [
     { value: "cash", label: "Espèces" },
@@ -963,6 +964,7 @@
       methodMenuDisplay: null,
       methodMenuPanel: null,
       clientInput: null,
+      clientField: null,
       clientResults: null,
       invoicesBody: null,
       outstandingEl: null,
@@ -999,6 +1001,7 @@
       searchTimer: null,
       clientRequestId: 0,
       invoiceRequestId: 0,
+      suppressClientInputOpenUntil: 0,
       clientQuery: "",
       clientLoading: false,
       clientError: "",
@@ -1051,10 +1054,32 @@
 
     const getPaymentMethodPlaceholder = () => getPaymentMethodLabel("") || "Choisir un mode";
 
+    const isPaymentClientPanelOpen = () =>
+      Boolean(
+        state.clientResults &&
+          !state.clientResults.hidden &&
+          state.clientResults.classList?.contains("is-open")
+      );
+
     const syncPaymentModalMenuOpenClass = () => {
       if (!state.overlay) return;
-      const hasOpenMenu = Boolean(state.methodMenu?.open || state.paymentInvoiceFilterYearMenu?.open);
+      const hasOpenMenu = Boolean(
+        state.methodMenu?.open || state.paymentInvoiceFilterYearMenu?.open || isPaymentClientPanelOpen()
+      );
       state.overlay.classList.toggle("payment-modal--menu-open", hasOpenMenu);
+    };
+
+    const setPaymentClientPanelOpen = (isOpen) => {
+      const open = !!isOpen;
+      if (state.clientResults) {
+        state.clientResults.hidden = !open;
+        state.clientResults.classList.toggle("is-open", open);
+        state.clientResults.style.display = open ? "flex" : "none";
+      }
+      if (state.clientInput) {
+        state.clientInput.setAttribute("aria-expanded", open ? "true" : "false");
+      }
+      syncPaymentModalMenuOpenClass();
     };
 
     const setPaymentMethodMenuState = (isOpen) => {
@@ -1497,6 +1522,7 @@
       state.methodMenuDisplay = getElSafe("paymentMethodDisplay");
       state.methodMenuPanel = getElSafe("paymentMethodPanel");
       state.clientInput = getElSafe("paymentClientSearch");
+      state.clientField = getElSafe("paymentClientSearchField");
       state.clientResults = getElSafe("paymentClientResults");
       state.invoicesBody = getElSafe("paymentInvoiceTableBody");
       state.outstandingEl = getElSafe("paymentOutstanding");
@@ -1565,6 +1591,18 @@
         applyAmountToClientSolde();
       });
 
+      const openClientPanel = () => {
+        if (Date.now() < Number(state.suppressClientInputOpenUntil || 0)) return;
+        const query = String(state.clientInput?.value || "").trim();
+        if (!state.clientLoading && !state.clientResultsData.length) {
+          fetchClientResults(query);
+        }
+        renderClientResults();
+        setPaymentClientPanelOpen(true);
+      };
+
+      state.clientInput?.addEventListener("focus", openClientPanel);
+      state.clientInput?.addEventListener("click", openClientPanel);
       state.clientInput?.addEventListener("input", (evt) => {
         const value = String(evt.target?.value || "");
         state.clientQuery = value.trim();
@@ -1581,6 +1619,8 @@
         if (!state.selectedClient?.path) {
           setClientSoldeEmpty();
         }
+        renderClientResults();
+        setPaymentClientPanelOpen(true);
         renderInvoiceTable();
         clearTimeout(state.searchTimer);
         state.searchTimer = setTimeout(() => {
@@ -1597,19 +1637,73 @@
 
       state.clientInput?.addEventListener("keydown", (evt) => {
         if (evt.key === "Escape") {
+          evt.preventDefault();
           state.clientInput.value = state.clientInput.value || "";
           hideClientResults();
+          return;
+        }
+        if (evt.key !== "ArrowDown") return;
+        const panel = state.clientResults;
+        if (!panel) return;
+        if (panel.hidden) {
+          evt.preventDefault();
+          openClientPanel();
+          return;
+        }
+        const first = panel.querySelector("[data-payment-client-index]");
+        if (first instanceof HTMLElement) {
+          evt.preventDefault();
+          first.focus();
         }
       });
 
-      state.clientResults?.addEventListener("click", (evt) => {
-        const btn = evt.target.closest("[data-payment-client-index]");
-        if (!btn) return;
-        const idx = Number(btn.dataset.paymentClientIndex);
+      state.clientResults?.addEventListener("keydown", (evt) => {
+        const options = Array.from(
+          state.clientResults?.querySelectorAll("[data-payment-client-index]") || []
+        );
+        const active =
+          evt.target instanceof HTMLElement ? evt.target.closest("[data-payment-client-index]") : null;
+        const activeIndex = options.indexOf(active);
+        if (evt.key === "Escape") {
+          evt.preventDefault();
+          hideClientResults();
+          state.clientInput?.focus();
+          return;
+        }
+        if (evt.key === "Enter" && active instanceof HTMLElement) {
+          evt.preventDefault();
+          const idx = Number(active.dataset.paymentClientIndex);
+          const selected = state.clientResultsData[idx];
+          if (!selected) return;
+          applySelectedClient(selected);
+          state.clientInput?.focus();
+          return;
+        }
+        if (evt.key === "ArrowDown" || evt.key === "ArrowUp") {
+          if (!options.length) return;
+          evt.preventDefault();
+          const step = evt.key === "ArrowDown" ? 1 : -1;
+          const start = activeIndex >= 0 ? activeIndex : evt.key === "ArrowDown" ? -1 : 0;
+          const nextIndex = (start + step + options.length) % options.length;
+          const next = options[nextIndex];
+          if (next instanceof HTMLElement) next.focus();
+        }
+      });
+      const onClientPanelPointerSelect = (evt) => {
+        const target = evt.target;
+        if (!(target instanceof Element)) return;
+        const clientBtn = target.closest("[data-payment-client-index]");
+        if (!(clientBtn instanceof HTMLElement)) return;
+        evt.preventDefault();
+        evt.stopPropagation();
+        const idx = Number(clientBtn.dataset.paymentClientIndex);
         const selected = state.clientResultsData[idx];
         if (!selected) return;
         applySelectedClient(selected);
-      });
+        state.clientInput?.focus();
+      };
+      state.clientResults?.addEventListener("pointerdown", onClientPanelPointerSelect, true);
+      state.clientResults?.addEventListener("mousedown", onClientPanelPointerSelect, true);
 
       state.invoicesBody?.addEventListener("click", async (evt) => {
         const actionBtn = evt.target.closest("[data-payment-action]");
@@ -1884,6 +1978,7 @@
       resetPaymentForm();
       setPaymentSoldClientVisibility(true);
       initializePaymentSoldeBase();
+      state.suppressClientInputOpenUntil = Date.now() + CLIENT_PANEL_REOPEN_SUPPRESS_MS;
       document.addEventListener("keydown", onModalKeyDown);
       document.addEventListener("click", onDocumentClick, true);
       const focusTarget = state.clientInput || state.closeBtn;
@@ -1920,6 +2015,14 @@
           setPaymentInvoiceYearMenuState(false);
           try {
             state.paymentInvoiceFilterYearMenuToggle?.focus?.();
+          } catch {}
+          return;
+        }
+        if (isPaymentClientPanelOpen()) {
+          evt.preventDefault();
+          hideClientResults();
+          try {
+            state.clientInput?.focus?.();
           } catch {}
           return;
         }
@@ -2003,8 +2106,8 @@
 
     const onDocumentClick = (evt) => {
       if (!state.isOpen) return;
-      if (!state.clientResults || !state.clientInput) return;
-      if (state.clientResults.contains(evt.target) || state.clientInput.contains(evt.target)) return;
+      if (!state.clientField) return;
+      if (state.clientField.contains(evt.target)) return;
       hideClientResults();
     };
 
@@ -2015,6 +2118,7 @@
       state.clientLoading = false;
       state.clientError = "";
       state.clientResultsData = [];
+      state.suppressClientInputOpenUntil = 0;
       state.selectedClient = null;
       state.invoices = [];
       state.removedInvoices = new Set();
@@ -2027,86 +2131,71 @@
         closeMenu: true
       });
       setClientSoldeEmpty();
-      renderClientResults();
+      hideClientResults();
       renderInvoiceTable();
     };
 
     const hideClientResults = () => {
       if (!state.clientResults) return;
-      state.clientResults.hidden = true;
       state.clientResults.innerHTML = "";
+      setPaymentClientPanelOpen(false);
+    };
+
+    const truncateClientPanelLabel = (value, maxChars = 30) => {
+      const text = String(value || "");
+      if (!text || text.length <= maxChars) return text;
+      return `${text.slice(0, maxChars)}...`;
+    };
+
+    const buildPaymentClientOptionLabel = (item) => {
+      const name = String(resolveClientName(item) || "").trim();
+      const account = String(resolveClientAccount(item) || "").trim();
+      return name || account || "Sans nom";
     };
 
     const renderClientResults = () => {
       if (!state.clientResults) return;
       state.clientResults.innerHTML = "";
-      if (!state.clientQuery) {
-        hideClientResults();
-        return;
-      }
-      state.clientResults.hidden = false;
       if (state.clientLoading) {
-        state.clientResults.innerHTML = '<div class="client-search__status">Chargement...</div>';
+        const loading = document.createElement("p");
+        loading.className = "model-select-empty";
+        loading.textContent = "Chargement...";
+        state.clientResults.appendChild(loading);
         return;
       }
       if (state.clientError) {
-        state.clientResults.innerHTML = `<div class="client-search__status">${escapeText(
-          state.clientError
-        )}</div>`;
+        const empty = document.createElement("p");
+        empty.className = "model-select-empty";
+        empty.textContent = String(state.clientError || "").trim();
+        state.clientResults.appendChild(empty);
         return;
       }
       if (!state.clientResultsData.length) {
-        state.clientResults.innerHTML = '<div class="client-search__status">Aucun client trouve.</div>';
+        const empty = document.createElement("p");
+        empty.className = "model-select-empty";
+        empty.textContent = state.clientQuery
+          ? "Aucun client."
+          : "Aucun client disponible.";
+        state.clientResults.appendChild(empty);
         return;
       }
+      const activeLabel = String(state.clientInput?.value || "").trim();
       const fragment = document.createDocumentFragment();
-      const list = document.createElement("div");
-      list.className = "article-search__list";
-      const formatValue = (value) => {
-        if (!value) return '<span class="client-search__empty">N.R.</span>';
-        return escapeText(value);
-      };
       state.clientResultsData.forEach((item, index) => {
-        const nameValue = resolveClientName(item);
-        const accountValue = resolveClientAccount(item);
-        const hasName = !!String(nameValue || "").trim();
-        const useAccountLabel = !hasName && !!String(accountValue || "").trim();
-        const nameLabel = useAccountLabel
-          ? resolveClientFieldLabelText("account", "Pour le compte de")
-          : resolveClientFieldLabelText("name", "Nom");
-        const name = useAccountLabel ? accountValue : hasName ? nameValue : "Sans nom";
-        const identifierLabel = useAccountLabel
-          ? resolveClientFieldLabelText("benefit", "Au profit de")
-          : resolveClientFieldLabelText("taxId", "Matricule fiscal");
-        const identifier = useAccountLabel ? resolveClientBenefit(item) : resolveClientIdentifier(item);
-        const phoneLabel = useAccountLabel
-          ? resolveClientFieldLabelText("stegRef", "Ref STEG")
-          : resolveClientFieldLabelText("phone", "Telephone");
-        const phone = useAccountLabel ? resolveClientStegRef(item) : resolveClientPhone(item);
-        const option = document.createElement("div");
-        option.className = "client-search__option";
+        const label = buildPaymentClientOptionLabel(item);
+        const option = document.createElement("button");
+        option.type = "button";
+        option.className = "model-select-option";
         option.dataset.paymentClientIndex = String(index);
-        option.innerHTML = `
-          <button type="button" class="client-search__select client-search__select--detailed" data-payment-client-index="${index}" role="option">
-            <div class="client-search__details-grid">
-              <div class="client-search__detail client-search__detail--inline client-search__detail--name">
-                <span class="client-search__detail-label">${nameLabel}</span>
-                <span class="client-search__detail-value">${formatValue(name)}</span>
-              </div>
-              <div class="client-search__detail client-search__detail--inline">
-                <span class="client-search__detail-label">${identifierLabel}</span>
-                <span class="client-search__detail-value">${formatValue(identifier)}</span>
-              </div>
-              <div class="client-search__detail client-search__detail--inline client-search__detail--phone">
-                <span class="client-search__detail-label">${phoneLabel}</span>
-                <span class="client-search__detail-value">${formatValue(phone)}</span>
-              </div>
-            </div>
-          </button>
-        `;
-        list.appendChild(option);
+        option.dataset.paymentClientOption = label;
+        option.setAttribute("role", "option");
+        const isActive = label === activeLabel;
+        option.classList.toggle("is-active", isActive);
+        option.setAttribute("aria-selected", isActive ? "true" : "false");
+        option.title = label;
+        option.textContent = truncateClientPanelLabel(label, 30);
+        fragment.appendChild(option);
       });
-      fragment.appendChild(list);
       state.clientResults.appendChild(fragment);
     };
 
@@ -2440,13 +2529,6 @@ const normalizePaymentModeLabel = (value) => {
     const fetchClientResults = async (query) => {
       if (!state.clientResults) return;
       const trimmed = String(query || "").trim();
-      if (!trimmed || trimmed.length < MIN_CLIENT_QUERY_LENGTH) {
-        state.clientResultsData = [];
-        state.clientLoading = false;
-        state.clientError = trimmed ? `Tapez au moins ${MIN_CLIENT_QUERY_LENGTH} caracteres.` : "";
-        renderClientResults();
-        return;
-      }
       if (!w.electronAPI?.searchClients) {
         state.clientResultsData = [];
         state.clientLoading = false;
@@ -2459,7 +2541,12 @@ const normalizePaymentModeLabel = (value) => {
       state.clientError = "";
       renderClientResults();
       try {
-        const res = await w.electronAPI.searchClients({ query: trimmed, entityType: "client" });
+        const res = await w.electronAPI.searchClients({
+          query: trimmed,
+          limit: trimmed ? 50 : 200,
+          offset: 0,
+          entityType: "client"
+        });
         if (requestId !== state.clientRequestId) return;
         if (!res?.ok) {
           state.clientResultsData = [];
@@ -2480,7 +2567,7 @@ const normalizePaymentModeLabel = (value) => {
     };
 
     const applySelectedClient = (item) => {
-      const name = resolveClientName(item);
+      const name = resolveClientName(item) || resolveClientAccount(item);
       if (!name) return;
       const soldValue = item?.client?.soldClient ?? item?.soldClient ?? "";
       state.selectedClient = {
@@ -2495,6 +2582,7 @@ const normalizePaymentModeLabel = (value) => {
       setClientSoldeDisplay(soldValue);
       setPaymentSoldClientVisibility(true);
       initializePaymentSoldeBase();
+      state.suppressClientInputOpenUntil = Date.now() + CLIENT_PANEL_REOPEN_SUPPRESS_MS;
       hideClientResults();
       loadInvoicesForClient(name);
     };

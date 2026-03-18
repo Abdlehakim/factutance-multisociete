@@ -545,14 +545,26 @@ export function renderHeader() {
         <div class="payment-modal__body swbDialog__msg">
           <div class="payment-modal__form">
             <div class="payment-modal__row payment-modal__row--header">
-              <label class="payment-modal__field payment-modal__field--client">
-                <span>Client</span>
-                <input id="paymentClientSearch" type="text" placeholder="Rechercher un client" autocomplete="off" />
+              <label
+                id="paymentClientSearchField"
+                class="payment-modal__field payment-modal__field--client"
+              >
+                <span id="paymentClientSearchLabel">Client</span>
+                <input
+                  id="paymentClientSearch"
+                  type="text"
+                  placeholder="Tous les clients"
+                  autocomplete="off"
+                  aria-haspopup="listbox"
+                  aria-expanded="false"
+                  aria-controls="paymentClientResults"
+                  aria-labelledby="paymentClientSearchLabel"
+                />
                 <div
                   id="paymentClientResults"
-                  class="payment-modal__client-results client-search__results"
+                  class="payment-modal__client-results field-toggle-panel model-select-panel"
                   role="listbox"
-                  aria-label="Clients"
+                  aria-labelledby="paymentClientSearchLabel"
                   hidden
                 ></div>
               </label>

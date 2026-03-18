@@ -2374,44 +2374,17 @@ aspect-ratio: 1 / 1;
   justify-content: center;
 }
 .payment-modal__client-results {
-  border: 1px solid #d1dbeb;
-  border-radius: 6px;
-  background: #fff;
-  max-height: 200px;
-  overflow-y: auto;
-}
-.payment-modal__client-results.client-search__results {
-  border: 1px solid #caddff;
-  border-radius: 5px;
-  box-shadow: 0 10px 18px rgba(0, 0, 0, 0.08);
-  padding: 4px;
   position: absolute;
+  top: calc(100% + 4px);
   left: 0;
   right: 0;
-  top: calc(100% + 6px);
-  z-index: 30;
-}
-.payment-modal__client-results.client-search__results .article-search__list {
-  min-height: auto;
-  max-height: none;
-}
-.payment-modal__client-option {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
   width: 100%;
-  padding: 8px 10px;
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-  font-size: 13px;
-  color: #0f172a;
+  min-width: 100%;
+  max-height: 220px;
 }
-.payment-modal__client-option:hover {
-  background: #f1f5f9;
-}
-.payment-modal__client-name {
-  font-weight: 600;
+.payment-modal__client-results.is-open {
+  display: flex;
+  z-index: 100030;
 }
 .payment-modal__client-id {
   color: #64748b;
