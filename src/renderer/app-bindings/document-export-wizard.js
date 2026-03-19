@@ -40,6 +40,14 @@
     devis: "devis",
     bl: "bons_livraison"
   };
+  const STATUS_FILTER_OPTIONS = [
+    ["payee", "Exercice pay\u00e9"],
+    ["partiellement-payee", "Exercice partiellement pay\u00e9"],
+    ["impayee", "Exercice impay\u00e9"]
+  ];
+  const STATUS_FILTER_VALUES = new Set(
+    STATUS_FILTER_OPTIONS.map(([value]) => value)
+  );
   const PRESETS = [
     ["custom", "Par dates"],
     ["today", "Aujourd'hui"],
@@ -371,6 +379,7 @@
     clientOptionsContext: "",
     clientOptionsLoading: false,
     clientOptionsError: "",
+    statusFilters: [],
     startDate: "",
     endDate: "",
     format: "xlsx",
@@ -418,6 +427,65 @@
     }
     const d = new Date(s);
     return Number.isNaN(d.getTime()) ? "" : toIso(d);
+  };
+  const normalizeStatusValue = (value) => {
+    const raw = txt(value);
+    if (!raw) return "";
+    const lowered = raw.toLowerCase();
+    const normalized = (typeof lowered.normalize === "function" ? lowered.normalize("NFD") : lowered)
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "");
+    if (!normalized) return "";
+    if (["payee", "paye", "payees", "payes"].includes(normalized)) return "payee";
+    if (
+      [
+        "partiellementpayee",
+        "partiellementpaye",
+        "partiellementpayees",
+        "partiellementpayes"
+      ].includes(normalized)
+    ) {
+      return "partiellement-payee";
+    }
+    if (
+      [
+        "impayee",
+        "impaye",
+        "pasencorepayer",
+        "pasencorepaye",
+        "pasencorepayee",
+        "nonpaye",
+        "nonpayee"
+      ].includes(normalized)
+    ) {
+      return "impayee";
+    }
+    return "";
+  };
+  const selectedStatusFiltersFromState = () => {
+    const out = [];
+    const values = Array.isArray(st.statusFilters) ? st.statusFilters : [];
+    values.forEach((value) => {
+      const normalized = normalizeStatusValue(value);
+      if (!normalized || !STATUS_FILTER_VALUES.has(normalized) || out.includes(normalized)) return;
+      out.push(normalized);
+    });
+    return out;
+  };
+  const effectiveStatusFilterSet = () => {
+    const selected = selectedStatusFiltersFromState();
+    return selected.length
+      ? new Set(selected)
+      : new Set(STATUS_FILTER_OPTIONS.map(([value]) => value));
+  };
+  const hasAllStatusesSelected = (setInput = effectiveStatusFilterSet()) =>
+    STATUS_FILTER_OPTIONS.every(([value]) => setInput.has(value));
+  const matchesStatusFilter = (statusValue, { allowUnknown = false } = {}) => {
+    const activeFilters = effectiveStatusFilterSet();
+    if (!activeFilters.size || hasAllStatusesSelected(activeFilters)) return true;
+    const normalizedStatus = normalizeStatusValue(statusValue);
+    if (!normalizedStatus) return !!allowUnknown;
+    return activeFilters.has(normalizedStatus);
   };
   const normalizeEmailText = (v) => String(v ?? "").trim();
   const normalizeEmailAddress = (v) => normalizeEmailText(v).replace(/\s+/g, "");
@@ -1255,8 +1323,10 @@
     CLIENT_ENTITY_TYPE_LABELS[key] || human(String(key || "").replace(/_/g, " "));
   const clientProfileTypeLabel = (key) =>
     CLIENT_PROFILE_TYPE_LABELS[key] || human(String(key || "").replace(/_/g, " "));
-  const clientSelectionContextKey = () =>
-    `${resolveDocType(st.docType, "facture")}|${st.startDate}|${st.endDate}`;
+  const clientSelectionContextKey = () => {
+    const statusKey = Array.from(effectiveStatusFilterSet()).sort().join(",");
+    return `${resolveDocType(st.docType, "facture")}|${st.startDate}|${st.endDate}|${statusKey}`;
+  };
   const clientSelectionMetaFromEntry = (entry = {}) => {
     const name = txt(entry?.clientName);
     const account = txt(entry?.clientAccount);
@@ -1581,7 +1651,8 @@
       st.clientOptionsError = "";
     }
     renderClientSelectionPanel();
-    validateStep1(true);
+    if (st.step === 2) validateStep2(true);
+    else validateStep1(true);
     updateButtons();
   };
   const invalidateClientOptions = () => {
@@ -1595,7 +1666,8 @@
     renderClientSelectionPanel();
   };
   const loadClientOptions = async ({ force = false } = {}) => {
-    validateStep1(false);
+    if (st.step === 2) validateStep2(false);
+    else validateStep1(false);
     const labels = currentClientSelectionLabels();
     if (!hasClientSelectionStep()) {
       st.clientOptionsContext = "";
@@ -1639,7 +1711,8 @@
           parseDate(entry?.date) ||
           parseDate(entry?.createdAt) ||
           parseDate(entry?.modifiedAt);
-        return inRange(d, st.startDate, st.endDate);
+        if (!inRange(d, st.startDate, st.endDate)) return false;
+        return matchesStatusFilter(entry?.status, { allowUnknown: true });
       });
       const grouped = new Map();
       filtered.forEach((entry) => {
@@ -1683,7 +1756,8 @@
       if (requestToken !== clientOptionsLoadToken) return;
       st.clientOptionsLoading = false;
       renderClientSelectionPanel();
-      validateStep1(true);
+      if (st.step === 2) validateStep2(true);
+      else validateStep1(true);
       updateButtons();
     }
   };
@@ -1921,7 +1995,8 @@
     if (fieldSourceKeyLower(field) === ENTRY_STATUS_FIELD_KEY_LOWER) {
       const rawStatus = txt(row[field?.key]);
       if (!rawStatus) return "";
-      const normalizedStatus = rawStatus.toLowerCase().replace(/[_\s]+/g, "-");
+      const normalizedStatus =
+        normalizeStatusValue(rawStatus) || rawStatus.toLowerCase().replace(/[_\s]+/g, "-");
       return ENTRY_STATUS_LABEL_BY_SLUG.get(normalizedStatus) || scalar(row[field?.key]);
     }
     return scalar(row[field?.key]);
@@ -2335,14 +2410,23 @@
   const validateStep1 = (showHint = true) => {
     const s = parseDate(q("#docHistoryExportStartDate")?.value || "");
     const e = parseDate(q("#docHistoryExportEndDate")?.value || "");
-    const labels = currentClientSelectionLabels();
     st.startDate = s;
     st.endDate = e;
     let dateMsg = "";
     if (!s || !e) dateMsg = "Renseignez les dates Du et Au au format AAAA-MM-JJ.";
     else if (s > e) dateMsg = "La date Du doit etre inferieure ou egale a la date Au.";
+    const dateHint = q("#docHistoryExportDateHint");
+    if (dateHint && showHint) {
+      dateHint.textContent = dateMsg;
+      dateHint.hidden = !dateMsg;
+    }
+    return !dateMsg;
+  };
+
+  const validateClientSelection = (showHint = true) => {
+    const labels = currentClientSelectionLabels();
     let clientMsg = "";
-    if (!dateMsg && isSpecificClientSelectionEnabled()) {
+    if (isSpecificClientSelectionEnabled()) {
       const contextKey = clientSelectionContextKey();
       if (st.clientOptionsLoading) {
         clientMsg = `Chargement de la liste des ${labels.plural}...`;
@@ -2356,24 +2440,21 @@
         clientMsg = `Selectionnez au moins un ${labels.singular} ou repassez sur ${labels.allModeLabel}.`;
       }
     }
-    const dateHint = q("#docHistoryExportDateHint");
     const clientHint = q("#docHistoryExportClientHint");
-    if (dateHint && showHint) {
-      dateHint.textContent = dateMsg;
-      dateHint.hidden = !dateMsg;
-    }
     if (clientHint && showHint) {
       clientHint.textContent = clientMsg;
       clientHint.hidden = !clientMsg || !isSpecificClientSelectionEnabled();
     }
-    return !dateMsg && !clientMsg;
+    return !clientMsg;
   };
 
   const validateStep2 = (showHint = true) => {
+    const clientOk = validateClientSelection(showHint);
     const selected = getSelectedFields().length;
     const labels = currentClientSelectionLabels();
     let msg = "";
-    if (!st.rows.length) {
+    if (!clientOk) msg = "Ajustez la selection des clients pour continuer.";
+    else if (!st.rows.length) {
       msg = isSpecificClientSelectionEnabled()
         ? `Aucun document trouve pour cette periode et les ${labels.plural} selectionnes.`
         : "Aucun document trouve pour cette periode.";
@@ -2385,7 +2466,7 @@
       hint.textContent = msg;
       hint.hidden = false;
     }
-    return st.rows.length > 0 && selected > 0;
+    return clientOk && st.rows.length > 0 && selected > 0;
   };
 
   const updateButtons = () => {
@@ -2468,6 +2549,45 @@
     });
     invalidateClientOptions();
     void loadClientOptions();
+  };
+  const syncStatusFiltersFromUi = () => {
+    const selected = [];
+    modal?.querySelectorAll('input[data-doc-export-status]').forEach((input) => {
+      if (!input || !input.checked) return;
+      const normalized = normalizeStatusValue(
+        input.dataset.docExportStatus || input.value || ""
+      );
+      if (!normalized || !STATUS_FILTER_VALUES.has(normalized) || selected.includes(normalized)) return;
+      selected.push(normalized);
+    });
+    return selected;
+  };
+  const setStatusFilters = (values = [], { refreshClientOptions = true } = {}) => {
+    const source = Array.isArray(values) ? values : [values];
+    const next = [];
+    source.forEach((value) => {
+      const normalized = normalizeStatusValue(value);
+      if (!normalized || !STATUS_FILTER_VALUES.has(normalized) || next.includes(normalized)) return;
+      next.push(normalized);
+    });
+    const normalizedNext = next.length
+      ? next
+      : STATUS_FILTER_OPTIONS.map(([value]) => value);
+    st.statusFilters = normalizedNext;
+    const selected = new Set(normalizedNext);
+    modal?.querySelectorAll('input[data-doc-export-status]').forEach((input) => {
+      const value = normalizeStatusValue(input.dataset.docExportStatus || input.value || "");
+      const on = !!value && selected.has(value);
+      input.checked = on;
+      input.defaultChecked = on;
+      input.toggleAttribute("checked", on);
+    });
+    if (!refreshClientOptions) return;
+    invalidateClientOptions();
+    void loadClientOptions();
+    if (st.step === 2) validateStep2(true);
+    else validateStep1(true);
+    updateButtons();
   };
 
   const setDateFieldsEnabled = (on) => {
@@ -2838,11 +2958,17 @@
     if (!API?.listInvoiceFiles || !API?.openInvoiceJSON) {
       throw new Error("Export documents indisponible.");
     }
+    const previousFieldChecks = new Map(
+      st.fields.map((field) => [field.key, field.checked !== false])
+    );
+    const previousFieldsTab = st.fieldsTab;
+    const previousMetaFieldsTab = st.metaFieldsTab;
     const docType = resolveDocType(st.docType, "facture");
     const list = await fetchAllDocs(docType);
-    const dateFiltered = list.filter((entry) => {
+    const dateAndStatusFiltered = list.filter((entry) => {
       const d = pickEntryDate(entry) || parseDate(entry?.date) || parseDate(entry?.createdAt) || parseDate(entry?.modifiedAt);
-      return inRange(d, st.startDate, st.endDate);
+      if (!inRange(d, st.startDate, st.endDate)) return false;
+      return matchesStatusFilter(entry?.status, { allowUnknown: true });
     });
     const applyClientFilter = isSpecificClientSelectionEnabled();
     if (applyClientFilter) {
@@ -2850,9 +2976,9 @@
     }
     const selectedClientKeys = new Set(selectedClientKeysFromState());
     const filtered = applyClientFilter
-      ? dateFiltered.filter((entry) =>
+      ? dateAndStatusFiltered.filter((entry) =>
         selectedClientKeys.has(clientSelectionMetaFromEntry(entry).key))
-      : dateFiltered;
+      : dateAndStatusFiltered;
     const detailed = await Promise.all(
       filtered.map(async (entry) => {
         try {
@@ -2863,10 +2989,18 @@
         }
       })
     );
-    st.rows = buildRows(detailed);
+    st.rows = buildRows(detailed).filter((row) =>
+      matchesStatusFilter(row?.[ENTRY_STATUS_FIELD_KEY], { allowUnknown: false })
+    );
     st.fields = buildFieldDefs(st.rows);
-    st.fieldsTab = "";
-    st.metaFieldsTab = "";
+    if (previousFieldChecks.size) {
+      st.fields.forEach((field) => {
+        if (!previousFieldChecks.has(field.key)) return;
+        field.checked = previousFieldChecks.get(field.key) !== false;
+      });
+    }
+    st.fieldsTab = previousFieldsTab;
+    st.metaFieldsTab = previousMetaFieldsTab;
     st.exportPath = "";
     st.exportName = "";
     renderFieldPanel();
@@ -3199,6 +3333,9 @@
     emailAttachments = [];
     st.format = "xlsx";
     setDocType(resolveDocType(document.getElementById("docType")?.value || "facture", "facture"));
+    setStatusFilters(STATUS_FILTER_OPTIONS.map(([value]) => value), {
+      refreshClientOptions: false
+    });
     syncPreset("custom", false, true);
     setDateFieldsEnabled(true);
     const now = new Date();
@@ -3224,6 +3361,10 @@
 
     const docTypeBtns = DOC_TYPES.map(([v, l]) => `<button type="button" class="btn better-style-v2" data-doc-export-doc-type="${v}" aria-pressed="false">${l}</button>`).join("");
     const docTypeOpts = DOC_TYPES.map(([v, l]) => `<option value="${v}">${l}</option>`).join("");
+    const statusFilterToggles = STATUS_FILTER_OPTIONS.map(
+      ([value, label]) =>
+        `<label class="toggle-option"><input type="checkbox" class="col-toggle" data-doc-export-status="${value}" id="docExportStatus-${fieldId(value)}" checked><span class="model-save-dot">${label}</span></label>`
+    ).join("");
     const presetBtns = PRESETS.map(([v, l], i) => `<button type="button" class="model-select-option${i === 0 ? " is-active" : ""}" data-doc-export-preset-option="${v}" role="option" aria-selected="${i === 0 ? "true" : "false"}">${l}</button>`).join("");
     const presetOpts = PRESETS.map(([v, l], i) => `<option value="${v}"${i === 0 ? " selected" : ""}>${l}</option>`).join("");
 
@@ -3266,6 +3407,11 @@
                 <select id="docHistoryExportDocType" class="report-tax-date-range__select" aria-hidden="true" tabindex="-1">${docTypeOpts}</select>
               </div>
 
+              <div class="doc-export-wizard__step-group doc-export-wizard__step-group--status">
+                <div class="field-toggle-menu__title">S&eacute;lectionnez le statut de facture</div>
+                <div id="docHistoryExportStatusOptions" class="doc-export-wizard__field-options-row" role="group" aria-label="Statut de facture">${statusFilterToggles}</div>
+              </div>
+
               <div class="doc-export-wizard__step-group doc-export-wizard__step-group--date-range">
                 <p class="report-tax-date-range__intro">S&eacute;lectionnez la p&eacute;riode (dates) que vous souhaitez exporter.</p>
                 <div class="report-tax-date-range">
@@ -3289,7 +3435,11 @@
                   <p id="docHistoryExportDateHint" class="report-tax-date-range__hint" hidden></p>
                 </div>
               </div>
+            </div>
+          </section>
 
+          <section id="docHistoryExportStep2" class="doc-export-wizard__section" data-doc-export-step="2" role="tabpanel" aria-labelledby="docHistoryExportStepLabel2" aria-hidden="true" hidden>
+            <div class="doc-export-wizard__step-content">
               <div id="docHistoryExportClientSelectionGroup" class="doc-export-wizard__step-group doc-export-wizard__step-group--client-selection" hidden aria-hidden="true">
                 <div id="docHistoryExportClientSelectionTitle" class="field-toggle-menu__title">S&eacute;lectionnez les fournisseurs &agrave; inclure dans l&apos;export.</div>
                 <div id="docHistoryExportClientModeGroup" class="doc-export-wizard__client-mode" role="group" aria-label="Selection des fournisseurs">
@@ -3302,11 +3452,6 @@
                   <p id="docHistoryExportClientHint" class="client-export-modal__hint" hidden></p>
                 </div>
               </div>
-            </div>
-          </section>
-
-          <section id="docHistoryExportStep2" class="doc-export-wizard__section" data-doc-export-step="2" role="tabpanel" aria-labelledby="docHistoryExportStepLabel2" aria-hidden="true" hidden>
-            <div class="doc-export-wizard__step-content">
               <div class="doc-export-wizard__step2-fields">
                 <div class="field-toggle-menu__title">S&eacute;lectionnez les donn&eacute;es &agrave; exporter :</div>
                 <div id="docHistoryExportFieldTabs" class="doc-export-wizard__field-tabs" role="tablist" aria-label="Categories de donnees a exporter"></div>
@@ -3553,10 +3698,15 @@
       validateStep2(true);
       updateButtons();
     });
+    q("#docHistoryExportStatusOptions")?.addEventListener("change", (evt) => {
+      if (!evt.target?.closest?.('input[data-doc-export-status]')) return;
+      setStatusFilters(syncStatusFiltersFromUi(), { refreshClientOptions: true });
+    });
     q("#docHistoryExportClientPanel")?.addEventListener("change", (evt) => {
       if (!evt.target?.closest?.("[data-doc-export-client-key]")) return;
       syncClientOptionsFromUi();
-      validateStep1(true);
+      if (st.step === 2) validateStep2(true);
+      else validateStep1(true);
       updateButtons();
     });
 
@@ -3566,15 +3716,6 @@
     });
     q("#docHistoryExportModalNext")?.addEventListener("click", async () => {
       if (st.step === 1) {
-        if (isSpecificClientSelectionEnabled()) {
-          syncClientOptionsFromUi();
-          await loadClientOptions({
-            force:
-              st.clientOptionsContext !== clientSelectionContextKey() ||
-              !!st.clientOptionsError
-          });
-          syncClientOptionsFromUi();
-        }
         const ok = validateStep1(true);
         updateButtons();
         if (!ok) return;
@@ -3591,9 +3732,32 @@
         return;
       }
       if (st.step === 2) {
+        const shouldRefreshClients =
+          isSpecificClientSelectionEnabled() &&
+          (
+            st.clientOptionsContext !== clientSelectionContextKey() ||
+            !!st.clientOptionsError
+          );
+        syncFieldsFromUi();
+        try {
+          setBusy(true);
+          if (isSpecificClientSelectionEnabled()) {
+            syncClientOptionsFromUi();
+            await loadClientOptions({ force: shouldRefreshClients });
+            syncClientOptionsFromUi();
+          }
+          await loadSelectionRows();
+        } catch (err) {
+          await showDialog?.(String(err?.message || err || "Export impossible."), {
+            title: "Export"
+          });
+          return;
+        } finally {
+          setBusy(false);
+          updateButtons();
+        }
         syncFieldsFromUi();
         const ok = validateStep2(true);
-        updateButtons();
         if (!ok) return;
         renderPreview();
         goStep(3);

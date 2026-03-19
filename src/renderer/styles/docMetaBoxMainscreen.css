@@ -776,8 +776,8 @@
 }
 
 #docHistoryExportStep2 .doc-export-wizard__step-content {
-  justify-content: space-between;
-  height: 80%;
+  justify-content: flex-start;
+  height: 100%;
 }
 
 #docHistoryExportStep3 .doc-export-wizard__step-content {
@@ -834,7 +834,16 @@
   width: 50%;
 }
 
-#docHistoryExportStep1 .doc-export-wizard__step-group--client-selection {
+.doc-export-wizard #docHistoryExportStatusOptions {
+  width: 50%;
+  margin: 0 auto;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+#docHistoryExportStep2 .doc-export-wizard__step-group--client-selection {
   width: 50%;
   margin: 0 auto;
 }
@@ -1160,7 +1169,8 @@
 }
 
 .doc-export-wizard #docHistoryExportFieldPanel .toggle-option,
-.doc-export-wizard #docHistoryExportClientOptions .toggle-option {
+.doc-export-wizard #docHistoryExportClientOptions .toggle-option,
+.doc-export-wizard #docHistoryExportStatusOptions .toggle-option {
   height: auto;
   padding: 6px 8px;
   font-size: 10px;
@@ -1175,11 +1185,13 @@
 }
 
 .doc-export-wizard #docHistoryExportFieldPanel .toggle-option:hover,
-.doc-export-wizard #docHistoryExportClientOptions .toggle-option:hover {
+.doc-export-wizard #docHistoryExportClientOptions .toggle-option:hover,
+.doc-export-wizard #docHistoryExportStatusOptions .toggle-option:hover {
   background: #f7f9ff;
 }
 
-.doc-export-wizard #docHistoryExportClientOptions .toggle-option input:disabled {
+.doc-export-wizard #docHistoryExportClientOptions .toggle-option input:disabled,
+.doc-export-wizard #docHistoryExportStatusOptions .toggle-option input:disabled {
   cursor: not-allowed;
 }
 
@@ -1347,7 +1359,7 @@
     min-width: 140px;
   }
 
-  #docHistoryExportStep1 .doc-export-wizard__step-group--client-selection {
+  #docHistoryExportStep2 .doc-export-wizard__step-group--client-selection {
     width: 100%;
   }
 
