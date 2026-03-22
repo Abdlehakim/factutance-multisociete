@@ -1171,6 +1171,13 @@
               delete input.dataset.taxLockPrevChecked;
               delete input.dataset.docTypeFaPrevChecked;
               delete input.dataset.docTypeFaForced;
+              delete input.dataset.docTypeFacturePurchaseLocked;
+              delete input.dataset.docTypeFacturePurchasePrevChecked;
+              delete input.dataset.docTypePriceDepPrevChecked;
+              delete input.dataset.docTypePriceDepForced;
+              delete input.dataset.docTypePurchasePriceDepPrevChecked;
+              delete input.dataset.docTypePurchasePriceDepForced;
+              delete input.dataset.docTypePurchasePrefChecked;
               input.disabled = false;
               input.closest?.("label.toggle-option")?.classList.remove("is-disabled");
               input.closest?.("label.toggle-option")?.removeAttribute("aria-disabled");
@@ -1788,8 +1795,19 @@
 
             const columnConfig = config.columns && typeof config.columns === "object" ? config.columns : {};
             (modelActionsModal?.querySelectorAll("input.col-toggle[data-column-key]") || []).forEach((input) => {
+              delete input.dataset.taxLockPrevChecked;
               delete input.dataset.docTypeFaPrevChecked;
               delete input.dataset.docTypeFaForced;
+              delete input.dataset.docTypeFacturePurchaseLocked;
+              delete input.dataset.docTypeFacturePurchasePrevChecked;
+              delete input.dataset.docTypePriceDepPrevChecked;
+              delete input.dataset.docTypePriceDepForced;
+              delete input.dataset.docTypePurchasePriceDepPrevChecked;
+              delete input.dataset.docTypePurchasePriceDepForced;
+              delete input.dataset.docTypePurchasePrefChecked;
+              input.disabled = false;
+              input.closest?.("label.toggle-option")?.classList.remove("is-disabled");
+              input.closest?.("label.toggle-option")?.removeAttribute("aria-disabled");
               const key = normalizeColumnKey(input?.dataset?.columnKey);
               if (!key) return;
               const configured = readColumnConfigValue(columnConfig, key);
@@ -1797,6 +1815,12 @@
                 input.checked = configured;
               }
             });
+            if (
+              docTypes.some((entry) => isModelPurchaseDocType(entry)) &&
+              typeof w.storeModelPurchaseTogglePreferences === "function"
+            ) {
+              w.storeModelPurchaseTogglePreferences();
+            }
             syncTaxModeDependentColumnToggles({ scope: "model" });
             if (typeof w.applyModelDocTypeFaColumnLocks === "function") {
               w.applyModelDocTypeFaColumnLocks();

@@ -261,6 +261,7 @@
     const MODEL_DOC_TYPE_FA_FORCED_DATASET_KEY = "docTypeFaForced";
     const MODEL_DOC_TYPE_FACTURE_PURCHASE_LOCK_DATASET_KEY = "docTypeFacturePurchaseLocked";
     const MODEL_DOC_TYPE_FACTURE_PURCHASE_PREV_DATASET_KEY = "docTypeFacturePurchasePrevChecked";
+    const MODEL_DOC_TYPE_PURCHASE_PREF_DATASET_KEY = "docTypePurchasePrefChecked";
     const MODEL_DOC_TYPE_PRICE_DEP_LOCK_DATASET_KEY = "docTypePriceDepPrevChecked";
     const MODEL_DOC_TYPE_PRICE_DEP_FORCED_DATASET_KEY = "docTypePriceDepForced";
     const MODEL_DOC_TYPE_PRICE_TOGGLE_ID = "colTogglePriceModal";
@@ -418,6 +419,80 @@
       });
       return resolved;
     };
+    const hasStoredModelPurchaseTogglePreferences = (purchaseToggles = getModelAchatSectionToggles()) =>
+      !!purchaseToggles.length &&
+      purchaseToggles.every((toggle) => {
+        const storedValue = toggle?.dataset?.[MODEL_DOC_TYPE_PURCHASE_PREF_DATASET_KEY];
+        return storedValue === "true" || storedValue === "false";
+      });
+    const resolveModelPurchaseTogglePreferredChecked = (toggle) => {
+      if (!toggle) return false;
+      const factureLocked =
+        toggle.dataset?.[MODEL_DOC_TYPE_FACTURE_PURCHASE_LOCK_DATASET_KEY] === "1";
+      if (factureLocked) {
+        const previousValue = toggle.dataset?.[MODEL_DOC_TYPE_FACTURE_PURCHASE_PREV_DATASET_KEY];
+        if (previousValue === "true" || previousValue === "false") {
+          return previousValue === "true";
+        }
+      }
+
+      const purchasePriceLocked =
+        toggle.dataset?.[MODEL_DOC_TYPE_PURCHASE_PRICE_DEP_FORCED_DATASET_KEY] === "1";
+      if (purchasePriceLocked) {
+        const previousValue =
+          toggle.dataset?.[MODEL_DOC_TYPE_PURCHASE_PRICE_DEP_LOCK_DATASET_KEY];
+        if (previousValue === "true" || previousValue === "false") {
+          return previousValue === "true";
+        }
+      }
+
+      const taxLockedValue = toggle.dataset?.taxLockPrevChecked;
+      if (taxLockedValue === "true" || taxLockedValue === "false") {
+        return taxLockedValue === "true";
+      }
+
+      return !!toggle.checked;
+    };
+    const clearModelPurchaseTogglePreferences = (purchaseToggles = getModelAchatSectionToggles()) => {
+      purchaseToggles.forEach((toggle) => {
+        if (!toggle?.dataset) return;
+        delete toggle.dataset[MODEL_DOC_TYPE_PURCHASE_PREF_DATASET_KEY];
+      });
+    };
+    const storeModelPurchaseTogglePreferences = (
+      purchaseToggles = getModelAchatSectionToggles(),
+      explicitValues = null
+    ) => {
+      purchaseToggles.forEach((toggle) => {
+        const toggleId = String(toggle?.id || "").trim();
+        if (!toggleId || !toggle?.dataset) return;
+        const nextValue =
+          explicitValues && Object.prototype.hasOwnProperty.call(explicitValues, toggleId)
+            ? !!explicitValues[toggleId]
+            : resolveModelPurchaseTogglePreferredChecked(toggle);
+        toggle.dataset[MODEL_DOC_TYPE_PURCHASE_PREF_DATASET_KEY] = String(nextValue);
+      });
+    };
+    const restoreModelPurchaseTogglePreferences = (purchaseToggles = getModelAchatSectionToggles()) => {
+      let restoredAny = false;
+      purchaseToggles.forEach((toggle) => {
+        const storedValue = toggle?.dataset?.[MODEL_DOC_TYPE_PURCHASE_PREF_DATASET_KEY];
+        if (storedValue !== "true" && storedValue !== "false") return;
+        restoredAny = true;
+        setModelColumnToggleChecked(toggle, storedValue === "true");
+      });
+      return restoredAny;
+    };
+    const initializeModelPurchaseToggleDefaults = (purchaseToggles = getModelAchatSectionToggles()) => {
+      const explicitValues = {};
+      purchaseToggles.forEach((toggle) => {
+        const toggleId = String(toggle?.id || "").trim();
+        if (!toggleId) return;
+        explicitValues[toggleId] = true;
+        setModelColumnToggleChecked(toggle, true);
+      });
+      storeModelPurchaseTogglePreferences(purchaseToggles, explicitValues);
+    };
 
     const syncModelPriceDependentSaleToggles = ({ reapplyTaxLocksOnUnlock = true } = {}) => {
       const priceToggle = getModelColumnToggleById(MODEL_DOC_TYPE_PRICE_TOGGLE_ID);
@@ -574,6 +649,9 @@
       }
 
       if (isPurchaseDocTypeActive) {
+        const hasStoredPurchasePreferences =
+          hasStoredModelPurchaseTogglePreferences(purchaseToggles);
+        let enteredPurchaseModeFromLockedState = false;
         MODEL_DOC_TYPE_PRICE_DEPENDENT_VENTE_TOGGLE_IDS.forEach((id) => {
           const toggle = getModelColumnToggleById(id);
           if (!toggle) return;
@@ -584,6 +662,8 @@
         purchaseToggles.forEach((toggle) => {
           const wasFactureLocked =
             toggle.dataset[MODEL_DOC_TYPE_FACTURE_PURCHASE_LOCK_DATASET_KEY] === "1";
+          enteredPurchaseModeFromLockedState =
+            enteredPurchaseModeFromLockedState || wasFactureLocked;
           if (wasFactureLocked) {
             const previousValue = toggle.dataset[MODEL_DOC_TYPE_FACTURE_PURCHASE_PREV_DATASET_KEY];
             if (previousValue === "true" || previousValue === "false") {
@@ -593,6 +673,14 @@
           delete toggle.dataset[MODEL_DOC_TYPE_FACTURE_PURCHASE_LOCK_DATASET_KEY];
           delete toggle.dataset[MODEL_DOC_TYPE_FACTURE_PURCHASE_PREV_DATASET_KEY];
         });
+
+        if (enteredPurchaseModeFromLockedState) {
+          if (hasStoredPurchasePreferences) {
+            restoreModelPurchaseTogglePreferences(purchaseToggles);
+          } else {
+            initializeModelPurchaseToggleDefaults(purchaseToggles);
+          }
+        }
 
         // Apply tax locks first, then force FA column mode.
         if (typeof syncTaxLocks === "function") {
@@ -1142,6 +1230,8 @@
       w.syncCurrencyMenuUi = syncCurrencyMenuUi;
       w.syncTaxMenuUi = syncTaxMenuUi;
       w.applyModelDocTypeFaColumnLocks = applyModelDocTypeFaColumnLocks;
+      w.clearModelPurchaseTogglePreferences = clearModelPurchaseTogglePreferences;
+      w.storeModelPurchaseTogglePreferences = storeModelPurchaseTogglePreferences;
     }
 
     syncInvNumberLengthUi(invNumberLengthSelect?.value || getInvoiceMeta()?.numberLength || 4);
@@ -1266,6 +1356,12 @@
       const input = evt.target?.closest?.("input.col-toggle[data-column-key]");
       if (!input) return;
       enforceModelFaToggleGuard(input);
+      if (!evt.isTrusted) return;
+      const inputId = String(input.id || "");
+      if (!MODEL_DOC_TYPE_FA_PURCHASE_TOGGLE_IDS.includes(inputId)) return;
+      const selectedDocTypes = getSelectedModelDocTypes();
+      if (!selectedDocTypes.some((entry) => isModelPurchaseDocType(entry))) return;
+      storeModelPurchaseTogglePreferences();
     });
 
     docTypeSelect?.addEventListener("change", (evt) => {
