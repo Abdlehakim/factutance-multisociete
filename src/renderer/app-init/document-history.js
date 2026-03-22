@@ -310,6 +310,38 @@
       if (!isoDate) return "";
       return normalizeHistoryYearValue(isoDate.slice(0, 4));
     };
+    const parseHistoryYearNumber = (value) => {
+      const normalized = normalizeHistoryYearValue(value);
+      const yearNum = Number.parseInt(normalized, 10);
+      return Number.isFinite(yearNum) ? yearNum : null;
+    };
+    const buildHistoryYearFilterCatalog = (items, extraYears = []) => {
+      const yearNumbers = [
+        ...(Array.isArray(items) ? items : []).map((entry) =>
+          parseHistoryYearNumber(getHistoryEntryYearValue(entry))
+        ),
+        ...(Array.isArray(extraYears) ? extraYears : []).map((value) =>
+          parseHistoryYearNumber(value)
+        )
+      ].filter((value) => value !== null);
+      if (!yearNumbers.length) {
+        const fallbackYear = normalizeHistoryYearValue(extraYears[0]) || getCurrentHistoryYearValue();
+        return fallbackYear ? [fallbackYear] : [];
+      }
+      const topYearNum = yearNumbers.reduce(
+        (max, value) => (max === null || value > max ? value : max),
+        null
+      );
+      const bottomYearNum = yearNumbers.reduce(
+        (min, value) => (min === null || value < min ? value : min),
+        null
+      );
+      const years = [];
+      for (let year = topYearNum; year >= bottomYearNum; year -= 1) {
+        years.push(String(year));
+      }
+      return years;
+    };
     const isHistoryYearDefault = (value) =>
       normalizeHistoryYearValue(value) === getCurrentHistoryYearValue();
     const normalizeFilterText = (value) => String(value || "").trim().toLowerCase();
@@ -2600,26 +2632,9 @@
 
     function syncHistoryYearFilterOptions() {
       if (!docHistoryFilterYear) return;
-      const parseYearNumber = (value) => {
-        const normalized = normalizeHistoryYearValue(value);
-        const yearNum = Number.parseInt(normalized, 10);
-        return Number.isFinite(yearNum) ? yearNum : null;
-      };
       const currentYear = getCurrentHistoryYearValue();
-      const selectedYearRaw = normalizeHistoryYearValue(historyModalState.filters.year);
-      const selectedYearNum =
-        parseYearNumber(selectedYearRaw) || parseYearNumber(currentYear) || new Date().getFullYear();
-      const minEntryYearNum = (Array.isArray(historyModalState.items) ? historyModalState.items : [])
-        .map((entry) => parseYearNumber(getHistoryEntryYearValue(entry)))
-        .filter((value) => value !== null)
-        .reduce((min, value) => (min === null || value < min ? value : min), null);
-      const topYearNum = selectedYearNum;
-      const bottomYearNum =
-        minEntryYearNum !== null ? Math.min(minEntryYearNum, topYearNum) : topYearNum;
-      const years = [];
-      for (let year = topYearNum; year >= bottomYearNum; year -= 1) {
-        years.push(String(year));
-      }
+      const nextYear = normalizeHistoryYearValue(historyModalState.filters.year) || currentYear;
+      const years = buildHistoryYearFilterCatalog(historyModalState.items, [currentYear, nextYear]);
       docHistoryFilterYear.innerHTML = "";
       years.forEach((year) => {
         const option = document.createElement("option");
@@ -2627,7 +2642,6 @@
         option.textContent = year;
         docHistoryFilterYear.appendChild(option);
       });
-      const nextYear = normalizeHistoryYearValue(historyModalState.filters.year) || currentYear;
       historyModalState.filters.year = nextYear;
       if (!years.includes(nextYear)) {
         const option = document.createElement("option");
@@ -2667,21 +2681,12 @@
       docHistoryFilterYearMenu.dataset.wired = "1";
       setHistoryYearMenuState(docHistoryFilterYearMenu.open);
       docHistoryFilterYearPanel.addEventListener("click", (evt) => {
-        const btn = evt.target.closest(".model-select-option");
+        const target = evt.target instanceof Element ? evt.target : null;
+        const btn = target?.closest(".model-select-option");
         if (!btn) return;
-        const nextValue =
-          normalizeHistoryYearValue(btn.dataset.value || "") || getCurrentHistoryYearValue();
-        const changed =
-          normalizeHistoryYearValue(docHistoryFilterYear.value || "") !== nextValue;
-        docHistoryFilterYear.value = nextValue;
-        if (changed) {
-          docHistoryFilterYear.dispatchEvent(new Event("change", { bubbles: true }));
-        } else {
-          syncHistoryYearMenuUi(nextValue);
-          historyModalState.filters.year = nextValue;
-          handleHistoryFilterChange();
-        }
-        setHistoryYearMenuState(false);
+        evt.preventDefault();
+        evt.stopPropagation();
+        applyHistoryYearFilterSelection(btn.dataset.value || "", { closeMenu: true });
       });
       docHistoryFilterYearMenuToggle.addEventListener("click", (evt) => {
         evt.preventDefault();
@@ -2748,6 +2753,14 @@
           !isHistoryYearDefault(historyModalState.filters.year);
         docHistoryFilterClear.disabled = !hasFilters;
       }
+    }
+
+    function applyHistoryYearFilterSelection(value, { closeMenu = false } = {}) {
+      const nextValue = normalizeHistoryYearValue(value) || getCurrentHistoryYearValue();
+      historyModalState.filters.year = nextValue;
+      syncHistoryYearMenuUi(nextValue, { updateSelect: true, closeMenu });
+      handleHistoryFilterChange();
+      return nextValue;
     }
 
     function hasActiveHistoryFilters() {
@@ -5046,10 +5059,7 @@
         }
         handleHistoryFilterChange();
       } else if (target.id === "docHistoryFilterYear") {
-        historyModalState.filters.year =
-          normalizeHistoryYearValue(target.value || "") || getCurrentHistoryYearValue();
-        syncHistoryYearMenuUi(historyModalState.filters.year, { updateSelect: true });
-        handleHistoryFilterChange();
+        applyHistoryYearFilterSelection(target.value || "");
       }
     };
     if (docHistoryFilterQuery) {

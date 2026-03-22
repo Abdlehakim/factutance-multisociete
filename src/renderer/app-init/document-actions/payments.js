@@ -52,6 +52,33 @@
     if (!Number.isFinite(num) || num < 1900 || num > 9999) return "";
     return String(num);
   };
+  const parseYearNumber = (value) => {
+    const normalized = normalizeYearValue(value);
+    const yearNum = Number.parseInt(normalized, 10);
+    return Number.isFinite(yearNum) ? yearNum : null;
+  };
+  const buildYearFilterCatalog = (yearValues = [], extraYears = []) => {
+    const yearNumbers = [...yearValues, ...extraYears]
+      .map((value) => parseYearNumber(value))
+      .filter((value) => value !== null);
+    if (!yearNumbers.length) {
+      const fallbackYear = normalizeYearValue(extraYears[0]) || getCurrentYearValue();
+      return fallbackYear ? [fallbackYear] : [];
+    }
+    const topYearNum = yearNumbers.reduce(
+      (max, value) => (max === null || value > max ? value : max),
+      null
+    );
+    const bottomYearNum = yearNumbers.reduce(
+      (min, value) => (min === null || value < min ? value : min),
+      null
+    );
+    const years = [];
+    for (let year = topYearNum; year >= bottomYearNum; year -= 1) {
+      years.push(String(year));
+    }
+    return years;
+  };
 
   const parseDayMonthParts = (value) => {
     const text = String(value || "").trim();
@@ -1228,27 +1255,29 @@
       if (state.paymentHistoryFilterDate) state.paymentHistoryFilterDate.value = dayMonth;
     };
 
+    const applyPaymentHistoryYearSelection = (
+      value,
+      onFilterChange,
+      { closeMenu = false } = {}
+    ) => {
+      const nextYear = normalizeYearValue(value) || getCurrentYearValue();
+      state.historyFilters.year = nextYear;
+      syncPaymentHistoryYearMenuUi(nextYear, { updateSelect: true, closeMenu });
+      syncPaymentHistoryDatePickerFromState();
+      if (typeof onFilterChange === "function") onFilterChange();
+      return nextYear;
+    };
+
     const syncPaymentHistoryYearOptions = (entries = readPaymentHistory()) => {
       if (!state.paymentHistoryFilterYear) return;
-      const parseYearNumber = (value) => {
-        const normalized = normalizeYearValue(value);
-        const parsed = Number.parseInt(normalized, 10);
-        return Number.isFinite(parsed) ? parsed : null;
-      };
       const currentYear = getCurrentYearValue();
-      const selectedYearRaw = normalizeYearValue(state.historyFilters.year) || currentYear;
-      const selectedYearNum =
-        parseYearNumber(selectedYearRaw) || parseYearNumber(currentYear) || new Date().getFullYear();
-      const minEntryYearNum = (Array.isArray(entries) ? entries : [])
-        .map((entry) => parseYearNumber(resolvePaymentHistoryEntryDateIso(entry).slice(0, 4)))
-        .filter((value) => value !== null)
-        .reduce((min, value) => (min === null || value < min ? value : min), null);
-      const topYearNum = selectedYearNum;
-      const bottomYearNum = minEntryYearNum !== null ? Math.min(minEntryYearNum, topYearNum) : topYearNum;
-      const years = [];
-      for (let year = topYearNum; year >= bottomYearNum; year -= 1) {
-        years.push(String(year));
-      }
+      const nextYear = normalizeYearValue(state.historyFilters.year) || currentYear;
+      const years = buildYearFilterCatalog(
+        (Array.isArray(entries) ? entries : []).map((entry) =>
+          resolvePaymentHistoryEntryDateIso(entry).slice(0, 4)
+        ),
+        [currentYear, nextYear]
+      );
       state.paymentHistoryFilterYear.innerHTML = "";
       years.forEach((year) => {
         const option = document.createElement("option");
@@ -1256,7 +1285,6 @@
         option.textContent = year;
         state.paymentHistoryFilterYear.appendChild(option);
       });
-      const nextYear = normalizeYearValue(state.historyFilters.year) || currentYear;
       state.historyFilters.year = nextYear;
       if (!years.includes(nextYear)) {
         const option = document.createElement("option");
@@ -1298,30 +1326,18 @@
       setPaymentHistoryYearMenuState(state.paymentHistoryFilterYearMenu.open);
 
       state.paymentHistoryFilterYear.addEventListener("change", () => {
-        const nextYear =
-          normalizeYearValue(state.paymentHistoryFilterYear.value || "") || getCurrentYearValue();
-        state.paymentHistoryFilterYear.value = nextYear;
-        state.historyFilters.year = nextYear;
-        syncPaymentHistoryYearMenuUi(nextYear);
-        syncPaymentHistoryDatePickerFromState();
-        if (typeof onFilterChange === "function") onFilterChange();
+        applyPaymentHistoryYearSelection(state.paymentHistoryFilterYear.value || "", onFilterChange);
       });
 
       state.paymentHistoryFilterYearPanel.addEventListener("click", (evt) => {
-        const btn = evt.target.closest(".model-select-option");
+        const target = evt.target instanceof Element ? evt.target : null;
+        const btn = target?.closest(".model-select-option");
         if (!btn) return;
-        const nextValue = normalizeYearValue(btn.dataset.value || "") || getCurrentYearValue();
-        const changed = normalizeYearValue(state.paymentHistoryFilterYear.value || "") !== nextValue;
-        state.paymentHistoryFilterYear.value = nextValue;
-        if (changed) {
-          state.paymentHistoryFilterYear.dispatchEvent(new Event("change", { bubbles: true }));
-        } else {
-          syncPaymentHistoryYearMenuUi(nextValue);
-          state.historyFilters.year = nextValue;
-          syncPaymentHistoryDatePickerFromState();
-          if (typeof onFilterChange === "function") onFilterChange();
-        }
-        setPaymentHistoryYearMenuState(false);
+        evt.preventDefault();
+        evt.stopPropagation();
+        applyPaymentHistoryYearSelection(btn.dataset.value || "", onFilterChange, {
+          closeMenu: true
+        });
       });
 
       state.paymentHistoryFilterYearMenuToggle.addEventListener("click", (evt) => {
@@ -1396,27 +1412,26 @@
       return nextValue;
     };
 
+    const applyPaymentInvoiceYearSelection = (
+      value,
+      onFilterChange,
+      { closeMenu = false } = {}
+    ) => {
+      const nextYear = normalizeYearValue(value) || getCurrentYearValue();
+      state.invoiceFilters.year = nextYear;
+      syncPaymentInvoiceYearMenuUi(nextYear, { updateSelect: true, closeMenu });
+      if (typeof onFilterChange === "function") onFilterChange();
+      return nextYear;
+    };
+
     const syncPaymentInvoiceYearOptions = (entries = state.invoices) => {
       if (!state.paymentInvoiceFilterYear) return;
-      const parseYearNumber = (value) => {
-        const normalized = normalizeYearValue(value);
-        const parsed = Number.parseInt(normalized, 10);
-        return Number.isFinite(parsed) ? parsed : null;
-      };
       const currentYear = getCurrentYearValue();
-      const selectedYearRaw = normalizeYearValue(state.invoiceFilters.year) || currentYear;
-      const selectedYearNum =
-        parseYearNumber(selectedYearRaw) || parseYearNumber(currentYear) || new Date().getFullYear();
-      const minEntryYearNum = (Array.isArray(entries) ? entries : [])
-        .map((entry) => parseYearNumber(resolvePaymentInvoiceEntryYear(entry)))
-        .filter((value) => value !== null)
-        .reduce((min, value) => (min === null || value < min ? value : min), null);
-      const topYearNum = selectedYearNum;
-      const bottomYearNum = minEntryYearNum !== null ? Math.min(minEntryYearNum, topYearNum) : topYearNum;
-      const years = [];
-      for (let year = topYearNum; year >= bottomYearNum; year -= 1) {
-        years.push(String(year));
-      }
+      const nextYear = normalizeYearValue(state.invoiceFilters.year) || currentYear;
+      const years = buildYearFilterCatalog(
+        (Array.isArray(entries) ? entries : []).map((entry) => resolvePaymentInvoiceEntryYear(entry)),
+        [currentYear, nextYear]
+      );
       state.paymentInvoiceFilterYear.innerHTML = "";
       years.forEach((year) => {
         const option = document.createElement("option");
@@ -1424,7 +1439,6 @@
         option.textContent = year;
         state.paymentInvoiceFilterYear.appendChild(option);
       });
-      const nextYear = normalizeYearValue(state.invoiceFilters.year) || currentYear;
       state.invoiceFilters.year = nextYear;
       if (!years.includes(nextYear)) {
         const option = document.createElement("option");
@@ -1465,28 +1479,18 @@
       setPaymentInvoiceYearMenuState(state.paymentInvoiceFilterYearMenu.open);
 
       state.paymentInvoiceFilterYear.addEventListener("change", () => {
-        const nextYear =
-          normalizeYearValue(state.paymentInvoiceFilterYear.value || "") || getCurrentYearValue();
-        state.paymentInvoiceFilterYear.value = nextYear;
-        state.invoiceFilters.year = nextYear;
-        syncPaymentInvoiceYearMenuUi(nextYear);
-        if (typeof onFilterChange === "function") onFilterChange();
+        applyPaymentInvoiceYearSelection(state.paymentInvoiceFilterYear.value || "", onFilterChange);
       });
 
       state.paymentInvoiceFilterYearPanel.addEventListener("click", (evt) => {
-        const btn = evt.target.closest(".model-select-option");
+        const target = evt.target instanceof Element ? evt.target : null;
+        const btn = target?.closest(".model-select-option");
         if (!btn) return;
-        const nextValue = normalizeYearValue(btn.dataset.value || "") || getCurrentYearValue();
-        const changed = normalizeYearValue(state.paymentInvoiceFilterYear.value || "") !== nextValue;
-        state.paymentInvoiceFilterYear.value = nextValue;
-        if (changed) {
-          state.paymentInvoiceFilterYear.dispatchEvent(new Event("change", { bubbles: true }));
-        } else {
-          syncPaymentInvoiceYearMenuUi(nextValue);
-          state.invoiceFilters.year = nextValue;
-          if (typeof onFilterChange === "function") onFilterChange();
-        }
-        setPaymentInvoiceYearMenuState(false);
+        evt.preventDefault();
+        evt.stopPropagation();
+        applyPaymentInvoiceYearSelection(btn.dataset.value || "", onFilterChange, {
+          closeMenu: true
+        });
       });
 
       state.paymentInvoiceFilterYearMenuToggle.addEventListener("click", (evt) => {
