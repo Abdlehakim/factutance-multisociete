@@ -1615,6 +1615,9 @@
       if (typeof SEM.refreshInvoiceSummary === "function") {
         SEM.refreshInvoiceSummary();
       }
+      try {
+        w.SEM?.__bindingHelpers?.updateModelPreview?.();
+      } catch {}
     }
 
     function requestPreviewNumber({ docTypeValue, length, dateValue, prefixToUse } = {}) {

@@ -571,8 +571,13 @@
               avoir: "AV"
             };
             const previewNumberEl = getEl("modelPreviewNumber");
-            const rawNumber = String(state()?.meta?.number || previewNumberEl?.textContent || "").trim();
             if (previewNumberEl) {
+              const rawNumber = String(
+                getEl("invNumber")?.value ||
+                  state()?.meta?.previewNumber ||
+                  state()?.meta?.number ||
+                  ""
+              ).trim();
               const previewDocType = hasDocTypes ? effectiveDocType : "facture";
               const numberLengthSource =
                 modelPreviewNumberLengthOverride ??

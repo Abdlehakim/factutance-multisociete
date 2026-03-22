@@ -108,6 +108,83 @@ export const ModelStepper = `
                           </select>
                         </div>
                       </label>
+                      <div class="doc-meta-grid model-actions-modal__meta-grid">
+                        <div class="doc-meta-grid__item">
+                          <label class="doc-type-field">
+                            <span id="modelDocTypeLabelText" class="model-save-dot">Type de document</span>
+                            <div class="doc-type-field__controls">
+                              <div
+                                id="modelDocTypePanel"
+                                class="doc-type-panel doc-type-panel--inline"
+                                role="listbox"
+                                aria-multiselectable="true"
+                                aria-labelledby="modelDocTypeLabelText"
+                              >
+                                <div class="doc-type-row">
+                                  <label
+                                    class="toggle-option doc-type-toggle is-active"
+                                    data-doc-type-option="facture"
+                                    aria-selected="true"
+                                  >
+                                    <input type="checkbox" name="modelDocTypeChoice" value="facture" class="col-toggle" checked aria-checked="true" />
+                                    <span class="model-save-dot">Facture</span>
+                                  </label>
+                                  <label
+                                    class="toggle-option doc-type-toggle"
+                                    data-doc-type-option="avoir"
+                                    aria-selected="false"
+                                  >
+                                    <input type="checkbox" name="modelDocTypeChoice" value="avoir" class="col-toggle" />
+                                    <span class="model-save-dot">Facture d'avoir</span>
+                                  </label>
+                                  <label
+                                    class="toggle-option doc-type-toggle"
+                                    data-doc-type-option="devis"
+                                    aria-selected="false"
+                                  >
+                                    <input type="checkbox" name="modelDocTypeChoice" value="devis" class="col-toggle" />
+                                    <span class="model-save-dot">Devis</span>
+                                  </label>
+                                  <label
+                                    class="toggle-option doc-type-toggle"
+                                    data-doc-type-option="bl"
+                                    aria-selected="false"
+                                  >
+                                    <input type="checkbox" name="modelDocTypeChoice" value="bl" class="col-toggle" />
+                                    <span class="model-save-dot">Bon de livraison</span>
+                                  </label>
+                                </div>
+                                <div class="doc-type-row">
+                                  <label
+                                    class="toggle-option doc-type-toggle"
+                                    data-doc-type-option="fa"
+                                    aria-selected="false"
+                                  >
+                                    <input type="checkbox" name="modelDocTypeChoice" value="fa" class="col-toggle" />
+                                    <span class="model-save-dot">Facture d'achat</span>
+                                  </label>
+                                  <label
+                                    class="toggle-option doc-type-toggle"
+                                    data-doc-type-option="bc"
+                                    aria-selected="false"
+                                  >
+                                    <input type="checkbox" name="modelDocTypeChoice" value="bc" class="col-toggle" />
+                                    <span class="model-save-dot">Bon de commande</span>
+                                  </label>
+                                </div>
+                              </div>
+                              <select id="modelDocType" class="doc-type-select" aria-hidden="true" tabindex="-1" multiple>
+                                <option value="facture" selected>Facture</option>
+                                <option value="fa">Facture d'achat</option>
+                                <option value="bc">Bon de commande</option>
+                                <option value="avoir">Facture d'avoir</option>
+                                <option value="devis">Devis</option>
+                                <option value="bl">Bon de livraison</option>
+                              </select>
+                            </div>
+                          </label>
+                        </div>
+                      </div>
                       <label class="model-name-field" for="modelNumberFormat" id="modelNumberFormatLabel">
                         <span id="modelNumberFormatLabelText" class="model-name-field__label">Num&eacute;rotation</span>
                         <div class="currency-field__controls">
@@ -179,83 +256,6 @@ export const ModelStepper = `
                       hidden
                     >
                       <div class="doc-meta-grid model-actions-modal__meta-grid">
-                        <div class="doc-meta-grid__item">
-                          <label class="doc-type-field">
-                            <span id="modelDocTypeLabelText" class="model-save-dot">Type de document</span>
-                            <div class="doc-type-field__controls">
-                              <div
-                                id="modelDocTypePanel"
-                                class="doc-type-panel doc-type-panel--inline"
-                                role="listbox"
-                                aria-multiselectable="true"
-                                aria-labelledby="modelDocTypeLabelText"
-                              >
-                                <div class="doc-type-row">
-                                  <label
-                                    class="toggle-option doc-type-toggle is-active"
-                                    data-doc-type-option="facture"
-                                    aria-selected="true"
-                                  >
-                                    <input type="checkbox" name="modelDocTypeChoice" value="facture" class="col-toggle" checked aria-checked="true" />
-                                    <span class="model-save-dot">Facture</span>
-                                  </label>
-                                  <label
-                                    class="toggle-option doc-type-toggle"
-                                    data-doc-type-option="avoir"
-                                    aria-selected="false"
-                                  >
-                                    <input type="checkbox" name="modelDocTypeChoice" value="avoir" class="col-toggle" />
-                                    <span class="model-save-dot">Facture d'avoir</span>
-                                  </label>
-                                  <label
-                                    class="toggle-option doc-type-toggle"
-                                    data-doc-type-option="devis"
-                                    aria-selected="false"
-                                  >
-                                    <input type="checkbox" name="modelDocTypeChoice" value="devis" class="col-toggle" />
-                                    <span class="model-save-dot">Devis</span>
-                                  </label>
-                                  <label
-                                    class="toggle-option doc-type-toggle"
-                                    data-doc-type-option="bl"
-                                    aria-selected="false"
-                                  >
-                                    <input type="checkbox" name="modelDocTypeChoice" value="bl" class="col-toggle" />
-                                    <span class="model-save-dot">Bon de livraison</span>
-                                  </label>
-                                </div>
-                                <div class="doc-type-row">
-                                  <label
-                                    class="toggle-option doc-type-toggle"
-                                    data-doc-type-option="fa"
-                                    aria-selected="false"
-                                  >
-                                    <input type="checkbox" name="modelDocTypeChoice" value="fa" class="col-toggle" />
-                                    <span class="model-save-dot">Facture d'achat</span>
-                                  </label>
-                                  <label
-                                    class="toggle-option doc-type-toggle"
-                                    data-doc-type-option="bc"
-                                    aria-selected="false"
-                                  >
-                                    <input type="checkbox" name="modelDocTypeChoice" value="bc" class="col-toggle" />
-                                    <span class="model-save-dot">Bon de commande</span>
-                                  </label>
-                                </div>
-                              </div>
-                                <select id="modelDocType" class="doc-type-select" aria-hidden="true" tabindex="-1" multiple>
-                                  <option value="facture" selected>Facture</option>
-                                <option value="fa">Facture d'achat</option>
-                                <option value="bc">Bon de commande</option>
-                                <option value="avoir">Facture d'avoir</option>
-                                <option value="devis">Devis</option>
-                                <option value="bl">Bon de livraison</option>
-                              </select>
-                            </div>
-                          </label>
-                        </div>
-
-
                               <label class="currency-field__column">
                                 <span id="modelCurrencyLabelText" class="model-save-dot">Devise</span>
                                 <div class="currency-field__controls">
