@@ -30,6 +30,8 @@
       { label: "Facture", docType: "facture" },
       { label: "Facture d'achat", docType: "fa" },
       { label: "Bon de commande", docType: "bc" },
+      { label: "Bon d'entrée", docType: "be" },
+      { label: "Bon de sortie", docType: "bs" },
       { label: "Facture d'avoir", docType: "avoir" },
       { label: "Devis", docType: "devis" },
       { label: "Bon de livraison", docType: "bl" }

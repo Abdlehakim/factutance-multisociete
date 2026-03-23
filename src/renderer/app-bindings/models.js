@@ -76,12 +76,15 @@
   });
   const MODEL_DOC_TYPE_ALL = "all";
   const MODEL_DOC_TYPE_LEGACY_NONE = "aucun";
-  const MODEL_DOC_TYPE_LIST = ["facture", "fa", "bc", "devis", "bl", "avoir"];
-  const MODEL_DOC_TYPE_PURCHASE_SET = new Set(["fa", "bc"]);
+  const MODEL_DOC_TYPE_LIST = ["facture", "fa", "bc", "be", "bs", "devis", "bl", "avoir"];
+  const MODEL_DOC_TYPE_PURCHASE_SET = new Set(["fa", "bc", "be"]);
+  const MODEL_DOC_TYPE_STOCK_EXCLUSIVE_SET = new Set(["be", "bs"]);
   const DOC_TYPE_VALUES = new Set([
     "facture",
     "fa",
     "bc",
+    "be",
+    "bs",
     "devis",
     "bl",
     "avoir",
@@ -103,7 +106,18 @@
       "facture-avoir": "avoir",
       "facture avoir": "avoir",
       "facture d'avoir": "avoir",
-      "facture davoir": "avoir"
+      "facture davoir": "avoir",
+      bonentree: "be",
+      bon_entree: "be",
+      "bon-entree": "be",
+      "bon entree": "be",
+      "bon d'entree": "be",
+      "bon d'entrée": "be",
+      bonsortie: "bs",
+      bon_sortie: "bs",
+      "bon-sortie": "bs",
+      "bon sortie": "bs",
+      "bon de sortie": "bs"
     };
     const normalized = aliasMap[raw] || raw;
     return DOC_TYPE_VALUES.has(normalized) ? normalized : fallback;
@@ -130,10 +144,26 @@
     }
     return normalized;
   };
-  const MODEL_DOC_TYPE_SWITCH_EXCLUSIVE_WITH_PURCHASE = new Set(["facture", "avoir", "devis", "bl"]);
+  const MODEL_DOC_TYPE_SWITCH_EXCLUSIVE_WITH_PURCHASE = new Set([
+    "facture",
+    "bs",
+    "avoir",
+    "devis",
+    "bl"
+  ]);
   const normalizeModelDocTypeSwitchSelection = (value, preferredSwitchValue = "") => {
     let normalizedList = normalizeDocTypeList(value, []);
     if (!normalizedList.length) normalizedList = [DEFAULT_MODEL_DOC_TYPE];
+    const preferred = normalizeModelDocTypeValue(preferredSwitchValue, "");
+    if (MODEL_DOC_TYPE_STOCK_EXCLUSIVE_SET.has(preferred)) {
+      return [preferred];
+    }
+    const exclusiveSelections = normalizedList.filter((entry) =>
+      MODEL_DOC_TYPE_STOCK_EXCLUSIVE_SET.has(entry)
+    );
+    if (exclusiveSelections.length) {
+      return [exclusiveSelections[exclusiveSelections.length - 1]];
+    }
     const hasPurchaseDocType = normalizedList.some((entry) => isModelPurchaseDocType(entry));
     const hasExclusiveWithPurchase = normalizedList.some(
       (entry) =>
@@ -143,9 +173,9 @@
     if (!hasPurchaseDocType || !hasExclusiveWithPurchase) {
       return normalizedList;
     }
-    const preferred = String(preferredSwitchValue || "").trim().toLowerCase();
     if (isModelPurchaseDocType(preferred)) {
-      return [preferred];
+      const purchaseDocTypes = normalizedList.filter((entry) => isModelPurchaseDocType(entry));
+      return purchaseDocTypes.length ? purchaseDocTypes : [preferred];
     }
     return normalizedList.filter((entry) => !isModelPurchaseDocType(entry));
   };

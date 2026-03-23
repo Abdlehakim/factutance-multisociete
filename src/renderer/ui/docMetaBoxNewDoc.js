@@ -6,6 +6,8 @@
           <span class="legend-text for-facture">Facture :</span>
           <span class="legend-text for-fa">Facture d'achat :</span>
           <span class="legend-text for-bc">Bon de commande :</span>
+          <span class="legend-text for-be">Bon d'entr&eacute;e :</span>
+          <span class="legend-text for-bs">Bon de sortie :</span>
           <span class="legend-text for-avoir">Facture d'avoir :</span>
           <span class="legend-text for-devis">Devis :</span>
           <span class="legend-text for-bl">Bon de livraison :</span>
@@ -32,6 +34,8 @@
                     <option value="facture" selected>Facture</option>
                     <option value="fa">Facture d'achat</option>
                     <option value="bc">Bon de commande</option>
+                    <option value="be">Bon d'entr&eacute;e</option>
+                    <option value="bs">Bon de sortie</option>
                     <option value="avoir">Facture d'avoir</option>
                     <option value="devis">Devis</option>
                     <option value="bl">Bon de livraison</option>
@@ -79,6 +83,8 @@
                   <span class="for-facture">N&deg; de facture</span>
                   <span class="for-fa">N&deg; de facture d'achat</span>
                   <span class="for-bc">N&deg; de bon de commande</span>
+                  <span class="for-be">N&deg; de bon d'entr&eacute;e</span>
+                  <span class="for-bs">N&deg; de bon de sortie</span>
                   <span class="for-avoir">N&deg; de facture d'avoir</span>
                   <span class="for-devis">N&deg; de devis</span>
                   <span class="for-bl">N&deg; de bon de livraison</span>

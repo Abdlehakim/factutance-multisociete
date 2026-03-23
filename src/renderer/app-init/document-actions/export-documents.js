@@ -41,17 +41,23 @@
   const DOC_TYPE_LABELS = {
     facture: "Facture",
     fa: "Facture d'achat",
+    bc: "Bon de commande",
+    be: "Bon d'entrée",
+    bs: "Bon de sortie",
     avoir: "Facture d'avoir",
     devis: "Devis",
     bl: "Bon de livraison"
   };
-  const SELECTABLE_DOC_TYPES = new Set(["facture", "fa", "avoir", "devis", "bl"]);
+  const SELECTABLE_DOC_TYPES = new Set(["facture", "fa", "bc", "be", "bs", "avoir", "devis", "bl"]);
 
   const SUPPORTED_DOC_TYPES = new Set(Object.keys(DOC_TYPE_LABELS));
 
   const DEFAULT_DOC_TYPE_CHOICES = [
     { docType: "facture", label: DOC_TYPE_LABELS.facture },
     { docType: "fa", label: DOC_TYPE_LABELS.fa },
+    { docType: "bc", label: DOC_TYPE_LABELS.bc },
+    { docType: "be", label: DOC_TYPE_LABELS.be },
+    { docType: "bs", label: DOC_TYPE_LABELS.bs },
     { docType: "avoir", label: DOC_TYPE_LABELS.avoir },
     { docType: "devis", label: DOC_TYPE_LABELS.devis },
     { docType: "bl", label: DOC_TYPE_LABELS.bl }

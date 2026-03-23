@@ -2227,7 +2227,9 @@
         return modalDocType || stateDocType || historyDocType || "facture";
       };
       const preferredScopeSelector =
-        resolveItemsModalDocType() === "fa" ? "#FournisseurBoxNewDoc" : "#clientBoxNewDoc";
+        ["fa", "bc", "be"].includes(resolveItemsModalDocType())
+          ? "#FournisseurBoxNewDoc"
+          : "#clientBoxNewDoc";
       const scope =
         modal.querySelector(preferredScopeSelector) ||
         modal.querySelector("#clientBoxNewDoc, #FournisseurBoxNewDoc");

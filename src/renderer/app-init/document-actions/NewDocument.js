@@ -61,6 +61,8 @@
         facture: "Fact",
         fa: "FA",
         bc: "BC",
+        be: "BE",
+        bs: "BS",
         devis: "Dev",
         bl: "BL",
         avoir: "AV"
@@ -70,7 +72,8 @@
       const letters = normalized.replace(/[^a-z]/gi, "").slice(0, 3);
       return letters ? letters.toUpperCase() : "DOC";
     };
-    const PURCHASE_DOC_TYPE_VALUES = new Set(["fa", "bc"]);
+    const PURCHASE_DOC_TYPE_VALUES = new Set(["fa", "bc", "be"]);
+    const STOCK_EXCLUSIVE_DOC_TYPE_VALUES = new Set(["be", "bs"]);
     const isPurchaseDocType = (value) =>
       PURCHASE_DOC_TYPE_VALUES.has(String(value || "").trim().toLowerCase());
 
@@ -755,8 +758,34 @@
 
     const MODEL_DOC_TYPE_ALL = "all";
     const DEFAULT_MODEL_DOC_TYPE = "facture";
-    const MODEL_DOC_TYPE_LIST = ["facture", "fa", "bc", "devis", "bl", "avoir"];
+    const MODEL_DOC_TYPE_LIST = ["facture", "fa", "bc", "be", "bs", "devis", "bl", "avoir"];
     const MODEL_DOC_TYPE_SWITCH_FACTURE = "facture";
+    const MODEL_DOC_TYPE_SWITCH_EXCLUSIVE_WITH_PURCHASE = new Set([
+      MODEL_DOC_TYPE_SWITCH_FACTURE,
+      "bs",
+      "avoir",
+      "devis",
+      "bl"
+    ]);
+    const MODEL_DOC_TYPE_ALIAS_MAP = {
+      factureavoir: "avoir",
+      facture_avoir: "avoir",
+      "facture-avoir": "avoir",
+      "facture avoir": "avoir",
+      "facture d'avoir": "avoir",
+      "facture davoir": "avoir",
+      bonentree: "be",
+      bon_entree: "be",
+      "bon-entree": "be",
+      "bon entree": "be",
+      "bon d'entree": "be",
+      "bon d'entrée": "be",
+      bonsortie: "bs",
+      bon_sortie: "bs",
+      "bon-sortie": "bs",
+      "bon sortie": "bs",
+      "bon de sortie": "bs"
+    };
     const ITEMS_DOC_TYPE_FA_LOCK_DATASET_KEY = "docTypeFaPrevChecked";
     const ITEMS_DOC_TYPE_FA_FORCED_DATASET_KEY = "docTypeFaForced";
     const ITEMS_DOC_TYPE_FA_VENTE_COLUMN_KEYS = [
@@ -1059,7 +1088,8 @@
       const normalized = String(value || "").trim().toLowerCase();
       if (!normalized || normalized === "aucun") return fallback;
       if (normalized === MODEL_DOC_TYPE_ALL) return MODEL_DOC_TYPE_ALL;
-      return MODEL_DOC_TYPE_LIST.includes(normalized) ? normalized : fallback;
+      const mapped = MODEL_DOC_TYPE_ALIAS_MAP[normalized] || normalized;
+      return MODEL_DOC_TYPE_LIST.includes(mapped) ? mapped : fallback;
     };
 
     const normalizeModelDocTypeList = (value, fallback = []) => {
@@ -1090,13 +1120,31 @@
       return fallbackList.length ? fallbackList : [DEFAULT_MODEL_DOC_TYPE];
     };
 
-    const normalizeModelDocTypeSwitchSelection = (value) => {
+    const normalizeModelDocTypeSwitchSelection = (value, preferredSwitchValue = "") => {
       let normalizedList = expandModelDocTypes(value, []);
       if (!normalizedList.length) normalizedList = [DEFAULT_MODEL_DOC_TYPE];
-      const hasFacture = normalizedList.includes(MODEL_DOC_TYPE_SWITCH_FACTURE);
+      const preferred = normalizeModelDocType(preferredSwitchValue, "");
+      if (STOCK_EXCLUSIVE_DOC_TYPE_VALUES.has(preferred)) {
+        return [preferred];
+      }
+      const exclusiveSelections = normalizedList.filter((entry) =>
+        STOCK_EXCLUSIVE_DOC_TYPE_VALUES.has(entry)
+      );
+      if (exclusiveSelections.length) {
+        return [exclusiveSelections[exclusiveSelections.length - 1]];
+      }
       const hasPurchaseDocType = normalizedList.some((entry) => isPurchaseDocType(entry));
-      if (!hasFacture || !hasPurchaseDocType) return normalizedList;
-      return normalizedList.filter((entry) => entry !== MODEL_DOC_TYPE_SWITCH_FACTURE);
+      const hasExclusiveWithPurchase = normalizedList.some(
+        (entry) =>
+          !isPurchaseDocType(entry) &&
+          MODEL_DOC_TYPE_SWITCH_EXCLUSIVE_WITH_PURCHASE.has(entry)
+      );
+      if (!hasPurchaseDocType || !hasExclusiveWithPurchase) return normalizedList;
+      if (isPurchaseDocType(preferred)) {
+        const purchaseDocTypes = normalizedList.filter((entry) => isPurchaseDocType(entry));
+        return purchaseDocTypes.length ? purchaseDocTypes : [preferred];
+      }
+      return normalizedList.filter((entry) => !isPurchaseDocType(entry));
     };
 
     const setColumnToggleDisabledState = (input, disabled) => {

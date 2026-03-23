@@ -172,6 +172,24 @@ export const ModelStepper = `
                                     <span class="model-save-dot">Bon de commande</span>
                                   </label>
                                 </div>
+                                <div class="doc-type-row">
+                                  <label
+                                    class="toggle-option doc-type-toggle"
+                                    data-doc-type-option="bs"
+                                    aria-selected="false"
+                                  >
+                                    <input type="checkbox" name="modelDocTypeChoice" value="bs" class="col-toggle" />
+                                    <span class="model-save-dot">Bon de sortie</span>
+                                  </label>
+                                  <label
+                                    class="toggle-option doc-type-toggle"
+                                    data-doc-type-option="be"
+                                    aria-selected="false"
+                                  >
+                                    <input type="checkbox" name="modelDocTypeChoice" value="be" class="col-toggle" />
+                                    <span class="model-save-dot">Bon d'entr&eacute;e</span>
+                                  </label>
+                                </div>
                               </div>
                               <select id="modelDocType" class="doc-type-select" aria-hidden="true" tabindex="-1" multiple>
                                 <option value="facture" selected>Facture</option>
@@ -180,6 +198,8 @@ export const ModelStepper = `
                                 <option value="avoir">Facture d'avoir</option>
                                 <option value="devis">Devis</option>
                                 <option value="bl">Bon de livraison</option>
+                                <option value="bs">Bon de sortie</option>
+                                <option value="be">Bon d'entr&eacute;e</option>
                               </select>
                             </div>
                           </label>

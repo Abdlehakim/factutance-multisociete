@@ -510,7 +510,7 @@
       docTitleEl.textContent = DOC_TYPE_TITLES[normalized] || DOC_TYPE_TITLES.facture;
     }
     if (partyLegendEl) {
-      partyLegendEl.textContent = normalized === "fa" ? "Fournisseur" : "Client";
+      partyLegendEl.textContent = ["fa", "bc", "be"].includes(normalized) ? "Fournisseur" : "Client";
     }
   }
   SEM.updateItemsMetaSummaryLabels = updateItemsMetaSummaryLabels;

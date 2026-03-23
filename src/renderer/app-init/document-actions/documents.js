@@ -5,6 +5,8 @@
     { label: "Facture", docType: "facture" },
     { label: "Facture d'achat", docType: "fa" },
     { label: "Bon de commande", docType: "bc" },
+    { label: "Bon d'entrée", docType: "be" },
+    { label: "Bon de sortie", docType: "bs" },
     { label: "Facture d'avoir", docType: "avoir" },
     { label: "Devis", docType: "devis" },
     { label: "Bon de livraison", docType: "bl" }
@@ -14,6 +16,8 @@
     facture: { article: "La", feminine: true },
     fa: { article: "La", feminine: true },
     bc: { article: "Le", feminine: false },
+    be: { article: "Le", feminine: false },
+    bs: { article: "Le", feminine: false },
     devis: { article: "Le", feminine: false },
     bl: { article: "Le", feminine: false },
     avoir: { article: "La", feminine: true },
@@ -776,7 +780,7 @@
     };
     registerCloseGuard();
 
-    const PURCHASE_DOC_TYPES = new Set(["fa", "bc"]);
+    const PURCHASE_DOC_TYPES = new Set(["fa", "bc", "be"]);
     const isPurchaseDocType = (value) =>
       PURCHASE_DOC_TYPES.has(String(value || "").trim().toLowerCase());
     const ensurePurchaseNumberPrefix = (value, docType) => {
@@ -4254,7 +4258,7 @@
       let finalDocType = fallbackDocType;
       const MODEL_DOC_TYPE_ALL = "all";
       const DEFAULT_MODEL_DOC_TYPE = "facture";
-      const MODEL_DOC_TYPE_LIST = ["facture", "fa", "bc", "devis", "bl", "avoir"];
+      const MODEL_DOC_TYPE_LIST = ["facture", "fa", "bc", "be", "bs", "devis", "bl", "avoir"];
       const normalizeDocType = (value) => String(value || "").trim().toLowerCase();
       const normalizeModelDocType = (value, fallback = "") => {
         const normalized = normalizeDocType(value);

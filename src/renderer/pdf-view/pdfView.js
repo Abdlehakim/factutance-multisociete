@@ -1834,7 +1834,7 @@
         </div>
         <div class="pdf-divider"></div>`;
 
-    const partyLabel = type === "fa" ? "Fournisseur" : "Client";
+    const partyLabel = ["fa", "bc", "be"].includes(type) ? "Fournisseur" : "Client";
     const partiesBlockHTML = `
         <div class="pdf-grid-2">
           <div>

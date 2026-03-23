@@ -60,12 +60,19 @@
             }
             return Math.min(MODEL_PREVIEW_ZOOM_MAX, Math.max(MODEL_PREVIEW_ZOOM_MIN, parsed));
           };
-          const MODEL_DOC_TYPE_EXCLUSIVE_WITH_PURCHASE = new Set(["facture", "avoir", "devis", "bl"]);
-          const MODEL_DOC_TYPE_PURCHASE_VALUES = new Set(["fa", "bc"]);
+          const MODEL_DOC_TYPE_EXCLUSIVE_WITH_PURCHASE = new Set([
+            "facture",
+            "bs",
+            "avoir",
+            "devis",
+            "bl"
+          ]);
+          const MODEL_DOC_TYPE_PURCHASE_VALUES = new Set(["fa", "bc", "be"]);
+          const MODEL_DOC_TYPE_STOCK_EXCLUSIVE_VALUES = new Set(["be", "bs"]);
           const isModelPurchaseDocType = (value) =>
             MODEL_DOC_TYPE_PURCHASE_VALUES.has(String(value || "").trim().toLowerCase());
           const normalizeModelDocTypeSwitchSelection = (value, preferredSwitchValue = "") => {
-            const allowedValues = new Set(["facture", "fa", "bc", "devis", "bl", "avoir"]);
+            const allowedValues = new Set(["facture", "fa", "bc", "be", "bs", "devis", "bl", "avoir"]);
             const normalizedFromString = (source) =>
               String(source || "")
                 .split(",")
@@ -81,6 +88,16 @@
                   .filter((entry, index, list) => list.indexOf(entry) === index)
               : normalizedFromString(value);
             if (!normalizedList.length) normalizedList = ["facture"];
+            const preferred = String(preferredSwitchValue || "").trim().toLowerCase();
+            if (MODEL_DOC_TYPE_STOCK_EXCLUSIVE_VALUES.has(preferred)) {
+              return [preferred];
+            }
+            const exclusiveSelections = normalizedList.filter((entry) =>
+              MODEL_DOC_TYPE_STOCK_EXCLUSIVE_VALUES.has(entry)
+            );
+            if (exclusiveSelections.length) {
+              return [exclusiveSelections[exclusiveSelections.length - 1]];
+            }
             const hasPurchaseDocType = normalizedList.some((entry) => isModelPurchaseDocType(entry));
             const hasExclusiveWithPurchase = normalizedList.some(
               (entry) =>
@@ -90,9 +107,9 @@
             if (!hasPurchaseDocType || !hasExclusiveWithPurchase) {
               return normalizedList;
             }
-            const preferred = String(preferredSwitchValue || "").trim().toLowerCase();
             if (isModelPurchaseDocType(preferred)) {
-              return [preferred];
+              const purchaseDocTypes = normalizedList.filter((entry) => isModelPurchaseDocType(entry));
+              return purchaseDocTypes.length ? purchaseDocTypes : [preferred];
             }
             return normalizedList.filter((entry) => !isModelPurchaseDocType(entry));
           };
@@ -381,6 +398,8 @@
               facture: "Facture",
               fa: "Facture d'achat",
               bc: "Bon de commande",
+              be: "Bon d'entrée",
+              bs: "Bon de sortie",
               devis: "Devis",
               bl: "Bon de livraison",
               avoir: "Facture d'avoir"
@@ -569,6 +588,8 @@
               facture: "Fact",
               fa: "FA",
               bc: "BC",
+              be: "BE",
+              bs: "BS",
               devis: "Dev",
               bl: "BL",
               avoir: "AV"
@@ -1620,7 +1641,7 @@
               const raw = String(value || "").trim().toLowerCase();
               if (!raw || raw === "aucun") return "";
               if (raw === "all") return "all";
-              if (["facture", "fa", "bc", "devis", "bl", "avoir"].includes(raw)) return raw;
+              if (["facture", "fa", "bc", "be", "bs", "devis", "bl", "avoir"].includes(raw)) return raw;
               return "";
             };
             const expandDocTypesLocal = (value, fallback = "facture") => {
@@ -1635,7 +1656,7 @@
                 .filter((entry) => entry && entry !== "all");
               if (normalizedList.length) return Array.from(new Set(normalizedList));
               const single = normalizeDocTypeValue(value);
-              if (single === "all") return ["facture", "fa", "bc", "devis", "bl", "avoir"];
+              if (single === "all") return ["facture", "fa", "bc", "be", "bs", "devis", "bl", "avoir"];
               if (single) return [single];
               const normalizedFallback = normalizeDocTypeValue(fallback);
               return normalizedFallback ? [normalizedFallback] : ["facture"];

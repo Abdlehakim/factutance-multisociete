@@ -263,7 +263,7 @@
           prefixOverride: customPrefix || ""
         });
       } else {
-        const prefixMap = { facture: "Fact", fa: "FA", devis: "Dev", bl: "BL", bc: "BC" };
+        const prefixMap = { facture: "Fact", fa: "FA", devis: "Dev", bl: "BL", bc: "BC", be: "BE", bs: "BS" };
         const prefix =
           prefixMap[String(meta.docType || "").toLowerCase()] ||
           String(meta.docType || "DOC").replace(/[^a-z]/gi, "").slice(0, 3).toUpperCase() ||
@@ -768,7 +768,7 @@
         const inputEl = getEl("invNumber");
         if (inputEl && inputEl.value !== st.meta.number) inputEl.value = st.meta.number;
       } else {
-        const prefixMap = { facture: "Fact", fa: "FA", devis: "Dev", bl: "BL", bc: "BC" };
+        const prefixMap = { facture: "Fact", fa: "FA", devis: "Dev", bl: "BL", bc: "BC", be: "BE", bs: "BS" };
         const prefix =
           prefixMap[String(st.meta.docType || "").toLowerCase()] ||
           String(st.meta.docType || "DOC").replace(/[^a-z]/gi, "").slice(0, 3).toUpperCase() ||

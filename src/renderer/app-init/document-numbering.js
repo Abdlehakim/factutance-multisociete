@@ -100,6 +100,8 @@
       facture: "Facture",
       fa: "Facture d'achat",
       bc: "Bon de commande",
+      be: "Bon d'entrée",
+      bs: "Bon de sortie",
       devis: "Devis",
       bl: "Bon de livraison",
       avoir: "Facture d'avoir"
@@ -107,7 +109,7 @@
 
     const MODEL_DOC_TYPE_ALL = "all";
     const MODEL_DOC_TYPE_ALL_LABEL = "Compatible avec tous les types";
-    const MODEL_DOC_TYPE_LIST = ["facture", "fa", "bc", "devis", "bl", "avoir"];
+    const MODEL_DOC_TYPE_LIST = ["facture", "fa", "bc", "be", "bs", "devis", "bl", "avoir"];
     const MODEL_DOC_TYPE_SET = new Set(MODEL_DOC_TYPE_LIST);
     const MODEL_DOC_TYPE_ALIAS_MAP = {
       factureavoir: "avoir",
@@ -115,7 +117,18 @@
       "facture-avoir": "avoir",
       "facture avoir": "avoir",
       "facture d'avoir": "avoir",
-      "facture davoir": "avoir"
+      "facture davoir": "avoir",
+      bonentree: "be",
+      bon_entree: "be",
+      "bon-entree": "be",
+      "bon entree": "be",
+      "bon d'entree": "be",
+      "bon d'entrée": "be",
+      bonsortie: "bs",
+      bon_sortie: "bs",
+      "bon-sortie": "bs",
+      "bon sortie": "bs",
+      "bon de sortie": "bs"
     };
     const DEFAULT_MODEL_DOC_TYPE = "facture";
 
@@ -123,6 +136,8 @@
       facture: "Fact",
       fa: "FA",
       bc: "BC",
+      be: "BE",
+      bs: "BS",
       devis: "Dev",
       bl: "BL",
       avoir: "AV"
@@ -172,7 +187,18 @@
         "facture-avoir": "avoir",
         "facture avoir": "avoir",
         "facture d'avoir": "avoir",
-        "facture davoir": "avoir"
+        "facture davoir": "avoir",
+        bonentree: "be",
+        bon_entree: "be",
+        "bon-entree": "be",
+        "bon entree": "be",
+        "bon d'entree": "be",
+        "bon d'entrée": "be",
+        bonsortie: "bs",
+        bon_sortie: "bs",
+        "bon-sortie": "bs",
+        "bon sortie": "bs",
+        "bon de sortie": "bs"
       };
       const normalized = aliasMap[raw] || raw;
       if (DOC_TYPE_LABELS[normalized]) return normalized;
@@ -253,7 +279,8 @@
 
     const MODEL_DOC_TYPE_SWITCH_FACTURE = "facture";
     const MODEL_DOC_TYPE_SWITCH_PURCHASE_DEFAULT = "fa";
-    const MODEL_DOC_TYPE_SWITCH_PURCHASE_VALUES = new Set(["fa", "bc"]);
+    const MODEL_DOC_TYPE_SWITCH_PURCHASE_VALUES = new Set(["fa", "bc", "be"]);
+    const MODEL_DOC_TYPE_SWITCH_FULLY_EXCLUSIVE_VALUES = new Set(["be", "bs"]);
     const isModelPurchaseDocType = (value) =>
       MODEL_DOC_TYPE_SWITCH_PURCHASE_VALUES.has(String(value || "").trim().toLowerCase());
     const MODEL_DOC_TYPE_OPTION_SELECTOR = "[data-doc-type-option]";
@@ -311,6 +338,7 @@
     ];
     const MODEL_DOC_TYPE_SWITCH_EXCLUSIVE_WITH_FA = new Set([
       MODEL_DOC_TYPE_SWITCH_FACTURE,
+      "bs",
       "avoir",
       "devis",
       "bl"
@@ -328,16 +356,27 @@
     const normalizeModelDocTypeSwitchSelection = (value, preferredSwitchValue = "") => {
       let normalizedList = expandModelDocTypeList(value, getSelectedModelDocTypes());
       if (!normalizedList.length) normalizedList = [DEFAULT_MODEL_DOC_TYPE];
+      const preferredRaw = normalizeDocTypeValue(preferredSwitchValue, "");
+      if (MODEL_DOC_TYPE_SWITCH_FULLY_EXCLUSIVE_VALUES.has(preferredRaw)) {
+        return [preferredRaw];
+      }
+      const exclusiveSelections = normalizedList.filter((entry) =>
+        MODEL_DOC_TYPE_SWITCH_FULLY_EXCLUSIVE_VALUES.has(entry)
+      );
+      if (exclusiveSelections.length) {
+        return [exclusiveSelections[exclusiveSelections.length - 1]];
+      }
 
       const hasPurchaseDocType = normalizedList.some((entry) => isModelPurchaseDocType(entry));
       const hasExclusiveWithPurchase = normalizedList.some(
         (entry) => !isModelPurchaseDocType(entry) && MODEL_DOC_TYPE_SWITCH_EXCLUSIVE_WITH_FA.has(entry)
       );
       if (!hasPurchaseDocType || !hasExclusiveWithPurchase) return normalizedList;
-
-      const preferredRaw = String(preferredSwitchValue || "").trim().toLowerCase();
       if (isModelPurchaseDocType(preferredRaw)) {
-        return [preferredRaw || MODEL_DOC_TYPE_SWITCH_PURCHASE_DEFAULT];
+        const purchaseDocTypes = normalizedList.filter((entry) => isModelPurchaseDocType(entry));
+        return purchaseDocTypes.length
+          ? purchaseDocTypes
+          : [preferredRaw || MODEL_DOC_TYPE_SWITCH_PURCHASE_DEFAULT];
       }
       return normalizedList.filter((entry) => !isModelPurchaseDocType(entry));
     };

@@ -291,7 +291,9 @@
   }
 
   function resolvePreferredItemsModalScopeId() {
-    return resolveItemsModalDocType() === "fa" ? "FournisseurBoxNewDoc" : "clientBoxNewDoc";
+    return ["fa", "bc", "be"].includes(resolveItemsModalDocType())
+      ? "FournisseurBoxNewDoc"
+      : "clientBoxNewDoc";
   }
 
   function resolveClientFormScope(scopeHint) {

@@ -246,11 +246,13 @@
       facture: "Facture",
       fa: "Facture d'achat",
       bc: "Bon de commande",
+      be: "Bon d'entrée",
+      bs: "Bon de sortie",
       avoir: "Facture d'avoir",
       devis: "Devis",
       bl: "Bon de livraison"
     };
-    const PURCHASE_DOC_TYPES = new Set(["fa", "bc"]);
+    const PURCHASE_DOC_TYPES = new Set(["fa", "bc", "be"]);
     const isPurchaseDocType = (value) =>
       PURCHASE_DOC_TYPES.has(String(value || "").trim().toLowerCase());
     const getDocTypeDisplayLabel = (value) => {
@@ -336,7 +338,7 @@
         modelLabel.htmlFor = modelSelect.id;
 
         const seenModels = new Set();
-        const MODEL_DOC_TYPE_LIST = ["facture", "fa", "bc", "devis", "bl", "avoir"];
+        const MODEL_DOC_TYPE_LIST = ["facture", "fa", "bc", "be", "bs", "devis", "bl", "avoir"];
         const normalizeModelDocType = (value, fallback = "") => {
           const normalized = String(value || "").trim().toLowerCase();
           if (!normalized || normalized === "aucun") return fallback;
