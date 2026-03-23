@@ -1660,8 +1660,9 @@ border-collapse: separate;
 
 #modelActionsModal .shipping-flex-row {
   display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 12px;
+  flex-wrap: nowrap;
   align-items: stretch;
 }
 
@@ -1673,31 +1674,82 @@ border-collapse: separate;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  flex: 0 0 auto;
+  width: 100%;
+  min-width: 0;
   background: #edf2f1;
   border: 2px solid var(--success);
   border-radius: 5px;
   padding: 12px;
 }
 
-#modelActionsModal .shipping-flex-group .label-inline {
-  font-weight: 800;
-  color: #0d2d5a;
+#modelActionsModal .shipping-flex-group__header,
+#modelActionsModal .shipping-flex-group__stamp-header {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  color: #0d2d5a;
 }
 
-#modelActionsModal .shipping-flex-group .label-inline .col-toggle {
+#modelActionsModal .shipping-flex-group__header .label-text,
+#modelActionsModal .shipping-flex-group__stamp-header .label-text {
+  font-weight: 800;
+}
+
+#modelActionsModal .shipping-flex-group__header .model-save-dot {
+  font-weight: 800;
+  color: inherit;
+}
+
+#modelActionsModal .shipping-flex-group__footer {
+  padding-top: 6px;
+  border-top: 1px solid rgba(13, 45, 90, 0.12);
+  display: flex;
+  justify-content: flex-start;
+}
+
+#modelActionsModal .shipping-flex-group__toggle-control {
+  display: flex;
+  width: 100%;
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: center;
+  align-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: #0d2d5a;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+}
+
+#modelActionsModal .shipping-flex-group__toggle-control .col-toggle {
   width: 24px;
   height: 24px;
   min-width: 24px;
   min-height: 24px;
+  margin: 0;
   accent-color: #0c2f74;
+  flex: 0 0 auto;
+  align-self: center;
+}
+
+#modelActionsModal .shipping-flex-group__toggle-help {
+  font-size: 10px;
+  line-height: 1.45;
+  color: #475569;
+  font-weight: 500;
+  flex: 0 1 auto;
+  min-width: 0;
+  align-self: center;
 }
 
 #modelActionsModal .shipping-flex-group__fields {
   display: flex;
   gap: 10px;
+}
+
+#modelActionsModal .shipping-flex-group__fields--single label {
+  flex: 1 1 100%;
 }
 
 #modelActionsModal .shipping-flex-group__fields label {
@@ -1707,6 +1759,8 @@ border-collapse: separate;
   flex-direction: column;
   gap: 6px;
   font-size: 10px;
+  flex: 1 1 0;
+  min-width: 0;
 }
 
 #modelActionsModal .shipping-flex-group__fields input:not(.col-toggle) {
@@ -1724,6 +1778,37 @@ border-collapse: separate;
 
 #modelActionsModal .shipping-flex-group .full {
   width: 100%;
+}
+
+#modelActionsModal #modelStepPanel3 #financingBox .shipping-flex-group__header {
+  margin-bottom: 2px;
+}
+
+#modelActionsModal #modelStepPanel3 #financingBox .shipping-flex-group__financing-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+#modelActionsModal #modelStepPanel3 #financingBox .shipping-flex-group__financing-block + .shipping-flex-group__financing-block {
+  padding-top: 10px;
+  border-top: 1px solid rgba(13, 45, 90, 0.12);
+}
+
+#modelActionsModal #modelStepPanel3 #financingBox #finBankFields {
+  padding-top: 0;
+  border-top: 0;
+}
+
+#modelActionsModal #modelStepPanel3 #financingBox .shipping-flex-group__financing-title {
+  font-size: 12px;
+  font-weight: 800;
+  color: #0d2d5a;
+}
+
+#modelActionsModal #modelStepPanel3 #financingBox .shipping-flex-group__fields {
+  margin-top: 0;
 }
 
 #modelActionsModal .model-actions-modal__actions {

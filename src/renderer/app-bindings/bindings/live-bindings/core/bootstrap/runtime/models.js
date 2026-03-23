@@ -1218,6 +1218,11 @@
               el.hidden = !isVisible;
               el.style.display = isVisible ? "" : "none";
             };
+            const setScopedDataFlag = (id, key, value) => {
+              const el = modelActionsModal?.querySelector?.(`#${id}`);
+              if (!el) return;
+              el.dataset[key] = value ? "true" : "false";
+            };
             const setFeesOptionChecked = (id, value) => {
               const input = getEl(id);
               if (!input) return null;
@@ -1248,11 +1253,12 @@
             setChecked("deplacementEnabledModal", false);
             setChecked("stampEnabledModal", false);
             setChecked("whEnabledModal", false);
-            setScopedChecked("subventionEnabled", false);
-            setScopedChecked("finBankEnabled", false);
-            setScopedDisplay("subventionFields", false);
-            setScopedDisplay("finBankFields", false);
-            setScopedDisplay("financingNetRow", false);
+            setScopedChecked("financingAutoApplyModal", false);
+            setScopedDataFlag("financingBox", "subventionAutoApply", true);
+            setScopedDataFlag("financingBox", "bankAutoApply", true);
+            setScopedDisplay("subventionFields", true);
+            setScopedDisplay("finBankFields", true);
+            setScopedDisplay("financingNetRow", true);
             setScopedValue("subventionLabel");
             setScopedValue("subventionAmount", "0");
             setScopedValue("finBankLabel");
@@ -1705,6 +1711,11 @@
               el.hidden = !isVisible;
               el.style.display = isVisible ? "" : "none";
             };
+            const setScopedDataFlag = (id, key, value) => {
+              const el = modelActionsModal?.querySelector?.(`#${id}`);
+              if (!el) return;
+              el.dataset[key] = value ? "true" : "false";
+            };
             const setFeesOptionChecked = (id, value) => {
               const input = modelActionsModal?.querySelector?.(`#${id}`) || getEl(id);
               if (!input) return null;
@@ -1862,15 +1873,23 @@
             const subvention =
               financing.subvention && typeof financing.subvention === "object" ? financing.subvention : {};
             const bank = financing.bank && typeof financing.bank === "object" ? financing.bank : {};
-            setScopedChecked("subventionEnabled", !!subvention.enabled);
+            const financingAutoApply =
+              financing.autoApply === true ||
+              (financing.autoApply !== false && (!!subvention.enabled || !!bank.enabled));
+            const subventionAutoApply =
+              subvention.autoApply === false ? false : (subvention.autoApply === true || !!subvention.enabled);
+            const bankAutoApply =
+              bank.autoApply === false ? false : (bank.autoApply === true || !!bank.enabled);
+            setScopedChecked("financingAutoApplyModal", financingAutoApply);
+            setScopedDataFlag("financingBox", "subventionAutoApply", subventionAutoApply);
+            setScopedDataFlag("financingBox", "bankAutoApply", bankAutoApply);
             setScopedValPlain("subventionLabel", subvention.label ?? "");
             setScopedValPlain("subventionAmount", subvention.amount ?? 0);
-            setScopedDisplay("subventionFields", !!subvention.enabled);
-            setScopedChecked("finBankEnabled", !!bank.enabled);
+            setScopedDisplay("subventionFields", true);
             setScopedValPlain("finBankLabel", bank.label ?? "");
             setScopedValPlain("finBankAmount", bank.amount ?? 0);
-            setScopedDisplay("finBankFields", !!bank.enabled);
-            setScopedDisplay("financingNetRow", !!subvention.enabled || !!bank.enabled);
+            setScopedDisplay("finBankFields", true);
+            setScopedDisplay("financingNetRow", true);
             w.updateModelFinancingNetPreview?.();
 
             const feesOptions = [
@@ -1898,7 +1917,7 @@
                 optionId: "financingOptToggleModal",
                 targetId: "financingBox",
                 checked: resolveFeeOptionUsed(
-                  { used: financing.used, enabled: subvention.enabled || bank.enabled },
+                  { used: financing.used, enabled: financingAutoApply || subvention.enabled || bank.enabled },
                   false
                 )
               }

@@ -76,18 +76,34 @@
       const ensureFinancingState = () => {
         const meta = state().meta || (state().meta = {});
         if (!meta.financing || typeof meta.financing !== "object") {
-          meta.financing = { subvention: { enabled: false, label: "Subvention", amount: 0 }, bank: { enabled: false, label: "Financement bancaire", amount: 0 } };
+          meta.financing = {
+            autoApply: false,
+            subvention: { enabled: false, autoApply: false, label: "Subvention", amount: 0 },
+            bank: { enabled: false, autoApply: false, label: "Financement bancaire", amount: 0 }
+          };
         }
         if (!meta.financing.subvention || typeof meta.financing.subvention !== "object") {
-          meta.financing.subvention = { enabled: false, label: "Subvention", amount: 0 };
+          meta.financing.subvention = { enabled: false, autoApply: false, label: "Subvention", amount: 0 };
         }
         if (!meta.financing.bank || typeof meta.financing.bank !== "object") {
-          meta.financing.bank = { enabled: false, label: "Financement bancaire", amount: 0 };
+          meta.financing.bank = { enabled: false, autoApply: false, label: "Financement bancaire", amount: 0 };
+        }
+        if (typeof meta.financing.subvention.autoApply !== "boolean") {
+          meta.financing.subvention.autoApply = !!meta.financing.subvention.enabled;
+        }
+        if (typeof meta.financing.bank.autoApply !== "boolean") {
+          meta.financing.bank.autoApply = !!meta.financing.bank.enabled;
+        }
+        if (typeof meta.financing.autoApply !== "boolean") {
+          meta.financing.autoApply = !!meta.financing.subvention.enabled || !!meta.financing.bank.enabled;
         }
         meta.financing.used = resolveFeesOptionUsed(
           {
             used: meta.financing.used,
-            enabled: !!meta.financing.subvention?.enabled || !!meta.financing.bank?.enabled
+            enabled:
+              !!meta.financing.autoApply ||
+              !!meta.financing.subvention?.enabled ||
+              !!meta.financing.bank?.enabled
           },
           FEES_OPTIONS_DEFAULTS.financing
         );
@@ -197,6 +213,8 @@
       getEl("subventionEnabled")?.addEventListener("change", () => {
         const financing = ensureFinancingState();
         financing.subvention.enabled = !!getEl("subventionEnabled").checked;
+        financing.subvention.autoApply = financing.subvention.enabled;
+        financing.autoApply = !!financing.subvention.enabled || !!financing.bank?.enabled;
         SEM.toggleSubventionFields(financing.subvention.enabled);
         SEM.computeTotals();
       });
@@ -213,6 +231,8 @@
       getEl("finBankEnabled")?.addEventListener("change", () => {
         const financing = ensureFinancingState();
         financing.bank.enabled = !!getEl("finBankEnabled").checked;
+        financing.bank.autoApply = financing.bank.enabled;
+        financing.autoApply = !!financing.subvention?.enabled || !!financing.bank.enabled;
         SEM.toggleFinBankFields(financing.bank.enabled);
         SEM.computeTotals();
       });
@@ -574,20 +594,46 @@
 
       const modelStepPanel3 = getEl("modelStepPanel3");
       const getModelStep3El = (id) => modelStepPanel3?.querySelector?.(`#${id}`) || null;
-      const modelSubventionEnabledInput = getModelStep3El("subventionEnabled");
+      const modelFinancingBox = getModelStep3El("financingBox");
+      const modelFinancingAutoApplyInput = getModelStep3El("financingAutoApplyModal");
       const modelSubventionLabelInput = getModelStep3El("subventionLabel");
       const modelSubventionAmountInput = getModelStep3El("subventionAmount");
       const modelSubventionFields = getModelStep3El("subventionFields");
-      const modelFinBankEnabledInput = getModelStep3El("finBankEnabled");
       const modelFinBankLabelInput = getModelStep3El("finBankLabel");
       const modelFinBankAmountInput = getModelStep3El("finBankAmount");
       const modelFinBankFields = getModelStep3El("finBankFields");
       const modelFinancingNetRow = getModelStep3El("financingNetRow");
       const modelFinancingNetInput = getModelStep3El("financingNet");
+      const readModelFinancingLineAutoApply = (key, lineKey, fallback = true) => {
+        const datasetValue = normalizeOptionalBool(modelFinancingBox?.dataset?.[key]);
+        if (typeof datasetValue === "boolean") return datasetValue;
+        const financingState = ensureFinancingState();
+        const lineState = financingState?.[lineKey] || {};
+        const normalizedAutoApply = normalizeOptionalBool(lineState?.autoApply);
+        if (typeof normalizedAutoApply === "boolean") return normalizedAutoApply;
+        const normalizedEnabled = normalizeOptionalBool(lineState?.enabled);
+        if (typeof normalizedEnabled === "boolean") return normalizedEnabled;
+        return !!fallback;
+      };
+      const resolveModelFinancingAutoApply = () => {
+        if (modelFinancingAutoApplyInput) return !!modelFinancingAutoApplyInput.checked;
+        const financingState = ensureFinancingState();
+        const normalizedAutoApply = normalizeOptionalBool(financingState?.autoApply);
+        if (typeof normalizedAutoApply === "boolean") return normalizedAutoApply;
+        return (
+          readModelFinancingLineAutoApply("subventionAutoApply", "subvention", true) ||
+          readModelFinancingLineAutoApply("bankAutoApply", "bank", true)
+        );
+      };
       const updateModelFinancingNetPreview = () => {
         if (!modelFinancingNetInput) return;
-        const subEnabled = !!modelSubventionEnabledInput?.checked;
-        const bankEnabled = !!modelFinBankEnabledInput?.checked;
+        const financingAutoApply = resolveModelFinancingAutoApply();
+        const subEnabled =
+          financingAutoApply &&
+          readModelFinancingLineAutoApply("subventionAutoApply", "subvention", true);
+        const bankEnabled =
+          financingAutoApply &&
+          readModelFinancingLineAutoApply("bankAutoApply", "bank", true);
         const subAmount = subEnabled ? parseNumber(modelSubventionAmountInput?.value, 0) : 0;
         const bankAmount = bankEnabled ? parseNumber(modelFinBankAmountInput?.value, 0) : 0;
         const totals = typeof SEM.computeTotalsReturn === "function" ? SEM.computeTotalsReturn() : null;
@@ -597,21 +643,18 @@
         const currency = state()?.meta?.currency || totals?.currency || "DT";
         modelFinancingNetInput.value = formatMoney(net, currency);
         if (modelFinancingNetRow) {
-          const showNet = subEnabled || bankEnabled;
-          modelFinancingNetRow.hidden = !showNet;
-          modelFinancingNetRow.style.display = showNet ? "" : "none";
+          modelFinancingNetRow.hidden = false;
+          modelFinancingNetRow.style.display = "";
         }
       };
       const syncModelFinancingFieldsVisibility = () => {
         if (modelSubventionFields) {
-          const showSubvention = !!modelSubventionEnabledInput?.checked;
-          modelSubventionFields.hidden = !showSubvention;
-          modelSubventionFields.style.display = showSubvention ? "" : "none";
+          modelSubventionFields.hidden = false;
+          modelSubventionFields.style.display = "";
         }
         if (modelFinBankFields) {
-          const showBank = !!modelFinBankEnabledInput?.checked;
-          modelFinBankFields.hidden = !showBank;
-          modelFinBankFields.style.display = showBank ? "" : "none";
+          modelFinBankFields.hidden = false;
+          modelFinBankFields.style.display = "";
         }
       };
       const syncModelFinancingState = ({ schedulePreview = true } = {}) => {
@@ -695,7 +738,10 @@
             config.feeKey === "financing"
               ? {
                   used: financing.used,
-                  enabled: !!financing.subvention?.enabled || !!financing.bank?.enabled
+                  enabled:
+                    !!financing.autoApply ||
+                    !!financing.subvention?.enabled ||
+                    !!financing.bank?.enabled
                 }
               : extras?.[config.feeKey];
           const checked = resolveFeesOptionUsed(
@@ -759,12 +805,12 @@
           handleFeesOptionsToggle(optionInput, { schedulePreview: true })
         );
       });
-      [modelSubventionEnabledInput, modelSubventionLabelInput, modelSubventionAmountInput].forEach((input) => {
+      [modelFinancingAutoApplyInput, modelSubventionLabelInput, modelSubventionAmountInput].forEach((input) => {
         if (!input) return;
         const eventName = input.type === "checkbox" ? "change" : "input";
         input.addEventListener(eventName, () => syncModelFinancingState({ schedulePreview: true }));
       });
-      [modelFinBankEnabledInput, modelFinBankLabelInput, modelFinBankAmountInput].forEach((input) => {
+      [modelFinBankLabelInput, modelFinBankAmountInput].forEach((input) => {
         if (!input) return;
         const eventName = input.type === "checkbox" ? "change" : "input";
         input.addEventListener(eventName, () => syncModelFinancingState({ schedulePreview: true }));

@@ -221,6 +221,20 @@
     return !!fallback;
   };
 
+  const resolveFinancingAutoApplyFlag = (financing = {}, fallback = false) => {
+    const normalizedAutoApply = normalizeOptionalBoolean(financing?.autoApply);
+    if (typeof normalizedAutoApply === "boolean") return normalizedAutoApply;
+    return !!fallback;
+  };
+
+  const resolveFinancingLineAutoApplyFlag = (line = {}, fallback = true) => {
+    const normalizedAutoApply = normalizeOptionalBoolean(line?.autoApply);
+    if (typeof normalizedAutoApply === "boolean") return normalizedAutoApply;
+    const normalizedEnabled = normalizeOptionalBoolean(line?.enabled);
+    if (typeof normalizedEnabled === "boolean") return normalizedEnabled;
+    return !!fallback;
+  };
+
   const resolveDocTypeFilter = (value) =>
     normalizeDocTypeValue(
       value || getEl("docType")?.value || state()?.meta?.docType || "facture",
@@ -1282,19 +1296,25 @@
     const subvention = financing.subvention && typeof financing.subvention === "object" ? financing.subvention : {};
     const bank = financing.bank && typeof financing.bank === "object" ? financing.bank : {};
     const financingEnabledFallback = !!subvention.enabled || !!bank.enabled;
+    const financingAutoApply = resolveFinancingAutoApplyFlag(financing, financingEnabledFallback);
+    const subventionAutoApply = resolveFinancingLineAutoApplyFlag(subvention, true);
+    const bankAutoApply = resolveFinancingLineAutoApplyFlag(bank, true);
     cleaned.financing = {
       used: resolveModelFeeUsed({
         used: financing.used,
-        enabled: financingEnabledFallback,
+        enabled: financingAutoApply || financingEnabledFallback,
         fallback: MODEL_FEES_USED_DEFAULTS.financing
       }),
+      autoApply: financingAutoApply,
       subvention: {
-        enabled: !!subvention.enabled,
+        autoApply: subventionAutoApply,
+        enabled: financingAutoApply && subventionAutoApply,
         label: subvention.label || "",
         amount: toNumber(subvention.amount, 0)
       },
       bank: {
-        enabled: !!bank.enabled,
+        autoApply: bankAutoApply,
+        enabled: financingAutoApply && bankAutoApply,
         label: bank.label || "",
         amount: toNumber(bank.amount, 0)
       }
@@ -1748,23 +1768,57 @@
     };
     const acompte = meta.acompte || {};
     const financing = meta.financing || {};
+    const modelFinancingBox = getModelScopedEl("financingBox");
+    const modelFinancingAutoApplyInput = getModelScopedEl("financingAutoApplyModal");
+    const readModelFinancingDataFlag = (key, fallback = false) => {
+      const datasetValue = normalizeOptionalBoolean(modelFinancingBox?.dataset?.[key]);
+      if (typeof datasetValue === "boolean") return datasetValue;
+      return !!fallback;
+    };
     const subventionInputs = {
-      enabled: getModelScopedEl("subventionEnabled") ?? getEl("subventionEnabled"),
+      enabled: modelFinancingAutoApplyInput ? null : getEl("subventionEnabled"),
       label: getModelScopedEl("subventionLabel") ?? getEl("subventionLabel"),
       amount: getModelScopedEl("subventionAmount") ?? getEl("subventionAmount")
     };
-    const subvention = {
-      enabled: !!subventionInputs.enabled?.checked ?? !!financing.subvention?.enabled,
-      label: readInputText(subventionInputs.label, financing.subvention?.label || ""),
-      amount: readInputNumber(subventionInputs.amount, financing.subvention?.amount ?? 0)
-    };
     const bankInputs = {
-      enabled: getModelScopedEl("finBankEnabled") ?? getEl("finBankEnabled"),
+      enabled: modelFinancingAutoApplyInput ? null : getEl("finBankEnabled"),
       label: getModelScopedEl("finBankLabel") ?? getEl("finBankLabel"),
       amount: getModelScopedEl("finBankAmount") ?? getEl("finBankAmount")
     };
+    const subventionEnabledCurrent = subventionInputs.enabled
+      ? !!subventionInputs.enabled.checked
+      : !!financing.subvention?.enabled;
+    const bankEnabledCurrent = bankInputs.enabled ? !!bankInputs.enabled.checked : !!financing.bank?.enabled;
+    const financingAutoApplyFallback = resolveFinancingAutoApplyFlag(
+      financing,
+      subventionEnabledCurrent || bankEnabledCurrent
+    );
+    const financingAutoApply = modelFinancingAutoApplyInput
+      ? !!modelFinancingAutoApplyInput.checked
+      : financingAutoApplyFallback;
+    const subventionAutoApply = modelFinancingAutoApplyInput
+      ? readModelFinancingDataFlag(
+          "subventionAutoApply",
+          resolveFinancingLineAutoApplyFlag(financing.subvention, true)
+        )
+      : resolveFinancingLineAutoApplyFlag(financing.subvention, subventionEnabledCurrent);
+    const bankAutoApply = modelFinancingAutoApplyInput
+      ? readModelFinancingDataFlag(
+          "bankAutoApply",
+          resolveFinancingLineAutoApplyFlag(financing.bank, true)
+        )
+      : resolveFinancingLineAutoApplyFlag(financing.bank, bankEnabledCurrent);
+    const subvention = {
+      autoApply: subventionAutoApply,
+      enabled: modelFinancingAutoApplyInput
+        ? financingAutoApply && subventionAutoApply
+        : subventionEnabledCurrent,
+      label: readInputText(subventionInputs.label, financing.subvention?.label || ""),
+      amount: readInputNumber(subventionInputs.amount, financing.subvention?.amount ?? 0)
+    };
     const bank = {
-      enabled: !!bankInputs.enabled?.checked ?? !!financing.bank?.enabled,
+      autoApply: bankAutoApply,
+      enabled: modelFinancingAutoApplyInput ? financingAutoApply && bankAutoApply : bankEnabledCurrent,
       label: readInputText(bankInputs.label, financing.bank?.label || ""),
       amount: readInputNumber(bankInputs.amount, financing.bank?.amount ?? 0)
     };
@@ -1773,7 +1827,7 @@
       ? !!financingOptionInput.checked
       : resolveModelFeeUsed({
           used: financing.used,
-          enabled: subvention.enabled || bank.enabled,
+          enabled: financingAutoApply || subvention.enabled || bank.enabled,
           fallback: MODEL_FEES_USED_DEFAULTS.financing
         });
     const shipInputs = {
@@ -1914,12 +1968,15 @@
       },
       financing: {
         used: !!financingUsed,
+        autoApply: !!financingAutoApply,
         subvention: {
+          autoApply: !!subvention.autoApply,
           enabled: !!subvention.enabled,
           label: subvention.label || "",
           amount: toNumber(subvention.amount, 0)
         },
         bank: {
+          autoApply: !!bank.autoApply,
           enabled: !!bank.enabled,
           label: bank.label || "",
           amount: toNumber(bank.amount, 0)
@@ -2283,13 +2340,23 @@
     const setModelFinancingFieldsVisibility = (id, visible) => {
       const field = getModelScopedEl(id);
       if (!field) return;
-      const isVisible = !!visible;
-      field.hidden = !isVisible;
-      field.style.display = isVisible ? "" : "none";
+      field.hidden = false;
+      field.style.display = "";
+    };
+    const setModelScopedDataFlag = (id, key, value) => {
+      const el = getModelScopedEl(id);
+      if (!el) return;
+      el.dataset[key] = value ? "true" : "false";
     };
     if (!itemsSectionOnly && safeConfig.financing && typeof safeConfig.financing === "object") {
       const subvention = safeConfig.financing.subvention || {};
       const bank = safeConfig.financing.bank || {};
+      const financingAutoApply = resolveFinancingAutoApplyFlag(
+        safeConfig.financing,
+        !!subvention.enabled || !!bank.enabled
+      );
+      const subventionAutoApply = resolveFinancingLineAutoApplyFlag(subvention, true);
+      const bankAutoApply = resolveFinancingLineAutoApplyFlag(bank, true);
       setCheckboxValue("subventionEnabled", subvention.enabled);
       setFieldValue("subventionLabel", subvention.label ?? undefined);
       setFieldValue("subventionAmount", subvention.amount ?? undefined);
@@ -2298,11 +2365,12 @@
       setFieldValue("finBankLabel", bank.label ?? undefined);
       setFieldValue("finBankAmount", bank.amount ?? undefined);
       SEM.toggleFinBankFields?.(!!bank.enabled);
-      setModelScopedCheckboxValue("subventionEnabled", !!subvention.enabled);
+      setModelScopedCheckboxValue("financingAutoApplyModal", financingAutoApply);
+      setModelScopedDataFlag("financingBox", "subventionAutoApply", subventionAutoApply);
+      setModelScopedDataFlag("financingBox", "bankAutoApply", bankAutoApply);
       setModelScopedFieldValue("subventionLabel", subvention.label ?? undefined);
       setModelScopedFieldValue("subventionAmount", subvention.amount ?? undefined);
       setModelFinancingFieldsVisibility("subventionFields", !!subvention.enabled);
-      setModelScopedCheckboxValue("finBankEnabled", !!bank.enabled);
       setModelScopedFieldValue("finBankLabel", bank.label ?? undefined);
       setModelScopedFieldValue("finBankAmount", bank.amount ?? undefined);
       setModelFinancingFieldsVisibility("finBankFields", !!bank.enabled);
@@ -2310,6 +2378,17 @@
       if (st?.meta) {
         if (!st.meta.financing || typeof st.meta.financing !== "object") st.meta.financing = {};
         st.meta.financing.used = safeConfig.financing.used === true;
+        st.meta.financing.autoApply = financingAutoApply;
+        if (!st.meta.financing.subvention || typeof st.meta.financing.subvention !== "object") {
+          st.meta.financing.subvention = {};
+        }
+        if (!st.meta.financing.bank || typeof st.meta.financing.bank !== "object") {
+          st.meta.financing.bank = {};
+        }
+        st.meta.financing.subvention.autoApply = subventionAutoApply;
+        st.meta.financing.subvention.enabled = !!subvention.enabled;
+        st.meta.financing.bank.autoApply = bankAutoApply;
+        st.meta.financing.bank.enabled = !!bank.enabled;
       }
     }
 

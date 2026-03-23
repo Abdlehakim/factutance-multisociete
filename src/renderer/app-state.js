@@ -901,11 +901,18 @@
     const subvention = financing.subvention || (financing.subvention = {});
     const bank = financing.bank || (financing.bank = {});
     subvention.enabled = !!getEl("subventionEnabled")?.checked;
+    subvention.autoApply =
+      typeof subvention.autoApply === "boolean" ? subvention.autoApply : subvention.enabled;
     subvention.label   = getStr("subventionLabel", subvention.label || "Subvention");
     subvention.amount  = getNum("subventionAmount", subvention.amount ?? 0);
     bank.enabled = !!getEl("finBankEnabled")?.checked;
+    bank.autoApply = typeof bank.autoApply === "boolean" ? bank.autoApply : bank.enabled;
     bank.label   = getStr("finBankLabel", bank.label || "Financement bancaire");
     bank.amount  = getNum("finBankAmount", bank.amount ?? 0);
+    financing.autoApply =
+      typeof financing.autoApply === "boolean"
+        ? financing.autoApply
+        : (subvention.enabled || bank.enabled);
 
     const ex = st.meta.extras || (st.meta.extras = { shipping:{}, stamp:{}, dossier:{}, deplacement:{} });
     const s  = ex.shipping || (ex.shipping = {});

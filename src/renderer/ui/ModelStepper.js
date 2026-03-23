@@ -600,11 +600,8 @@ export const ModelStepper = `
                       </label>
                       <div class="shipping-flex-row">
                         <div class="shipping-flex-group">
-                          <div class="full">
-                            <div class="label-inline">
-                              <span class="label-text">Ajouter les frais de livraison</span>
-                              <input id="shipEnabledModal" type="checkbox" class="col-toggle" aria-label="Ajouter les frais de livraison" />
-                            </div>
+                          <div class="full shipping-flex-group__header">
+                            <span class="label-text">Ajouter les frais de livraison</span>
                           </div>
 
                           <div id="shipFieldsModal" class="full shipping-flex-group__fields">
@@ -619,14 +616,20 @@ export const ModelStepper = `
                               <input id="shipLabelModal" placeholder="Frais de livraison" />
                             </label>
                           </div>
+
+                          <div class="full shipping-flex-group__footer">
+                            <label class="shipping-flex-group__toggle-control" for="shipEnabledModal">
+                              <input id="shipEnabledModal" type="checkbox" class="col-toggle" aria-label="Ajouter les frais de livraison" />
+                              <span class="shipping-flex-group__toggle-help">
+                                Cochez cette case pour ajouter cette valeur automatiquement lors de la création d’un document.
+                              </span>
+                            </label>
+                          </div>
                         </div>    
 
                         <div class="shipping-flex-group">
-                          <div class="full">
-                            <div class="label-inline">
-                              <span class="label-text">Ajouter timbre fiscal</span>
-                              <input id="stampEnabledModal" type="checkbox" class="col-toggle" aria-label="Ajouter timbre fiscal" />
-                            </div>
+                          <div class="full shipping-flex-group__header">
+                            <span class="label-text">Ajouter timbre fiscal</span>
                           </div>
 
                           <div id="stampFieldsModal" class="full shipping-flex-group__fields">
@@ -638,14 +641,20 @@ export const ModelStepper = `
                               <input id="stampLabelModal" placeholder="Timbre fiscal" />
                             </label>
                           </div>
+
+                          <div class="full shipping-flex-group__footer">
+                            <label class="shipping-flex-group__toggle-control" for="stampEnabledModal">
+                              <input id="stampEnabledModal" type="checkbox" class="col-toggle" aria-label="Ajouter timbre fiscal" />
+                              <span class="shipping-flex-group__toggle-help">
+                                Cochez cette case pour ajouter cette valeur automatiquement lors de la création d’un document.
+                              </span>
+                            </label>
+                          </div>
                         </div>
 
                         <div class="shipping-flex-group">
-                          <div class="full">
-                            <div class="label-inline">
-                              <span class="label-text">Ajouter les frais du dossier</span>
-                              <input id="dossierEnabledModal" type="checkbox" class="col-toggle" aria-label="Ajouter les frais du dossier" />
-                            </div>
+                          <div class="full shipping-flex-group__header">
+                            <span class="label-text">Ajouter les frais du dossier</span>
                           </div>
 
                           <div id="dossierFieldsModal" class="full shipping-flex-group__fields">
@@ -660,14 +669,20 @@ export const ModelStepper = `
                               <input id="dossierLabelModal" placeholder="Frais du dossier" />
                             </label>
                           </div>
+
+                          <div class="full shipping-flex-group__footer">
+                            <label class="shipping-flex-group__toggle-control" for="dossierEnabledModal">
+                              <input id="dossierEnabledModal" type="checkbox" class="col-toggle" aria-label="Ajouter les frais du dossier" />
+                              <span class="shipping-flex-group__toggle-help">
+                                Cochez cette case pour ajouter cette valeur automatiquement lors de la création d’un document.
+                              </span>
+                            </label>
+                          </div>
                         </div>
 
                         <div class="shipping-flex-group">
-                          <div class="full">
-                            <div class="label-inline">
-                              <span class="label-text">Ajouter les frais de deplacement</span>
-                              <input id="deplacementEnabledModal" type="checkbox" class="col-toggle" aria-label="Ajouter les frais de deplacement" />
-                            </div>
+                          <div class="full shipping-flex-group__header">
+                            <span class="label-text">Ajouter les frais de deplacement</span>
                           </div>
 
                           <div id="deplacementFieldsModal" class="full shipping-flex-group__fields">
@@ -682,41 +697,67 @@ export const ModelStepper = `
                               <input id="deplacementLabelModal" placeholder="Frais de deplacement" />
                             </label>
                           </div>
+
+                          <div class="full shipping-flex-group__footer">
+                            <label class="shipping-flex-group__toggle-control" for="deplacementEnabledModal">
+                              <input id="deplacementEnabledModal" type="checkbox" class="col-toggle" aria-label="Ajouter les frais de deplacement" />
+                              <span class="shipping-flex-group__toggle-help">
+                                Cochez cette case pour ajouter cette valeur automatiquement lors de la création d’un document.
+                              </span>
+                            </label>
+                          </div>
                         </div>
 
                       </div>
 
-                      <fieldset class="section-box" id="financingBox" hidden style="display:none;">
-                        <legend><span class="model-save-dot">Source de financement</span></legend>
+                      <div
+                        class="shipping-flex-group shipping-flex-group--financing-card"
+                        id="financingBox"
+                        role="group"
+                        aria-labelledby="financingBoxTitle"
+                        hidden
+                        style="display:none;"
+                      >
+                        <div class="full shipping-flex-group__header">
+                          <span id="financingBoxTitle" class="model-save-dot">Source de financement</span>
+                        </div>
 
-                        <div class="full" style="margin-top:0.5rem">
-                          <div class="label-inline">
-                            <span class="label-text">Subvention</span>
-                            <input id="subventionEnabled" type="checkbox" class="col-toggle" aria-label="Subvention" />
+                        <div id="subventionFields" class="full shipping-flex-group__financing-block">
+                          <span class="shipping-flex-group__financing-title">Subvention</span>
+                          <div class="shipping-flex-group__fields">
+                            <label>Libelle <input id="subventionLabel" placeholder="ANME" /></label>
+                            <label>Montant <input id="subventionAmount" type="number" min="0" step="0.01" value="0" /></label>
                           </div>
                         </div>
 
-                        <div id="subventionFields" class="full grid two" style="display:none;">
-                          <label>Libelle <input id="subventionLabel" placeholder="ANME" /></label>
-                          <label>Montant <input id="subventionAmount" type="number" min="0" step="0.01" value="0" /></label>
-                        </div>
-
-                        <div class="full" style="margin-top:0.5rem">
-                          <div class="label-inline">
-                            <span class="label-text">Financement bancaire</span>
-                            <input id="finBankEnabled" type="checkbox" class="col-toggle" aria-label="Financement bancaire" />
+                        <div id="finBankFields" class="full shipping-flex-group__financing-block">
+                          <span class="shipping-flex-group__financing-title">Financement bancaire</span>
+                          <div class="shipping-flex-group__fields">
+                            <label>Libelle <input id="finBankLabel" placeholder="Bank Zitouna" /></label>
+                            <label>Montant <input id="finBankAmount" type="number" min="0" step="0.01" value="0" /></label>
                           </div>
                         </div>
 
-                        <div id="finBankFields" class="full grid two" style="display:none;">
-                          <label>Libelle <input id="finBankLabel" placeholder="Bank Zitouna" /></label>
-                          <label>Montant <input id="finBankAmount" type="number" min="0" step="0.01" value="0" /></label>
+                        <div id="financingNetRow" class="full shipping-flex-group__financing-block">
+                          <div class="shipping-flex-group__fields shipping-flex-group__fields--single">
+                            <label>Montant net a payer <input id="financingNet" readonly /></label>
+                          </div>
                         </div>
 
-                        <div id="financingNetRow" class="full" style="display:none;">
-                          <label>Montant net a payer <input id="financingNet" readonly /></label>
+                        <div class="full shipping-flex-group__footer">
+                          <label class="shipping-flex-group__toggle-control" for="financingAutoApplyModal">
+                            <input
+                              id="financingAutoApplyModal"
+                              type="checkbox"
+                              class="col-toggle"
+                              aria-label="Ajouter automatiquement la source de financement"
+                            />
+                            <span class="shipping-flex-group__toggle-help">
+                              Cochez cette case pour ajouter cette valeur automatiquement lors de la création d’un document.
+                            </span>
+                          </label>
                         </div>
-                      </fieldset>
+                      </div>
                     </div>
 
                     <div
