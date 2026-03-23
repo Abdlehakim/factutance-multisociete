@@ -453,6 +453,25 @@ background: #f3f8ff;
   font-size: 14px;
 }
 
+#modelActionsModal #modelActionsPreview .doc-design1__be-context {
+  display: grid;
+  gap: 10px;
+}
+
+#modelActionsModal #modelActionsPreview .doc-design1__be-section {
+  padding-top: 18px;
+}
+
+#modelActionsModal #modelActionsPreview .doc-design1__be-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 16px;
+}
+
+#modelActionsModal #modelActionsPreview .doc-design1__be-grid-span {
+  grid-column: 1 / -1;
+}
+
 #modelActionsModal #modelActionsPreview .doc-design1__table-wrap {
   margin-top: 0;
   border-radius: 5px;
@@ -569,6 +588,55 @@ background: #f3f8ff;
   min-height: var(--footer-h);
   flex: 0 0 auto;
   justify-content: flex-end;
+}
+
+#modelActionsModal #modelActionsPreview .doc-design1__be-bottom {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+#modelActionsModal #modelActionsPreview .doc-design1__be-remarks-body {
+  min-height: 54px;
+  font-size: 12px;
+  line-height: 1.4;
+  font-weight: 500;
+  word-break: break-word;
+}
+
+#modelActionsModal #modelActionsPreview .doc-design1__be-approvals {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+#modelActionsModal #modelActionsPreview .doc-design1__be-approval {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 78px;
+  justify-content: flex-end;
+}
+
+#modelActionsModal #modelActionsPreview .doc-design1__be-approval-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--items-head-bg, var(--primary, #15335e));
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+#modelActionsModal #modelActionsPreview .doc-design1__be-approval-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: #111827;
+}
+
+#modelActionsModal #modelActionsPreview .doc-design1__be-approval-line {
+  display: block;
+  border-top: 1px solid #0f172a;
+  min-height: 1px;
+  margin-top: 10px;
 }
 
 #modelActionsModal #modelActionsPreview .doc-design1__summary-row {
@@ -869,6 +937,33 @@ border-collapse: separate;
   transform-origin: center;
 }
 
+#modelActionsModal #modelActionsPreview.doc-design1--be .doc-design1__table-wrap {
+  border-width: 1px;
+}
+
+#modelActionsModal #modelActionsPreview.doc-design1--be .doc-design1__table thead th {
+  white-space: normal;
+  line-height: 1.2;
+}
+
+#modelActionsModal #modelActionsPreview.doc-design1--be .doc-design1__table tbody tr td {
+  line-height: 1.35;
+}
+
+#modelActionsModal #modelActionsPreview.doc-design1--be .doc-design1__bottom {
+  gap: 12px;
+}
+
+#modelActionsModal #modelActionsPreview.doc-design1--be .doc-design1__summary-row,
+#modelActionsModal #modelActionsPreview.doc-design1--be .doc-design1__footer {
+  display: none;
+}
+
+#modelActionsModal #modelActionsPreview.doc-design1--be .doc-design1__be-context[hidden],
+#modelActionsModal #modelActionsPreview.doc-design1--be .doc-design1__be-bottom[hidden] {
+  display: none;
+}
+
 #modelActionsModal
   .model-actions-layout__preview[data-template-key="template2"]
   #modelActionsPreview
@@ -1104,6 +1199,13 @@ border-collapse: separate;
   #modelActionsPreview
   .doc-design1__section::before {
   border: 1px solid var(--items-head-bg, var(--primary, #15335e));
+}
+
+#modelActionsModal
+  .model-actions-layout__preview[data-template-key="template2"]
+  #modelActionsPreview
+  .doc-design1__be-approval-line {
+  border-top-color: var(--items-head-bg, var(--primary, #15335e));
 }
 
 #modelActionsModal .model-stepper-shell.is-collapsed {
@@ -1537,6 +1639,21 @@ border-collapse: separate;
   border-top: 1px solid #e6ebf5;
 }
 
+#modelActionsModal .model-field-toggles .field-toggle-section.is-disabled,
+#itemsDocOptionsModal .model-field-toggles .field-toggle-section.is-disabled {
+  opacity: 1;
+}
+
+#modelActionsModal .model-field-toggles .field-toggle-section.is-disabled .field-toggle-section__title,
+#itemsDocOptionsModal .model-field-toggles .field-toggle-section.is-disabled .field-toggle-section__title {
+  color: #334155;
+}
+
+#modelActionsModal .model-field-toggles .field-toggle-section.is-disabled .field-toggle-section__grid,
+#itemsDocOptionsModal .model-field-toggles .field-toggle-section.is-disabled .field-toggle-section__grid {
+  opacity: 0.72;
+}
+
 #modelActionsModal .model-field-toggles .field-toggle-section__title,
 #itemsDocOptionsModal .model-field-toggles .field-toggle-section__title {
   font-size: 11px;
@@ -1549,6 +1666,15 @@ border-collapse: separate;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 8px;
+}
+
+#modelActionsModal .model-field-toggles .field-toggle-section__subsection,
+#itemsDocOptionsModal .model-field-toggles .field-toggle-section__subsection {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px dashed #e6ebf5;
 }
 
 #modelActionsModal #pdfOptionsBoxModal .model-field-toggles .field-toggle-panel,

@@ -92,6 +92,16 @@
             if (MODEL_DOC_TYPE_STOCK_EXCLUSIVE_VALUES.has(preferred)) {
               return [preferred];
             }
+            if (
+              preferred &&
+              normalizedList.includes(preferred) &&
+              normalizedList.some((entry) => MODEL_DOC_TYPE_STOCK_EXCLUSIVE_VALUES.has(entry))
+            ) {
+              normalizedList = normalizedList.filter(
+                (entry) => !MODEL_DOC_TYPE_STOCK_EXCLUSIVE_VALUES.has(entry)
+              );
+              if (!normalizedList.length) normalizedList = [preferred];
+            }
             const exclusiveSelections = normalizedList.filter((entry) =>
               MODEL_DOC_TYPE_STOCK_EXCLUSIVE_VALUES.has(entry)
             );
@@ -517,6 +527,42 @@
               const text = typeof value === "string" ? value.trim() : "";
               el.textContent = text || fallback;
             };
+            const setHtmlWithFallback = (id, value) => {
+              const el = getEl(id);
+              if (!el) return "";
+              const fallback = el.dataset?.default || el.innerHTML || "";
+              const html = typeof value === "string" ? value.trim() : "";
+              el.innerHTML = html || fallback;
+              return html || fallback;
+            };
+            const setNodeVisibility = (node, visible) => {
+              if (!node) return;
+              const show = !!visible;
+              node.hidden = !show;
+              node.style.display = show ? "" : "none";
+              node.setAttribute("aria-hidden", show ? "false" : "true");
+            };
+            const formatPreviewDateValue = (rawValue, fallback = "") => {
+              const raw = String(rawValue || "").trim();
+              if (!raw) return String(fallback || "").trim();
+              return raw;
+            };
+            const syncPreviewTableColumns = (visibilityMap = {}) => {
+              const columnKeyMap = {
+                totalTtc: "ttc"
+              };
+              Object.entries(visibilityMap).forEach(([key, visible]) => {
+                const columnKey = columnKeyMap[key] || key;
+                previewRoot
+                  .querySelectorAll(`.doc-design1__table [data-col="${columnKey}"]`)
+                  .forEach((cell) => {
+                    const show = visible !== false;
+                    cell.hidden = !show;
+                    cell.style.display = show ? "" : "none";
+                    cell.setAttribute("aria-hidden", show ? "false" : "true");
+                  });
+              });
+            };
             const checkedValue = (container) => {
               const input = container?.querySelector("input:checked");
               return input?.value || "";
@@ -538,6 +584,7 @@
             const selectedModelDocTypes = getSelectedModelDocTypes();
             const hasDocTypes = Array.isArray(selectedModelDocTypes) && selectedModelDocTypes.length > 0;
             const effectiveDocType = selectedModelDocTypes[0] || "facture";
+            const isBonEntreePreview = effectiveDocType === "be";
             const isPurchaseDocType = selectedModelDocTypes.some((docType) => isModelPurchaseDocType(docType));
             const usesManualModelNumbering =
               !!selectedModelDocTypes.length &&
@@ -574,10 +621,17 @@
             const showSeal = getEl("pdfShowSealModal")?.checked ?? (pdfOptions.showSeal !== false);
             const showSignature = getEl("pdfShowSignatureModal")?.checked ?? (pdfOptions.showSignature !== false);
             const showAmountWords = getEl("pdfShowAmountWordsModal")?.checked ?? (pdfOptions.showAmountWords !== false);
+            const previewDateValue = formatPreviewDateValue(
+              state()?.meta?.date,
+              getEl("modelPreviewDate")?.dataset?.default || getEl("modelPreviewDate")?.textContent || ""
+            );
+            setTextWithFallback("modelPreviewDate", previewDateValue);
 
             if (modelPreviewDoc) {
               modelPreviewDoc.textContent = DOC_TYPE_LABELS[effectiveDocType] || effectiveDocType || "N/A";
             }
+            previewRoot.dataset.previewDocType = effectiveDocType;
+            previewRoot.classList.toggle("doc-design1--be", isBonEntreePreview);
             const previewPartyLegend =
               previewRoot.querySelector('[data-model-preview-party-legend]') ||
               previewRoot.querySelector(".doc-design1__section > .doc-design1__section-title");
@@ -675,11 +729,13 @@
             }
             const amountWordsContainer = previewRoot.querySelector(".doc-design1__amount-words");
             if (amountWordsContainer) {
-              amountWordsContainer.hidden = !showAmountWords;
-              amountWordsContainer.style.display = showAmountWords ? "" : "none";
+              const showAmountWordsBlock = showAmountWords && !isBonEntreePreview;
+              amountWordsContainer.hidden = !showAmountWordsBlock;
+              amountWordsContainer.style.display = showAmountWordsBlock ? "" : "none";
             }
             const noteContainer = previewRoot.querySelector("#modelPreviewNote");
             const noteValue = (getEl("whNoteModal")?.value || "").trim();
+            let noteHtmlForPreview = "";
             if (noteContainer) {
               if (!noteContainer.dataset.defaultNote) {
                 noteContainer.dataset.defaultNote = noteContainer.innerHTML || "";
@@ -688,9 +744,14 @@
               const hasNote = !!stripHtml(noteValue);
               const fallback = modelNotePlaceholderEnabled ? (noteContainer.dataset.defaultNote || "") : "";
               const html = hasNote ? noteValue : fallback;
+              noteHtmlForPreview = html;
               noteContainer.innerHTML = html;
               noteContainer.hidden = !html;
               noteContainer.style.display = html ? "" : "none";
+            }
+            const beRemarksEl = previewRoot.querySelector("#modelPreviewBeRemarks");
+            if (beRemarksEl) {
+              setHtmlWithFallback("modelPreviewBeRemarks", noteHtmlForPreview);
             }
             const footerNoteEl = previewRoot.querySelector("#modelPreviewFooterNote");
             if (footerNoteEl) {
@@ -702,8 +763,9 @@
                 !!sanitizedFooterNote.replace(/<[^>]+>/g, "").replace(/&nbsp;|\u00a0/g, " ").trim();
               footerNoteEl.innerHTML = sanitizedFooterNote;
               footerNoteEl.style.fontSize = `${footerNoteSize}px`;
-              footerNoteEl.hidden = !hasFooterNote;
-              footerNoteEl.style.display = hasFooterNote ? "" : "none";
+              const showFooterNote = hasFooterNote && !isBonEntreePreview;
+              footerNoteEl.hidden = !showFooterNote;
+              footerNoteEl.style.display = showFooterNote ? "" : "none";
             }
             const logoEl = getEl("modelPreviewLogo");
             const companyLogoSrc = state()?.company?.logo || getEl("companyLogo")?.getAttribute("src") || "";
@@ -740,7 +802,7 @@
             const signatureImg = previewRoot.querySelector("#modelPreviewSignatureImg");
             const signatureSrc = company?.signature?.image || "";
             if (signatureOverlay && signatureImg) {
-              if (showSignature && signatureSrc) {
+              if (!isBonEntreePreview && showSignature && signatureSrc) {
                 if (signatureImg.getAttribute("src") !== signatureSrc) signatureImg.setAttribute("src", signatureSrc);
                 const rotation = Number(company?.signature?.rotateDeg);
                 signatureImg.style.transform = Number.isFinite(rotation) ? `rotate(${rotation}deg)` : "";
@@ -900,6 +962,27 @@
               totalPurchaseTtc: isColumnChecked("totalPurchaseTtc") && purchasePriceVis && taxesEnabled,
               totalTtc: isColumnChecked("totalTtc") && priceVis && taxesEnabled
             };
+            const beContextVisibility = {
+              beDepot: isColumnChecked("beDepot"),
+              beDestination: isColumnChecked("beDestination"),
+              beReceptionDate: isColumnChecked("beReceptionDate"),
+              beReceptionTime: isColumnChecked("beReceptionTime"),
+              beSourceRef: isColumnChecked("beSourceRef")
+            };
+            if (isBonEntreePreview) {
+              visibility.purchasePrice = false;
+              visibility.purchaseTva = false;
+              visibility.purchaseDiscount = false;
+              visibility.price = false;
+              visibility.fodecSale = false;
+              visibility.fodecPurchase = false;
+              visibility.tva = false;
+              visibility.discount = false;
+              visibility.totalPurchaseHt = false;
+              visibility.totalHt = false;
+              visibility.totalPurchaseTtc = false;
+              visibility.totalTtc = false;
+            }
             const classMap = {
               ref: "hide-col-ref",
               product: "hide-col-product",
@@ -924,6 +1007,7 @@
               previewRoot.classList.toggle(cls, !visible);
             });
             previewRoot.classList.remove("hide-col-fodec");
+            syncPreviewTableColumns(visibility);
             // Mini summary totals depend on selected document type, not table column toggles.
             const miniRowVisibility = {
               totalHt: !isPurchaseDocType,
@@ -938,9 +1022,41 @@
 
             const miniSummary = previewRoot.querySelector(".doc-design1__mini-sum");
             if (miniSummary) {
-              const hasVisibleMiniRow = Object.values(miniRowVisibility).some(Boolean);
+              const hasVisibleMiniRow = !isBonEntreePreview && Object.values(miniRowVisibility).some(Boolean);
               miniSummary.hidden = !hasVisibleMiniRow;
               miniSummary.style.display = hasVisibleMiniRow ? "" : "none";
+            }
+            const taxPanel = previewRoot.querySelector("[data-tax-panel]");
+            setNodeVisibility(taxPanel, !isBonEntreePreview);
+            const invoiceSummary = previewRoot.querySelector("#modelPreviewInvoiceSummary");
+            setNodeVisibility(invoiceSummary, !isBonEntreePreview);
+            const invoiceFooter = previewRoot.querySelector("#modelPreviewInvoiceFooter");
+            setNodeVisibility(invoiceFooter, !isBonEntreePreview);
+            const beContext = previewRoot.querySelector("#modelPreviewBeContext");
+            const beFieldRows = {
+              beDepot: previewRoot.querySelector("#modelPreviewBeDepotRow"),
+              beDestination: previewRoot.querySelector("#modelPreviewBeDestinationRow"),
+              beReceptionDate: previewRoot.querySelector("#modelPreviewBeReceptionDateRow"),
+              beReceptionTime: previewRoot.querySelector("#modelPreviewBeReceptionTimeRow"),
+              beSourceRef: previewRoot.querySelector("#modelPreviewBeSourceRefRow")
+            };
+            Object.entries(beFieldRows).forEach(([key, node]) => {
+              setNodeVisibility(node, isBonEntreePreview && beContextVisibility[key] === true);
+            });
+            const hasVisibleBeContextField =
+              isBonEntreePreview && Object.values(beContextVisibility).some((visible) => visible === true);
+            setNodeVisibility(beContext, hasVisibleBeContextField);
+            const beBottom = previewRoot.querySelector("#modelPreviewBeBottom");
+            setNodeVisibility(beBottom, isBonEntreePreview);
+            if (isBonEntreePreview) {
+              setTextWithFallback("modelPreviewBeDepot", "");
+              setTextWithFallback("modelPreviewBeDestination", "");
+              setTextWithFallback("modelPreviewBeReceptionDate", previewDateValue);
+              setTextWithFallback("modelPreviewBeReceptionTime", "");
+              setTextWithFallback("modelPreviewBeSourceRef", "");
+              setTextWithFallback("modelPreviewBeReceivedBy", "");
+              setTextWithFallback("modelPreviewBeControlledBy", "");
+              setTextWithFallback("modelPreviewBeValidatedBy", "");
             }
           };
           helpers.updateModelPreview = updateModelPreview;
@@ -966,6 +1082,11 @@
             desc: false,
             qty: true,
             unit: true,
+            beDepot: true,
+            beDestination: true,
+            beReceptionDate: true,
+            beReceptionTime: true,
+            beSourceRef: true,
             purchasePrice: false,
             purchaseTva: false,
             purchaseDiscount: false,

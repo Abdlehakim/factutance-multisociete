@@ -158,6 +158,14 @@
     if (MODEL_DOC_TYPE_STOCK_EXCLUSIVE_SET.has(preferred)) {
       return [preferred];
     }
+    if (
+      preferred &&
+      normalizedList.includes(preferred) &&
+      normalizedList.some((entry) => MODEL_DOC_TYPE_STOCK_EXCLUSIVE_SET.has(entry))
+    ) {
+      normalizedList = normalizedList.filter((entry) => !MODEL_DOC_TYPE_STOCK_EXCLUSIVE_SET.has(entry));
+      if (!normalizedList.length) normalizedList = [preferred];
+    }
     const exclusiveSelections = normalizedList.filter((entry) =>
       MODEL_DOC_TYPE_STOCK_EXCLUSIVE_SET.has(entry)
     );
@@ -938,6 +946,11 @@
     desc: false,
     qty: true,
     unit: true,
+    beDepot: true,
+    beDestination: true,
+    beReceptionDate: true,
+    beReceptionTime: true,
+    beSourceRef: true,
     discount: true,
     price: true,
     tva: true,

@@ -474,7 +474,7 @@ export const ModelStepper = `
                                 </div>
                               </div>
 
-                              <div class="field-toggle-section">
+                              <div class="field-toggle-section" id="modelAchatSection">
                                 <div class="field-toggle-section__title">Achat</div>
                                 <div class="field-toggle-section__grid">
                                   <label class="toggle-option">
@@ -539,6 +539,72 @@ export const ModelStepper = `
                                       aria-label="Masquer Total A. TTC"
                                     />
                                     <span class="model-save-dot">Total A. TTC</span>
+                                  </label>
+                                </div>
+                              </div>
+
+                              <div class="field-toggle-section" id="modelBeReceptionSection">
+                                <div class="field-toggle-section__title">Informations de r&eacute;ception</div>
+                                <div class="field-toggle-section__grid">
+                                  <label class="toggle-option">
+                                    <input
+                                      id="colToggleBeDepotModal"
+                                      data-column-key="beDepot"
+                                      type="checkbox"
+                                      class="col-toggle"
+                                      aria-label="Masquer champ Depot ou magasin"
+                                      aria-checked="true"
+                                      checked
+                                    />
+                                    <span class="model-save-dot">D&eacute;p&ocirc;t / Magasin</span>
+                                  </label>
+                                  <label class="toggle-option">
+                                    <input
+                                      id="colToggleBeDestinationModal"
+                                      data-column-key="beDestination"
+                                      type="checkbox"
+                                      class="col-toggle"
+                                      aria-label="Masquer champ Emplacement de destination"
+                                      aria-checked="true"
+                                      checked
+                                    />
+                                    <span class="model-save-dot">Emplacement de destination</span>
+                                  </label>
+                                  <label class="toggle-option">
+                                    <input
+                                      id="colToggleBeReceptionDateModal"
+                                      data-column-key="beReceptionDate"
+                                      type="checkbox"
+                                      class="col-toggle"
+                                      aria-label="Masquer champ Date de reception"
+                                      aria-checked="true"
+                                      checked
+                                    />
+                                    <span class="model-save-dot">Date de r&eacute;ception</span>
+                                  </label>
+                                  <label class="toggle-option">
+                                    <input
+                                      id="colToggleBeReceptionTimeModal"
+                                      data-column-key="beReceptionTime"
+                                      type="checkbox"
+                                      class="col-toggle"
+                                      aria-label="Masquer champ Heure"
+                                      aria-checked="true"
+                                      checked
+                                    />
+                                    <span class="model-save-dot">Heure</span>
+                                  </label>
+                                  <label class="toggle-option">
+                                    <input
+                                      id="colToggleBeSourceRefModal"
+                                      data-column-key="beSourceRef"
+                                      type="checkbox"
+                                      class="col-toggle"
+                                      aria-label="Masquer champ Reference source"
+                                      aria-checked="true"
+                                      checked
+                                    />
+                                    <span class="model-save-dot">R&eacute;f&eacute;rence source</span>
                                   </label>
                                 </div>
                               </div>

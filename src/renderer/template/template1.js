@@ -85,6 +85,18 @@ const DOC_DESIGN1_DATA = {
   ],
 };
 
+const DOC_DESIGN1_BE_DATA = {
+  depot: "Magasin Central",
+  destination: "Zone de reception / Rack A1",
+  receptionTime: "09:30",
+  sourceRef: "N\u00b0 Bon de commande : BC_25-12-3",
+  receivedBy: "Magasinier principal",
+  controlledBy: "Responsable qualit\u00e9",
+  validatedBy: "Responsable stock",
+  remarksHtml:
+    "Reception conforme au bon de commande.<br/>Verifier l'etat des emballages et enregistrer les lots si necessaire."
+};
+
 const DOC_DESIGN1_ITEMS_HTML = DOC_DESIGN1_DATA.items
   .map(
     ({
@@ -270,6 +282,33 @@ export const template1 = `
                     <p class="doc-design1__meta-line doc-design1__meta-line--wrap"><span class="doc-design1__meta-label">Adresse&nbsp;:</span><span class="doc-design1__meta-value">${DOC_DESIGN1_DATA.client.address}</span></p>
                   </fieldset>
                 </div>
+                <div class="doc-design1__be-context" id="modelPreviewBeContext" hidden>
+                  <fieldset class="doc-design1__section doc-design1__be-section">
+                    <legend>Informations de r&eacute;ception</legend>
+                    <div class="doc-design1__be-grid">
+                      <p class="doc-design1__meta-line" id="modelPreviewBeDepotRow">
+                        <span class="doc-design1__meta-label">D&eacute;p&ocirc;t / Magasin&nbsp;:</span>
+                        <span class="doc-design1__meta-value" id="modelPreviewBeDepot" data-default="${DOC_DESIGN1_BE_DATA.depot}">${DOC_DESIGN1_BE_DATA.depot}</span>
+                      </p>
+                      <p class="doc-design1__meta-line" id="modelPreviewBeDestinationRow">
+                        <span class="doc-design1__meta-label">Emplacement de destination&nbsp;:</span>
+                        <span class="doc-design1__meta-value" id="modelPreviewBeDestination" data-default="${DOC_DESIGN1_BE_DATA.destination}">${DOC_DESIGN1_BE_DATA.destination}</span>
+                      </p>
+                      <p class="doc-design1__meta-line" id="modelPreviewBeReceptionDateRow">
+                        <span class="doc-design1__meta-label">Date de r&eacute;ception&nbsp;:</span>
+                        <span class="doc-design1__meta-value" id="modelPreviewBeReceptionDate" data-default="${DOC_DESIGN1_DATA.date}">${DOC_DESIGN1_DATA.date}</span>
+                      </p>
+                      <p class="doc-design1__meta-line" id="modelPreviewBeReceptionTimeRow">
+                        <span class="doc-design1__meta-label">Heure&nbsp;:</span>
+                        <span class="doc-design1__meta-value" id="modelPreviewBeReceptionTime" data-default="${DOC_DESIGN1_BE_DATA.receptionTime}">${DOC_DESIGN1_BE_DATA.receptionTime}</span>
+                      </p>
+                      <p class="doc-design1__meta-line doc-design1__meta-line--wrap doc-design1__be-grid-span" id="modelPreviewBeSourceRefRow">
+                        <span class="doc-design1__meta-label">R&eacute;f&eacute;rence source&nbsp;:</span>
+                        <span class="doc-design1__meta-value" id="modelPreviewBeSourceRef" data-default="${DOC_DESIGN1_BE_DATA.sourceRef}">${DOC_DESIGN1_BE_DATA.sourceRef}</span>
+                      </p>
+                    </div>
+                  </fieldset>
+                </div>
                 <div class="doc-design1__table-wrap">
                   <table class="doc-design1__table">
                     <thead><tr>${MODEL_PREVIEW_HEADER_HTML}</tr></thead>
@@ -277,7 +316,34 @@ export const template1 = `
                   </table>
                 </div>
                 <div class="doc-design1__bottom">
-                  <div class="doc-design1__summary-row">
+                  <div class="doc-design1__be-bottom" id="modelPreviewBeBottom" hidden>
+                    <fieldset class="doc-design1__section doc-design1__be-section doc-design1__be-remarks">
+                      <legend>Observation / Remarques</legend>
+                      <div
+                        class="doc-design1__be-remarks-body"
+                        id="modelPreviewBeRemarks"
+                        data-default="${DOC_DESIGN1_BE_DATA.remarksHtml}"
+                      >${DOC_DESIGN1_BE_DATA.remarksHtml}</div>
+                    </fieldset>
+                    <div class="doc-design1__be-approvals">
+                      <div class="doc-design1__be-approval">
+                        <span class="doc-design1__be-approval-label">R&eacute;ceptionn&eacute; par</span>
+                        <strong class="doc-design1__be-approval-name" id="modelPreviewBeReceivedBy" data-default="${DOC_DESIGN1_BE_DATA.receivedBy}">${DOC_DESIGN1_BE_DATA.receivedBy}</strong>
+                        <span class="doc-design1__be-approval-line"></span>
+                      </div>
+                      <div class="doc-design1__be-approval">
+                        <span class="doc-design1__be-approval-label">Contr&ocirc;l&eacute; par</span>
+                        <strong class="doc-design1__be-approval-name" id="modelPreviewBeControlledBy" data-default="${DOC_DESIGN1_BE_DATA.controlledBy}">${DOC_DESIGN1_BE_DATA.controlledBy}</strong>
+                        <span class="doc-design1__be-approval-line"></span>
+                      </div>
+                      <div class="doc-design1__be-approval">
+                        <span class="doc-design1__be-approval-label">Valid&eacute; par</span>
+                        <strong class="doc-design1__be-approval-name" id="modelPreviewBeValidatedBy" data-default="${DOC_DESIGN1_BE_DATA.validatedBy}">${DOC_DESIGN1_BE_DATA.validatedBy}</strong>
+                        <span class="doc-design1__be-approval-line"></span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="doc-design1__summary-row" id="modelPreviewInvoiceSummary">
                     <div class="doc-design1__summary-left">
                       <div class="doc-design1__tva-breakdown">
                         <div class="doc-design1__tva-panel" data-tax-panel>
@@ -313,7 +379,7 @@ export const template1 = `
                       </table>
                     </div>
                   </div>
-                  <div class="doc-design1__footer">
+                  <div class="doc-design1__footer" id="modelPreviewInvoiceFooter">
                     <div class="doc-design1__footer-note-left" id="modelPreviewFooterNote" hidden></div>
                     <div class="doc-design1__sign">
                       <div class="doc-design1__sign-stamp" id="modelPreviewSealOverlay" hidden>
