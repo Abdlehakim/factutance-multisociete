@@ -1,4 +1,5 @@
 ﻿import { renderFooterNoteSection } from "./footerNoteSection.js";
+import { renderBeRemarksNoteSection } from "./beRemarksNoteSection.js";
 import { renderWhPdfNoteSection } from "./whPdfNoteSection.js";
 
 export const ModelStepper = `
@@ -543,7 +544,13 @@ export const ModelStepper = `
                                 </div>
                               </div>
 
-                              <div class="field-toggle-section" id="modelBeReceptionSection">
+                              <div
+                                class="field-toggle-section"
+                                id="modelBeReceptionSection"
+                                data-model-be-only-section="be-reception"
+                                hidden
+                                aria-hidden="true"
+                              >
                                 <div class="field-toggle-section__title">Informations de r&eacute;ception</div>
                                 <div class="field-toggle-section__grid">
                                   <label class="toggle-option">
@@ -954,6 +961,8 @@ export const ModelStepper = `
                       ${renderWhPdfNoteSection({ modal: true })}
 
                       ${renderFooterNoteSection({ modal: true })}
+
+                      ${renderBeRemarksNoteSection({ modal: true })}
 
                       <fieldset class="section-box" id="pdfOptionsBoxModal">
                         <legend><span class="model-save-dot">Autres Options</span></legend>

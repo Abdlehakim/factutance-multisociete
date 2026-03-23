@@ -324,43 +324,65 @@
             }
             return String(raw ?? "");
           };
-          const setFooterNoteEditorContent = (value = "", opts = {}) => {
+          const MODEL_FOOTER_NOTE_EDITOR_IDS = {
+            editorId: "footerNoteEditorModal",
+            hiddenId: "footerNoteModal",
+            sizeId: "footerNoteFontSizeModal",
+            boldId: "footerNoteBoldModal",
+            italicId: "footerNoteItalicModal",
+            listId: "footerNoteListModal"
+          };
+          const MODEL_BE_REMARKS_EDITOR_IDS = {
+            editorId: "beRemarksEditorModal",
+            hiddenId: "beRemarksModal",
+            sizeId: "beRemarksFontSizeModal",
+            boldId: "beRemarksBoldModal",
+            italicId: "beRemarksItalicModal",
+            listId: "beRemarksListModal"
+          };
+          const setModelFooterStyleEditorContent = (ids, value = "", opts = {}) => {
             if (typeof footerNoteComponent.setEditorContent !== "function") {
               return String(value ?? "");
             }
             return footerNoteComponent.setEditorContent(
               {
                 root: modelActionsModal || getEl("modelActionsModal"),
-                ids: {
-                  editorId: "footerNoteEditorModal",
-                  hiddenId: "footerNoteModal",
-                  sizeId: "footerNoteFontSizeModal",
-                  boldId: "footerNoteBoldModal",
-                  italicId: "footerNoteItalicModal",
-                  listId: "footerNoteListModal"
-                }
+                ids
               },
               value,
               { size: opts.size }
             );
           };
-          const wireFooterNoteEditor = () => {
+          const wireModelFooterStyleEditor = (ids, wireFlag) => {
             if (typeof footerNoteComponent.wireEditor !== "function") return;
             footerNoteComponent.wireEditor({
               root: modelActionsModal || getEl("modelActionsModal"),
-              ids: {
-                editorId: "footerNoteEditorModal",
-                hiddenId: "footerNoteModal",
-                sizeId: "footerNoteFontSizeModal",
-                boldId: "footerNoteBoldModal",
-                italicId: "footerNoteItalicModal",
-                listId: "footerNoteListModal"
-              },
-              wireFlag: "footerNoteWired",
+              ids,
+              wireFlag,
               onStateChange: () => {
                 if (typeof scheduleModelPreviewUpdate === "function") scheduleModelPreviewUpdate();
               }
             });
+          };
+          const setFooterNoteEditorContent = (value = "", opts = {}) => {
+            return setModelFooterStyleEditorContent(MODEL_FOOTER_NOTE_EDITOR_IDS, value, opts);
+          };
+          const setBeRemarksEditorContent = (value = "", opts = {}) => {
+            return setModelFooterStyleEditorContent(MODEL_BE_REMARKS_EDITOR_IDS, value, opts);
+          };
+          const wireFooterNoteEditor = () => {
+            wireModelFooterStyleEditor(MODEL_FOOTER_NOTE_EDITOR_IDS, "footerNoteWired");
+          };
+          const wireBeRemarksEditor = () => {
+            wireModelFooterStyleEditor(MODEL_BE_REMARKS_EDITOR_IDS, "beRemarksWired");
+          };
+          SEM.updateModelBeRemarksEditor = (value, opts = {}) => {
+            const serialized = setBeRemarksEditorContent(
+              value !== undefined && value !== null ? String(value) : "",
+              opts
+            );
+            if (typeof scheduleModelPreviewUpdate === "function") scheduleModelPreviewUpdate();
+            return serialized;
           };
           updateStepperNextUI = (step) => {
             if (!modelStepperNext) return;
@@ -734,24 +756,32 @@
               amountWordsContainer.style.display = showAmountWordsBlock ? "" : "none";
             }
             const noteContainer = previewRoot.querySelector("#modelPreviewNote");
+            const stripHtml = (html) => html.replace(/<[^>]+>/g, "").replace(/&nbsp;|\u00a0/g, " ").trim();
             const noteValue = (getEl("whNoteModal")?.value || "").trim();
-            let noteHtmlForPreview = "";
             if (noteContainer) {
               if (!noteContainer.dataset.defaultNote) {
                 noteContainer.dataset.defaultNote = noteContainer.innerHTML || "";
               }
-              const stripHtml = (html) => html.replace(/<[^>]+>/g, "").replace(/&nbsp;|\u00a0/g, " ").trim();
               const hasNote = !!stripHtml(noteValue);
               const fallback = modelNotePlaceholderEnabled ? (noteContainer.dataset.defaultNote || "") : "";
               const html = hasNote ? noteValue : fallback;
-              noteHtmlForPreview = html;
               noteContainer.innerHTML = html;
               noteContainer.hidden = !html;
               noteContainer.style.display = html ? "" : "none";
             }
             const beRemarksEl = previewRoot.querySelector("#modelPreviewBeRemarks");
             if (beRemarksEl) {
-              setHtmlWithFallback("modelPreviewBeRemarks", noteHtmlForPreview);
+              const beRemarksValue =
+                getEl("beRemarksModal")?.value ||
+                state()?.meta?.extras?.pdf?.beRemarks ||
+                "";
+              const beRemarksSizeRaw = Number.parseInt(
+                getEl("beRemarksFontSizeModal")?.value ?? state()?.meta?.extras?.pdf?.beRemarksSize,
+                10
+              );
+              const beRemarksSize = [7, 8, 9].includes(beRemarksSizeRaw) ? beRemarksSizeRaw : 8;
+              const formattedBeRemarks = formatFooterNoteForPreview(beRemarksValue, beRemarksSize);
+              setHtmlWithFallback("modelPreviewBeRemarks", formattedBeRemarks);
             }
             const footerNoteEl = previewRoot.querySelector("#modelPreviewFooterNote");
             if (footerNoteEl) {
@@ -1454,6 +1484,9 @@
             setValPlain("footerNoteModal");
             setValPlain("footerNoteFontSizeModal", "8");
             setFooterNoteEditorContent("");
+            setValPlain("beRemarksModal");
+            setValPlain("beRemarksFontSizeModal", "8");
+            setBeRemarksEditorContent("");
             const defaultColor = "#15335e";
             const colorHex = getEl("modelItemsHeaderHex");
             const colorNative = getEl("modelItemsHeaderColor");
@@ -1676,7 +1709,9 @@
           ensurePreviewOnCurrencyToggle(getEl("modelCurrency"));
           wireModelPreviewZoomControls();
           wireFooterNoteEditor();
+          wireBeRemarksEditor();
           setFooterNoteEditorContent(getEl("footerNoteModal")?.value || "");
+          setBeRemarksEditorContent(getEl("beRemarksModal")?.value || "");
           applyModelPreviewScale(readModelPreviewScale(), { setDefault: true });
           updateModelPreview();
 
@@ -2099,9 +2134,15 @@
             const footerNoteValue = typeof pdf.footerNote === "string" ? pdf.footerNote : "";
             const footerNoteSizeRaw = Number(pdf.footerNoteSize);
             const footerNoteSize = [7, 8, 9].includes(footerNoteSizeRaw) ? footerNoteSizeRaw : 8;
+            const beRemarksValue = typeof pdf.beRemarks === "string" ? pdf.beRemarks : "";
+            const beRemarksSizeRaw = Number(pdf.beRemarksSize);
+            const beRemarksSize = [7, 8, 9].includes(beRemarksSizeRaw) ? beRemarksSizeRaw : 8;
             setValPlain("footerNoteModal", footerNoteValue);
             setValPlain("footerNoteFontSizeModal", footerNoteSize);
             setFooterNoteEditorContent(footerNoteValue);
+            setValPlain("beRemarksModal", beRemarksValue);
+            setValPlain("beRemarksFontSizeModal", beRemarksSize);
+            setBeRemarksEditorContent(beRemarksValue, { size: beRemarksSize });
 
             const templateSelect = getEl("modelTemplate");
             const templatePanel = getEl("modelTemplatePanel");

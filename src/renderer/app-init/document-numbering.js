@@ -430,6 +430,20 @@
         }) || null
       );
     };
+    const getModelBeOnlySections = () =>
+      Array.from(modelActionsModal?.querySelectorAll?.("[data-model-be-only-section]") || []);
+    const syncModelBeOnlySectionsVisibility = (modelDocTypes = getSelectedModelDocTypes()) => {
+      const sections = getModelBeOnlySections();
+      if (!sections.length) return false;
+      const normalizedList = normalizeModelDocTypeSwitchSelection(modelDocTypes);
+      const isBonEntreeActive = normalizedList.includes("be");
+      sections.forEach((section) => {
+        section.hidden = !isBonEntreeActive;
+        section.style.display = isBonEntreeActive ? "" : "none";
+        section.setAttribute("aria-hidden", isBonEntreeActive ? "false" : "true");
+      });
+      return isBonEntreeActive;
+    };
 
     const setModelAchatSectionLockedState = (locked) => {
       const section = getModelAchatSectionRoot();
@@ -1131,6 +1145,7 @@
         modelDocTypeToggle.setAttribute("aria-expanded", modelDocTypeMenu?.open ? "true" : "false");
       }
       syncModelNumberFormatDisabledState(normalizedList);
+      syncModelBeOnlySectionsVisibility(normalizedList);
       applyModelDocTypeFaColumnLocks(normalizedList);
       try {
         window.SEM?.__bindingHelpers?.updateModelPreview?.();
@@ -1368,6 +1383,7 @@
       w.clearModelPurchaseTogglePreferences = clearModelPurchaseTogglePreferences;
       w.storeModelPurchaseTogglePreferences = storeModelPurchaseTogglePreferences;
       w.syncModelNumberFormatDisabledState = syncModelNumberFormatDisabledState;
+      w.syncModelBeOnlySectionsVisibility = syncModelBeOnlySectionsVisibility;
     }
 
     syncInvNumberLengthUi(invNumberLengthSelect?.value || getInvoiceMeta()?.numberLength || 4);
@@ -1389,6 +1405,7 @@
       NUMBER_FORMAT_DEFAULT;
     syncModelNumberFormatUi(initialNumberFormat, { updateSelect: true });
     syncModelNumberFormatDisabledState(getSelectedModelDocTypes());
+    syncModelBeOnlySectionsVisibility(getSelectedModelDocTypes());
 
     docTypeMenu?.addEventListener("toggle", () => {
       if (!docTypeToggle) return;
