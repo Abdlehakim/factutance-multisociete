@@ -1369,9 +1369,15 @@ border-collapse: separate;
   gap: 8px;
   max-width: 420px;
 }
+#modelActionsModal .model-name-field.is-disabled {
+  opacity: 0.68;
+}
 #modelActionsModal .model-name-field__label {
   font-weight: 700;
   color: #0d2d5a;
+}
+#modelActionsModal .model-name-field.is-disabled .model-name-field__label {
+  color: #64748b;
 }
 #modelActionsModal .model-name-field input,
 #modelActionsModal .model-name-field select:not(.doc-dialog-model-select) {
@@ -1622,6 +1628,18 @@ border-collapse: separate;
 }
 #modelActionsModal .currency-panel .currency-toggle:hover {
   background: #f7f9ff;
+}
+#modelActionsModal .currency-panel.is-disabled .currency-toggle,
+#modelActionsModal .currency-panel .currency-toggle.is-disabled {
+  opacity: 0.6;
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+#modelActionsModal .currency-panel.is-disabled .currency-toggle:hover,
+#modelActionsModal .currency-panel .currency-toggle.is-disabled:hover {
+  background: #f8fafc;
 }
 
 #modelActionsModal .currency-select {

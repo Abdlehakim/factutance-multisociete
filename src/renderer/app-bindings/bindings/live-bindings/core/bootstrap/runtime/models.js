@@ -520,6 +520,9 @@
             const hasDocTypes = Array.isArray(selectedModelDocTypes) && selectedModelDocTypes.length > 0;
             const effectiveDocType = selectedModelDocTypes[0] || "facture";
             const isPurchaseDocType = selectedModelDocTypes.some((docType) => isModelPurchaseDocType(docType));
+            const usesManualModelNumbering =
+              !!selectedModelDocTypes.length &&
+              selectedModelDocTypes.every((docType) => docType === "fa");
             const currency =
               checkedValue(getEl("modelCurrencyPanel")) || getEl("modelCurrency")?.value || "DT";
             const taxMode =
@@ -578,42 +581,46 @@
                   state()?.meta?.number ||
                   ""
               ).trim();
-              const previewDocType = hasDocTypes ? effectiveDocType : "facture";
-              const numberLengthSource =
-                modelPreviewNumberLengthOverride ??
-                getEl("invNumberLength")?.value ??
-                state()?.meta?.numberLength ??
-                4;
-              const numberLengthRaw = Number(numberLengthSource);
-              const numberLength = [4, 6, 8, 12].includes(numberLengthRaw) ? numberLengthRaw : 4;
-              const rawDigits = String(rawNumber.match(/(\d+)\s*$/)?.[1] || "");
-              const baseDigits = rawDigits || "1";
-              const paddedCounter =
-                baseDigits.length > numberLength
-                  ? baseDigits.slice(-numberLength)
-                  : baseDigits.padStart(numberLength, "0");
-              const counterValue = numberFormat === "prefix_date_counter" ? baseDigits : paddedCounter;
-              if (typeof formatInvoiceNumber === "function") {
-                const formatted = formatInvoiceNumber(counterValue, numberLength, {
-                  docType: previewDocType,
-                  date: state()?.meta?.date,
-                  numberFormat
-                });
-                previewNumberEl.textContent = formatted;
+              if (usesManualModelNumbering) {
+                previewNumberEl.textContent = rawNumber;
               } else {
-                const numberPrefix = prefixMap[previewDocType] || prefixMap.facture;
-                const counter = counterValue;
-                if (numberFormat === "counter") {
-                  previewNumberEl.textContent = counter;
-                } else if (numberFormat === "prefix_counter") {
-                  previewNumberEl.textContent = `${numberPrefix}_${counter}`;
+                const previewDocType = hasDocTypes ? effectiveDocType : "facture";
+                const numberLengthSource =
+                  modelPreviewNumberLengthOverride ??
+                  getEl("invNumberLength")?.value ??
+                  state()?.meta?.numberLength ??
+                  4;
+                const numberLengthRaw = Number(numberLengthSource);
+                const numberLength = [4, 6, 8, 12].includes(numberLengthRaw) ? numberLengthRaw : 4;
+                const rawDigits = String(rawNumber.match(/(\d+)\s*$/)?.[1] || "");
+                const baseDigits = rawDigits || "1";
+                const paddedCounter =
+                  baseDigits.length > numberLength
+                    ? baseDigits.slice(-numberLength)
+                    : baseDigits.padStart(numberLength, "0");
+                const counterValue = numberFormat === "prefix_date_counter" ? baseDigits : paddedCounter;
+                if (typeof formatInvoiceNumber === "function") {
+                  const formatted = formatInvoiceNumber(counterValue, numberLength, {
+                    docType: previewDocType,
+                    date: state()?.meta?.date,
+                    numberFormat
+                  });
+                  previewNumberEl.textContent = formatted;
                 } else {
-                  const dateRaw = state()?.meta?.date ? new Date(state().meta.date) : new Date();
-                  const safeDate = Number.isFinite(dateRaw.getTime()) ? dateRaw : new Date();
-                  const year = String(safeDate.getFullYear());
-                  const month = String(safeDate.getMonth() + 1).padStart(2, "0");
-                  const shortYear = year.slice(-2);
-                  previewNumberEl.textContent = `${numberPrefix}_${shortYear}-${month}-${counter}`;
+                  const numberPrefix = prefixMap[previewDocType] || prefixMap.facture;
+                  const counter = counterValue;
+                  if (numberFormat === "counter") {
+                    previewNumberEl.textContent = counter;
+                  } else if (numberFormat === "prefix_counter") {
+                    previewNumberEl.textContent = `${numberPrefix}_${counter}`;
+                  } else {
+                    const dateRaw = state()?.meta?.date ? new Date(state().meta.date) : new Date();
+                    const safeDate = Number.isFinite(dateRaw.getTime()) ? dateRaw : new Date();
+                    const year = String(safeDate.getFullYear());
+                    const month = String(safeDate.getMonth() + 1).padStart(2, "0");
+                    const shortYear = year.slice(-2);
+                    previewNumberEl.textContent = `${numberPrefix}_${shortYear}-${month}-${counter}`;
+                  }
                 }
               }
             }
@@ -1164,6 +1171,7 @@
               }
             };
             setModelDocTypeSelection(["facture"]);
+            w.syncModelNumberFormatDisabledState?.(["facture"]);
             selectRadio("modelCurrencyPanel", "currency", "DT", "modelCurrency");
             selectRadio("modelTaxPanel", "tax", "with", "modelTaxMode");
             const defaults = resolveModelColumnVisibilityDefaults();
@@ -1765,6 +1773,7 @@
               w.syncModelDocTypeMenuUi(docTypes, { updateSelect: true });
             } else {
               setModelDocTypeSelection(docTypes);
+              w.syncModelNumberFormatDisabledState?.(docTypes);
             }
 
             const currency = String(config.currency || "DT").trim().toUpperCase() || "DT";

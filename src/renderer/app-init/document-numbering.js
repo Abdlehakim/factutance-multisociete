@@ -37,6 +37,7 @@
     const modelTaxPanel = getEl("modelTaxPanel");
     const modelTaxDisplay = getEl("modelTaxDisplay");
     const modelTaxToggle = modelTaxMenu?.querySelector("summary") || null;
+    const modelNumberFormatField = getEl("modelNumberFormatLabel");
     const modelNumberFormatSelect = getEl("modelNumberFormat");
     const modelNumberFormatPanel = getEl("modelNumberFormatPanel");
     const invDateInput = getEl("invDate");
@@ -314,7 +315,15 @@
       "devis",
       "bl"
     ]);
+    const MODEL_DOC_TYPE_MANUAL_NUMBERING_VALUES = new Set(["fa"]);
     let modelDocTypeFaLockSyncInProgress = false;
+    const isModelManualNumberingDocTypeSelection = (value) => {
+      const normalizedList = normalizeModelDocTypeSwitchSelection(value);
+      return (
+        !!normalizedList.length &&
+        normalizedList.every((entry) => MODEL_DOC_TYPE_MANUAL_NUMBERING_VALUES.has(entry))
+      );
+    };
 
     const normalizeModelDocTypeSwitchSelection = (value, preferredSwitchValue = "") => {
       let normalizedList = expandModelDocTypeList(value, getSelectedModelDocTypes());
@@ -1021,6 +1030,7 @@
       if (modelDocTypeToggle) {
         modelDocTypeToggle.setAttribute("aria-expanded", modelDocTypeMenu?.open ? "true" : "false");
       }
+      syncModelNumberFormatDisabledState(normalizedList);
       applyModelDocTypeFaColumnLocks(normalizedList);
       try {
         window.SEM?.__bindingHelpers?.updateModelPreview?.();
@@ -1215,7 +1225,32 @@
           }
         });
       }
+      syncModelNumberFormatDisabledState(getSelectedModelDocTypes());
       return normalized;
+    }
+
+    function syncModelNumberFormatDisabledState(modelDocTypes = getSelectedModelDocTypes()) {
+      const disabled = isModelManualNumberingDocTypeSelection(modelDocTypes);
+      if (modelNumberFormatField) {
+        modelNumberFormatField.classList.toggle("is-disabled", disabled);
+        modelNumberFormatField.setAttribute("aria-disabled", disabled ? "true" : "false");
+      }
+      if (modelNumberFormatPanel) {
+        modelNumberFormatPanel.classList.toggle("is-disabled", disabled);
+        modelNumberFormatPanel.setAttribute("aria-disabled", disabled ? "true" : "false");
+      }
+      modelNumberFormatPanel?.querySelectorAll("[data-number-format-option]").forEach((btn) => {
+        btn.classList.toggle("is-disabled", disabled);
+        btn.setAttribute("aria-disabled", disabled ? "true" : "false");
+        const input = btn.querySelector('input[type="radio"], input[type="checkbox"]');
+        if (!input) return;
+        input.disabled = disabled;
+      });
+      if (modelNumberFormatSelect) {
+        modelNumberFormatSelect.disabled = disabled;
+        modelNumberFormatSelect.setAttribute("aria-disabled", disabled ? "true" : "false");
+      }
+      return disabled;
     }
 
     if (typeof w === "object") {
@@ -1232,6 +1267,7 @@
       w.applyModelDocTypeFaColumnLocks = applyModelDocTypeFaColumnLocks;
       w.clearModelPurchaseTogglePreferences = clearModelPurchaseTogglePreferences;
       w.storeModelPurchaseTogglePreferences = storeModelPurchaseTogglePreferences;
+      w.syncModelNumberFormatDisabledState = syncModelNumberFormatDisabledState;
     }
 
     syncInvNumberLengthUi(invNumberLengthSelect?.value || getInvoiceMeta()?.numberLength || 4);
@@ -1252,6 +1288,7 @@
       getInvoiceMeta()?.numberFormat ||
       NUMBER_FORMAT_DEFAULT;
     syncModelNumberFormatUi(initialNumberFormat, { updateSelect: true });
+    syncModelNumberFormatDisabledState(getSelectedModelDocTypes());
 
     docTypeMenu?.addEventListener("toggle", () => {
       if (!docTypeToggle) return;
@@ -1475,6 +1512,7 @@
     });
 
     const applyModelNumberFormatSelection = (rawValue, focusTarget) => {
+      if (syncModelNumberFormatDisabledState(getSelectedModelDocTypes())) return;
       if (!rawValue) return;
       const normalized = syncModelNumberFormatUi(rawValue, { updateSelect: true });
       const meta = getInvoiceMeta();
@@ -1486,16 +1524,24 @@
       focusTarget?.querySelector?.("input")?.focus();
     };
     modelNumberFormatPanel?.addEventListener("click", (evt) => {
+      if (syncModelNumberFormatDisabledState(getSelectedModelDocTypes())) {
+        evt.preventDefault();
+        return;
+      }
       const radio = evt.target.closest('input[type="radio"][name="modelNumberFormatChoice"]');
       if (radio) return;
       const optionBtn = evt.target.closest("[data-number-format-option]");
-      if (!optionBtn) return;
+      if (!optionBtn || optionBtn.classList.contains("is-disabled")) return;
       evt.preventDefault();
       applyModelNumberFormatSelection(optionBtn.dataset.numberFormatOption, optionBtn);
     });
     modelNumberFormatPanel?.addEventListener("change", (evt) => {
+      if (syncModelNumberFormatDisabledState(getSelectedModelDocTypes())) {
+        evt.preventDefault();
+        return;
+      }
       const radio = evt.target.closest('input[type="radio"][name="modelNumberFormatChoice"]');
-      if (!radio) return;
+      if (!radio || radio.disabled) return;
       applyModelNumberFormatSelection(radio.value);
     });
 
@@ -1507,6 +1553,7 @@
       syncModelTaxMenuUi(evt?.target?.value, { updateSelect: true });
     });
     modelNumberFormatSelect?.addEventListener("change", (evt) => {
+      if (syncModelNumberFormatDisabledState(getSelectedModelDocTypes())) return;
       const normalized = syncModelNumberFormatUi(evt?.target?.value, { updateSelect: true });
       const meta = getInvoiceMeta();
       if (meta) meta.numberFormat = normalized;
