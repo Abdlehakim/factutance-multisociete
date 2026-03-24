@@ -355,11 +355,17 @@
       DEFAULT_BE_REMARKS_FONT_SIZE
     );
     const beRemarksTouched = safeConfig?.pdf?.beRemarksTouched === true;
+    const showBeReceivedBy = safeConfig?.pdf?.showBeReceivedBy !== false;
+    const showBeControlledBy = safeConfig?.pdf?.showBeControlledBy !== false;
+    const showBeValidatedBy = safeConfig?.pdf?.showBeValidatedBy !== false;
     if (!meta.extras || typeof meta.extras !== "object") meta.extras = {};
     if (!meta.extras.pdf || typeof meta.extras.pdf !== "object") meta.extras.pdf = {};
     if (typeof showAmountWords === "boolean") {
       meta.extras.pdf.showAmountWords = showAmountWords;
     }
+    meta.extras.pdf.showBeReceivedBy = showBeReceivedBy;
+    meta.extras.pdf.showBeControlledBy = showBeControlledBy;
+    meta.extras.pdf.showBeValidatedBy = showBeValidatedBy;
     meta.extras.pdf.footerNote = footerNote;
     meta.extras.pdf.footerNoteSize = footerNoteSize;
     meta.extras.pdf.beRemarks = beRemarks;
@@ -1450,10 +1456,16 @@
         : "";
     const beRemarksSize = normalizeBeRemarksFontSize(pdf.beRemarksSize, DEFAULT_BE_REMARKS_FONT_SIZE);
     const beRemarksTouched = pdf.beRemarksTouched === true;
+    const showBeReceivedBy = pdf.showBeReceivedBy !== false;
+    const showBeControlledBy = pdf.showBeControlledBy !== false;
+    const showBeValidatedBy = pdf.showBeValidatedBy !== false;
     cleaned.pdf = {
       showSeal: pdf.showSeal !== false,
       showSignature: pdf.showSignature !== false,
       showAmountWords: pdf.showAmountWords !== false,
+      showBeReceivedBy,
+      showBeControlledBy,
+      showBeValidatedBy,
       footerNote,
       footerNoteSize,
       beRemarks,
@@ -1845,6 +1857,11 @@
         DEFAULT_BE_REMARKS_FONT_SIZE
       );
     };
+    const readPdfToggleValue = (id, fallback = true) => {
+      const input = getEl(id);
+      if (input) return !!input.checked;
+      return fallback;
+    };
 
     const whInputs = {
       enabled: getEl("whEnabledModal") ?? getEl("whEnabled"),
@@ -2040,6 +2057,9 @@
       showSeal: pdfShowSealEl ? !!pdfShowSealEl.checked : fallbackPdf.showSeal !== false,
       showSignature: pdfShowSignatureEl ? !!pdfShowSignatureEl.checked : fallbackPdf.showSignature !== false,
       showAmountWords: pdfShowAmountWordsEl ? !!pdfShowAmountWordsEl.checked : fallbackPdf.showAmountWords !== false,
+      showBeReceivedBy: readPdfToggleValue("pdfShowBeReceivedByModal", fallbackPdf.showBeReceivedBy !== false),
+      showBeControlledBy: readPdfToggleValue("pdfShowBeControlledByModal", fallbackPdf.showBeControlledBy !== false),
+      showBeValidatedBy: readPdfToggleValue("pdfShowBeValidatedByModal", fallbackPdf.showBeValidatedBy !== false),
       footerNote: readFooterNoteValue(),
       footerNoteSize: readFooterNoteSize(),
       beRemarks: readBeRemarksValue(),
@@ -2689,6 +2709,9 @@
       setCheckboxValue("pdfShowSealModal", safeConfig.pdf.showSeal !== false);
       setCheckboxValue("pdfShowSignatureModal", safeConfig.pdf.showSignature !== false);
       setCheckboxValue("pdfShowAmountWordsModal", safeConfig.pdf.showAmountWords !== false);
+      setCheckboxValue("pdfShowBeReceivedByModal", safeConfig.pdf.showBeReceivedBy !== false);
+      setCheckboxValue("pdfShowBeControlledByModal", safeConfig.pdf.showBeControlledBy !== false);
+      setCheckboxValue("pdfShowBeValidatedByModal", safeConfig.pdf.showBeValidatedBy !== false);
       const footerNote = typeof safeConfig.pdf.footerNote === "string" ? safeConfig.pdf.footerNote : "";
       const footerNoteSize = normalizeFooterNoteFontSize(
         safeConfig.pdf.footerNoteSize,
@@ -2723,6 +2746,9 @@
         st.meta.extras.pdf.showSeal = safeConfig.pdf.showSeal !== false;
         st.meta.extras.pdf.showSignature = safeConfig.pdf.showSignature !== false;
         st.meta.extras.pdf.showAmountWords = safeConfig.pdf.showAmountWords !== false;
+        st.meta.extras.pdf.showBeReceivedBy = safeConfig.pdf.showBeReceivedBy !== false;
+        st.meta.extras.pdf.showBeControlledBy = safeConfig.pdf.showBeControlledBy !== false;
+        st.meta.extras.pdf.showBeValidatedBy = safeConfig.pdf.showBeValidatedBy !== false;
         st.meta.extras.pdf.footerNote = footerNote;
         st.meta.extras.pdf.footerNoteSize = footerNoteSize;
         st.meta.extras.pdf.beRemarks = beRemarks;

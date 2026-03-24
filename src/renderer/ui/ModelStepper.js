@@ -967,37 +967,107 @@ export const ModelStepper = `
                       <fieldset class="section-box" id="pdfOptionsBoxModal">
                         <legend><span class="model-save-dot">Autres Options</span></legend>
                         <div class="model-field-toggles">
-                          <div class="field-toggle-panel">
-                            <label class="toggle-option">
-                              <input
-                                id="pdfShowAmountWordsModal"
-                                type="checkbox"
-                                class="col-toggle"
-                                aria-label="Afficher le total en lettres"
-                                checked
-                              />
-                              <span class="model-save-dot">Afficher le total en lettres</span>
-                            </label>
-                            <label class="toggle-option">
-                              <input
-                                id="pdfShowSealModal"
-                                type="checkbox"
-                                class="col-toggle"
-                                aria-label="Afficher le Cachet"
-                                checked
-                              />
-                              <span class="model-save-dot">Afficher le Cachet</span>
-                            </label>
-                            <label class="toggle-option">
-                              <input
-                                id="pdfShowSignatureModal"
-                                type="checkbox"
-                                class="col-toggle"
-                                aria-label="Afficher la signature"
-                                checked
-                              />
-                              <span class="model-save-dot">Afficher la signature</span>
-                            </label>
+                          <div class="field-toggle-panel field-toggle-panel--grouped">
+                            <div
+                              class="field-toggle-section"
+                              data-model-non-be-section="pdf-options-invoice"
+                            >
+                              <div class="field-toggle-section__grid">
+                                <label class="toggle-option">
+                                  <input
+                                    id="pdfShowAmountWordsModal"
+                                    type="checkbox"
+                                    class="col-toggle"
+                                    aria-label="Afficher le total en lettres"
+                                    checked
+                                  />
+                                  <span class="model-save-dot">Afficher le total en lettres</span>
+                                </label>
+                                <label class="toggle-option">
+                                  <input
+                                    id="pdfShowSealModal"
+                                    type="checkbox"
+                                    class="col-toggle"
+                                    aria-label="Afficher le Cachet"
+                                    checked
+                                  />
+                                  <span class="model-save-dot">Afficher le Cachet</span>
+                                </label>
+                                <label class="toggle-option">
+                                  <input
+                                    id="pdfShowSignatureModal"
+                                    type="checkbox"
+                                    class="col-toggle"
+                                    aria-label="Afficher la signature"
+                                    checked
+                                  />
+                                  <span class="model-save-dot">Afficher la signature</span>
+                                </label>
+                              </div>
+                            </div>
+                            <div
+                              class="field-toggle-section"
+                              data-model-be-only-section="pdf-options-be-approvals"
+                              hidden
+                            >
+                              <div class="field-toggle-section__title">Informations d'approbation</div>
+                              <div
+                                class="field-toggle-section__grid model-be-approval-summary"
+                                aria-label="Informations d'approbation Bon d'entrée"
+                              >
+                                <label class="toggle-option model-be-approval-option">
+                                  <input
+                                    id="pdfShowBeReceivedByModal"
+                                    type="checkbox"
+                                    class="col-toggle"
+                                    aria-label="Afficher Réceptionné par"
+                                    checked
+                                  />
+                                  <span class="model-save-dot model-be-approval-option__text">
+                                    <span class="model-be-approval-option__label">R&Eacute;CEPTIONN&Eacute; PAR</span>
+                                    <strong
+                                      class="model-be-approval-option__name"
+                                      id="modelPdfOptionsBeReceivedBy"
+                                      data-default="Magasinier principal"
+                                    >Magasinier principal</strong>
+                                  </span>
+                                </label>
+                                <label class="toggle-option model-be-approval-option">
+                                  <input
+                                    id="pdfShowBeControlledByModal"
+                                    type="checkbox"
+                                    class="col-toggle"
+                                    aria-label="Afficher Contrôlé par"
+                                    checked
+                                  />
+                                  <span class="model-save-dot model-be-approval-option__text">
+                                    <span class="model-be-approval-option__label">CONTR&Ocirc;L&Eacute; PAR</span>
+                                    <strong
+                                      class="model-be-approval-option__name"
+                                      id="modelPdfOptionsBeControlledBy"
+                                      data-default="Responsable qualit&eacute;"
+                                    >Responsable qualit&eacute;</strong>
+                                  </span>
+                                </label>
+                                <label class="toggle-option model-be-approval-option">
+                                  <input
+                                    id="pdfShowBeValidatedByModal"
+                                    type="checkbox"
+                                    class="col-toggle"
+                                    aria-label="Afficher Validé par"
+                                    checked
+                                  />
+                                  <span class="model-save-dot model-be-approval-option__text">
+                                    <span class="model-be-approval-option__label">VALID&Eacute; PAR</span>
+                                    <strong
+                                      class="model-be-approval-option__name"
+                                      id="modelPdfOptionsBeValidatedBy"
+                                      data-default="Responsable stock"
+                                    >Responsable stock</strong>
+                                  </span>
+                                </label>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </fieldset>

@@ -630,6 +630,18 @@
               el.innerHTML = html || fallback;
               return html || fallback;
             };
+            const syncTextFromSource = (sourceId, targetId) => {
+              const target = getEl(targetId);
+              if (!target) return;
+              const source = getEl(sourceId);
+              const fallback = target.dataset?.default || target.textContent || "";
+              const sourceFallback =
+                source?.dataset?.default ||
+                source?.textContent ||
+                "";
+              const nextText = String(source?.textContent || sourceFallback || "").trim();
+              target.textContent = nextText || fallback;
+            };
             const setNodeVisibility = (node, visible) => {
               if (!node) return;
               const show = !!visible;
@@ -719,6 +731,12 @@
             const showSeal = getEl("pdfShowSealModal")?.checked ?? (pdfOptions.showSeal !== false);
             const showSignature = getEl("pdfShowSignatureModal")?.checked ?? (pdfOptions.showSignature !== false);
             const showAmountWords = getEl("pdfShowAmountWordsModal")?.checked ?? (pdfOptions.showAmountWords !== false);
+            const showBeReceivedBy =
+              getEl("pdfShowBeReceivedByModal")?.checked ?? (pdfOptions.showBeReceivedBy !== false);
+            const showBeControlledBy =
+              getEl("pdfShowBeControlledByModal")?.checked ?? (pdfOptions.showBeControlledBy !== false);
+            const showBeValidatedBy =
+              getEl("pdfShowBeValidatedByModal")?.checked ?? (pdfOptions.showBeValidatedBy !== false);
             const previewDateValue = formatPreviewDateValue(
               state()?.meta?.date,
               getEl("modelPreviewDate")?.dataset?.default || getEl("modelPreviewDate")?.textContent || ""
@@ -889,7 +907,7 @@
             const sealImg = previewRoot.querySelector("#modelPreviewSealImg");
             const sealSrc = company?.seal?.image || "";
             if (sealOverlay && sealImg) {
-              if (showSeal && sealSrc) {
+              if (!isBonEntreePreview && showSeal && sealSrc) {
                 if (sealImg.getAttribute("src") !== sealSrc) sealImg.setAttribute("src", sealSrc);
                 const rotation = Number(company?.seal?.rotateDeg);
                 sealImg.style.transform = Number.isFinite(rotation) ? `rotate(${rotation}deg)` : "";
@@ -1164,6 +1182,35 @@
               setTextWithFallback("modelPreviewBeControlledBy", "");
               setTextWithFallback("modelPreviewBeValidatedBy", "");
             }
+            const beApprovals = previewRoot.querySelector("#modelPreviewBeApprovals");
+            const beApprovalBlocks = {
+              receivedBy: previewRoot.querySelector("#modelPreviewBeReceivedByBlock"),
+              controlledBy: previewRoot.querySelector("#modelPreviewBeControlledByBlock"),
+              validatedBy: previewRoot.querySelector("#modelPreviewBeValidatedByBlock")
+            };
+            const beApprovalVisibility = {
+              receivedBy: showBeReceivedBy,
+              controlledBy: showBeControlledBy,
+              validatedBy: showBeValidatedBy
+            };
+            Object.entries(beApprovalBlocks).forEach(([key, node]) => {
+              setNodeVisibility(node, isBonEntreePreview && beApprovalVisibility[key] !== false);
+            });
+            const visibleBeApprovalCount = isBonEntreePreview
+              ? Object.values(beApprovalVisibility).filter((visible) => visible !== false).length
+              : 0;
+            if (beApprovals) {
+              if (visibleBeApprovalCount > 0) {
+                beApprovals.dataset.visibleCount = String(visibleBeApprovalCount);
+              } else {
+                delete beApprovals.dataset.visibleCount;
+              }
+            }
+            const hasVisibleBeApproval = visibleBeApprovalCount > 0;
+            setNodeVisibility(beApprovals, hasVisibleBeApproval);
+            syncTextFromSource("modelPreviewBeReceivedBy", "modelPdfOptionsBeReceivedBy");
+            syncTextFromSource("modelPreviewBeControlledBy", "modelPdfOptionsBeControlledBy");
+            syncTextFromSource("modelPreviewBeValidatedBy", "modelPdfOptionsBeValidatedBy");
           };
           helpers.updateModelPreview = updateModelPreview;
           raf = w.requestAnimationFrame?.bind(w) || ((fn) => setTimeout(fn, 16));
@@ -1501,6 +1548,9 @@
             setChecked("deplacementEnabledModal", false);
             setChecked("stampEnabledModal", false);
             setChecked("whEnabledModal", false);
+            setChecked("pdfShowBeReceivedByModal", true);
+            setChecked("pdfShowBeControlledByModal", true);
+            setChecked("pdfShowBeValidatedByModal", true);
             setScopedChecked("financingAutoApplyModal", false);
             setScopedDataFlag("financingBox", "subventionAutoApply", true);
             setScopedDataFlag("financingBox", "bankAutoApply", true);
@@ -2213,6 +2263,9 @@
             setChecked("pdfShowSealModal", pdf.showSeal !== false);
             setChecked("pdfShowSignatureModal", pdf.showSignature !== false);
             setChecked("pdfShowAmountWordsModal", pdf.showAmountWords !== false);
+            setChecked("pdfShowBeReceivedByModal", pdf.showBeReceivedBy !== false);
+            setChecked("pdfShowBeControlledByModal", pdf.showBeControlledBy !== false);
+            setChecked("pdfShowBeValidatedByModal", pdf.showBeValidatedBy !== false);
             const footerNoteValue = typeof pdf.footerNote === "string" ? pdf.footerNote : "";
             const footerNoteSizeRaw = Number(pdf.footerNoteSize);
             const footerNoteSize = [7, 8, 9].includes(footerNoteSizeRaw) ? footerNoteSizeRaw : 8;

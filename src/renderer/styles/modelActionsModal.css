@@ -610,8 +610,19 @@ background: #f3f8ff;
 
 #modelActionsModal #modelActionsPreview .doc-design1__be-approvals {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 12px;
+}
+
+#modelActionsModal #modelActionsPreview .doc-design1__be-approvals[data-visible-count="1"] {
+  display: flex;
+  justify-content: flex-end;
+}
+
+#modelActionsModal #modelActionsPreview .doc-design1__be-approvals[data-visible-count="1"] .doc-design1__be-approval {
+  flex: 0 1 calc((100% - 24px) / 3);
+  max-width: calc((100% - 24px) / 3);
+  min-width: 140px;
 }
 
 #modelActionsModal #modelActionsPreview .doc-design1__be-approval {
@@ -1637,6 +1648,13 @@ border-collapse: separate;
   gap: 6px;
 }
 
+#modelActionsModal [data-model-be-only-section][hidden],
+#itemsDocOptionsModal [data-model-be-only-section][hidden],
+#modelActionsModal [data-model-non-be-section][hidden],
+#itemsDocOptionsModal [data-model-non-be-section][hidden] {
+  display: none !important;
+}
+
 #modelActionsModal .model-field-toggles .field-toggle-section + .field-toggle-section,
 #itemsDocOptionsModal .model-field-toggles .field-toggle-section + .field-toggle-section {
   padding-top: 8px;
@@ -1684,6 +1702,63 @@ border-collapse: separate;
 #modelActionsModal #pdfOptionsBoxModal .model-field-toggles .field-toggle-panel,
 #itemsDocOptionsModal #pdfOptionsBoxModal .model-field-toggles .field-toggle-panel {
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+#modelActionsModal #pdfOptionsBoxModal [data-model-be-only-section="pdf-options-be-approvals"],
+#itemsDocOptionsModal #pdfOptionsBoxModal [data-model-be-only-section="pdf-options-be-approvals"] {
+  gap: 10px;
+  padding-top: 0;
+  border-top: 0;
+}
+
+#modelActionsModal #pdfOptionsBoxModal [data-model-be-only-section="pdf-options-be-approvals"] .field-toggle-section__title,
+#itemsDocOptionsModal #pdfOptionsBoxModal [data-model-be-only-section="pdf-options-be-approvals"] .field-toggle-section__title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #15335e;
+  line-height: 1.25;
+}
+
+#modelActionsModal #pdfOptionsBoxModal .model-be-approval-summary,
+#itemsDocOptionsModal #pdfOptionsBoxModal .model-be-approval-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+#modelActionsModal #pdfOptionsBoxModal .model-be-approval-option,
+#itemsDocOptionsModal #pdfOptionsBoxModal .model-be-approval-option {
+  height: auto;
+  min-height: 30px;
+  align-items: center;
+}
+
+#modelActionsModal #pdfOptionsBoxModal .model-be-approval-option__text,
+#itemsDocOptionsModal #pdfOptionsBoxModal .model-be-approval-option__text {
+  display: flex;
+  flex-direction: column;
+  flex-wrap: wrap;
+  gap: 4px;
+  white-space: normal;
+  line-height: 1.35;
+}
+
+#modelActionsModal #pdfOptionsBoxModal .model-be-approval-option__label,
+#itemsDocOptionsModal #pdfOptionsBoxModal .model-be-approval-option__label {
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: #0f172a;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+#modelActionsModal #pdfOptionsBoxModal .model-be-approval-option__name,
+#itemsDocOptionsModal #pdfOptionsBoxModal .model-be-approval-option__name {
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #0f172a;
 }
 
 #modelActionsModal .model-field-toggles .toggle-option,

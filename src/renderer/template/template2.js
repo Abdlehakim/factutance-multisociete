@@ -325,18 +325,18 @@ export const template2 = `
                         data-default="${DOC_DESIGN1_BE_DATA.remarksHtml}"
                       >${DOC_DESIGN1_BE_DATA.remarksHtml}</div>
                     </fieldset>
-                    <div class="doc-design1__be-approvals">
-                      <div class="doc-design1__be-approval">
+                    <div class="doc-design1__be-approvals" id="modelPreviewBeApprovals">
+                      <div class="doc-design1__be-approval" id="modelPreviewBeReceivedByBlock">
                         <span class="doc-design1__be-approval-label">R&eacute;ceptionn&eacute; par</span>
                         <strong class="doc-design1__be-approval-name" id="modelPreviewBeReceivedBy" data-default="${DOC_DESIGN1_BE_DATA.receivedBy}">${DOC_DESIGN1_BE_DATA.receivedBy}</strong>
                         <span class="doc-design1__be-approval-line"></span>
                       </div>
-                      <div class="doc-design1__be-approval">
+                      <div class="doc-design1__be-approval" id="modelPreviewBeControlledByBlock">
                         <span class="doc-design1__be-approval-label">Contr&ocirc;l&eacute; par</span>
                         <strong class="doc-design1__be-approval-name" id="modelPreviewBeControlledBy" data-default="${DOC_DESIGN1_BE_DATA.controlledBy}">${DOC_DESIGN1_BE_DATA.controlledBy}</strong>
                         <span class="doc-design1__be-approval-line"></span>
                       </div>
-                      <div class="doc-design1__be-approval">
+                      <div class="doc-design1__be-approval" id="modelPreviewBeValidatedByBlock">
                         <span class="doc-design1__be-approval-label">Valid&eacute; par</span>
                         <strong class="doc-design1__be-approval-name" id="modelPreviewBeValidatedBy" data-default="${DOC_DESIGN1_BE_DATA.validatedBy}">${DOC_DESIGN1_BE_DATA.validatedBy}</strong>
                         <span class="doc-design1__be-approval-line"></span>
