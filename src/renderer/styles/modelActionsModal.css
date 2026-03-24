@@ -462,10 +462,14 @@ background: #f3f8ff;
   padding-top: 18px;
 }
 
+#modelActionsModal #modelActionsPreview .doc-design1__be-section > legend {
+  font-size: 14px;
+}
+
 #modelActionsModal #modelActionsPreview .doc-design1__be-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px 16px;
+  gap: 4px 16px;
 }
 
 #modelActionsModal #modelActionsPreview .doc-design1__be-grid-span {
@@ -613,13 +617,13 @@ background: #f3f8ff;
 #modelActionsModal #modelActionsPreview .doc-design1__be-approval {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 0;
   min-height: 78px;
-  justify-content: flex-end;
+  justify-content: flex-start;
 }
 
 #modelActionsModal #modelActionsPreview .doc-design1__be-approval-label {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   color: var(--items-head-bg, var(--primary, #15335e));
   text-transform: uppercase;
@@ -627,7 +631,7 @@ background: #f3f8ff;
 }
 
 #modelActionsModal #modelActionsPreview .doc-design1__be-approval-name {
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 600;
   color: #111827;
 }
@@ -636,7 +640,7 @@ background: #f3f8ff;
   display: block;
   border-top: 1px solid #0f172a;
   min-height: 1px;
-  margin-top: 10px;
+  margin-top: auto;
 }
 
 #modelActionsModal #modelActionsPreview .doc-design1__summary-row {

@@ -87,7 +87,7 @@ const DOC_DESIGN1_DATA = {
 
 const DOC_DESIGN1_BE_DATA = {
   depot: "Magasin Central",
-  destination: "Zone de reception / Rack A1",
+  destination: "Rack A1",
   receptionTime: "09:30",
   sourceRef: "N\u00b0 Bon de commande : BC_25-12-3",
   receivedBy: "Magasinier principal",
@@ -290,13 +290,13 @@ export const template2 = `
                         <span class="doc-design1__meta-label">D&eacute;p&ocirc;t / Magasin&nbsp;:</span>
                         <span class="doc-design1__meta-value" id="modelPreviewBeDepot" data-default="${DOC_DESIGN1_BE_DATA.depot}">${DOC_DESIGN1_BE_DATA.depot}</span>
                       </p>
-                      <p class="doc-design1__meta-line" id="modelPreviewBeDestinationRow">
-                        <span class="doc-design1__meta-label">Emplacement de destination&nbsp;:</span>
-                        <span class="doc-design1__meta-value" id="modelPreviewBeDestination" data-default="${DOC_DESIGN1_BE_DATA.destination}">${DOC_DESIGN1_BE_DATA.destination}</span>
-                      </p>
                       <p class="doc-design1__meta-line" id="modelPreviewBeReceptionDateRow">
                         <span class="doc-design1__meta-label">Date de r&eacute;ception&nbsp;:</span>
                         <span class="doc-design1__meta-value" id="modelPreviewBeReceptionDate" data-default="${DOC_DESIGN1_DATA.date}">${DOC_DESIGN1_DATA.date}</span>
+                      </p>
+                      <p class="doc-design1__meta-line" id="modelPreviewBeDestinationRow">
+                        <span class="doc-design1__meta-label">Emplacement de destination&nbsp;:</span>
+                        <span class="doc-design1__meta-value" id="modelPreviewBeDestination" data-default="${DOC_DESIGN1_BE_DATA.destination}">${DOC_DESIGN1_BE_DATA.destination}</span>
                       </p>
                       <p class="doc-design1__meta-line" id="modelPreviewBeReceptionTimeRow">
                         <span class="doc-design1__meta-label">Heure&nbsp;:</span>
