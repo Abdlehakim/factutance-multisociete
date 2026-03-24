@@ -9,7 +9,11 @@ export function renderWhPdfNoteSection(options = {}) {
 
   if (isModal) {
     return `
-      <fieldset class="section-box wh-note-box wh-pdf-note-box" id="${boxId}">
+      <fieldset
+        class="section-box wh-note-box wh-pdf-note-box"
+        id="${boxId}"
+        data-model-non-be-section="wh-note"
+      >
         <legend><span class="model-save-dot">Note (PDF)</span></legend>
         <div class="full note-field" data-wh-note-group="${group}">
           <div class="note-field-label" id="${labelId}">Message affiche sous le recapitulatif</div>

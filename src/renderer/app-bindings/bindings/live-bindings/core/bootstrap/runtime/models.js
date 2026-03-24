@@ -225,6 +225,30 @@
           };
           const whPdfNoteComponent = SEM.__whPdfNoteComponent || {};
           const whNoteLexicalModal = SEM.__whNoteLexicalModal || {};
+          const WH_NOTE_FONT_SIZES =
+            Array.isArray(SEM.__bindingShared?.constants?.WH_NOTE_FONT_SIZES) &&
+            SEM.__bindingShared.constants.WH_NOTE_FONT_SIZES.length
+              ? SEM.__bindingShared.constants.WH_NOTE_FONT_SIZES.slice()
+              : [10, 12, 14];
+          const WH_NOTE_DEFAULT_FONT_SIZE = Number.isFinite(
+            Number(SEM.__bindingShared?.constants?.WH_NOTE_DEFAULT_FONT_SIZE)
+          )
+            ? Number(SEM.__bindingShared.constants.WH_NOTE_DEFAULT_FONT_SIZE)
+            : 12;
+          const DEFAULT_MODEL_BE_REMARKS_TEXT =
+            "Reception conforme au bon de commande. Verifier l'etat des emballages et enregistrer les lots si necessaire";
+          const normalizeBeRemarksFontSize = (value) => {
+            const parsed = Number.parseInt(value, 10);
+            if (!Number.isFinite(parsed)) return null;
+            return WH_NOTE_FONT_SIZES.includes(parsed) ? parsed : null;
+          };
+          const ensureBeRemarksSizeWrapper = (value = "", size = WH_NOTE_DEFAULT_FONT_SIZE) => {
+            const html = String(value ?? "");
+            if (!html.trim()) return "";
+            if (/data-size="/i.test(html)) return html;
+            const resolvedSize = normalizeBeRemarksFontSize(size) ?? WH_NOTE_DEFAULT_FONT_SIZE;
+            return `<div data-size="${resolvedSize}" data-size-root="true">${html}</div>`;
+          };
           const initModalWhNoteEditor = () => {
             const onChange = () => {
               if (typeof scheduleModelPreviewUpdate === "function") scheduleModelPreviewUpdate();
@@ -286,6 +310,43 @@
               .replace(/<[^>]+>/g, " ")
               .replace(/&nbsp;|\u00a0/g, " ")
               .trim();
+          const getBeRemarksHidden = () => getEl("beRemarksModal");
+          const setBeRemarksDefaultFlags = ({ allowDefault = false, touched = false } = {}) => {
+            const hidden = getBeRemarksHidden();
+            if (!hidden) return;
+            hidden.dataset.allowDefault = allowDefault ? "1" : "0";
+            hidden.dataset.touched = touched ? "1" : "0";
+          };
+          const ensureModelBeRemarksDefault = (opts = {}) => {
+            const hidden = getBeRemarksHidden();
+            if (!hidden) return false;
+            const allowDefault = hidden.dataset.allowDefault === "1";
+            const touched = hidden.dataset.touched === "1";
+            const hasValue = !!stripNoteText(hidden.value || "");
+            if (!allowDefault || touched || hasValue) return false;
+            const size =
+              normalizeBeRemarksFontSize(opts.size ?? getEl("beRemarksFontSizeModal")?.value) ??
+              WH_NOTE_DEFAULT_FONT_SIZE;
+            setBeRemarksEditorContent(DEFAULT_MODEL_BE_REMARKS_TEXT, { size });
+            setBeRemarksDefaultFlags({ allowDefault: true, touched: false });
+            return true;
+          };
+          const configureModelBeRemarksDefaultState = ({
+            allowDefault = false,
+            touched = false,
+            size,
+            applyIfEmpty = false
+          } = {}) => {
+            const resolvedSize = normalizeBeRemarksFontSize(size) ?? WH_NOTE_DEFAULT_FONT_SIZE;
+            const sizeSelect = getEl("beRemarksFontSizeModal");
+            if (sizeSelect) sizeSelect.value = String(resolvedSize);
+            setBeRemarksDefaultFlags({ allowDefault, touched });
+            if (applyIfEmpty) {
+              ensureModelBeRemarksDefault({ size: resolvedSize });
+            }
+          };
+          w.ensureModelBeRemarksDefault = ensureModelBeRemarksDefault;
+          w.configureModelBeRemarksDefaultState = configureModelBeRemarksDefaultState;
           const resolveDocumentWhNoteForModal = () => {
             const fromMeta = state()?.meta?.withholding?.note;
             if (typeof fromMeta === "string") return fromMeta;
@@ -332,14 +393,6 @@
             italicId: "footerNoteItalicModal",
             listId: "footerNoteListModal"
           };
-          const MODEL_BE_REMARKS_EDITOR_IDS = {
-            editorId: "beRemarksEditorModal",
-            hiddenId: "beRemarksModal",
-            sizeId: "beRemarksFontSizeModal",
-            boldId: "beRemarksBoldModal",
-            italicId: "beRemarksItalicModal",
-            listId: "beRemarksListModal"
-          };
           const setModelFooterStyleEditorContent = (ids, value = "", opts = {}) => {
             if (typeof footerNoteComponent.setEditorContent !== "function") {
               return String(value ?? "");
@@ -368,13 +421,33 @@
             return setModelFooterStyleEditorContent(MODEL_FOOTER_NOTE_EDITOR_IDS, value, opts);
           };
           const setBeRemarksEditorContent = (value = "", opts = {}) => {
-            return setModelFooterStyleEditorContent(MODEL_BE_REMARKS_EDITOR_IDS, value, opts);
+            const requestedSize =
+              normalizeBeRemarksFontSize(opts.size) ??
+              normalizeBeRemarksFontSize(getEl("beRemarksFontSizeModal")?.value) ??
+              WH_NOTE_DEFAULT_FONT_SIZE;
+            const serialized = ensureBeRemarksSizeWrapper(value, requestedSize);
+            if (typeof setWhNoteEditorContent === "function") {
+              setWhNoteEditorContent(serialized, { group: "beRemarks" });
+            } else {
+              const hidden = getEl("beRemarksModal");
+              if (hidden) hidden.value = serialized;
+              const sizeSelect = getEl("beRemarksFontSizeModal");
+              if (sizeSelect) sizeSelect.value = String(requestedSize);
+            }
+            return serialized;
           };
           const wireFooterNoteEditor = () => {
             wireModelFooterStyleEditor(MODEL_FOOTER_NOTE_EDITOR_IDS, "footerNoteWired");
           };
           const wireBeRemarksEditor = () => {
-            wireModelFooterStyleEditor(MODEL_BE_REMARKS_EDITOR_IDS, "beRemarksWired");
+            if (typeof whPdfNoteComponent.initGroup !== "function") return;
+            whPdfNoteComponent.initGroup("beRemarks", {
+              state,
+              onChange: () => {
+                setBeRemarksDefaultFlags({ allowDefault: false, touched: true });
+                if (typeof scheduleModelPreviewUpdate === "function") scheduleModelPreviewUpdate();
+              }
+            });
           };
           SEM.updateModelBeRemarksEditor = (value, opts = {}) => {
             const serialized = setBeRemarksEditorContent(
@@ -607,6 +680,9 @@
             const hasDocTypes = Array.isArray(selectedModelDocTypes) && selectedModelDocTypes.length > 0;
             const effectiveDocType = selectedModelDocTypes[0] || "facture";
             const isBonEntreePreview = effectiveDocType === "be";
+            if (isBonEntreePreview) {
+              ensureModelBeRemarksDefault();
+            }
             const isPurchaseDocType = selectedModelDocTypes.some((docType) => isModelPurchaseDocType(docType));
             const usesManualModelNumbering =
               !!selectedModelDocTypes.length &&
@@ -766,8 +842,9 @@
               const fallback = modelNotePlaceholderEnabled ? (noteContainer.dataset.defaultNote || "") : "";
               const html = hasNote ? noteValue : fallback;
               noteContainer.innerHTML = html;
-              noteContainer.hidden = !html;
-              noteContainer.style.display = html ? "" : "none";
+              const showNote = !!html && !isBonEntreePreview;
+              noteContainer.hidden = !showNote;
+              noteContainer.style.display = showNote ? "" : "none";
             }
             const beRemarksEl = previewRoot.querySelector("#modelPreviewBeRemarks");
             if (beRemarksEl) {
@@ -775,13 +852,12 @@
                 getEl("beRemarksModal")?.value ||
                 state()?.meta?.extras?.pdf?.beRemarks ||
                 "";
-              const beRemarksSizeRaw = Number.parseInt(
-                getEl("beRemarksFontSizeModal")?.value ?? state()?.meta?.extras?.pdf?.beRemarksSize,
-                10
-              );
-              const beRemarksSize = [7, 8, 9].includes(beRemarksSizeRaw) ? beRemarksSizeRaw : 8;
-              const formattedBeRemarks = formatFooterNoteForPreview(beRemarksValue, beRemarksSize);
-              setHtmlWithFallback("modelPreviewBeRemarks", formattedBeRemarks);
+              const beRemarksSize =
+                normalizeBeRemarksFontSize(
+                  getEl("beRemarksFontSizeModal")?.value ?? state()?.meta?.extras?.pdf?.beRemarksSize
+                ) ?? WH_NOTE_DEFAULT_FONT_SIZE;
+              const formattedBeRemarks = ensureBeRemarksSizeWrapper(beRemarksValue, beRemarksSize);
+              beRemarksEl.innerHTML = formattedBeRemarks;
             }
             const footerNoteEl = previewRoot.querySelector("#modelPreviewFooterNote");
             if (footerNoteEl) {
@@ -1485,8 +1561,14 @@
             setValPlain("footerNoteFontSizeModal", "8");
             setFooterNoteEditorContent("");
             setValPlain("beRemarksModal");
-            setValPlain("beRemarksFontSizeModal", "8");
+            setValPlain("beRemarksFontSizeModal", "12");
             setBeRemarksEditorContent("");
+            w.configureModelBeRemarksDefaultState?.({
+              allowDefault: true,
+              touched: false,
+              size: 12,
+              applyIfEmpty: false
+            });
             const defaultColor = "#15335e";
             const colorHex = getEl("modelItemsHeaderHex");
             const colorNative = getEl("modelItemsHeaderColor");
@@ -2135,14 +2217,21 @@
             const footerNoteSizeRaw = Number(pdf.footerNoteSize);
             const footerNoteSize = [7, 8, 9].includes(footerNoteSizeRaw) ? footerNoteSizeRaw : 8;
             const beRemarksValue = typeof pdf.beRemarks === "string" ? pdf.beRemarks : "";
-            const beRemarksSizeRaw = Number(pdf.beRemarksSize);
-            const beRemarksSize = [7, 8, 9].includes(beRemarksSizeRaw) ? beRemarksSizeRaw : 8;
+            const beRemarksSize =
+              normalizeBeRemarksFontSize(pdf.beRemarksSize) ?? WH_NOTE_DEFAULT_FONT_SIZE;
+            const beRemarksTouched = pdf.beRemarksTouched === true;
             setValPlain("footerNoteModal", footerNoteValue);
             setValPlain("footerNoteFontSizeModal", footerNoteSize);
             setFooterNoteEditorContent(footerNoteValue);
             setValPlain("beRemarksModal", beRemarksValue);
             setValPlain("beRemarksFontSizeModal", beRemarksSize);
             setBeRemarksEditorContent(beRemarksValue, { size: beRemarksSize });
+            w.configureModelBeRemarksDefaultState?.({
+              allowDefault: !beRemarksTouched && !stripNoteText(beRemarksValue),
+              touched: beRemarksTouched,
+              size: beRemarksSize,
+              applyIfEmpty: docTypes.includes("be")
+            });
 
             const templateSelect = getEl("modelTemplate");
             const templatePanel = getEl("modelTemplatePanel");

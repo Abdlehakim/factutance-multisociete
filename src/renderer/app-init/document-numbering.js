@@ -432,16 +432,27 @@
     };
     const getModelBeOnlySections = () =>
       Array.from(modelActionsModal?.querySelectorAll?.("[data-model-be-only-section]") || []);
+    const getModelNonBeSections = () =>
+      Array.from(modelActionsModal?.querySelectorAll?.("[data-model-non-be-section]") || []);
     const syncModelBeOnlySectionsVisibility = (modelDocTypes = getSelectedModelDocTypes()) => {
-      const sections = getModelBeOnlySections();
-      if (!sections.length) return false;
+      const beSections = getModelBeOnlySections();
+      const nonBeSections = getModelNonBeSections();
+      if (!beSections.length && !nonBeSections.length) return false;
       const normalizedList = normalizeModelDocTypeSwitchSelection(modelDocTypes);
       const isBonEntreeActive = normalizedList.includes("be");
-      sections.forEach((section) => {
+      beSections.forEach((section) => {
         section.hidden = !isBonEntreeActive;
         section.style.display = isBonEntreeActive ? "" : "none";
         section.setAttribute("aria-hidden", isBonEntreeActive ? "false" : "true");
       });
+      nonBeSections.forEach((section) => {
+        section.hidden = isBonEntreeActive;
+        section.style.display = isBonEntreeActive ? "none" : "";
+        section.setAttribute("aria-hidden", isBonEntreeActive ? "true" : "false");
+      });
+      if (isBonEntreeActive && typeof w.ensureModelBeRemarksDefault === "function") {
+        w.ensureModelBeRemarksDefault();
+      }
       return isBonEntreeActive;
     };
 

@@ -44,6 +44,15 @@
       boldId: "whNoteBoldModal",
       italicId: "whNoteItalicModal",
       listId: "whNoteListModal"
+    },
+    beRemarks: {
+      boxId: "beRemarksNoteBoxModal",
+      hiddenId: "beRemarksModal",
+      editorId: "beRemarksEditorModal",
+      sizeId: "beRemarksFontSizeModal",
+      boldId: "beRemarksBoldModal",
+      italicId: "beRemarksItalicModal",
+      listId: "beRemarksListModal"
     }
   };
   const resolveWhNoteGroups = (target) => {

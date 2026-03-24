@@ -5,14 +5,14 @@ export function renderBeRemarksNoteSection(options = {}) {
 
   return `
     <fieldset
-      class="section-box wh-note-box footer-note-box be-remarks-note-box"
+      class="section-box wh-note-box wh-pdf-note-box be-remarks-note-box"
       id="${fieldsetId}"
       data-model-be-only-section="be-remarks"
       hidden
       aria-hidden="true"
     >
       <legend><span class="model-save-dot">Observation / Remarques</span></legend>
-      <div class="full note-field footer-note-field">
+      <div class="full note-field" data-wh-note-group="beRemarks">
         <div class="note-field-label" id="beRemarksLabel${suffix}">Texte affich&eacute; dans le bloc Observation / Remarques du Bon d'entr&eacute;e</div>
         <div class="note-toolbar" aria-label="Mise en forme de l'observation / remarques">
           <label class="note-size-control" for="beRemarksFontSize${suffix}">
@@ -23,9 +23,9 @@ export function renderBeRemarksNoteSection(options = {}) {
               title="Taille de la police de l'observation / remarques"
               aria-label="Taille de la police de l'observation / remarques"
             >
-              <option value="7">7</option>
-              <option value="8" selected>8</option>
-              <option value="9">9</option>
+              <option value="10">10</option>
+              <option value="12" selected>12</option>
+              <option value="14">14</option>
             </select>
           </label>
           <button type="button" id="beRemarksBold${suffix}" class="note-tool" title="Texte en gras">
@@ -40,7 +40,7 @@ export function renderBeRemarksNoteSection(options = {}) {
         </div>
         <div
           id="beRemarksEditor${suffix}"
-          class="note-editor note-editor--footer"
+          class="note-editor"
           contenteditable="true"
           role="textbox"
           aria-multiline="true"

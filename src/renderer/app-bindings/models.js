@@ -61,11 +61,18 @@
   };
   const FOOTER_NOTE_FONT_SIZES = [7, 8, 9];
   const DEFAULT_FOOTER_NOTE_FONT_SIZE = 8;
-  const normalizeFooterNoteFontSize = (value, fallback = DEFAULT_FOOTER_NOTE_FONT_SIZE) => {
+  const BE_REMARKS_FONT_SIZES = [10, 12, 14];
+  const DEFAULT_BE_REMARKS_FONT_SIZE = 12;
+  const normalizeSizedNoteFontSize = (value, allowedSizes = [], fallback = null) => {
     const parsed = Number.parseInt(value, 10);
     if (!Number.isFinite(parsed)) return fallback;
-    return FOOTER_NOTE_FONT_SIZES.includes(parsed) ? parsed : fallback;
+    return allowedSizes.includes(parsed) ? parsed : fallback;
   };
+  const normalizeFooterNoteFontSize = (value, fallback = DEFAULT_FOOTER_NOTE_FONT_SIZE) => {
+    return normalizeSizedNoteFontSize(value, FOOTER_NOTE_FONT_SIZES, fallback);
+  };
+  const normalizeBeRemarksFontSize = (value, fallback = DEFAULT_BE_REMARKS_FONT_SIZE) =>
+    normalizeSizedNoteFontSize(value, BE_REMARKS_FONT_SIZES, fallback);
   const DEFAULT_MODEL_DOC_TYPE = "facture";
   const MODEL_FEES_USED_DEFAULTS = Object.freeze({
     shipping: true,
@@ -343,10 +350,11 @@
       DEFAULT_FOOTER_NOTE_FONT_SIZE
     );
     const beRemarks = typeof safeConfig?.pdf?.beRemarks === "string" ? safeConfig.pdf.beRemarks : "";
-    const beRemarksSize = normalizeFooterNoteFontSize(
+    const beRemarksSize = normalizeBeRemarksFontSize(
       safeConfig?.pdf?.beRemarksSize,
-      DEFAULT_FOOTER_NOTE_FONT_SIZE
+      DEFAULT_BE_REMARKS_FONT_SIZE
     );
+    const beRemarksTouched = safeConfig?.pdf?.beRemarksTouched === true;
     if (!meta.extras || typeof meta.extras !== "object") meta.extras = {};
     if (!meta.extras.pdf || typeof meta.extras.pdf !== "object") meta.extras.pdf = {};
     if (typeof showAmountWords === "boolean") {
@@ -356,6 +364,7 @@
     meta.extras.pdf.footerNoteSize = footerNoteSize;
     meta.extras.pdf.beRemarks = beRemarks;
     meta.extras.pdf.beRemarksSize = beRemarksSize;
+    meta.extras.pdf.beRemarksTouched = beRemarksTouched;
     const financingUsed = safeConfig?.financing?.used;
     if (typeof financingUsed === "boolean") {
       if (!meta.financing || typeof meta.financing !== "object") meta.financing = {};
@@ -1435,9 +1444,12 @@
     const footerNoteSize = normalizeFooterNoteFontSize(pdf.footerNoteSize, DEFAULT_FOOTER_NOTE_FONT_SIZE);
     const beRemarks =
       typeof pdf.beRemarks === "string"
-        ? sanitizeFooterNoteHtml(pdf.beRemarks).trim()
+        ? sanitizeFooterNoteHtml(pdf.beRemarks, {
+            allowedSizes: BE_REMARKS_FONT_SIZES
+          }).trim()
         : "";
-    const beRemarksSize = normalizeFooterNoteFontSize(pdf.beRemarksSize, DEFAULT_FOOTER_NOTE_FONT_SIZE);
+    const beRemarksSize = normalizeBeRemarksFontSize(pdf.beRemarksSize, DEFAULT_BE_REMARKS_FONT_SIZE);
+    const beRemarksTouched = pdf.beRemarksTouched === true;
     cleaned.pdf = {
       showSeal: pdf.showSeal !== false,
       showSignature: pdf.showSignature !== false,
@@ -1445,7 +1457,8 @@
       footerNote,
       footerNoteSize,
       beRemarks,
-      beRemarksSize
+      beRemarksSize,
+      beRemarksTouched
     };
 
     const hasNumberLength =
@@ -1523,9 +1536,13 @@
       .replace(/<[^>]+>/g, "");
   }
 
-  function sanitizeFooterNoteHtml(raw = "") {
+  function sanitizeFooterNoteHtml(raw = "", options = {}) {
     if (raw === undefined || raw === null) return "";
     const input = String(raw);
+    const allowedSizes =
+      Array.isArray(options.allowedSizes) && options.allowedSizes.length
+        ? options.allowedSizes.map((size) => Number(size)).filter((size) => Number.isFinite(size))
+        : FOOTER_NOTE_FONT_SIZES;
     if (typeof document === "undefined") {
       return stripHtmlAndStyles(input);
     }
@@ -1556,7 +1573,7 @@
       if (tag === "i") tag = "em";
       if (tag === "span" || tag === "div") {
         const sizeRaw = Number.parseInt(node.getAttribute("data-size"), 10);
-        const size = FOOTER_NOTE_FONT_SIZES.includes(sizeRaw) ? sizeRaw : null;
+        const size = allowedSizes.includes(sizeRaw) ? sizeRaw : null;
         if (!size) {
           const isBlock = blockTags.has(tag);
           if (isBlock) pushBreak();
@@ -1813,12 +1830,19 @@
       const fallback = meta?.extras?.pdf?.beRemarks;
       return typeof fallback === "string" ? fallback : "";
     };
+    const readBeRemarksTouched = () => {
+      const modalField = getEl("beRemarksModal");
+      if (modalField) {
+        return modalField.dataset?.touched === "1";
+      }
+      return meta?.extras?.pdf?.beRemarksTouched === true;
+    };
     const readBeRemarksSize = () => {
       const modalSize = getEl("beRemarksFontSizeModal")?.value;
       const fallback = meta?.extras?.pdf?.beRemarksSize;
-      return normalizeFooterNoteFontSize(
+      return normalizeBeRemarksFontSize(
         modalSize ?? fallback,
-        DEFAULT_FOOTER_NOTE_FONT_SIZE
+        DEFAULT_BE_REMARKS_FONT_SIZE
       );
     };
 
@@ -2019,7 +2043,8 @@
       footerNote: readFooterNoteValue(),
       footerNoteSize: readFooterNoteSize(),
       beRemarks: readBeRemarksValue(),
-      beRemarksSize: readBeRemarksSize()
+      beRemarksSize: readBeRemarksSize(),
+      beRemarksTouched: readBeRemarksTouched()
     };
 
     const rawConfig = {
@@ -2659,6 +2684,8 @@
     }
 
     if (!itemsSectionOnly && safeConfig.pdf && typeof safeConfig.pdf === "object") {
+      const rawPdf = config.pdf && typeof config.pdf === "object" ? config.pdf : {};
+      const beRemarksTouched = rawPdf.beRemarksTouched === true;
       setCheckboxValue("pdfShowSealModal", safeConfig.pdf.showSeal !== false);
       setCheckboxValue("pdfShowSignatureModal", safeConfig.pdf.showSignature !== false);
       setCheckboxValue("pdfShowAmountWordsModal", safeConfig.pdf.showAmountWords !== false);
@@ -2668,9 +2695,9 @@
         DEFAULT_FOOTER_NOTE_FONT_SIZE
       );
       const beRemarks = typeof safeConfig.pdf.beRemarks === "string" ? safeConfig.pdf.beRemarks : "";
-      const beRemarksSize = normalizeFooterNoteFontSize(
+      const beRemarksSize = normalizeBeRemarksFontSize(
         safeConfig.pdf.beRemarksSize,
-        DEFAULT_FOOTER_NOTE_FONT_SIZE
+        DEFAULT_BE_REMARKS_FONT_SIZE
       );
       setFieldValue("footerNoteModal", footerNote);
       setFieldValue("footerNoteFontSizeModal", footerNoteSize);
@@ -2684,6 +2711,12 @@
       if (typeof SEM.updateModelBeRemarksEditor === "function") {
         SEM.updateModelBeRemarksEditor(beRemarks, { size: beRemarksSize });
       }
+      w.configureModelBeRemarksDefaultState?.({
+        allowDefault: !beRemarksTouched && !beRemarks,
+        touched: beRemarksTouched,
+        size: beRemarksSize,
+        applyIfEmpty: resolvedDocTypes.includes("be")
+      });
       if (st?.meta) {
         if (!st.meta.extras || typeof st.meta.extras !== "object") st.meta.extras = {};
         if (!st.meta.extras.pdf || typeof st.meta.extras.pdf !== "object") st.meta.extras.pdf = {};
@@ -2694,6 +2727,7 @@
         st.meta.extras.pdf.footerNoteSize = footerNoteSize;
         st.meta.extras.pdf.beRemarks = beRemarks;
         st.meta.extras.pdf.beRemarksSize = beRemarksSize;
+        st.meta.extras.pdf.beRemarksTouched = safeConfig.pdf.beRemarksTouched === true;
       }
     }
 

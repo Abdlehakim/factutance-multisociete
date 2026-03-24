@@ -94,7 +94,7 @@ const DOC_DESIGN1_BE_DATA = {
   controlledBy: "Responsable qualit\u00e9",
   validatedBy: "Responsable stock",
   remarksHtml:
-    "Reception conforme au bon de commande.<br/>Verifier l'etat des emballages et enregistrer les lots si necessaire."
+    "Reception conforme au bon de commande. Verifier l'etat des emballages et enregistrer les lots si necessaire"
 };
 
 const DOC_DESIGN1_ITEMS_HTML = DOC_DESIGN1_DATA.items
