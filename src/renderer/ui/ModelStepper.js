@@ -615,6 +615,150 @@ export const ModelStepper = `
                                   </label>
                                 </div>
                               </div>
+
+                              <div
+                                class="field-toggle-section"
+                                id="modelBsInfoSection"
+                                data-model-bs-only-section="bs-info"
+                                hidden
+                                aria-hidden="true"
+                              >
+                                <div class="field-toggle-section__title">Informations de sortie</div>
+                                <div class="field-toggle-section__grid">
+                                  <label class="toggle-option">
+                                    <input
+                                      id="colToggleBsDepotModal"
+                                      data-column-key="bsDepot"
+                                      type="checkbox"
+                                      class="col-toggle"
+                                      aria-label="Masquer champ Depot ou magasin"
+                                      aria-checked="true"
+                                      checked
+                                    />
+                                    <span class="model-save-dot">D&eacute;p&ocirc;t / Magasin</span>
+                                  </label>
+                                  <label class="toggle-option">
+                                    <input
+                                      id="colToggleBsLocationModal"
+                                      data-column-key="bsLocation"
+                                      type="checkbox"
+                                      class="col-toggle"
+                                      aria-label="Masquer champ Emplacement de sortie"
+                                      aria-checked="true"
+                                      checked
+                                    />
+                                    <span class="model-save-dot">Emplacement de sortie</span>
+                                  </label>
+                                  <label class="toggle-option">
+                                    <input
+                                      id="colToggleBsSortieDateModal"
+                                      data-column-key="bsSortieDate"
+                                      type="checkbox"
+                                      class="col-toggle"
+                                      aria-label="Masquer champ Date de sortie"
+                                      aria-checked="true"
+                                      checked
+                                    />
+                                    <span class="model-save-dot">Date de sortie</span>
+                                  </label>
+                                  <label class="toggle-option">
+                                    <input
+                                      id="colToggleBsSortieTimeModal"
+                                      data-column-key="bsSortieTime"
+                                      type="checkbox"
+                                      class="col-toggle"
+                                      aria-label="Masquer champ Heure"
+                                      aria-checked="true"
+                                      checked
+                                    />
+                                    <span class="model-save-dot">Heure</span>
+                                  </label>
+                                  <label class="toggle-option">
+                                    <input
+                                      id="colToggleBsSourceRefModal"
+                                      data-column-key="bsSourceRef"
+                                      type="checkbox"
+                                      class="col-toggle"
+                                      aria-label="Masquer champ Reference source"
+                                      aria-checked="true"
+                                      checked
+                                    />
+                                    <span class="model-save-dot">R&eacute;f&eacute;rence source</span>
+                                  </label>
+                                </div>
+                              </div>
+
+                              <div
+                                class="field-toggle-section"
+                                id="modelBsTransportSection"
+                                data-model-bs-only-section="bs-transport"
+                                hidden
+                                aria-hidden="true"
+                              >
+                                <div class="field-toggle-section__title">Transport / exp&eacute;dition</div>
+                                <div class="field-toggle-section__grid">
+                                  <label class="toggle-option">
+                                    <input
+                                      id="colToggleBsTransporterModal"
+                                      data-column-key="bsTransporter"
+                                      type="checkbox"
+                                      class="col-toggle"
+                                      aria-label="Masquer champ Transporteur"
+                                      aria-checked="true"
+                                      checked
+                                    />
+                                    <span class="model-save-dot">Transporteur</span>
+                                  </label>
+                                  <label class="toggle-option">
+                                    <input
+                                      id="colToggleBsDriverNameModal"
+                                      data-column-key="bsDriverName"
+                                      type="checkbox"
+                                      class="col-toggle"
+                                      aria-label="Masquer champ Nom du chauffeur"
+                                      aria-checked="true"
+                                      checked
+                                    />
+                                    <span class="model-save-dot">Nom du chauffeur</span>
+                                  </label>
+                                  <label class="toggle-option">
+                                    <input
+                                      id="colToggleBsVehiclePlateModal"
+                                      data-column-key="bsVehiclePlate"
+                                      type="checkbox"
+                                      class="col-toggle"
+                                      aria-label="Masquer champ Matricule vehicule"
+                                      aria-checked="true"
+                                      checked
+                                    />
+                                    <span class="model-save-dot">Matricule v&eacute;hicule</span>
+                                  </label>
+                                  <label class="toggle-option">
+                                    <input
+                                      id="colToggleBsTransportModeModal"
+                                      data-column-key="bsTransportMode"
+                                      type="checkbox"
+                                      class="col-toggle"
+                                      aria-label="Masquer champ Mode de transport"
+                                      aria-checked="true"
+                                      checked
+                                    />
+                                    <span class="model-save-dot">Mode de transport</span>
+                                  </label>
+                                  <label class="toggle-option">
+                                    <input
+                                      id="colToggleBsExitReasonModal"
+                                      data-column-key="bsExitReason"
+                                      type="checkbox"
+                                      class="col-toggle"
+                                      aria-label="Masquer champ Motif de sortie"
+                                      aria-checked="true"
+                                      checked
+                                    />
+                                    <span class="model-save-dot">Motif de sortie</span>
+                                  </label>
+                                </div>
+                              </div>
                             </div>
                           </div>
                         </div>

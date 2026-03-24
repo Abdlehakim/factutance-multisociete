@@ -676,7 +676,7 @@
               table
                 .querySelectorAll(".doc-design1__table-cell--be-last-visible")
                 .forEach((cell) => cell.classList.remove("doc-design1__table-cell--be-last-visible"));
-              if (!isBonEntreePreview) return;
+              if (!isStockMovementPreview) return;
               const headerCells = Array.from(table.querySelectorAll("thead th[data-col]"));
               const visibleHeaderCells = headerCells.filter((cell) => {
                 if (!cell || cell.hidden) return false;
@@ -711,6 +711,8 @@
             const hasDocTypes = Array.isArray(selectedModelDocTypes) && selectedModelDocTypes.length > 0;
             const effectiveDocType = selectedModelDocTypes[0] || "facture";
             const isBonEntreePreview = effectiveDocType === "be";
+            const isBonSortiePreview = effectiveDocType === "bs";
+            const isStockMovementPreview = isBonEntreePreview || isBonSortiePreview;
             if (isBonEntreePreview) {
               ensureModelBeRemarksDefault();
             }
@@ -767,11 +769,14 @@
             }
             previewRoot.dataset.previewDocType = effectiveDocType;
             previewRoot.classList.toggle("doc-design1--be", isBonEntreePreview);
+            previewRoot.classList.toggle("doc-design1--bs", isBonSortiePreview);
             const previewPartyLegend =
               previewRoot.querySelector('[data-model-preview-party-legend]') ||
               previewRoot.querySelector(".doc-design1__section > .doc-design1__section-title");
             if (previewPartyLegend) {
-              previewPartyLegend.textContent = isPurchaseDocType ? "Fournisseur" : "Client";
+              previewPartyLegend.textContent = isBonSortiePreview
+                ? "Destinataire"
+                : (isPurchaseDocType ? "Fournisseur" : "Client");
             }
             const prefixMap = {
               facture: "Fact",
@@ -864,7 +869,7 @@
             }
             const amountWordsContainer = previewRoot.querySelector(".doc-design1__amount-words");
             if (amountWordsContainer) {
-              const showAmountWordsBlock = showAmountWords && !isBonEntreePreview;
+              const showAmountWordsBlock = showAmountWords && !isStockMovementPreview;
               amountWordsContainer.hidden = !showAmountWordsBlock;
               amountWordsContainer.style.display = showAmountWordsBlock ? "" : "none";
             }
@@ -879,7 +884,7 @@
               const fallback = modelNotePlaceholderEnabled ? (noteContainer.dataset.defaultNote || "") : "";
               const html = hasNote ? noteValue : fallback;
               noteContainer.innerHTML = html;
-              const showNote = !!html && !isBonEntreePreview;
+              const showNote = !!html && !isStockMovementPreview;
               noteContainer.hidden = !showNote;
               noteContainer.style.display = showNote ? "" : "none";
             }
@@ -906,7 +911,7 @@
                 !!sanitizedFooterNote.replace(/<[^>]+>/g, "").replace(/&nbsp;|\u00a0/g, " ").trim();
               footerNoteEl.innerHTML = sanitizedFooterNote;
               footerNoteEl.style.fontSize = `${footerNoteSize}px`;
-              const showFooterNote = hasFooterNote && !isBonEntreePreview;
+              const showFooterNote = hasFooterNote && !isStockMovementPreview;
               footerNoteEl.hidden = !showFooterNote;
               footerNoteEl.style.display = showFooterNote ? "" : "none";
             }
@@ -926,7 +931,7 @@
             const sealImg = previewRoot.querySelector("#modelPreviewSealImg");
             const sealSrc = company?.seal?.image || "";
             if (sealOverlay && sealImg) {
-              if (!isBonEntreePreview && showSeal && sealSrc) {
+              if (!isStockMovementPreview && showSeal && sealSrc) {
                 if (sealImg.getAttribute("src") !== sealSrc) sealImg.setAttribute("src", sealSrc);
                 const rotation = Number(company?.seal?.rotateDeg);
                 sealImg.style.transform = Number.isFinite(rotation) ? `rotate(${rotation}deg)` : "";
@@ -945,7 +950,7 @@
             const signatureImg = previewRoot.querySelector("#modelPreviewSignatureImg");
             const signatureSrc = company?.signature?.image || "";
             if (signatureOverlay && signatureImg) {
-              if (!isBonEntreePreview && showSignature && signatureSrc) {
+              if (!isStockMovementPreview && showSignature && signatureSrc) {
                 if (signatureImg.getAttribute("src") !== signatureSrc) signatureImg.setAttribute("src", signatureSrc);
                 const rotation = Number(company?.signature?.rotateDeg);
                 signatureImg.style.transform = Number.isFinite(rotation) ? `rotate(${rotation}deg)` : "";
@@ -1112,7 +1117,19 @@
               beReceptionTime: isColumnChecked("beReceptionTime"),
               beSourceRef: isColumnChecked("beSourceRef")
             };
-            if (isBonEntreePreview) {
+            const bsContextVisibility = {
+              bsDepot: isColumnChecked("bsDepot"),
+              bsLocation: isColumnChecked("bsLocation"),
+              bsSortieDate: isColumnChecked("bsSortieDate"),
+              bsSortieTime: isColumnChecked("bsSortieTime"),
+              bsSourceRef: isColumnChecked("bsSourceRef"),
+              bsTransporter: isColumnChecked("bsTransporter"),
+              bsDriverName: isColumnChecked("bsDriverName"),
+              bsVehiclePlate: isColumnChecked("bsVehiclePlate"),
+              bsTransportMode: isColumnChecked("bsTransportMode"),
+              bsExitReason: isColumnChecked("bsExitReason")
+            };
+            if (isStockMovementPreview) {
               visibility.purchasePrice = false;
               visibility.purchaseTva = false;
               visibility.purchaseDiscount = false;
@@ -1166,17 +1183,19 @@
 
             const miniSummary = previewRoot.querySelector(".doc-design1__mini-sum");
             if (miniSummary) {
-              const hasVisibleMiniRow = !isBonEntreePreview && Object.values(miniRowVisibility).some(Boolean);
+              const hasVisibleMiniRow =
+                !isStockMovementPreview && Object.values(miniRowVisibility).some(Boolean);
               miniSummary.hidden = !hasVisibleMiniRow;
               miniSummary.style.display = hasVisibleMiniRow ? "" : "none";
             }
             const taxPanel = previewRoot.querySelector("[data-tax-panel]");
-            setNodeVisibility(taxPanel, !isBonEntreePreview);
+            setNodeVisibility(taxPanel, !isStockMovementPreview);
             const invoiceSummary = previewRoot.querySelector("#modelPreviewInvoiceSummary");
-            setNodeVisibility(invoiceSummary, !isBonEntreePreview);
+            setNodeVisibility(invoiceSummary, !isStockMovementPreview);
             const invoiceFooter = previewRoot.querySelector("#modelPreviewInvoiceFooter");
-            setNodeVisibility(invoiceFooter, !isBonEntreePreview);
+            setNodeVisibility(invoiceFooter, !isStockMovementPreview);
             const beContext = previewRoot.querySelector("#modelPreviewBeContext");
+            const beTransportSection = previewRoot.querySelector("#modelPreviewBeTransportSection");
             const beFieldRows = {
               beDepot: previewRoot.querySelector("#modelPreviewBeDepotRow"),
               beDestination: previewRoot.querySelector("#modelPreviewBeDestinationRow"),
@@ -1184,11 +1203,31 @@
               beReceptionTime: previewRoot.querySelector("#modelPreviewBeReceptionTimeRow"),
               beSourceRef: previewRoot.querySelector("#modelPreviewBeSourceRefRow")
             };
+            const beTransportVisibility = {
+              beTransporter: isColumnChecked("beTransporter"),
+              beDriverName: isColumnChecked("beDriverName"),
+              beVehiclePlate: isColumnChecked("beVehiclePlate")
+            };
+            const beTransportRows = {
+              beTransporter: previewRoot.querySelector("#modelPreviewBeTransporterRow"),
+              beDriverName: previewRoot.querySelector("#modelPreviewBeDriverNameRow"),
+              beVehiclePlate: previewRoot.querySelector("#modelPreviewBeVehiclePlateRow")
+            };
             Object.entries(beFieldRows).forEach(([key, node]) => {
               setNodeVisibility(node, isBonEntreePreview && beContextVisibility[key] === true);
             });
+            Object.entries(beTransportRows).forEach(([key, node]) => {
+              setNodeVisibility(node, isBonEntreePreview && beTransportVisibility[key] === true);
+            });
+            const hasVisibleBeTransportField =
+              isBonEntreePreview && Object.values(beTransportVisibility).some((visible) => visible === true);
+            setNodeVisibility(beTransportSection, hasVisibleBeTransportField);
             const hasVisibleBeContextField =
-              isBonEntreePreview && Object.values(beContextVisibility).some((visible) => visible === true);
+              isBonEntreePreview &&
+              (
+                Object.values(beContextVisibility).some((visible) => visible === true) ||
+                hasVisibleBeTransportField
+              );
             setNodeVisibility(beContext, hasVisibleBeContextField);
             const beBottom = previewRoot.querySelector("#modelPreviewBeBottom");
             setNodeVisibility(beBottom, isBonEntreePreview);
@@ -1198,6 +1237,9 @@
               setTextWithFallback("modelPreviewBeReceptionDate", previewDateValue);
               setTextWithFallback("modelPreviewBeReceptionTime", "");
               setTextWithFallback("modelPreviewBeSourceRef", "");
+              setTextWithFallback("modelPreviewBeTransporter", "");
+              setTextWithFallback("modelPreviewBeDriverName", "");
+              setTextWithFallback("modelPreviewBeVehiclePlate", "");
               setTextWithFallback("modelPreviewBeReceivedBy", "");
               setTextWithFallback("modelPreviewBeControlledBy", "");
               setTextWithFallback("modelPreviewBeValidatedBy", "");
@@ -1231,6 +1273,70 @@
             syncTextFromSource("modelPreviewBeReceivedBy", "modelPdfOptionsBeReceivedBy");
             syncTextFromSource("modelPreviewBeControlledBy", "modelPdfOptionsBeControlledBy");
             syncTextFromSource("modelPreviewBeValidatedBy", "modelPdfOptionsBeValidatedBy");
+            const bsContext = previewRoot.querySelector("#modelPreviewBsContext");
+            const bsTransportSection = previewRoot.querySelector("#modelPreviewBsTransportSection");
+            const bsFieldRows = {
+              bsDepot: previewRoot.querySelector("#modelPreviewBsDepotRow"),
+              bsLocation: previewRoot.querySelector("#modelPreviewBsLocationRow"),
+              bsSortieDate: previewRoot.querySelector("#modelPreviewBsSortieDateRow"),
+              bsSortieTime: previewRoot.querySelector("#modelPreviewBsSortieTimeRow"),
+              bsSourceRef: previewRoot.querySelector("#modelPreviewBsSourceRefRow"),
+              bsTransporter: previewRoot.querySelector("#modelPreviewBsTransporterRow"),
+              bsDriverName: previewRoot.querySelector("#modelPreviewBsDriverNameRow"),
+              bsVehiclePlate: previewRoot.querySelector("#modelPreviewBsVehiclePlateRow"),
+              bsTransportMode: previewRoot.querySelector("#modelPreviewBsTransportModeRow"),
+              bsExitReason: previewRoot.querySelector("#modelPreviewBsExitReasonRow")
+            };
+            Object.entries(bsFieldRows).forEach(([key, node]) => {
+              setNodeVisibility(node, isBonSortiePreview && bsContextVisibility[key] === true);
+            });
+            const hasVisibleBsTransportField =
+              isBonSortiePreview &&
+              [
+                bsContextVisibility.bsTransporter,
+                bsContextVisibility.bsDriverName,
+                bsContextVisibility.bsVehiclePlate,
+                bsContextVisibility.bsTransportMode,
+                bsContextVisibility.bsExitReason
+              ].some((visible) => visible === true);
+            setNodeVisibility(bsTransportSection, hasVisibleBsTransportField);
+            const hasVisibleBsContextField =
+              isBonSortiePreview && Object.values(bsContextVisibility).some((visible) => visible === true);
+            setNodeVisibility(bsContext, hasVisibleBsContextField);
+            const bsBottom = previewRoot.querySelector("#modelPreviewBsBottom");
+            setNodeVisibility(bsBottom, isBonSortiePreview);
+            if (isBonSortiePreview) {
+              setTextWithFallback("modelPreviewBsDepot", "");
+              setTextWithFallback("modelPreviewBsLocation", "");
+              setTextWithFallback("modelPreviewBsSortieDate", previewDateValue);
+              setTextWithFallback("modelPreviewBsSortieTime", "");
+              setTextWithFallback("modelPreviewBsSourceRef", "");
+              setTextWithFallback("modelPreviewBsTransporter", "");
+              setTextWithFallback("modelPreviewBsDriverName", "");
+              setTextWithFallback("modelPreviewBsVehiclePlate", "");
+              setTextWithFallback("modelPreviewBsTransportMode", "");
+              setTextWithFallback("modelPreviewBsExitReason", "");
+              setTextWithFallback("modelPreviewBsIssuedBy", "");
+              setTextWithFallback("modelPreviewBsCheckedBy", "");
+              setTextWithFallback("modelPreviewBsValidatedBy", "");
+            }
+            const bsApprovals = previewRoot.querySelector("#modelPreviewBsApprovals");
+            const bsApprovalBlocks = [
+              previewRoot.querySelector("#modelPreviewBsIssuedByBlock"),
+              previewRoot.querySelector("#modelPreviewBsCheckedByBlock"),
+              previewRoot.querySelector("#modelPreviewBsValidatedByBlock")
+            ];
+            bsApprovalBlocks.forEach((node) => {
+              setNodeVisibility(node, isBonSortiePreview);
+            });
+            if (bsApprovals) {
+              if (isBonSortiePreview) {
+                bsApprovals.dataset.visibleCount = "3";
+              } else {
+                delete bsApprovals.dataset.visibleCount;
+              }
+            }
+            setNodeVisibility(bsApprovals, isBonSortiePreview);
           };
           helpers.updateModelPreview = updateModelPreview;
           raf = w.requestAnimationFrame?.bind(w) || ((fn) => setTimeout(fn, 16));
@@ -1260,6 +1366,16 @@
             beReceptionDate: true,
             beReceptionTime: true,
             beSourceRef: true,
+            bsDepot: true,
+            bsLocation: true,
+            bsSortieDate: true,
+            bsSortieTime: true,
+            bsSourceRef: true,
+            bsTransporter: true,
+            bsDriverName: true,
+            bsVehiclePlate: true,
+            bsTransportMode: true,
+            bsExitReason: true,
             purchasePrice: false,
             purchaseTva: false,
             purchaseDiscount: false,

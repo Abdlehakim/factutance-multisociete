@@ -432,18 +432,27 @@
     };
     const getModelBeOnlySections = () =>
       Array.from(modelActionsModal?.querySelectorAll?.("[data-model-be-only-section]") || []);
+    const getModelBsOnlySections = () =>
+      Array.from(modelActionsModal?.querySelectorAll?.("[data-model-bs-only-section]") || []);
     const getModelNonBeSections = () =>
       Array.from(modelActionsModal?.querySelectorAll?.("[data-model-non-be-section]") || []);
     const syncModelBeOnlySectionsVisibility = (modelDocTypes = getSelectedModelDocTypes()) => {
       const beSections = getModelBeOnlySections();
+      const bsSections = getModelBsOnlySections();
       const nonBeSections = getModelNonBeSections();
-      if (!beSections.length && !nonBeSections.length) return false;
+      if (!beSections.length && !bsSections.length && !nonBeSections.length) return false;
       const normalizedList = normalizeModelDocTypeSwitchSelection(modelDocTypes);
       const isBonEntreeActive = normalizedList.includes("be");
+      const isBonSortieActive = normalizedList.includes("bs");
       beSections.forEach((section) => {
         section.hidden = !isBonEntreeActive;
         section.style.display = isBonEntreeActive ? "" : "none";
         section.setAttribute("aria-hidden", isBonEntreeActive ? "false" : "true");
+      });
+      bsSections.forEach((section) => {
+        section.hidden = !isBonSortieActive;
+        section.style.display = isBonSortieActive ? "" : "none";
+        section.setAttribute("aria-hidden", isBonSortieActive ? "false" : "true");
       });
       nonBeSections.forEach((section) => {
         section.hidden = isBonEntreeActive;

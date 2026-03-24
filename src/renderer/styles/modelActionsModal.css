@@ -479,6 +479,36 @@ background: #f3f8ff;
   gap: 10px;
 }
 
+#modelActionsModal #modelActionsPreview .doc-design1__bs-context {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 12px;
+}
+
+#modelActionsModal #modelActionsPreview .doc-design1__bs-context > .doc-design1__bs-section {
+  min-width: 0;
+}
+
+#modelActionsModal #modelActionsPreview .doc-design1__bs-context .doc-design1__be-grid {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+}
+
+#modelActionsModal #modelActionsPreview .doc-design1__bs-context .doc-design1__meta-line {
+  grid-template-columns: auto minmax(0, 1fr);
+  row-gap: 2px;
+}
+
+#modelActionsModal #modelActionsPreview .doc-design1__bs-context .doc-design1__meta-label {
+  white-space: normal;
+}
+
+#modelActionsModal #modelActionsPreview .doc-design1__bs-context .doc-design1__meta-value {
+  min-width: 0;
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+
 #modelActionsModal #modelActionsPreview .doc-design1__be-section {
   padding-top: 18px;
 }
@@ -982,7 +1012,16 @@ border-collapse: separate;
   line-height: 1.2;
 }
 
+#modelActionsModal #modelActionsPreview.doc-design1--bs .doc-design1__table thead th {
+  white-space: normal;
+  line-height: 1.2;
+}
+
 #modelActionsModal #modelActionsPreview.doc-design1--be .doc-design1__table tbody tr td {
+  line-height: 1.35;
+}
+
+#modelActionsModal #modelActionsPreview.doc-design1--bs .doc-design1__table tbody tr td {
   line-height: 1.35;
 }
 
@@ -990,7 +1029,15 @@ border-collapse: separate;
   border-right: 0 !important;
 }
 
+#modelActionsModal #modelActionsPreview.doc-design1--bs .doc-design1__table .doc-design1__table-cell--be-last-visible {
+  border-right: 0 !important;
+}
+
 #modelActionsModal #modelActionsPreview.doc-design1--be .doc-design1__bottom {
+  gap: 12px;
+}
+
+#modelActionsModal #modelActionsPreview.doc-design1--bs .doc-design1__bottom {
   gap: 12px;
 }
 
@@ -999,8 +1046,18 @@ border-collapse: separate;
   display: none;
 }
 
+#modelActionsModal #modelActionsPreview.doc-design1--bs .doc-design1__summary-row,
+#modelActionsModal #modelActionsPreview.doc-design1--bs .doc-design1__footer {
+  display: none;
+}
+
 #modelActionsModal #modelActionsPreview.doc-design1--be .doc-design1__be-context[hidden],
 #modelActionsModal #modelActionsPreview.doc-design1--be .doc-design1__be-bottom[hidden] {
+  display: none;
+}
+
+#modelActionsModal #modelActionsPreview.doc-design1--bs .doc-design1__bs-context[hidden],
+#modelActionsModal #modelActionsPreview.doc-design1--bs .doc-design1__bs-bottom[hidden] {
   display: none;
 }
 
@@ -1675,6 +1732,8 @@ border-collapse: separate;
 
 #modelActionsModal [data-model-be-only-section][hidden],
 #itemsDocOptionsModal [data-model-be-only-section][hidden],
+#modelActionsModal [data-model-bs-only-section][hidden],
+#itemsDocOptionsModal [data-model-bs-only-section][hidden],
 #modelActionsModal [data-model-non-be-section][hidden],
 #itemsDocOptionsModal [data-model-non-be-section][hidden] {
   display: none !important;

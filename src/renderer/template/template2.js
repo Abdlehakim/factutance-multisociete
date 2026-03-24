@@ -90,11 +90,31 @@ const DOC_DESIGN1_BE_DATA = {
   destination: "Rack A1",
   receptionTime: "09:30",
   sourceRef: "N\u00b0 Bon de commande : BC_25-12-3",
+  transporter: "",
+  driverName: "",
+  vehiclePlate: "",
   receivedBy: "Magasinier principal",
   controlledBy: "Responsable qualit\u00e9",
   validatedBy: "Responsable stock",
   remarksHtml:
     "Reception conforme au bon de commande. Verifier l'etat des emballages et enregistrer les lots si necessaire"
+};
+
+const DOC_DESIGN1_BS_DATA = {
+  depot: "Magasin Central",
+  location: "Rayonnage B2",
+  sortieTime: "14:15",
+  sourceRef: "N\u00b0 Demande interne : DS_25-12-3",
+  transporter: "Translog",
+  driverName: "Mohamed Ben Ali",
+  vehiclePlate: "197 TUN 2456",
+  transportMode: "Camion",
+  exitReason: "Livraison client",
+  issuedBy: "Magasinier principal",
+  checkedBy: "Responsable logistique",
+  validatedBy: "Responsable stock",
+  remarksHtml:
+    "Sortie conforme a la demande interne. Verifier le lot et confirmer la quantite remise."
 };
 
 const DOC_DESIGN1_ITEMS_HTML = DOC_DESIGN1_DATA.items
@@ -310,6 +330,75 @@ export const template2 = `
                       </p>
                     </div>
                   </fieldset>
+                  <fieldset class="doc-design1__section doc-design1__be-section" id="modelPreviewBeTransportSection" hidden>
+                    <legend>Transport / exp&eacute;dition</legend>
+                    <div class="doc-design1__be-grid">
+                      <p class="doc-design1__meta-line" id="modelPreviewBeTransporterRow">
+                        <span class="doc-design1__meta-label">Transporteur&nbsp;:</span>
+                        <span class="doc-design1__meta-value" id="modelPreviewBeTransporter" data-default="${DOC_DESIGN1_BE_DATA.transporter}">${DOC_DESIGN1_BE_DATA.transporter}</span>
+                      </p>
+                      <p class="doc-design1__meta-line" id="modelPreviewBeDriverNameRow">
+                        <span class="doc-design1__meta-label">Chauffeur&nbsp;:</span>
+                        <span class="doc-design1__meta-value" id="modelPreviewBeDriverName" data-default="${DOC_DESIGN1_BE_DATA.driverName}">${DOC_DESIGN1_BE_DATA.driverName}</span>
+                      </p>
+                      <p class="doc-design1__meta-line doc-design1__meta-line--wrap doc-design1__be-grid-span" id="modelPreviewBeVehiclePlateRow">
+                        <span class="doc-design1__meta-label">Matricule v&eacute;hicule&nbsp;:</span>
+                        <span class="doc-design1__meta-value" id="modelPreviewBeVehiclePlate" data-default="${DOC_DESIGN1_BE_DATA.vehiclePlate}">${DOC_DESIGN1_BE_DATA.vehiclePlate}</span>
+                      </p>
+                    </div>
+                  </fieldset>
+                </div>
+                <div class="doc-design1__be-context doc-design1__bs-context" id="modelPreviewBsContext" hidden>
+                  <fieldset class="doc-design1__section doc-design1__be-section doc-design1__bs-section doc-design1__bs-info-section">
+                    <legend>Informations de sortie</legend>
+                    <div class="doc-design1__be-grid doc-design1__bs-grid doc-design1__bs-info-grid">
+                      <p class="doc-design1__meta-line" id="modelPreviewBsDepotRow">
+                        <span class="doc-design1__meta-label">D&eacute;p&ocirc;t / Magasin&nbsp;:</span>
+                        <span class="doc-design1__meta-value" id="modelPreviewBsDepot" data-default="${DOC_DESIGN1_BS_DATA.depot}">${DOC_DESIGN1_BS_DATA.depot}</span>
+                      </p>
+                      <p class="doc-design1__meta-line" id="modelPreviewBsSortieDateRow">
+                        <span class="doc-design1__meta-label">Date de sortie&nbsp;:</span>
+                        <span class="doc-design1__meta-value" id="modelPreviewBsSortieDate" data-default="${DOC_DESIGN1_DATA.date}">${DOC_DESIGN1_DATA.date}</span>
+                      </p>
+                      <p class="doc-design1__meta-line" id="modelPreviewBsLocationRow">
+                        <span class="doc-design1__meta-label">Emplacement de sortie&nbsp;:</span>
+                        <span class="doc-design1__meta-value" id="modelPreviewBsLocation" data-default="${DOC_DESIGN1_BS_DATA.location}">${DOC_DESIGN1_BS_DATA.location}</span>
+                      </p>
+                      <p class="doc-design1__meta-line" id="modelPreviewBsSortieTimeRow">
+                        <span class="doc-design1__meta-label">Heure&nbsp;:</span>
+                        <span class="doc-design1__meta-value" id="modelPreviewBsSortieTime" data-default="${DOC_DESIGN1_BS_DATA.sortieTime}">${DOC_DESIGN1_BS_DATA.sortieTime}</span>
+                      </p>
+                      <p class="doc-design1__meta-line doc-design1__meta-line--wrap doc-design1__be-grid-span doc-design1__bs-grid-span" id="modelPreviewBsSourceRefRow">
+                        <span class="doc-design1__meta-label">R&eacute;f&eacute;rence source&nbsp;:</span>
+                        <span class="doc-design1__meta-value" id="modelPreviewBsSourceRef" data-default="${DOC_DESIGN1_BS_DATA.sourceRef}">${DOC_DESIGN1_BS_DATA.sourceRef}</span>
+                      </p>
+                    </div>
+                  </fieldset>
+                  <fieldset class="doc-design1__section doc-design1__be-section doc-design1__bs-section" id="modelPreviewBsTransportSection" hidden>
+                    <legend>Transport / exp&eacute;dition</legend>
+                    <div class="doc-design1__be-grid doc-design1__bs-grid">
+                      <p class="doc-design1__meta-line" id="modelPreviewBsTransporterRow">
+                        <span class="doc-design1__meta-label">Transporteur&nbsp;:</span>
+                        <span class="doc-design1__meta-value" id="modelPreviewBsTransporter" data-default="${DOC_DESIGN1_BS_DATA.transporter}">${DOC_DESIGN1_BS_DATA.transporter}</span>
+                      </p>
+                      <p class="doc-design1__meta-line" id="modelPreviewBsDriverNameRow">
+                        <span class="doc-design1__meta-label">Nom du chauffeur&nbsp;:</span>
+                        <span class="doc-design1__meta-value" id="modelPreviewBsDriverName" data-default="${DOC_DESIGN1_BS_DATA.driverName}">${DOC_DESIGN1_BS_DATA.driverName}</span>
+                      </p>
+                      <p class="doc-design1__meta-line" id="modelPreviewBsVehiclePlateRow">
+                        <span class="doc-design1__meta-label">Matricule v&eacute;hicule&nbsp;:</span>
+                        <span class="doc-design1__meta-value" id="modelPreviewBsVehiclePlate" data-default="${DOC_DESIGN1_BS_DATA.vehiclePlate}">${DOC_DESIGN1_BS_DATA.vehiclePlate}</span>
+                      </p>
+                      <p class="doc-design1__meta-line" id="modelPreviewBsTransportModeRow">
+                        <span class="doc-design1__meta-label">Mode de transport&nbsp;:</span>
+                        <span class="doc-design1__meta-value" id="modelPreviewBsTransportMode" data-default="${DOC_DESIGN1_BS_DATA.transportMode}">${DOC_DESIGN1_BS_DATA.transportMode}</span>
+                      </p>
+                      <p class="doc-design1__meta-line doc-design1__meta-line--wrap doc-design1__be-grid-span doc-design1__bs-grid-span" id="modelPreviewBsExitReasonRow">
+                        <span class="doc-design1__meta-label">Motif de sortie&nbsp;:</span>
+                        <span class="doc-design1__meta-value" id="modelPreviewBsExitReason" data-default="${DOC_DESIGN1_BS_DATA.exitReason}">${DOC_DESIGN1_BS_DATA.exitReason}</span>
+                      </p>
+                    </div>
+                  </fieldset>
                 </div>
                 <div class="doc-design1__table-wrap">
                   <table class="doc-design1__table">
@@ -341,6 +430,33 @@ export const template2 = `
                       <div class="doc-design1__be-approval" id="modelPreviewBeValidatedByBlock">
                         <span class="doc-design1__be-approval-label">Valid&eacute; par</span>
                         <strong class="doc-design1__be-approval-name" id="modelPreviewBeValidatedBy" data-default="${DOC_DESIGN1_BE_DATA.validatedBy}">${DOC_DESIGN1_BE_DATA.validatedBy}</strong>
+                        <span class="doc-design1__be-approval-line"></span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="doc-design1__be-bottom doc-design1__bs-bottom" id="modelPreviewBsBottom" hidden>
+                    <fieldset class="doc-design1__section doc-design1__be-section doc-design1__be-remarks doc-design1__bs-section doc-design1__bs-remarks">
+                      <legend>Observation / Remarques</legend>
+                      <div
+                        class="doc-design1__be-remarks-body doc-design1__bs-remarks-body"
+                        id="modelPreviewBsRemarks"
+                        data-default="${DOC_DESIGN1_BS_DATA.remarksHtml}"
+                      >${DOC_DESIGN1_BS_DATA.remarksHtml}</div>
+                    </fieldset>
+                    <div class="doc-design1__be-approvals doc-design1__bs-approvals" id="modelPreviewBsApprovals">
+                      <div class="doc-design1__be-approval doc-design1__bs-approval" id="modelPreviewBsIssuedByBlock">
+                        <span class="doc-design1__be-approval-label">Sortie effectu&eacute;e par</span>
+                        <strong class="doc-design1__be-approval-name" id="modelPreviewBsIssuedBy" data-default="${DOC_DESIGN1_BS_DATA.issuedBy}">${DOC_DESIGN1_BS_DATA.issuedBy}</strong>
+                        <span class="doc-design1__be-approval-line"></span>
+                      </div>
+                      <div class="doc-design1__be-approval doc-design1__bs-approval" id="modelPreviewBsCheckedByBlock">
+                        <span class="doc-design1__be-approval-label">Contr&ocirc;l&eacute; par</span>
+                        <strong class="doc-design1__be-approval-name" id="modelPreviewBsCheckedBy" data-default="${DOC_DESIGN1_BS_DATA.checkedBy}">${DOC_DESIGN1_BS_DATA.checkedBy}</strong>
+                        <span class="doc-design1__be-approval-line"></span>
+                      </div>
+                      <div class="doc-design1__be-approval doc-design1__bs-approval" id="modelPreviewBsValidatedByBlock">
+                        <span class="doc-design1__be-approval-label">Valid&eacute; par</span>
+                        <strong class="doc-design1__be-approval-name" id="modelPreviewBsValidatedBy" data-default="${DOC_DESIGN1_BS_DATA.validatedBy}">${DOC_DESIGN1_BS_DATA.validatedBy}</strong>
                         <span class="doc-design1__be-approval-line"></span>
                       </div>
                     </div>
