@@ -52,40 +52,70 @@
     ...CLIENT_CONTENT_FIELD_STATE_KEYS
   };
   const CLIENT_CONTENT_FIELD_IDS = Object.keys(CLIENT_CONTENT_FIELD_STATE_KEYS);
-  const CLIENT_VENDOR_ID_ALIASES = {
-    clientType: "fournisseurType",
-    clientName: "fournisseurName",
-    clientBeneficiary: "fournisseurBeneficiary",
-    clientAccount: "fournisseurAccount",
-    clientSoldClient: "fournisseurSoldClient",
-    clientVat: "fournisseurVat",
-    clientStegRef: "fournisseurStegRef",
-    clientPhone: "fournisseurPhone",
-    clientEmail: "fournisseurEmail",
-    clientAddress: "fournisseurAddress",
-    clientIdLabel: "fournisseurIdLabel",
-    btnSaveClient: "btnSaveFournisseur",
-    btnUpdateClient: "btnUpdateFournisseur",
-    btnNewClient: "btnNewFournisseur"
-  };
-  const CLIENT_VENDOR_ID_REVERSE = Object.entries(CLIENT_VENDOR_ID_ALIASES).reduce(
-    (acc, [clientId, vendorId]) => {
-      if (vendorId) acc[vendorId] = clientId;
-      return acc;
+  const CLIENT_ENTITY_ID_ALIASES = {
+    vendor: {
+      clientType: "fournisseurType",
+      clientName: "fournisseurName",
+      clientBeneficiary: "fournisseurBeneficiary",
+      clientAccount: "fournisseurAccount",
+      clientSoldClient: "fournisseurSoldClient",
+      clientVat: "fournisseurVat",
+      clientStegRef: "fournisseurStegRef",
+      clientPhone: "fournisseurPhone",
+      clientEmail: "fournisseurEmail",
+      clientAddress: "fournisseurAddress",
+      clientIdLabel: "fournisseurIdLabel",
+      btnSaveClient: "btnSaveFournisseur",
+      btnUpdateClient: "btnUpdateFournisseur",
+      btnNewClient: "btnNewFournisseur"
     },
-    {}
-  );
+    transporter: {
+      clientType: "transporteurType",
+      clientName: "transporteurName",
+      clientBeneficiary: "transporteurBeneficiary",
+      clientAccount: "transporteurAccount",
+      clientSoldClient: "transporteurSoldClient",
+      clientVat: "transporteurVat",
+      clientStegRef: "transporteurStegRef",
+      clientPhone: "transporteurPhone",
+      clientEmail: "transporteurEmail",
+      clientAddress: "transporteurAddress",
+      clientIdLabel: "transporteurIdLabel",
+      btnSaveClient: "btnSaveTransporteur",
+      btnUpdateClient: "btnUpdateTransporteur",
+      btnNewClient: "btnNewTransporteur"
+    }
+  };
+  const CLIENT_ENTITY_ALIAS_INDEX = Object.values(CLIENT_ENTITY_ID_ALIASES).reduce((acc, aliases) => {
+    Object.entries(aliases).forEach(([clientId, aliasId]) => {
+      if (!aliasId) return;
+      const list = acc[clientId] || [];
+      list.push(aliasId);
+      acc[clientId] = list;
+    });
+    return acc;
+  }, {});
+  const CLIENT_ENTITY_ID_REVERSE = Object.values(CLIENT_ENTITY_ID_ALIASES).reduce((acc, aliases) => {
+    Object.entries(aliases).forEach(([clientId, aliasId]) => {
+      if (aliasId) acc[aliasId] = clientId;
+    });
+    return acc;
+  }, {});
   const uniqIds = (ids = []) => Array.from(new Set(ids.filter(Boolean)));
   const toCanonicalClientFormId = (id) =>
-    CLIENT_VENDOR_ID_REVERSE[id] || id;
+    CLIENT_ENTITY_ID_REVERSE[id] || id;
   const resolveClientFormIdCandidates = (id, scopeNode = null) => {
     const canonical = toCanonicalClientFormId(id);
-    const vendorId = CLIENT_VENDOR_ID_ALIASES[canonical] || "";
     const entityType = resolveClientEntityTypeFromScope(scopeNode);
-    if (scopeNode && entityType === "vendor") {
-      return uniqIds([vendorId, canonical]);
+    const entityAliases = CLIENT_ENTITY_ALIAS_INDEX[canonical] || [];
+    const scopedAlias =
+      entityType && CLIENT_ENTITY_ID_ALIASES[entityType]
+        ? CLIENT_ENTITY_ID_ALIASES[entityType][canonical] || ""
+        : "";
+    if (scopeNode && entityType !== "client") {
+      return uniqIds([scopedAlias, canonical, ...entityAliases]);
     }
-    return uniqIds([canonical, vendorId]);
+    return uniqIds([canonical, ...entityAliases]);
   };
   const queryScopedClientFormElement = (scopeNode, id) => {
     if (!scopeNode || typeof scopeNode.querySelector !== "function") return null;
@@ -209,9 +239,10 @@
 
   const MAIN_CLIENT_SCOPE_ID = "clientBoxMainscreenClientsPanel";
   const MAIN_VENDOR_SCOPE_ID = "clientBoxMainscreenFournisseursPanel";
-  const MAIN_SCOPE_IDS = new Set([MAIN_CLIENT_SCOPE_ID, MAIN_VENDOR_SCOPE_ID]);
+  const MAIN_TRANSPORTER_SCOPE_ID = "clientBoxMainscreenTransporteursPanel";
+  const MAIN_SCOPE_IDS = new Set([MAIN_CLIENT_SCOPE_ID, MAIN_VENDOR_SCOPE_ID, MAIN_TRANSPORTER_SCOPE_ID]);
   const CLIENT_SCOPE_SELECTOR =
-    "#clientBoxNewDoc, #FournisseurBoxNewDoc, #clientSavedModal, #clientSavedModalNv, #fournisseurSavedModal, #fournisseurSavedModalNv, #clientBoxMainscreenClientsPanel, #clientBoxMainscreenFournisseursPanel, #clientFormPopover, #fournisseurFormPopover";
+    "#clientBoxNewDoc, #FournisseurBoxNewDoc, #clientSavedModal, #clientSavedModalNv, #fournisseurSavedModal, #fournisseurSavedModalNv, #transporteurSavedModal, #transporteurSavedModalNv, #clientBoxMainscreenClientsPanel, #clientBoxMainscreenFournisseursPanel, #clientBoxMainscreenTransporteursPanel, #clientFormPopover, #fournisseurFormPopover, #transporteurFormPopover";
   const CLIENT_SCOPE_WITH_ROOT_SELECTOR = `${CLIENT_SCOPE_SELECTOR}, #clientBoxMainscreen`;
   const NEW_DOC_SCOPE_IDS = new Set(["clientBoxNewDoc", "FournisseurBoxNewDoc"]);
   const VENDOR_SCOPE_IDS = new Set([
@@ -221,21 +252,31 @@
     "fournisseurFormPopover",
     MAIN_VENDOR_SCOPE_ID
   ]);
+  const TRANSPORTER_SCOPE_IDS = new Set([
+    "transporteurSavedModal",
+    "transporteurSavedModalNv",
+    "transporteurFormPopover",
+    MAIN_TRANSPORTER_SCOPE_ID
+  ]);
   const isNewDocScope = (node) => !!node && NEW_DOC_SCOPE_IDS.has(node.id);
   const isMainscreenScope = (node) => !!node && MAIN_SCOPE_IDS.has(node.id);
   const resolveMainScopePanel = (node) => {
     const root = node?.id === "clientBoxMainscreen" ? node : node?.closest?.("#clientBoxMainscreen");
     if (!root) return null;
     const active = root.querySelector?.(
-      `#${MAIN_CLIENT_SCOPE_ID}.is-active, #${MAIN_VENDOR_SCOPE_ID}.is-active`
+      `#${MAIN_CLIENT_SCOPE_ID}.is-active, #${MAIN_VENDOR_SCOPE_ID}.is-active, #${MAIN_TRANSPORTER_SCOPE_ID}.is-active`
     );
     if (active) return active;
-    return root.querySelector?.(`#${MAIN_CLIENT_SCOPE_ID}, #${MAIN_VENDOR_SCOPE_ID}`) || null;
+    return root.querySelector?.(
+      `#${MAIN_CLIENT_SCOPE_ID}, #${MAIN_VENDOR_SCOPE_ID}, #${MAIN_TRANSPORTER_SCOPE_ID}`
+    ) || null;
   };
   const resolveClientEntityTypeFromScope = (scopeNode) =>
-    scopeNode && (scopeNode.dataset?.clientEntityType === "vendor" || VENDOR_SCOPE_IDS.has(scopeNode.id))
-      ? "vendor"
-      : "client";
+    scopeNode && (scopeNode.dataset?.clientEntityType === "transporter" || TRANSPORTER_SCOPE_IDS.has(scopeNode.id))
+      ? "transporter"
+      : scopeNode && (scopeNode.dataset?.clientEntityType === "vendor" || VENDOR_SCOPE_IDS.has(scopeNode.id))
+        ? "vendor"
+        : "client";
 
   function normalizeClientFormScope(scopeHint) {
     if (!scopeHint || typeof document === "undefined") return null;
@@ -899,17 +940,18 @@
     const labelText = isParticulier ? "CIN / passeport" : "Matricule fiscal";
     const placeholder = isParticulier ? "CIN ou Passeport" : "ex: 1284118/W/A/M/000";
     if (typeof document !== "undefined") {
-      document.querySelectorAll("#clientIdLabel, #fournisseurIdLabel").forEach((label) => {
+      document.querySelectorAll("#clientIdLabel, #fournisseurIdLabel, #transporteurIdLabel").forEach((label) => {
         label.textContent = labelText;
       });
-      document.querySelectorAll("#clientVat, #fournisseurVat").forEach((input) => {
+      document.querySelectorAll("#clientVat, #fournisseurVat, #transporteurVat").forEach((input) => {
         if ("placeholder" in input) input.placeholder = placeholder;
       });
       return;
     }
     setText("clientIdLabel", labelText);
     setText("fournisseurIdLabel", labelText);
-    const idInput = getEl("clientVat") || getEl("fournisseurVat");
+    setText("transporteurIdLabel", labelText);
+    const idInput = getEl("clientVat") || getEl("fournisseurVat") || getEl("transporteurVat");
     if (idInput) idInput.placeholder = placeholder;
   };
 

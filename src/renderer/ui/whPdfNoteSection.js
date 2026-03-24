@@ -13,6 +13,7 @@ export function renderWhPdfNoteSection(options = {}) {
         class="section-box wh-note-box wh-pdf-note-box"
         id="${boxId}"
         data-model-non-be-section="wh-note"
+        data-model-non-stock-section="wh-note"
       >
         <legend><span class="model-save-dot">Note (PDF)</span></legend>
         <div class="full note-field" data-wh-note-group="${group}">

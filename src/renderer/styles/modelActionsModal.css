@@ -1734,6 +1734,8 @@ border-collapse: separate;
 #itemsDocOptionsModal [data-model-be-only-section][hidden],
 #modelActionsModal [data-model-bs-only-section][hidden],
 #itemsDocOptionsModal [data-model-bs-only-section][hidden],
+#modelActionsModal [data-model-non-stock-section][hidden],
+#itemsDocOptionsModal [data-model-non-stock-section][hidden],
 #modelActionsModal [data-model-non-be-section][hidden],
 #itemsDocOptionsModal [data-model-non-be-section][hidden] {
   display: none !important;
@@ -1789,14 +1791,18 @@ border-collapse: separate;
 }
 
 #modelActionsModal #pdfOptionsBoxModal [data-model-be-only-section="pdf-options-be-approvals"],
-#itemsDocOptionsModal #pdfOptionsBoxModal [data-model-be-only-section="pdf-options-be-approvals"] {
+#itemsDocOptionsModal #pdfOptionsBoxModal [data-model-be-only-section="pdf-options-be-approvals"],
+#modelActionsModal #pdfOptionsBoxModal [data-model-bs-only-section="pdf-options-bs-approvals"],
+#itemsDocOptionsModal #pdfOptionsBoxModal [data-model-bs-only-section="pdf-options-bs-approvals"] {
   gap: 10px;
   padding-top: 0;
   border-top: 0;
 }
 
 #modelActionsModal #pdfOptionsBoxModal [data-model-be-only-section="pdf-options-be-approvals"] .field-toggle-section__title,
-#itemsDocOptionsModal #pdfOptionsBoxModal [data-model-be-only-section="pdf-options-be-approvals"] .field-toggle-section__title {
+#itemsDocOptionsModal #pdfOptionsBoxModal [data-model-be-only-section="pdf-options-be-approvals"] .field-toggle-section__title,
+#modelActionsModal #pdfOptionsBoxModal [data-model-bs-only-section="pdf-options-bs-approvals"] .field-toggle-section__title,
+#itemsDocOptionsModal #pdfOptionsBoxModal [data-model-bs-only-section="pdf-options-bs-approvals"] .field-toggle-section__title {
   font-size: 12px;
   font-weight: 700;
   color: #15335e;
@@ -1822,7 +1828,7 @@ border-collapse: separate;
   display: flex;
   flex-direction: column;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 0;
   white-space: normal;
   line-height: 1.35;
 }

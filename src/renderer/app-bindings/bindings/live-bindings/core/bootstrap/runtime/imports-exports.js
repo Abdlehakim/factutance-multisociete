@@ -7,7 +7,7 @@
   }
 
   registerCoreBootstrapRuntimeSource("imports-exports", function (ctx) {
-          clientImportBtnSelector = "#clientImportBtn";
+          clientImportBtnSelector = "#clientImportBtn, #TransporteurImportBtn";
           clientImportModal = getEl("clientImportModal");
           clientImportModalTitle =
             clientImportModal?.querySelector("#clientImportModalTitle") || getEl("clientImportModalTitle");
@@ -75,11 +75,17 @@
           articleExportModalRestoreFocus = null;
 
           getClientImportModalLabels = (entityType = clientImportModalState.entityType) => {
+            const isTransporter = entityType === "transporter";
             const isVendor = entityType === "vendor";
             return {
-              singular: isVendor ? "fournisseur" : "client",
-              plural: isVendor ? "fournisseurs" : "clients",
-              title: isVendor ? "Importer des fournisseurs" : "Importer des clients"
+              singular: isTransporter ? "transporteur" : isVendor ? "fournisseur" : "client",
+              plural: isTransporter ? "transporteurs" : isVendor ? "fournisseurs" : "clients",
+              title: isTransporter
+                ? "Importer des transporteurs"
+                : isVendor
+                  ? "Importer des fournisseurs"
+                  : "Importer des clients",
+              allowParticulier: !isVendor && !isTransporter
             };
           };
 
@@ -89,15 +95,22 @@
               clientImportModalTitle.textContent = labels.title;
             }
             if (clientImportHint) {
-              const benefitLabel = resolveClientFieldLabel("benefit");
-              const accountLabel = resolveClientFieldLabel("account");
-              const soldClientLabel = resolveClientFieldLabel("soldClient");
-              const stegRefLabel = resolveClientFieldLabel("stegRef");
-              const extraHeaders = [benefitLabel, accountLabel, soldClientLabel, stegRefLabel].filter(Boolean);
+              const scopedLabels = getScopedClientFieldLabels(entityType);
+              const benefitLabel = resolveScopedClientFieldLabel("benefit", entityType, scopedLabels);
+              const accountLabel = resolveScopedClientFieldLabel("account", entityType, scopedLabels);
+              const soldClientLabel = resolveScopedClientFieldLabel("soldClient", entityType, scopedLabels);
+              const stegRefLabel = resolveScopedClientFieldLabel("stegRef", entityType, scopedLabels);
+              const extraHeaders =
+                entityType === "transporter"
+                  ? []
+                  : [benefitLabel, accountLabel, soldClientLabel, stegRefLabel].filter(Boolean);
               const extraHint = extraHeaders.length ? `, ${extraHeaders.join(", ")}` : "";
+              const typeHint = labels.allowParticulier
+                ? "Type (Societe / personne morale (PM), Personne physique (PP), Particulier)"
+                : "Type (Societe / personne morale (PM), Personne physique (PP))";
               clientImportHint.textContent =
                 `Selectionnez un fichier Excel (XLSX) ou CSV contenant plusieurs ${labels.plural}. ` +
-                "Colonnes acceptees : Nom, Matricule fiscal (ou CIN / passeport pour Particulier), Type (Societe / personne morale (PM), Personne physique (PP), Particulier), Telephone, Email, Adresse" +
+                `Colonnes acceptees : Nom, Matricule fiscal${labels.allowParticulier ? " (ou CIN / passeport pour Particulier)" : ""}, ${typeHint}, Telephone, Email, Adresse` +
                 `${extraHint}.`;
             }
           };
@@ -361,7 +374,12 @@
             evt.preventDefault();
             evt.stopPropagation();
             if (inClientModal) {
-              updateClientImportExampleHeaderCopy(clientFieldVisibility, clientFieldLabels);
+              const entityType = clientImportModalState.entityType || "client";
+              updateClientImportExampleHeaderCopy(
+                getScopedClientFieldVisibility(entityType),
+                getScopedClientFieldLabels(entityType),
+                entityType
+              );
             }
             const copyValue = copyBtn.dataset.docHistoryCopyValue || "";
             if (copyValue) await copyTextToClipboard(copyValue);
@@ -1341,6 +1359,11 @@
               document.activeElement instanceof HTMLElement ? document.activeElement : null;
             resetClientImportState();
             applyClientImportModalLabels(clientImportModalState.entityType);
+            updateClientImportExampleHeaderCopy(
+              getScopedClientFieldVisibility(clientImportModalState.entityType || "client"),
+              getScopedClientFieldLabels(clientImportModalState.entityType || "client"),
+              clientImportModalState.entityType || "client"
+            );
             clientImportModal.hidden = false;
             clientImportModal.removeAttribute("hidden");
             clientImportModal.setAttribute("aria-hidden", "false");
@@ -1587,7 +1610,12 @@
             if (!trigger || !clientImportModal) return;
             const scope = trigger.closest(CLIENT_SCOPE_SELECTOR);
             let entityType = resolveClientEntityType(scope);
-            if (!scope && trigger.closest("#fournisseurSavedModal, #fournisseurSavedModalNv, #clientSavedModal, #clientSavedModalNv")) {
+            if (
+              !scope &&
+              trigger.closest(
+                "#fournisseurSavedModal, #fournisseurSavedModalNv, #clientSavedModal, #clientSavedModalNv, #transporteurSavedModal, #transporteurSavedModalNv"
+              )
+            ) {
               entityType = clientSavedModalEntityType || "client";
             }
             clientImportModalState.entityType = entityType;

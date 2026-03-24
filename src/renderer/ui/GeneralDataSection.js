@@ -4,6 +4,7 @@ import { renderAddItemBoxMainscreen } from "./addItemBoxMainscreen.js";
 import { renderSignatureModal } from "./SignatureModalView.js";
 import { renderClientFormPopover } from "./clientFormPopover.js";
 import { renderFournisseurFormPopover } from "./fournisseurFormPopover.js";
+import { renderTransporteurFormPopover } from "./transporteurFormPopover.js";
 import { html } from "./utils.js";
 
 export function renderGeneralDataSection() {
@@ -749,6 +750,7 @@ export function renderGeneralDataSection() {
             </div>
             ${renderClientFormPopover()}
             ${renderFournisseurFormPopover({ includeParticulier: true })}
+            ${renderTransporteurFormPopover({ includeParticulier: false })}
           </div>
           <div id="clientSavedModalList" class="client-saved-modal__list" role="list"></div>
           <p id="clientSavedModalStatus" class="client-saved-modal__status" aria-live="polite"></p>

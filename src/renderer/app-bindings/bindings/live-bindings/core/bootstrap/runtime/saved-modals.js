@@ -11,7 +11,9 @@
             getEl("clientSavedModal") ||
             getEl("clientSavedModalNv") ||
             getEl("fournisseurSavedModal") ||
-            getEl("fournisseurSavedModalNv");
+            getEl("fournisseurSavedModalNv") ||
+            getEl("transporteurSavedModal") ||
+            getEl("transporteurSavedModalNv");
           clientSavedModalClose = clientSavedModal?.querySelector("#clientSavedModalClose") || getEl("clientSavedModalClose");
           clientSavedModalTitle =
             clientSavedModal?.querySelector("#clientSavedModalTitle") || getEl("clientSavedModalTitle");
@@ -39,31 +41,77 @@
           clientSavedModalRefresh =
             clientSavedModal?.querySelector("#clientSavedModalRefresh") || getEl("clientSavedModalRefresh");
           getClientSavedModalLabels = (entityType = clientSavedModalEntityType) => {
+            const isTransporter = entityType === "transporter";
             const isVendor = entityType === "vendor";
+            const singular = isTransporter ? "transporteur" : isVendor ? "fournisseur" : "client";
+            const plural = isTransporter ? "transporteurs" : isVendor ? "fournisseurs" : "clients";
             return {
-              singular: isVendor ? "fournisseur" : "client",
-              plural: isVendor ? "fournisseurs" : "clients",
-              title: isVendor ? "Fournisseurs enregistres" : "Clients enregistres",
-              searchPlaceholder: isVendor
-                ? "Rechercher un fournisseur enregistre"
-                : "Rechercher un client enregistre",
-              searchAriaLabel: isVendor
-                ? "Rechercher un fournisseur enregistre"
-                : "Rechercher un client enregistre",
-              formToggleLabel: isVendor ? "Afficher la fiche fournisseur" : "Afficher la fiche client",
-              importLabel: isVendor ? "Importer des fournisseurs" : "Importer des clients",
-              formTitle: isVendor ? "Fiche fournisseur" : "Fiche client",
-              typeLabel: isVendor ? "Type de fournisseur" : "Type de client",
-              nameLabel: isVendor ? "Nom du fournisseur" : "Nom du client",
-              namePlaceholder: isVendor ? "Fournisseur ou Entreprise" : "Client ou Entreprise",
-              phoneLabel: isVendor ? "Telephone du fournisseur" : "Telephone du client",
-              emailLabel: isVendor ? "E-mail du fournisseur" : "E-mail du client",
-              emailPlaceholder: isVendor ? "fournisseur@email.com" : "client@email.com",
-              addressLabel: isVendor ? "Adresse du fournisseur" : "Adresse du client"
+              singular,
+              plural,
+              title: isTransporter
+                ? "Transporteurs enregistres"
+                : isVendor
+                  ? "Fournisseurs enregistres"
+                  : "Clients enregistres",
+              searchPlaceholder: `Rechercher un ${singular} enregistre`,
+              searchAriaLabel: `Rechercher un ${singular} enregistre`,
+              formToggleLabel: `Afficher la fiche ${singular}`,
+              importLabel: `Importer des ${plural}`,
+              formTitle: `Fiche ${singular}`,
+              typeLabel: isTransporter
+                ? "Type de transporteur"
+                : isVendor
+                  ? "Type de fournisseur"
+                  : "Type de client",
+              nameLabel: isTransporter
+                ? "Nom du transporteur"
+                : isVendor
+                  ? "Nom du fournisseur"
+                  : "Nom du client",
+              namePlaceholder: isTransporter
+                ? "Transporteur ou Entreprise"
+                : isVendor
+                  ? "Fournisseur ou Entreprise"
+                  : "Client ou Entreprise",
+              phoneLabel: isTransporter
+                ? "Telephone du transporteur"
+                : isVendor
+                  ? "Telephone du fournisseur"
+                  : "Telephone du client",
+              emailLabel: isTransporter
+                ? "E-mail du transporteur"
+                : isVendor
+                  ? "E-mail du fournisseur"
+                  : "E-mail du client",
+              emailPlaceholder: isTransporter
+                ? "transporteur@email.com"
+                : isVendor
+                  ? "fournisseur@email.com"
+                  : "client@email.com",
+              addressLabel: isTransporter
+                ? "Adresse du transporteur"
+                : isVendor
+                  ? "Adresse du fournisseur"
+                  : "Adresse du client",
+              emptyText: `Aucun ${singular} enregistre.`,
+              emptyStatusText: `Aucun ${singular} enregistre pour le moment.`,
+              loadingText: `Chargement des ${plural}...`,
+              noneFoundText: `Aucun ${singular} trouve`,
+              typeFieldKey: isTransporter ? "type" : null,
+              popoverSelector: isTransporter
+                ? "#transporteurFormPopover"
+                : isVendor
+                  ? "#fournisseurFormPopover"
+                  : "#clientFormPopover",
+              popoverTitleId: isTransporter
+                ? "#transporteurFormPopoverTitle"
+                : isVendor
+                  ? "#fournisseurFormPopoverTitle"
+                  : "#clientFormPopoverTitle",
+              allowParticulier: !isVendor && !isTransporter
             };
           };
           applyClientSavedModalLabels = (entityType = clientSavedModalEntityType) => {
-            const isVendor = entityType === "vendor";
             const labels = getClientSavedModalLabels(entityType);
             if (clientSavedModalTitle) clientSavedModalTitle.textContent = labels.title;
             if (clientSavedSearchInput) clientSavedSearchInput.placeholder = labels.searchPlaceholder;
@@ -75,12 +123,8 @@
             if (toggleBtn) toggleBtn.setAttribute("aria-label", labels.formToggleLabel);
             const importBtn = clientSavedModal.querySelector("#clientImportBtn");
             if (importBtn) importBtn.setAttribute("aria-label", labels.importLabel);
-            const popover = clientSavedModal.querySelector(
-              isVendor ? "#fournisseurFormPopover" : "#clientFormPopover"
-            );
-            const popoverTitle = popover?.querySelector?.(
-              isVendor ? "#fournisseurFormPopoverTitle" : "#clientFormPopoverTitle"
-            );
+            const popover = clientSavedModal.querySelector(labels.popoverSelector);
+            const popoverTitle = popover?.querySelector?.(labels.popoverTitleId);
             if (popoverTitle) popoverTitle.textContent = labels.formTitle;
             const typeLabel = queryScopedClientFormElement(popover, "clientTypeLabel");
             if (typeLabel) typeLabel.textContent = labels.typeLabel;
@@ -91,7 +135,7 @@
               const label = input.closest("label");
               if (!label) return;
               const dynamicLabelNode = label.querySelector(
-                "[data-client-field-label], [data-fournisseur-field-label]"
+                "[data-client-field-label], [data-fournisseur-field-label], [data-transporteur-field-label]"
               );
               if (dynamicLabelNode) {
                 dynamicLabelNode.textContent = labelText;
@@ -113,11 +157,11 @@
             const particulierOption = typePanel?.querySelector?.('[data-client-type-option="particulier"]');
             const particulierSelect = typeSelect?.querySelector?.('option[value="particulier"]');
             if (particulierOption) {
-              particulierOption.hidden = isVendor;
-              particulierOption.setAttribute("aria-hidden", isVendor ? "true" : "false");
+              particulierOption.hidden = !labels.allowParticulier;
+              particulierOption.setAttribute("aria-hidden", labels.allowParticulier ? "false" : "true");
             }
             if (particulierSelect) {
-              if (isVendor) {
+              if (!labels.allowParticulier) {
                 particulierSelect.setAttribute("hidden", "");
                 particulierSelect.setAttribute("aria-hidden", "true");
               } else {
@@ -125,12 +169,28 @@
                 particulierSelect.setAttribute("aria-hidden", "false");
               }
             }
-            if (isVendor && typeSelect?.value === "particulier") {
+            if (!labels.allowParticulier && typeSelect?.value === "particulier") {
               typeSelect.value = "societe";
               typeSelect.dispatchEvent(new Event("change", { bubbles: true }));
             }
             if (popover) {
-              applyClientFieldLabels(popover, clientFieldLabels);
+              if (entityType === "transporter") {
+                popover.querySelectorAll("[data-transporteur-field-label]").forEach((node) => {
+                  const key = String(node.dataset.transporteurFieldLabel || "").trim();
+                  if (!key) return;
+                  node.textContent = resolveScopedClientFieldLabel(key, "transporter");
+                });
+                popover.querySelectorAll("[data-transporteur-field]").forEach((node) => {
+                  const key = String(node.dataset.transporteurField || "").trim();
+                  if (!key) return;
+                  const isVisible = getScopedClientFieldVisibility("transporter")[key] !== false;
+                  node.hidden = !isVisible;
+                  node.style.display = isVisible ? "" : "none";
+                  node.classList.toggle("is-hidden", !isVisible);
+                });
+              } else {
+                applyClientFieldLabels(popover, clientFieldLabels);
+              }
             }
           };
           setClientSavedRefreshBusy = (isBusy) => {
@@ -164,39 +224,57 @@
             if (!clientSavedModal) return;
             const fromItemsModal = !!options.fromItemsModal;
             const nextId =
-              entityType === "vendor"
+              entityType === "transporter"
                 ? fromItemsModal
-                  ? "fournisseurSavedModalNv"
-                  : "fournisseurSavedModal"
-                : fromItemsModal
-                  ? "clientSavedModalNv"
-                  : "clientSavedModal";
+                  ? "transporteurSavedModalNv"
+                  : "transporteurSavedModal"
+                : entityType === "vendor"
+                  ? fromItemsModal
+                    ? "fournisseurSavedModalNv"
+                    : "fournisseurSavedModal"
+                  : fromItemsModal
+                    ? "clientSavedModalNv"
+                    : "clientSavedModal";
             if (clientSavedModal.id !== nextId) {
               clientSavedModal.id = nextId;
             }
           };
           setClientSavedModalPopoverIds = (entityType) => {
             if (!clientSavedModal) return;
-            const isVendor = entityType === "vendor";
             const clientPopover = clientSavedModal.querySelector("#clientFormPopover");
             const vendorPopover = clientSavedModal.querySelector("#fournisseurFormPopover");
-            const nextPopover = isVendor ? vendorPopover : clientPopover;
-            const otherPopover = isVendor ? clientPopover : vendorPopover;
-            if (otherPopover) {
-              otherPopover.classList.remove("is-open");
-              otherPopover.hidden = true;
-              otherPopover.setAttribute("hidden", "");
-              otherPopover.setAttribute("aria-hidden", "true");
-            }
+            const transporterPopover = clientSavedModal.querySelector("#transporteurFormPopover");
+            const nextPopover =
+              entityType === "transporter"
+                ? transporterPopover
+                : entityType === "vendor"
+                  ? vendorPopover
+                  : clientPopover;
+            [clientPopover, vendorPopover, transporterPopover].forEach((popover) => {
+              if (!popover || popover === nextPopover) return;
+              popover.classList.remove("is-open");
+              popover.hidden = true;
+              popover.setAttribute("hidden", "");
+              popover.setAttribute("aria-hidden", "true");
+            });
             if (nextPopover) {
-              const nextTitleId = isVendor ? "fournisseurFormPopoverTitle" : "clientFormPopoverTitle";
+              const nextTitleId =
+                entityType === "transporter"
+                  ? "transporteurFormPopoverTitle"
+                  : entityType === "vendor"
+                    ? "fournisseurFormPopoverTitle"
+                    : "clientFormPopoverTitle";
               nextPopover.setAttribute("aria-labelledby", nextTitleId);
             }
             const toggleBtn = clientSavedModal.querySelector("#clientFormToggleBtn");
             if (toggleBtn) {
               toggleBtn.setAttribute(
                 "aria-controls",
-                isVendor ? "fournisseurFormPopover" : "clientFormPopover"
+                entityType === "transporter"
+                  ? "transporteurFormPopover"
+                  : entityType === "vendor"
+                    ? "fournisseurFormPopover"
+                    : "clientFormPopover"
               );
             }
           };
@@ -814,9 +892,19 @@
             if (!resultsEl) return;
             resultsEl.innerHTML = "";
             resultsEl.classList.remove("client-search--paged");
+            const scopeNode = resolveClientScopeFromNode(resultsEl);
+            const entityType = resolveClientEntityType(scopeNode);
+            const labels = getClientSavedModalLabels(entityType);
+            const scopedFieldLabels = getScopedClientFieldLabels(entityType);
+            const resolveFieldLabel = (key) =>
+              resolveScopedClientFieldLabel(key, entityType, scopedFieldLabels);
+            const scopedVisibility = getScopedClientFieldVisibility(entityType);
             if (!items?.length) {
               if (queryText) {
-                showClientSearchStatus('<div class="client-search__status">Aucun client trouve</div>', resultsEl);
+                showClientSearchStatus(
+                  `<div class="client-search__status">${escapeHTML(labels.noneFoundText)}</div>`,
+                  resultsEl
+                );
               } else {
                 hideClientSearchResults(resultsEl);
               }
@@ -852,9 +940,9 @@
               const name = clientName || (fallbackName.toLowerCase() === "client" ? "" : fallbackName);
               const identifier = item.identifier || item.vat || item.identifiantFiscal || item.tva || item.nif || "";
               const phone = item.phone || item.telephone || item.tel || "";
-              const nameLabel = resolveClientFieldLabel("name");
-              const taxIdLabel = resolveClientFieldLabel("taxId");
-              const phoneLabel = resolveClientFieldLabel("phone");
+              const nameLabel = resolveFieldLabel("name");
+              const taxIdLabel = resolveFieldLabel("taxId");
+              const phoneLabel = resolveFieldLabel("phone");
               const actionsHtml = [
                 allowAddAction
                   ? `<button type="button" class="client-search__edit" data-client-edit="${actualIndex}">Ajouter</button>`
@@ -888,6 +976,18 @@
             });
 
             resultsEl.appendChild(list);
+            if (entityType === "transporter") {
+              list.querySelectorAll("[data-client-field]").forEach((node) => {
+                const key = String(node.dataset.clientField || "").trim();
+                if (!key || !(key in scopedVisibility)) return;
+                const isVisible = scopedVisibility[key] !== false;
+                node.hidden = !isVisible;
+                node.style.display = isVisible ? "" : "none";
+                node.classList.toggle("is-hidden", !isVisible);
+              });
+            } else {
+              applyClientFieldVisibility(list, clientFieldVisibility);
+            }
 
             const pager = document.createElement("div");
             pager.className = "article-search__pager";
@@ -2021,6 +2121,11 @@
           renderClientSavedModal = () => {
             if (!clientSavedModalList) return;
             const { items, page, total, loading, message } = clientSavedModalState;
+            const labels = getClientSavedModalLabels(clientSavedModalEntityType);
+            const scopedFieldLabels = getScopedClientFieldLabels(clientSavedModalEntityType);
+            const scopedVisibility = getScopedClientFieldVisibility(clientSavedModalEntityType);
+            const resolveFieldLabel = (key) =>
+              resolveScopedClientFieldLabel(key, clientSavedModalEntityType, scopedFieldLabels);
             const totalPages = getClientSavedModalTotalPages();
             const hasPages = total > 0;
             const safePage = hasPages ? Math.min(Math.max(page, 1), totalPages) : 1;
@@ -2029,12 +2134,12 @@
             if (loading) {
               const loadingEl = document.createElement("div");
               loadingEl.className = "client-saved-modal__empty";
-              loadingEl.textContent = "Chargement des clients...";
+              loadingEl.textContent = labels.loadingText;
               clientSavedModalList.appendChild(loadingEl);
             } else if (!items.length) {
               const emptyEl = document.createElement("div");
               emptyEl.className = "client-saved-modal__empty";
-              emptyEl.textContent = "Aucun client enregistre.";
+              emptyEl.textContent = labels.emptyText;
               clientSavedModalList.appendChild(emptyEl);
             } else {
               items.forEach((item, index) => {
@@ -2094,25 +2199,31 @@
                   personne_physique: "Personne physique",
                   particulier: "Particulier"
                 };
-                const typeLabel = clientSavedModalEntityType === "vendor" ? "Type de fournisseur" : "Type de client";
+                const typeLabel = labels.typeLabel;
                 const typeDisplay = clientTypeLabels[clientType] || clientTypeLabels.societe;
-                const defaultTaxIdLabel = resolveClientFieldLabelDefaults().taxId;
-                const customTaxIdLabel = clientFieldLabels?.taxId;
+                const defaultTaxIdLabel =
+                  clientSavedModalEntityType === "transporter"
+                    ? resolveTransporteurFieldLabelDefaults().taxId
+                    : resolveClientFieldLabelDefaults().taxId;
+                const customTaxIdLabel =
+                  clientSavedModalEntityType === "transporter"
+                    ? scopedFieldLabels?.taxId
+                    : clientFieldLabels?.taxId;
                 const customTaxIdValue = typeof customTaxIdLabel === "string" ? customTaxIdLabel.trim() : "";
                 const useCustomTaxIdLabel = customTaxIdValue && customTaxIdValue !== defaultTaxIdLabel;
                 const taxIdLabel = useCustomTaxIdLabel
                   ? customTaxIdValue
                   : clientType === "particulier"
                     ? "CIN / passeport"
-                    : resolveClientFieldLabel("taxId");
-                const benefitLabel = resolveClientFieldLabel("benefit");
-                const accountLabel = resolveClientFieldLabel("account");
-                const soldClientLabel = resolveClientFieldLabel("soldClient");
-                const stegRefLabel = resolveClientFieldLabel("stegRef");
-                const nameLabel = resolveClientFieldLabel("name");
-                const phoneLabel = resolveClientFieldLabel("phone");
-                const emailLabel = resolveClientFieldLabel("email");
-                const addressLabel = resolveClientFieldLabel("address");
+                    : resolveFieldLabel("taxId");
+                const benefitLabel = resolveFieldLabel("benefit");
+                const accountLabel = resolveFieldLabel("account");
+                const soldClientLabel = resolveFieldLabel("soldClient");
+                const stegRefLabel = resolveFieldLabel("stegRef");
+                const nameLabel = resolveFieldLabel("name");
+                const phoneLabel = resolveFieldLabel("phone");
+                const emailLabel = resolveFieldLabel("email");
+                const addressLabel = resolveFieldLabel("address");
                 const typeRowHtml = `
                         <div class="client-search__details-row">
                         <div class="client-search__detail client-search__detail--inline">
@@ -2126,7 +2237,7 @@
                         </div>
                       `;
                   const clientExtrasHtml =
-                    clientSavedModalEntityType === "vendor"
+                    clientSavedModalEntityType === "vendor" || clientSavedModalEntityType === "transporter"
                       ? ""
                       : `
                         <div class="client-search__detail client-search__detail--inline" data-client-field="benefit">
@@ -2194,7 +2305,17 @@
                 clientSavedModalList.appendChild(row);
               });
             }
-            applyClientFieldVisibility(clientSavedModalList, clientFieldVisibility);
+            if (clientSavedModalEntityType === "transporter") {
+              clientSavedModalList.querySelectorAll("[data-client-field]").forEach((node) => {
+                const key = String(node.dataset.clientField || "").trim();
+                const isVisible = !!key && scopedVisibility[key] !== false;
+                node.hidden = !isVisible;
+                node.style.display = isVisible ? "" : "none";
+                node.classList.toggle("is-hidden", !isVisible);
+              });
+            } else {
+              applyClientFieldVisibility(clientSavedModalList, clientFieldVisibility);
+            }
 
             if (clientSavedModalPage) {
               clientSavedModalPage.setAttribute(
@@ -2228,13 +2349,13 @@
             const endIdx = hasPages ? startIdx + items.length - 1 : 0;
             let statusText = "";
             if (loading) {
-              statusText = "Chargement des clients...";
+              statusText = labels.loadingText;
             } else if (message) {
               statusText = message;
             } else if (total > 0 && items.length) {
-              statusText = `Affichage ${startIdx}\u2013${endIdx} sur ${total} client${total > 1 ? "s" : ""}`;
+              statusText = `Affichage ${startIdx}\u2013${endIdx} sur ${total} ${labels.singular}${total > 1 ? "s" : ""}`;
             } else {
-              statusText = "Aucun client enregistre pour le moment.";
+              statusText = labels.emptyStatusText;
             }
             if (clientSavedModalStatus) clientSavedModalStatus.textContent = statusText;
 
@@ -2520,6 +2641,7 @@
                   normalizeClientFormScope(clientSavedModalFormScope) ||
                   document.getElementById("clientBoxNewDoc") ||
                   document.getElementById("FournisseurBoxNewDoc") ||
+                  document.getElementById("clientBoxMainscreenTransporteursPanel") ||
                   (allowMainscreen ? getActiveMainClientScope() : null);
                 if (!targetScope && !allowMainscreen) return;
                 loadClientRecordIntoForm(selected, { formScope: targetScope });
@@ -2527,6 +2649,7 @@
                   targetScope ||
                   document.getElementById("clientBoxNewDoc") ||
                   document.getElementById("FournisseurBoxNewDoc") ||
+                  document.getElementById("clientBoxMainscreenTransporteursPanel") ||
                   (allowMainscreen ? getActiveMainClientScope() : null);
                 const focusTarget =
                   queryScopedClientFormElement(clientBox, "clientName") ||
@@ -2549,6 +2672,7 @@
                   normalizeClientFormScope(clientSavedModalFormScope) ||
                   document.getElementById("clientBoxNewDoc") ||
                   document.getElementById("FournisseurBoxNewDoc") ||
+                  document.getElementById("clientBoxMainscreenTransporteursPanel") ||
                   getActiveMainClientScope();
                 if (!targetScope) return;
                 syncClientFormFields(payload, targetScope);
@@ -2564,7 +2688,8 @@
                 if (!selected) return;
                 if (
                   (clientSavedModal?.id === "clientSavedModalNv" ||
-                    clientSavedModal?.id === "fournisseurSavedModalNv") &&
+                    clientSavedModal?.id === "fournisseurSavedModalNv" ||
+                    clientSavedModal?.id === "transporteurSavedModalNv") &&
                   !loadBtn.classList?.contains("client-search__edit")
                 ) {
                   const payload = selected.client || selected;
@@ -2586,7 +2711,11 @@
                 }
                 const modalEntityType = resolveClientEntityType(clientSavedModal) || clientSavedModalEntityType;
                 const modalPopoverSelector =
-                  modalEntityType === "vendor" ? "#fournisseurFormPopover" : "#clientFormPopover";
+                  modalEntityType === "transporter"
+                    ? "#transporteurFormPopover"
+                    : modalEntityType === "vendor"
+                      ? "#fournisseurFormPopover"
+                      : "#clientFormPopover";
                 const modalScope = clientSavedModal?.querySelector?.(modalPopoverSelector) ? clientSavedModal : null;
                 if (modalScope) {
                   loadClientRecordIntoForm(selected, { formScope: modalScope });
@@ -2607,7 +2736,11 @@
                 if (!selected) return;
                 const modalEntityType = resolveClientEntityType(clientSavedModal) || clientSavedModalEntityType;
                 const modalPopoverSelector =
-                  modalEntityType === "vendor" ? "#fournisseurFormPopover" : "#clientFormPopover";
+                  modalEntityType === "transporter"
+                    ? "#transporteurFormPopover"
+                    : modalEntityType === "vendor"
+                      ? "#fournisseurFormPopover"
+                      : "#clientFormPopover";
                 const modalScope = clientSavedModal?.querySelector?.(modalPopoverSelector) ? clientSavedModal : null;
                 if (modalScope) {
                   loadClientRecordIntoForm(selected, { formScope: modalScope });
@@ -2619,7 +2752,11 @@
                   return;
                 }
                 const targetScope = handleClientLoad(idx, { avoidMainscreen: true });
-                if (targetScope?.id === "clientBoxNewDoc" || targetScope?.id === "FournisseurBoxNewDoc") {
+                if (
+                  targetScope?.id === "clientBoxNewDoc" ||
+                  targetScope?.id === "FournisseurBoxNewDoc" ||
+                  targetScope?.id === "clientBoxMainscreenTransporteursPanel"
+                ) {
                   const ctx = SEM.getClientFormPopoverContext?.(targetScope);
                   if (ctx) {
                     SEM.setClientFormPopoverMode?.(ctx, "edit");
@@ -2634,8 +2771,9 @@
                 const selected = clientSavedModalState.items[idx];
                 if (!selected) return;
                 const label = selected.name ? ` \"${selected.name}\"` : "";
-                const confirmed = await showConfirm(`Supprimer le client${label} ?`, {
-                  title: "Supprimer le client",
+                const entityLabels = getClientSavedModalLabels(clientSavedModalEntityType);
+                const confirmed = await showConfirm(`Supprimer le ${entityLabels.singular}${label} ?`, {
+                  title: `Supprimer le ${entityLabels.singular}`,
                   okText: "Supprimer",
                   cancelText: "Annuler"
                 });
@@ -3650,8 +3788,10 @@
               const selected = clientSearchData[idx];
               if (!selected) return;
               const label = selected.name ? ` \"${selected.name}\"` : "";
-              const confirmed = await showConfirm(`Supprimer le client${label} ?`, {
-                title: "Supprimer le client",
+              const entityType = resolveClientEntityType(scopeNode || resolveClientScopeFromNode(resultsEl));
+              const entityLabels = getClientSavedModalLabels(entityType);
+              const confirmed = await showConfirm(`Supprimer le ${entityLabels.singular}${label} ?`, {
+                title: `Supprimer le ${entityLabels.singular}`,
                 okText: "Supprimer",
                 cancelText: "Annuler"
               });
@@ -3662,7 +3802,6 @@
                 return;
               }
               try {
-                const entityType = resolveClientEntityType(scopeNode || resolveClientScopeFromNode(resultsEl));
                 const res = await window.electronAPI.deleteClient({ path: selected.path, entityType });
                 if (!res?.ok) {
                   const deleteError = getMessage("DELETE_FAILED");

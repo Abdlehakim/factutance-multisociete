@@ -27,8 +27,9 @@
       refreshInvoiceSummary = () => {},
       MAIN_CLIENT_SCOPE_ID = "clientBoxMainscreenClientsPanel",
       MAIN_VENDOR_SCOPE_ID = "clientBoxMainscreenFournisseursPanel",
-      MAIN_SCOPE_SELECTOR = `#${MAIN_CLIENT_SCOPE_ID}, #${MAIN_VENDOR_SCOPE_ID}`,
-      CLIENT_SCOPE_SELECTOR = "#clientBoxNewDoc, #FournisseurBoxNewDoc, #clientSavedModal, #clientSavedModalNv, #fournisseurSavedModal, #fournisseurSavedModalNv, #clientBoxMainscreenClientsPanel, #clientBoxMainscreenFournisseursPanel, #clientFormPopover, #fournisseurFormPopover",
+      MAIN_TRANSPORTER_SCOPE_ID = "clientBoxMainscreenTransporteursPanel",
+      MAIN_SCOPE_SELECTOR = `#${MAIN_CLIENT_SCOPE_ID}, #${MAIN_VENDOR_SCOPE_ID}, #${MAIN_TRANSPORTER_SCOPE_ID}`,
+      CLIENT_SCOPE_SELECTOR = "#clientBoxNewDoc, #FournisseurBoxNewDoc, #clientSavedModal, #clientSavedModalNv, #fournisseurSavedModal, #fournisseurSavedModalNv, #transporteurSavedModal, #transporteurSavedModalNv, #clientBoxMainscreenClientsPanel, #clientBoxMainscreenFournisseursPanel, #clientBoxMainscreenTransporteursPanel, #clientFormPopover, #fournisseurFormPopover, #transporteurFormPopover",
       CLIENT_SCOPE_WITH_ROOT_SELECTOR = `${CLIENT_SCOPE_SELECTOR}, #clientBoxMainscreen`,
       CLIENT_FORM_VENDOR_ID_ALIASES = {},
       uniqClientFormIds = (ids = []) => Array.from(new Set((Array.isArray(ids) ? ids : []).filter(Boolean))),
@@ -73,7 +74,21 @@
     const getClientSearchData = () =>
       Array.isArray(ctx.clientSearchData) ? ctx.clientSearchData : [];
     const getClientSavedModalEntityType = () =>
-      ctx.clientSavedModalEntityType === "vendor" ? "vendor" : "client";
+      ctx.clientSavedModalEntityType === "transporter"
+        ? "transporter"
+        : ctx.clientSavedModalEntityType === "vendor"
+          ? "vendor"
+          : "client";
+    const resolveClientPopoverSelector = (entityType = "client") =>
+      entityType === "transporter"
+        ? "#transporteurFormPopover"
+        : entityType === "vendor"
+          ? "#fournisseurFormPopover"
+          : "#clientFormPopover";
+    const CLIENT_POPOVER_SELECTOR =
+      "#clientFormPopover, #fournisseurFormPopover, #transporteurFormPopover";
+    const CLIENT_OPEN_POPOVER_SELECTOR =
+      `#clientBoxNewDoc #clientFormPopover:not([hidden]), ${MAIN_CLIENT_SCOPE_ID ? `#${MAIN_CLIENT_SCOPE_ID}` : "#clientBoxMainscreenClientsPanel"} #clientFormPopover:not([hidden]), #FournisseurBoxNewDoc #fournisseurFormPopover:not([hidden]), ${MAIN_VENDOR_SCOPE_ID ? `#${MAIN_VENDOR_SCOPE_ID}` : "#clientBoxMainscreenFournisseursPanel"} #fournisseurFormPopover:not([hidden]), #clientSavedModal #clientFormPopover:not([hidden]), #clientSavedModal #fournisseurFormPopover:not([hidden]), #clientSavedModalNv #clientFormPopover:not([hidden]), #clientSavedModalNv #fournisseurFormPopover:not([hidden]), #fournisseurSavedModal #clientFormPopover:not([hidden]), #fournisseurSavedModal #fournisseurFormPopover:not([hidden]), #fournisseurSavedModalNv #clientFormPopover:not([hidden]), #fournisseurSavedModalNv #fournisseurFormPopover:not([hidden]), #transporteurSavedModal #transporteurFormPopover:not([hidden]), #transporteurSavedModalNv #transporteurFormPopover:not([hidden]), #${MAIN_TRANSPORTER_SCOPE_ID} #transporteurFormPopover:not([hidden])`;
 
             const docTypeSelect = getEl("docType");
             docTypeSelect?.addEventListener("change", () => {
@@ -594,14 +609,14 @@
                 scope.id === "clientSavedModal" ||
                 scope.id === "clientSavedModalNv" ||
                 scope.id === "fournisseurSavedModal" ||
-                scope.id === "fournisseurSavedModalNv"
+                scope.id === "fournisseurSavedModalNv" ||
+                scope.id === "transporteurSavedModal" ||
+                scope.id === "transporteurSavedModalNv"
               ) {
-                popover = scope.querySelector(
-                  getClientSavedModalEntityType() === "vendor" ? "#fournisseurFormPopover" : "#clientFormPopover"
-                );
+                popover = scope.querySelector(resolveClientPopoverSelector(getClientSavedModalEntityType()));
               }
               if (!popover) {
-                popover = scope.querySelector("#clientFormPopover, #fournisseurFormPopover");
+                popover = scope.querySelector(CLIENT_POPOVER_SELECTOR);
               }
               const toggle = scope.querySelector("#clientFormToggleBtn");
               if (!popover) return null;
@@ -632,11 +647,16 @@
                 !!ctx.scope?.closest?.("#itemsDocOptionsModal") || isItemsDocOptionsModalOpen();
               const entityType = resolveClientEntityType(ctx.popover);
               const resolvedModeForVendor = mode === "default" ? "create" : mode;
-              const effectiveMode = entityType === "vendor" ? resolvedModeForVendor : mode;
+              const effectiveMode = entityType === "client" ? mode : resolvedModeForVendor;
               if (entityType === "vendor") {
                 ctx.popover.dataset.fournisseurFormMode = resolvedModeForVendor;
+                delete ctx.popover.dataset.transporteurFormMode;
+              } else if (entityType === "transporter") {
+                ctx.popover.dataset.transporteurFormMode = resolvedModeForVendor;
+                delete ctx.popover.dataset.fournisseurFormMode;
               } else {
                 delete ctx.popover.dataset.fournisseurFormMode;
+                delete ctx.popover.dataset.transporteurFormMode;
               }
               const updateBtn = queryScopedClientFormElement(ctx.popover, "btnUpdateClient");
               const saveBtn = queryScopedClientFormElement(ctx.popover, "btnSaveClient");
@@ -827,7 +847,7 @@
               const ctx =
                 getClientFormPopoverContext(scopeNode) || {
                   scope: scopeNode,
-                  popover: scopeNode?.querySelector?.("#clientFormPopover, #fournisseurFormPopover"),
+                  popover: scopeNode?.querySelector?.(CLIENT_POPOVER_SELECTOR),
                   toggle: scopeNode?.querySelector?.("#clientFormToggleBtn")
                 };
               if (!ctx?.popover) return;
@@ -840,8 +860,11 @@
                   evt.preventDefault();
                   let ctx = getClientFormPopoverContext(toggleBtn);
                   if (!ctx) {
-                    const fallbackScope = toggleBtn.closest("#clientSavedModal, #clientSavedModalNv, #fournisseurSavedModal, #fournisseurSavedModalNv")
-                      ? document.getElementById("FournisseurBoxNewDoc")
+                    const fallbackScope = toggleBtn.closest(
+                      "#clientSavedModal, #clientSavedModalNv, #fournisseurSavedModal, #fournisseurSavedModalNv, #transporteurSavedModal, #transporteurSavedModalNv"
+                    )
+                      ? document.getElementById("FournisseurBoxNewDoc") ||
+                        document.getElementById("clientBoxMainscreenTransporteursPanel")
                       : document.getElementById("clientBoxNewDoc");
                     ctx = getClientFormPopoverContext(fallbackScope);
                   }
@@ -865,21 +888,19 @@
                     setClientFormPopoverOpen(ctx, false);
                     return;
                   }
-                  const popover = closeBtn.closest("#clientFormPopover, #fournisseurFormPopover");
+                  const popover = closeBtn.closest(CLIENT_POPOVER_SELECTOR);
                   if (popover) {
                     popover.classList.remove("is-open");
                     popover.hidden = true;
                     popover.setAttribute("aria-hidden", "true");
                     const scopeNode = popover.closest(
-                      `#clientBoxNewDoc, #clientBoxMainscreen, ${MAIN_SCOPE_SELECTOR}, #FournisseurBoxNewDoc, #clientSavedModal, #clientSavedModalNv, #fournisseurSavedModal, #fournisseurSavedModalNv`
+                      `#clientBoxNewDoc, #clientBoxMainscreen, ${MAIN_SCOPE_SELECTOR}, #FournisseurBoxNewDoc, #clientSavedModal, #clientSavedModalNv, #fournisseurSavedModal, #fournisseurSavedModalNv, #transporteurSavedModal, #transporteurSavedModalNv`
                     );
                     if (scopeNode) resetClientFormPopoverFields(scopeNode);
                   }
                   return;
                 }
-                const openPopover = document.querySelector(
-                  `#clientBoxNewDoc #clientFormPopover:not([hidden]), ${MAIN_CLIENT_SCOPE_SELECTOR} #clientFormPopover:not([hidden]), #FournisseurBoxNewDoc #fournisseurFormPopover:not([hidden]), ${MAIN_VENDOR_SCOPE_SELECTOR} #fournisseurFormPopover:not([hidden]), #clientSavedModal #clientFormPopover:not([hidden]), #clientSavedModal #fournisseurFormPopover:not([hidden]), #clientSavedModalNv #clientFormPopover:not([hidden]), #clientSavedModalNv #fournisseurFormPopover:not([hidden]), #fournisseurSavedModal #clientFormPopover:not([hidden]), #fournisseurSavedModal #fournisseurFormPopover:not([hidden]), #fournisseurSavedModalNv #clientFormPopover:not([hidden]), #fournisseurSavedModalNv #fournisseurFormPopover:not([hidden])`
-                );
+                const openPopover = document.querySelector(CLIENT_OPEN_POPOVER_SELECTOR);
                 if (!openPopover) return;
                 const dialogTarget = evt.target?.closest?.("#swbDialog");
                 if (dialogTarget) return;
@@ -896,9 +917,7 @@
 
               document.addEventListener("keydown", (evt) => {
                 if (evt.key !== "Escape") return;
-                const openPopover = document.querySelector(
-                  `#clientBoxNewDoc #clientFormPopover:not([hidden]), ${MAIN_CLIENT_SCOPE_SELECTOR} #clientFormPopover:not([hidden]), #FournisseurBoxNewDoc #fournisseurFormPopover:not([hidden]), ${MAIN_VENDOR_SCOPE_SELECTOR} #fournisseurFormPopover:not([hidden]), #clientSavedModal #clientFormPopover:not([hidden]), #clientSavedModal #fournisseurFormPopover:not([hidden]), #clientSavedModalNv #clientFormPopover:not([hidden]), #clientSavedModalNv #fournisseurFormPopover:not([hidden]), #fournisseurSavedModal #clientFormPopover:not([hidden]), #fournisseurSavedModal #fournisseurFormPopover:not([hidden]), #fournisseurSavedModalNv #clientFormPopover:not([hidden]), #fournisseurSavedModalNv #fournisseurFormPopover:not([hidden])`
-                );
+                const openPopover = document.querySelector(CLIENT_OPEN_POPOVER_SELECTOR);
                 if (!openPopover) return;
                 const dialogTarget = evt.target?.closest?.("#swbDialog");
                 if (dialogTarget) return;
@@ -1412,11 +1431,15 @@
                   formScope?.id === "clientSavedModalNv" ||
                   formScope?.id === "fournisseurSavedModal" ||
                   formScope?.id === "fournisseurSavedModalNv" ||
+                  formScope?.id === "transporteurSavedModal" ||
+                  formScope?.id === "transporteurSavedModalNv" ||
                   formScope?.id === "clientBoxMainscreen" ||
                   formScope?.id === MAIN_CLIENT_SCOPE_ID ||
                   formScope?.id === MAIN_VENDOR_SCOPE_ID ||
+                  formScope?.id === MAIN_TRANSPORTER_SCOPE_ID ||
                   formScope?.id === "clientFormPopover" ||
-                  formScope?.id === "fournisseurFormPopover"
+                  formScope?.id === "fournisseurFormPopover" ||
+                  formScope?.id === "transporteurFormPopover"
                     ? formScope
                     : null;
                 const performReset = () => {
@@ -1451,7 +1474,7 @@
               };
 
               const handleNewClientClick = (evt) => {
-                const trigger = evt.target?.closest?.("#btnNewClient, #btnNewFournisseur");
+                const trigger = evt.target?.closest?.("#btnNewClient, #btnNewFournisseur, #btnNewTransporteur");
                 if (!trigger) return;
                 const formScope = trigger.closest(CLIENT_SCOPE_WITH_ROOT_SELECTOR);
                 resetClientFormToNew(formScope, { confirmDiscard: true });
@@ -1489,7 +1512,7 @@
             };
 
             const handleSaveClientClick = async (evt) => {
-              const trigger = evt.target?.closest?.("#btnSaveClient, #btnSaveFournisseur");
+              const trigger = evt.target?.closest?.("#btnSaveClient, #btnSaveFournisseur, #btnSaveTransporteur");
               if (!trigger) return;
               if (clientSaveInProgress || trigger.dataset.saveInProgress === "1") return;
               const formScope = trigger.closest(CLIENT_SCOPE_WITH_ROOT_SELECTOR);
@@ -1500,7 +1523,9 @@
                   formScope.id !== "clientSavedModal" &&
                   formScope.id !== "clientSavedModalNv" &&
                   formScope.id !== "fournisseurSavedModal" && formScope.id !== "fournisseurSavedModalNv" &&
-                  formScope.id !== "clientFormPopover" && formScope.id !== "fournisseurFormPopover")
+                  formScope.id !== "transporteurSavedModal" && formScope.id !== "transporteurSavedModalNv" &&
+                  formScope.id !== "clientFormPopover" && formScope.id !== "fournisseurFormPopover" &&
+                  formScope.id !== "transporteurFormPopover")
               ) {
                 return;
               }
@@ -1586,7 +1611,11 @@
                   const formCtx = getClientFormPopoverContext(formScope);
                   if (formCtx) {
                     setClientFormPopoverOpen(formCtx, false);
-                  } else if (formScope?.id === "clientFormPopover" || formScope?.id === "fournisseurFormPopover") {
+                  } else if (
+                    formScope?.id === "clientFormPopover" ||
+                    formScope?.id === "fournisseurFormPopover" ||
+                    formScope?.id === "transporteurFormPopover"
+                  ) {
                     formScope.classList.remove("is-open");
                     formScope.hidden = true;
                     formScope.setAttribute("aria-hidden", "true");
@@ -1620,7 +1649,7 @@
             document.addEventListener("click", handleSaveClientClick);
 
             const handleUpdateClientClick = async (evt) => {
-              const trigger = evt.target?.closest?.("#btnUpdateClient, #btnUpdateFournisseur");
+              const trigger = evt.target?.closest?.("#btnUpdateClient, #btnUpdateFournisseur, #btnUpdateTransporteur");
               if (!trigger) return;
               if (SEM.clientUpdateInProgress || trigger.dataset.updateInProgress === "1") return;
               const formScope = trigger.closest(CLIENT_SCOPE_WITH_ROOT_SELECTOR);
@@ -1681,7 +1710,8 @@
                     !formScope ||
                     (formScope.id !== "clientBoxNewDoc" &&
                       formScope.id !== "FournisseurBoxNewDoc" &&
-                      formScope.id !== "fournisseurSavedModal" && formScope.id !== "fournisseurSavedModalNv")
+                      formScope.id !== "fournisseurSavedModal" && formScope.id !== "fournisseurSavedModalNv" &&
+                      formScope.id !== "transporteurSavedModal" && formScope.id !== "transporteurSavedModalNv")
                   ) {
                     if (SEM.readInputs) SEM.readInputs();
                   }
@@ -1693,7 +1723,8 @@
                   if (
                     formScope?.id === "clientBoxNewDoc" ||
                     formScope?.id === "FournisseurBoxNewDoc" ||
-                    formScope?.id === "fournisseurSavedModal" || formScope?.id === "fournisseurSavedModalNv"
+                    formScope?.id === "fournisseurSavedModal" || formScope?.id === "fournisseurSavedModalNv" ||
+                    formScope?.id === "transporteurSavedModal" || formScope?.id === "transporteurSavedModalNv"
                   ) {
                     evaluateClientDirtyFromSnapshot(client, formScope);
                   } else if (SEM.evaluateClientDirtyState) {

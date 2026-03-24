@@ -2075,6 +2075,7 @@ color: #000;
 #clientExportModal .client-import-modal__example-table.client-export-modal__preview-table.doc-export-wizard__preview-table,
 #fournisseurImportModal .client-import-modal__example-table.client-export-modal__preview-table.doc-export-wizard__preview-table,
 #fournisseurExportModal .client-import-modal__example-table.client-export-modal__preview-table.doc-export-wizard__preview-table,
+#transporteurExportModal .client-import-modal__example-table.client-export-modal__preview-table.doc-export-wizard__preview-table,
 #articleImportModal .client-import-modal__example-table.client-export-modal__preview-table.doc-export-wizard__preview-table,
 #articlesExportModal .client-import-modal__example-table.client-export-modal__preview-table.doc-export-wizard__preview-table {
   display: block;
@@ -2090,6 +2091,7 @@ color: #000;
 #clientExportModal .client-import-modal__example-table.client-export-modal__preview-table.doc-export-wizard__preview-table table,
 #fournisseurImportModal .client-import-modal__example-table.client-export-modal__preview-table.doc-export-wizard__preview-table table,
 #fournisseurExportModal .client-import-modal__example-table.client-export-modal__preview-table.doc-export-wizard__preview-table table,
+#transporteurExportModal .client-import-modal__example-table.client-export-modal__preview-table.doc-export-wizard__preview-table table,
 #articleImportModal .client-import-modal__example-table.client-export-modal__preview-table.doc-export-wizard__preview-table table,
 #articlesExportModal .client-import-modal__example-table.client-export-modal__preview-table.doc-export-wizard__preview-table table {
   width: 100%;
@@ -2107,6 +2109,8 @@ color: #000;
 #fournisseurImportModal .client-import-modal__example-table.client-export-modal__preview-table.doc-export-wizard__preview-table td,
 #fournisseurExportModal .client-import-modal__example-table.client-export-modal__preview-table.doc-export-wizard__preview-table th,
 #fournisseurExportModal .client-import-modal__example-table.client-export-modal__preview-table.doc-export-wizard__preview-table td,
+#transporteurExportModal .client-import-modal__example-table.client-export-modal__preview-table.doc-export-wizard__preview-table th,
+#transporteurExportModal .client-import-modal__example-table.client-export-modal__preview-table.doc-export-wizard__preview-table td,
 #articleImportModal .client-import-modal__example-table.client-export-modal__preview-table.doc-export-wizard__preview-table th,
 #articleImportModal .client-import-modal__example-table.client-export-modal__preview-table.doc-export-wizard__preview-table td,
 #articlesExportModal .client-import-modal__example-table.client-export-modal__preview-table.doc-export-wizard__preview-table th,
@@ -2131,6 +2135,7 @@ color: #000;
 #clientExportModal .client-import-modal__example-table.client-export-modal__preview-table.doc-export-wizard__preview-table thead th,
 #fournisseurImportModal .client-import-modal__example-table.client-export-modal__preview-table.doc-export-wizard__preview-table thead th,
 #fournisseurExportModal .client-import-modal__example-table.client-export-modal__preview-table.doc-export-wizard__preview-table thead th,
+#transporteurExportModal .client-import-modal__example-table.client-export-modal__preview-table.doc-export-wizard__preview-table thead th,
 #articleImportModal .client-import-modal__example-table.client-export-modal__preview-table.doc-export-wizard__preview-table thead th,
 #articlesExportModal .client-import-modal__example-table.client-export-modal__preview-table.doc-export-wizard__preview-table thead th {
   position: static;
@@ -2143,6 +2148,7 @@ color: #000;
 #clientExportModal .client-import-modal__example-table.client-export-modal__preview-table.doc-export-wizard__preview-table tbody tr:nth-child(even),
 #fournisseurImportModal .client-import-modal__example-table.client-export-modal__preview-table.doc-export-wizard__preview-table tbody tr:nth-child(even),
 #fournisseurExportModal .client-import-modal__example-table.client-export-modal__preview-table.doc-export-wizard__preview-table tbody tr:nth-child(even),
+#transporteurExportModal .client-import-modal__example-table.client-export-modal__preview-table.doc-export-wizard__preview-table tbody tr:nth-child(even),
 #articleImportModal .client-import-modal__example-table.client-export-modal__preview-table.doc-export-wizard__preview-table tbody tr:nth-child(even),
 #articlesExportModal .client-import-modal__example-table.client-export-modal__preview-table.doc-export-wizard__preview-table tbody tr:nth-child(even) {
   background: transparent;

@@ -174,7 +174,15 @@
     }
 
     const safeName = validationApi.sanitizeModelName(loadRes?.name || modelName);
-    const safeConfig = isPlainObject(loadRes?.config) ? loadRes.config : {};
+    const rawConfig = isPlainObject(loadRes?.config)
+      ? loadRes.config
+      : (isPlainObject(loadRes?.model?.config) ? loadRes.model.config : {});
+    const normalizeModelConfig =
+      typeof w.SEM?.sanitizeModelConfigForSave === "function"
+        ? w.SEM.sanitizeModelConfigForSave
+        : (value) => (isPlainObject(value) ? validationApi.cloneValue(value, {}) : {});
+    const safeConfigCandidate = normalizeModelConfig(rawConfig);
+    const safeConfig = isPlainObject(safeConfigCandidate) ? safeConfigCandidate : {};
     const envelope = validationApi.buildModelExportEnvelope({
       name: safeName,
       config: safeConfig

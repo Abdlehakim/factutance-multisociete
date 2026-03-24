@@ -9,7 +9,7 @@ export function renderFooterNoteSection(options = {}) {
       class="section-box wh-note-box footer-note-box"
       id="${fieldsetId}"
       data-footer-note-section="${sectionScope}"
-      ${isModal ? 'data-model-non-be-section="footer-note"' : ""}
+      ${isModal ? 'data-model-non-be-section="footer-note" data-model-non-stock-section="footer-note"' : ""}
     >
       <legend><span class="model-save-dot">Note bas de page</span></legend>
       <div class="full note-field footer-note-field">

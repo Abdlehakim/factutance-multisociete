@@ -986,6 +986,14 @@ const normalizeClientEntityType = (value) => {
   ) {
     return "vendor";
   }
+  if (
+    normalized === "transporter" ||
+    normalized === "transporteur" ||
+    normalized === "transporteurs" ||
+    normalized === "transport"
+  ) {
+    return "transporter";
+  }
   return "client";
 };
 

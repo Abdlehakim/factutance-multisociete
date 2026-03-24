@@ -1,5 +1,6 @@
 ﻿import { renderFooterNoteSection } from "./footerNoteSection.js";
 import { renderBeRemarksNoteSection } from "./beRemarksNoteSection.js";
+import { renderBsRemarksNoteSection } from "./bsRemarksNoteSection.js";
 import { renderWhPdfNoteSection } from "./whPdfNoteSection.js";
 
 export const ModelStepper = `
@@ -403,7 +404,7 @@ export const ModelStepper = `
                                 </div>
                               </div>
 
-                              <div class="field-toggle-section">
+                              <div class="field-toggle-section" id="modelVenteSection">
                                 <div class="field-toggle-section__title">Vente</div>
                                 <div class="field-toggle-section__grid">
                                   <label class="toggle-option">
@@ -1108,6 +1109,8 @@ export const ModelStepper = `
 
                       ${renderBeRemarksNoteSection({ modal: true })}
 
+                      ${renderBsRemarksNoteSection({ modal: true })}
+
                       <fieldset class="section-box" id="pdfOptionsBoxModal">
                         <legend><span class="model-save-dot">Autres Options</span></legend>
                         <div class="model-field-toggles">
@@ -1115,6 +1118,7 @@ export const ModelStepper = `
                             <div
                               class="field-toggle-section"
                               data-model-non-be-section="pdf-options-invoice"
+                              data-model-non-stock-section="pdf-options-invoice"
                             >
                               <div class="field-toggle-section__grid">
                                 <label class="toggle-option">
@@ -1206,6 +1210,69 @@ export const ModelStepper = `
                                     <strong
                                       class="model-be-approval-option__name"
                                       id="modelPdfOptionsBeValidatedBy"
+                                      data-default="Responsable stock"
+                                    >Responsable stock</strong>
+                                  </span>
+                                </label>
+                              </div>
+                            </div>
+                            <div
+                              class="field-toggle-section"
+                              data-model-bs-only-section="pdf-options-bs-approvals"
+                              hidden
+                            >
+                              <div class="field-toggle-section__title">Informations d'approbation</div>
+                              <div
+                                class="field-toggle-section__grid model-be-approval-summary"
+                                aria-label="Informations d'approbation Bon de sortie"
+                              >
+                                <label class="toggle-option model-be-approval-option">
+                                  <input
+                                    id="pdfShowBsIssuedByModal"
+                                    type="checkbox"
+                                    class="col-toggle"
+                                    aria-label="Afficher Sortie effectuée par"
+                                    checked
+                                  />
+                                  <span class="model-save-dot model-be-approval-option__text">
+                                    <span class="model-be-approval-option__label">SORTIE EFFECTU&Eacute;E PAR</span>
+                                    <strong
+                                      class="model-be-approval-option__name"
+                                      id="modelPdfOptionsBsIssuedBy"
+                                      data-default="Magasinier principal"
+                                    >Magasinier principal</strong>
+                                  </span>
+                                </label>
+                                <label class="toggle-option model-be-approval-option">
+                                  <input
+                                    id="pdfShowBsCheckedByModal"
+                                    type="checkbox"
+                                    class="col-toggle"
+                                    aria-label="Afficher Contrôlé par"
+                                    checked
+                                  />
+                                  <span class="model-save-dot model-be-approval-option__text">
+                                    <span class="model-be-approval-option__label">CONTR&Ocirc;L&Eacute; PAR</span>
+                                    <strong
+                                      class="model-be-approval-option__name"
+                                      id="modelPdfOptionsBsCheckedBy"
+                                      data-default="Responsable logistique"
+                                    >Responsable logistique</strong>
+                                  </span>
+                                </label>
+                                <label class="toggle-option model-be-approval-option">
+                                  <input
+                                    id="pdfShowBsValidatedByModal"
+                                    type="checkbox"
+                                    class="col-toggle"
+                                    aria-label="Afficher Validé par"
+                                    checked
+                                  />
+                                  <span class="model-save-dot model-be-approval-option__text">
+                                    <span class="model-be-approval-option__label">VALID&Eacute; PAR</span>
+                                    <strong
+                                      class="model-be-approval-option__name"
+                                      id="modelPdfOptionsBsValidatedBy"
                                       data-default="Responsable stock"
                                     >Responsable stock</strong>
                                   </span>

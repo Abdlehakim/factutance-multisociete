@@ -249,6 +249,8 @@
   helpers.sanitizeModelName = sanitizeModelName;
 
   const hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj || {}, key);
+  const isPlainObjectRecord = (value) =>
+    !!value && typeof value === "object" && !Array.isArray(value);
 
   const normalizeOptionalBoolean = (value) => {
     if (value === true || value === false) return value;
@@ -355,9 +357,18 @@
       DEFAULT_BE_REMARKS_FONT_SIZE
     );
     const beRemarksTouched = safeConfig?.pdf?.beRemarksTouched === true;
+    const bsRemarks = typeof safeConfig?.pdf?.bsRemarks === "string" ? safeConfig.pdf.bsRemarks : "";
+    const bsRemarksSize = normalizeBeRemarksFontSize(
+      safeConfig?.pdf?.bsRemarksSize,
+      DEFAULT_BE_REMARKS_FONT_SIZE
+    );
+    const bsRemarksTouched = safeConfig?.pdf?.bsRemarksTouched === true;
     const showBeReceivedBy = safeConfig?.pdf?.showBeReceivedBy !== false;
     const showBeControlledBy = safeConfig?.pdf?.showBeControlledBy !== false;
     const showBeValidatedBy = safeConfig?.pdf?.showBeValidatedBy !== false;
+    const showBsIssuedBy = safeConfig?.pdf?.showBsIssuedBy !== false;
+    const showBsCheckedBy = safeConfig?.pdf?.showBsCheckedBy !== false;
+    const showBsValidatedBy = safeConfig?.pdf?.showBsValidatedBy !== false;
     if (!meta.extras || typeof meta.extras !== "object") meta.extras = {};
     if (!meta.extras.pdf || typeof meta.extras.pdf !== "object") meta.extras.pdf = {};
     if (typeof showAmountWords === "boolean") {
@@ -366,11 +377,17 @@
     meta.extras.pdf.showBeReceivedBy = showBeReceivedBy;
     meta.extras.pdf.showBeControlledBy = showBeControlledBy;
     meta.extras.pdf.showBeValidatedBy = showBeValidatedBy;
+    meta.extras.pdf.showBsIssuedBy = showBsIssuedBy;
+    meta.extras.pdf.showBsCheckedBy = showBsCheckedBy;
+    meta.extras.pdf.showBsValidatedBy = showBsValidatedBy;
     meta.extras.pdf.footerNote = footerNote;
     meta.extras.pdf.footerNoteSize = footerNoteSize;
     meta.extras.pdf.beRemarks = beRemarks;
     meta.extras.pdf.beRemarksSize = beRemarksSize;
     meta.extras.pdf.beRemarksTouched = beRemarksTouched;
+    meta.extras.pdf.bsRemarks = bsRemarks;
+    meta.extras.pdf.bsRemarksSize = bsRemarksSize;
+    meta.extras.pdf.bsRemarksTouched = bsRemarksTouched;
     const financingUsed = safeConfig?.financing?.used;
     if (typeof financingUsed === "boolean") {
       if (!meta.financing || typeof meta.financing !== "object") meta.financing = {};
@@ -904,6 +921,27 @@
     return key.charAt(0).toLowerCase() + key.slice(1);
   }
 
+  function mergeNormalizedBooleanMap(target, source) {
+    if (!isPlainObjectRecord(target) || !isPlainObjectRecord(source)) return target;
+    Object.entries(source).forEach(([rawKey, rawValue]) => {
+      const key = normalizeColumnKey(rawKey);
+      if (!key) return;
+      const normalized = normalizeOptionalBoolean(rawValue);
+      target[key] = typeof normalized === "boolean" ? normalized : !!rawValue;
+    });
+    return target;
+  }
+
+  function collectStoredModelColumns(raw = {}) {
+    const src = isPlainObjectRecord(raw) ? raw : {};
+    const meta = isPlainObjectRecord(src.meta) ? src.meta : {};
+    const columns = {};
+    [src.columns, src.modelColumns, meta.columns, meta.modelColumns].forEach((source) =>
+      mergeNormalizedBooleanMap(columns, source)
+    );
+    return columns;
+  }
+
   function resolveColumnEl(id) {
     if (!id) return null;
     if (typeof getEl === "function") return getEl(id);
@@ -1089,20 +1127,16 @@
       if (!raw) return [];
       const parsed = JSON.parse(raw);
       if (!Array.isArray(parsed)) return [];
-        const unique = new Map();
-        let migrated = false;
-        parsed.filter(isValidModelEntry).forEach((entry) => {
-          if (entry?.config && shouldMigrateModelDocType(entry.config.docType, entry.config.docTypes)) {
-            entry.config.docTypes = [DEFAULT_MODEL_DOC_TYPE];
-            entry.config.docType = DEFAULT_MODEL_DOC_TYPE;
-            migrated = true;
-          }
-          const normalized = normalizeModelEntry(entry);
-          if (normalized.name) unique.set(normalized.name, normalized);
-        });
-        const result = Array.from(unique.values());
-        if (migrated || unique.size !== parsed.length) writeModelStorage(result);
-        return result;
+      const unique = new Map();
+      let migrated = false;
+      parsed.filter(isValidModelEntry).forEach((entry) => {
+        const normalized = normalizeModelEntry(entry);
+        if (!areModelValuesEquivalent(entry?.config || {}, normalized.config)) migrated = true;
+        if (normalized.name) unique.set(normalized.name, normalized);
+      });
+      const result = Array.from(unique.values());
+      if (migrated || unique.size !== parsed.length) writeModelStorage(result);
+      return result;
     } catch (err) {
       console.error("model presets: load", err);
       return [];
@@ -1124,31 +1158,33 @@
       const res = await w.electronAPI.listModels();
       if (!res?.ok) throw new Error(res?.error || "Liste des modèles indisponible.");
       const rawList = Array.isArray(res.models) ? res.models : [];
-        const unique = new Map();
-        const migrations = [];
-        rawList.filter(isValidModelEntry).forEach((entry) => {
-          if (entry?.config && shouldMigrateModelDocType(entry.config.docType, entry.config.docTypes)) {
-            entry.config.docTypes = [DEFAULT_MODEL_DOC_TYPE];
-            entry.config.docType = DEFAULT_MODEL_DOC_TYPE;
-            migrations.push({ name: entry.name, config: cloneConfig(entry.config) });
-          }
-          const normalized = normalizeModelEntry(entry);
-          if (normalized.name) unique.set(normalized.name, normalized);
-        });
-        if (migrations.length && typeof w.electronAPI?.saveModel === "function") {
-          for (const migration of migrations) {
-            try {
-              await w.electronAPI.saveModel(migration);
-            } catch (err) {
-              console.warn("model presets: docType migrate failed", err);
-            }
+      const unique = new Map();
+      const migrations = new Map();
+      rawList.filter(isValidModelEntry).forEach((entry) => {
+        const normalized = normalizeModelEntry(entry);
+        if (normalized.name) unique.set(normalized.name, normalized);
+        if (!normalized.name) return;
+        if (!areModelValuesEquivalent(entry?.config || {}, normalized.config)) {
+          migrations.set(normalized.name, {
+            name: normalized.name,
+            config: cloneConfig(normalized.config)
+          });
+        }
+      });
+      if (migrations.size && typeof w.electronAPI?.saveModel === "function") {
+        for (const migration of migrations.values()) {
+          try {
+            await w.electronAPI.saveModel(migration);
+          } catch (err) {
+            console.warn("model presets: normalize migrate failed", err);
           }
         }
-        return Array.from(unique.values());
-      } catch (err) {
-        console.error("model presets: list", err);
-        return [];
       }
+      return Array.from(unique.values());
+    } catch (err) {
+      console.error("model presets: list", err);
+      return [];
+    }
   }
 
   async function migrateLegacyModelsIfNeeded() {
@@ -1277,6 +1313,30 @@
     }
   }
 
+  function canonicalizeModelValue(value) {
+    if (Array.isArray(value)) {
+      return value.map((entry) => canonicalizeModelValue(entry));
+    }
+    if (isPlainObjectRecord(value)) {
+      const normalized = {};
+      Object.keys(value)
+        .sort((left, right) => left.localeCompare(right))
+        .forEach((key) => {
+          normalized[key] = canonicalizeModelValue(value[key]);
+        });
+      return normalized;
+    }
+    return value;
+  }
+
+  function areModelValuesEquivalent(left, right) {
+    try {
+      return JSON.stringify(canonicalizeModelValue(left)) === JSON.stringify(canonicalizeModelValue(right));
+    } catch {
+      return false;
+    }
+  }
+
   // Preserve minimal rich text for notes (bold/italic + line breaks) and drop everything else.
   function sanitizeRichNote(raw) {
     if (raw === undefined || raw === null) return "";
@@ -1298,38 +1358,36 @@
   }
 
   function sanitizeModelConfigForSave(raw = {}) {
-    const src = raw && typeof raw === "object" ? raw : {};
+    const src = isPlainObjectRecord(raw) ? raw : {};
+    const meta = isPlainObjectRecord(src.meta) ? src.meta : {};
+    const metaExtras = isPlainObjectRecord(meta.extras) ? meta.extras : {};
+    const metaPdf = isPlainObjectRecord(metaExtras.pdf) ? metaExtras.pdf : {};
     const cleaned = {};
-    const rawColumns = {};
+    const rawColumns = collectStoredModelColumns(src);
 
     // Champs affichés (column toggles)
-    if (src.columns && typeof src.columns === "object") {
-      Object.entries(src.columns).forEach(([key, value]) => {
-        rawColumns[key] = !!value;
-      });
-    }
 
     // Devise et taxe
-    const hasCurrency = hasOwn(src, "currency") || hasOwn(src.meta, "currency");
+    const hasCurrency = hasOwn(src, "currency") || hasOwn(meta, "currency");
     if (hasCurrency) {
-      const currencyValue = hasOwn(src, "currency") ? src.currency : src.meta?.currency;
+      const currencyValue = hasOwn(src, "currency") ? src.currency : meta.currency;
       const normalizedCurrency = normalizeCurrency(currencyValue, "");
       if (normalizedCurrency) cleaned.currency = normalizedCurrency;
     }
-    const hasTemplate = hasOwn(src, "template") || (src.meta && hasOwn(src.meta, "template"));
+    const hasTemplate = hasOwn(src, "template") || hasOwn(meta, "template");
     if (hasTemplate) {
-      const templateValue = hasOwn(src, "template") ? src.template : src.meta?.template;
+      const templateValue = hasOwn(src, "template") ? src.template : meta.template;
       const normalizedTemplate = normalizeTemplateKey(templateValue);
       if (normalizedTemplate) cleaned.template = normalizedTemplate;
     }
     const hasTaxesFlag =
       hasOwn(src, "taxesEnabled") ||
       hasOwn(src, "taxMode") ||
-      hasOwn(src.meta, "taxesEnabled");
+      hasOwn(meta, "taxesEnabled");
     if (hasTaxesFlag) {
       const rawTaxFlag = hasOwn(src, "taxesEnabled")
         ? src.taxesEnabled
-        : (hasOwn(src, "taxMode") ? src.taxMode : src.meta?.taxesEnabled);
+        : (hasOwn(src, "taxMode") ? src.taxMode : meta.taxesEnabled);
       cleaned.taxesEnabled = normalizeTaxesEnabled(rawTaxFlag, true);
     }
 
@@ -1448,11 +1506,17 @@
     };
 
     // Note PDF
-    const rawNote = src.notes !== undefined ? src.notes : src.note;
+    const rawNote =
+      src.notes !== undefined
+        ? src.notes
+        : (src.note !== undefined ? src.note : (meta.notes !== undefined ? meta.notes : meta.note));
     cleaned.notes = rawNote !== undefined ? sanitizeRichNote(rawNote) : "";
 
     // Options PDF (cachet / signature / total en lettres)
-    const pdf = src.pdf && typeof src.pdf === "object" ? src.pdf : {};
+    const pdf = {
+      ...metaPdf,
+      ...(isPlainObjectRecord(src.pdf) ? src.pdf : {})
+    };
     const footerNote =
       typeof pdf.footerNote === "string"
         ? sanitizeFooterNoteHtml(pdf.footerNote).trim()
@@ -1466,9 +1530,20 @@
         : "";
     const beRemarksSize = normalizeBeRemarksFontSize(pdf.beRemarksSize, DEFAULT_BE_REMARKS_FONT_SIZE);
     const beRemarksTouched = pdf.beRemarksTouched === true;
+    const bsRemarks =
+      typeof pdf.bsRemarks === "string"
+        ? sanitizeFooterNoteHtml(pdf.bsRemarks, {
+            allowedSizes: BE_REMARKS_FONT_SIZES
+          }).trim()
+        : "";
+    const bsRemarksSize = normalizeBeRemarksFontSize(pdf.bsRemarksSize, DEFAULT_BE_REMARKS_FONT_SIZE);
+    const bsRemarksTouched = pdf.bsRemarksTouched === true;
     const showBeReceivedBy = pdf.showBeReceivedBy !== false;
     const showBeControlledBy = pdf.showBeControlledBy !== false;
     const showBeValidatedBy = pdf.showBeValidatedBy !== false;
+    const showBsIssuedBy = pdf.showBsIssuedBy !== false;
+    const showBsCheckedBy = pdf.showBsCheckedBy !== false;
+    const showBsValidatedBy = pdf.showBsValidatedBy !== false;
     cleaned.pdf = {
       showSeal: pdf.showSeal !== false,
       showSignature: pdf.showSignature !== false,
@@ -1476,34 +1551,43 @@
       showBeReceivedBy,
       showBeControlledBy,
       showBeValidatedBy,
+      showBsIssuedBy,
+      showBsCheckedBy,
+      showBsValidatedBy,
       footerNote,
       footerNoteSize,
       beRemarks,
       beRemarksSize,
-      beRemarksTouched
+      beRemarksTouched,
+      bsRemarks,
+      bsRemarksSize,
+      bsRemarksTouched
     };
 
     const hasNumberLength =
       hasOwn(src, "numberLength") ||
-      hasOwn(src.meta, "numberLength");
+      hasOwn(meta, "numberLength");
     if (hasNumberLength) {
-      const rawNumberLength = hasOwn(src, "numberLength") ? src.numberLength : src.meta?.numberLength;
+      const rawNumberLength = hasOwn(src, "numberLength") ? src.numberLength : meta.numberLength;
       cleaned.numberLength = normalizeInvoiceLength(rawNumberLength, 4);
     }
 
     const hasNumberFormat =
       hasOwn(src, "numberFormat") ||
-      hasOwn(src.meta, "numberFormat");
+      hasOwn(meta, "numberFormat");
     if (hasNumberFormat) {
-      const rawNumberFormat = hasOwn(src, "numberFormat") ? src.numberFormat : src.meta?.numberFormat;
+      const rawNumberFormat = hasOwn(src, "numberFormat") ? src.numberFormat : meta.numberFormat;
       cleaned.numberFormat = normalizeNumberFormat(rawNumberFormat, NUMBER_FORMAT_DEFAULT);
     }
 
     const rawDocTypes = hasOwn(src, "docTypes")
       ? src.docTypes
-      : (src.meta && hasOwn(src.meta, "docTypes") ? src.meta.docTypes : undefined);
+      : (hasOwn(meta, "docTypes") ? meta.docTypes : (hasOwn(meta, "modelDocTypes") ? meta.modelDocTypes : undefined));
+    const rawDocType = hasOwn(src, "docType")
+      ? src.docType
+      : (hasOwn(meta, "docType") ? meta.docType : meta.modelDocType);
     const docTypes = expandModelDocTypes(
-      rawDocTypes !== undefined ? rawDocTypes : src.docType,
+      rawDocTypes !== undefined ? rawDocTypes : rawDocType,
       DEFAULT_MODEL_DOC_TYPE
     );
     cleaned.docTypes = Array.isArray(docTypes) && docTypes.length ? docTypes : [DEFAULT_MODEL_DOC_TYPE];
@@ -1513,7 +1597,7 @@
       : normalizeTaxesEnabled(
           hasOwn(src, "taxesEnabled")
             ? src.taxesEnabled
-            : (hasOwn(src, "taxMode") ? src.taxMode : src.meta?.taxesEnabled),
+            : (hasOwn(src, "taxMode") ? src.taxMode : meta.taxesEnabled),
           true
         );
     cleaned.columns = normalizeModelColumnState(rawColumns, {
@@ -1523,9 +1607,9 @@
 
     const hasHeaderColor =
       hasOwn(src, "itemsHeaderColor") ||
-      (src.meta && hasOwn(src.meta, "itemsHeaderColor"));
+      hasOwn(meta, "itemsHeaderColor");
     if (hasHeaderColor) {
-      const rawColor = hasOwn(src, "itemsHeaderColor") ? src.itemsHeaderColor : src.meta?.itemsHeaderColor;
+      const rawColor = hasOwn(src, "itemsHeaderColor") ? src.itemsHeaderColor : meta.itemsHeaderColor;
       const normalizedColor = normalizeHexColor(rawColor);
       if (normalizedColor) cleaned.itemsHeaderColor = normalizedColor;
     }
@@ -1547,6 +1631,8 @@
       config: sanitizeModelConfigForSave(entry.config)
     };
   }
+  helpers.sanitizeModelConfigForSave = sanitizeModelConfigForSave;
+  SEM.sanitizeModelConfigForSave = sanitizeModelConfigForSave;
 
   function stripHtmlAndStyles(raw) {
     if (raw === undefined || raw === null) return "";
@@ -1852,6 +1938,14 @@
       const fallback = meta?.extras?.pdf?.beRemarks;
       return typeof fallback === "string" ? fallback : "";
     };
+    const readBsRemarksValue = () => {
+      const modalField = getEl("bsRemarksModal");
+      if (modalField) {
+        return typeof modalField.value === "string" ? modalField.value.trim() : "";
+      }
+      const fallback = meta?.extras?.pdf?.bsRemarks;
+      return typeof fallback === "string" ? fallback : "";
+    };
     const readBeRemarksTouched = () => {
       const modalField = getEl("beRemarksModal");
       if (modalField) {
@@ -1859,9 +1953,24 @@
       }
       return meta?.extras?.pdf?.beRemarksTouched === true;
     };
+    const readBsRemarksTouched = () => {
+      const modalField = getEl("bsRemarksModal");
+      if (modalField) {
+        return modalField.dataset?.touched === "1";
+      }
+      return meta?.extras?.pdf?.bsRemarksTouched === true;
+    };
     const readBeRemarksSize = () => {
       const modalSize = getEl("beRemarksFontSizeModal")?.value;
       const fallback = meta?.extras?.pdf?.beRemarksSize;
+      return normalizeBeRemarksFontSize(
+        modalSize ?? fallback,
+        DEFAULT_BE_REMARKS_FONT_SIZE
+      );
+    };
+    const readBsRemarksSize = () => {
+      const modalSize = getEl("bsRemarksFontSizeModal")?.value;
+      const fallback = meta?.extras?.pdf?.bsRemarksSize;
       return normalizeBeRemarksFontSize(
         modalSize ?? fallback,
         DEFAULT_BE_REMARKS_FONT_SIZE
@@ -2070,11 +2179,17 @@
       showBeReceivedBy: readPdfToggleValue("pdfShowBeReceivedByModal", fallbackPdf.showBeReceivedBy !== false),
       showBeControlledBy: readPdfToggleValue("pdfShowBeControlledByModal", fallbackPdf.showBeControlledBy !== false),
       showBeValidatedBy: readPdfToggleValue("pdfShowBeValidatedByModal", fallbackPdf.showBeValidatedBy !== false),
+      showBsIssuedBy: readPdfToggleValue("pdfShowBsIssuedByModal", fallbackPdf.showBsIssuedBy !== false),
+      showBsCheckedBy: readPdfToggleValue("pdfShowBsCheckedByModal", fallbackPdf.showBsCheckedBy !== false),
+      showBsValidatedBy: readPdfToggleValue("pdfShowBsValidatedByModal", fallbackPdf.showBsValidatedBy !== false),
       footerNote: readFooterNoteValue(),
       footerNoteSize: readFooterNoteSize(),
       beRemarks: readBeRemarksValue(),
       beRemarksSize: readBeRemarksSize(),
-      beRemarksTouched: readBeRemarksTouched()
+      beRemarksTouched: readBeRemarksTouched(),
+      bsRemarks: readBsRemarksValue(),
+      bsRemarksSize: readBsRemarksSize(),
+      bsRemarksTouched: readBsRemarksTouched()
     };
 
     const rawConfig = {
@@ -2716,12 +2831,16 @@
     if (!itemsSectionOnly && safeConfig.pdf && typeof safeConfig.pdf === "object") {
       const rawPdf = config.pdf && typeof config.pdf === "object" ? config.pdf : {};
       const beRemarksTouched = rawPdf.beRemarksTouched === true;
+      const bsRemarksTouched = rawPdf.bsRemarksTouched === true;
       setCheckboxValue("pdfShowSealModal", safeConfig.pdf.showSeal !== false);
       setCheckboxValue("pdfShowSignatureModal", safeConfig.pdf.showSignature !== false);
       setCheckboxValue("pdfShowAmountWordsModal", safeConfig.pdf.showAmountWords !== false);
       setCheckboxValue("pdfShowBeReceivedByModal", safeConfig.pdf.showBeReceivedBy !== false);
       setCheckboxValue("pdfShowBeControlledByModal", safeConfig.pdf.showBeControlledBy !== false);
       setCheckboxValue("pdfShowBeValidatedByModal", safeConfig.pdf.showBeValidatedBy !== false);
+      setCheckboxValue("pdfShowBsIssuedByModal", safeConfig.pdf.showBsIssuedBy !== false);
+      setCheckboxValue("pdfShowBsCheckedByModal", safeConfig.pdf.showBsCheckedBy !== false);
+      setCheckboxValue("pdfShowBsValidatedByModal", safeConfig.pdf.showBsValidatedBy !== false);
       const footerNote = typeof safeConfig.pdf.footerNote === "string" ? safeConfig.pdf.footerNote : "";
       const footerNoteSize = normalizeFooterNoteFontSize(
         safeConfig.pdf.footerNoteSize,
@@ -2730,6 +2849,11 @@
       const beRemarks = typeof safeConfig.pdf.beRemarks === "string" ? safeConfig.pdf.beRemarks : "";
       const beRemarksSize = normalizeBeRemarksFontSize(
         safeConfig.pdf.beRemarksSize,
+        DEFAULT_BE_REMARKS_FONT_SIZE
+      );
+      const bsRemarks = typeof safeConfig.pdf.bsRemarks === "string" ? safeConfig.pdf.bsRemarks : "";
+      const bsRemarksSize = normalizeBeRemarksFontSize(
+        safeConfig.pdf.bsRemarksSize,
         DEFAULT_BE_REMARKS_FONT_SIZE
       );
       setFieldValue("footerNoteModal", footerNote);
@@ -2744,11 +2868,22 @@
       if (typeof SEM.updateModelBeRemarksEditor === "function") {
         SEM.updateModelBeRemarksEditor(beRemarks, { size: beRemarksSize });
       }
+      setFieldValue("bsRemarksModal", bsRemarks);
+      setFieldValue("bsRemarksFontSizeModal", bsRemarksSize);
+      if (typeof SEM.updateModelBsRemarksEditor === "function") {
+        SEM.updateModelBsRemarksEditor(bsRemarks, { size: bsRemarksSize });
+      }
       w.configureModelBeRemarksDefaultState?.({
         allowDefault: !beRemarksTouched && !beRemarks,
         touched: beRemarksTouched,
         size: beRemarksSize,
         applyIfEmpty: resolvedDocTypes.includes("be")
+      });
+      w.configureModelBsRemarksDefaultState?.({
+        allowDefault: !bsRemarksTouched && !bsRemarks,
+        touched: bsRemarksTouched,
+        size: bsRemarksSize,
+        applyIfEmpty: resolvedDocTypes.includes("bs")
       });
       if (st?.meta) {
         if (!st.meta.extras || typeof st.meta.extras !== "object") st.meta.extras = {};
@@ -2759,11 +2894,17 @@
         st.meta.extras.pdf.showBeReceivedBy = safeConfig.pdf.showBeReceivedBy !== false;
         st.meta.extras.pdf.showBeControlledBy = safeConfig.pdf.showBeControlledBy !== false;
         st.meta.extras.pdf.showBeValidatedBy = safeConfig.pdf.showBeValidatedBy !== false;
+        st.meta.extras.pdf.showBsIssuedBy = safeConfig.pdf.showBsIssuedBy !== false;
+        st.meta.extras.pdf.showBsCheckedBy = safeConfig.pdf.showBsCheckedBy !== false;
+        st.meta.extras.pdf.showBsValidatedBy = safeConfig.pdf.showBsValidatedBy !== false;
         st.meta.extras.pdf.footerNote = footerNote;
         st.meta.extras.pdf.footerNoteSize = footerNoteSize;
         st.meta.extras.pdf.beRemarks = beRemarks;
         st.meta.extras.pdf.beRemarksSize = beRemarksSize;
         st.meta.extras.pdf.beRemarksTouched = safeConfig.pdf.beRemarksTouched === true;
+        st.meta.extras.pdf.bsRemarks = bsRemarks;
+        st.meta.extras.pdf.bsRemarksSize = bsRemarksSize;
+        st.meta.extras.pdf.bsRemarksTouched = safeConfig.pdf.bsRemarksTouched === true;
       }
     }
 

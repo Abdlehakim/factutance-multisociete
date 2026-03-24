@@ -140,7 +140,13 @@
 
     const importedModel = isPlainObject(parsedEnvelope.model) ? parsedEnvelope.model : {};
     const importedName = validationApi.sanitizeModelName(importedModel.name);
-    const importedConfig = isPlainObject(importedModel.config) ? importedModel.config : {};
+    const importedConfigRaw = isPlainObject(importedModel.config) ? importedModel.config : {};
+    const normalizeModelConfig =
+      typeof w.SEM?.sanitizeModelConfigForSave === "function"
+        ? w.SEM.sanitizeModelConfigForSave
+        : (value) => (isPlainObject(value) ? validationApi.cloneValue(value, {}) : {});
+    const importedConfigCandidate = normalizeModelConfig(importedConfigRaw);
+    const importedConfig = isPlainObject(importedConfigCandidate) ? importedConfigCandidate : {};
     if (!importedName) {
       return {
         ok: false,

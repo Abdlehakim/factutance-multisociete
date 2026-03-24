@@ -237,6 +237,8 @@
             : 12;
           const DEFAULT_MODEL_BE_REMARKS_TEXT =
             "Reception conforme au bon de commande. Verifier l'etat des emballages et enregistrer les lots si necessaire";
+          const DEFAULT_MODEL_BS_REMARKS_TEXT =
+            "Sortie conforme a la demande interne. Verifier le lot et confirmer la quantite remise.";
           const normalizeBeRemarksFontSize = (value) => {
             const parsed = Number.parseInt(value, 10);
             if (!Number.isFinite(parsed)) return null;
@@ -347,6 +349,43 @@
           };
           w.ensureModelBeRemarksDefault = ensureModelBeRemarksDefault;
           w.configureModelBeRemarksDefaultState = configureModelBeRemarksDefaultState;
+          const getBsRemarksHidden = () => getEl("bsRemarksModal");
+          const setBsRemarksDefaultFlags = ({ allowDefault = false, touched = false } = {}) => {
+            const hidden = getBsRemarksHidden();
+            if (!hidden) return;
+            hidden.dataset.allowDefault = allowDefault ? "1" : "0";
+            hidden.dataset.touched = touched ? "1" : "0";
+          };
+          const ensureModelBsRemarksDefault = (opts = {}) => {
+            const hidden = getBsRemarksHidden();
+            if (!hidden) return false;
+            const allowDefault = hidden.dataset.allowDefault === "1";
+            const touched = hidden.dataset.touched === "1";
+            const hasValue = !!stripNoteText(hidden.value || "");
+            if (!allowDefault || touched || hasValue) return false;
+            const size =
+              normalizeBeRemarksFontSize(opts.size ?? getEl("bsRemarksFontSizeModal")?.value) ??
+              WH_NOTE_DEFAULT_FONT_SIZE;
+            setBsRemarksEditorContent(DEFAULT_MODEL_BS_REMARKS_TEXT, { size });
+            setBsRemarksDefaultFlags({ allowDefault: true, touched: false });
+            return true;
+          };
+          const configureModelBsRemarksDefaultState = ({
+            allowDefault = false,
+            touched = false,
+            size,
+            applyIfEmpty = false
+          } = {}) => {
+            const resolvedSize = normalizeBeRemarksFontSize(size) ?? WH_NOTE_DEFAULT_FONT_SIZE;
+            const sizeSelect = getEl("bsRemarksFontSizeModal");
+            if (sizeSelect) sizeSelect.value = String(resolvedSize);
+            setBsRemarksDefaultFlags({ allowDefault, touched });
+            if (applyIfEmpty) {
+              ensureModelBsRemarksDefault({ size: resolvedSize });
+            }
+          };
+          w.ensureModelBsRemarksDefault = ensureModelBsRemarksDefault;
+          w.configureModelBsRemarksDefaultState = configureModelBsRemarksDefaultState;
           const resolveDocumentWhNoteForModal = () => {
             const fromMeta = state()?.meta?.withholding?.note;
             if (typeof fromMeta === "string") return fromMeta;
@@ -436,6 +475,22 @@
             }
             return serialized;
           };
+          const setBsRemarksEditorContent = (value = "", opts = {}) => {
+            const requestedSize =
+              normalizeBeRemarksFontSize(opts.size) ??
+              normalizeBeRemarksFontSize(getEl("bsRemarksFontSizeModal")?.value) ??
+              WH_NOTE_DEFAULT_FONT_SIZE;
+            const serialized = ensureBeRemarksSizeWrapper(value, requestedSize);
+            if (typeof setWhNoteEditorContent === "function") {
+              setWhNoteEditorContent(serialized, { group: "bsRemarks" });
+            } else {
+              const hidden = getEl("bsRemarksModal");
+              if (hidden) hidden.value = serialized;
+              const sizeSelect = getEl("bsRemarksFontSizeModal");
+              if (sizeSelect) sizeSelect.value = String(requestedSize);
+            }
+            return serialized;
+          };
           const wireFooterNoteEditor = () => {
             wireModelFooterStyleEditor(MODEL_FOOTER_NOTE_EDITOR_IDS, "footerNoteWired");
           };
@@ -449,8 +504,26 @@
               }
             });
           };
+          const wireBsRemarksEditor = () => {
+            if (typeof whPdfNoteComponent.initGroup !== "function") return;
+            whPdfNoteComponent.initGroup("bsRemarks", {
+              state,
+              onChange: () => {
+                setBsRemarksDefaultFlags({ allowDefault: false, touched: true });
+                if (typeof scheduleModelPreviewUpdate === "function") scheduleModelPreviewUpdate();
+              }
+            });
+          };
           SEM.updateModelBeRemarksEditor = (value, opts = {}) => {
             const serialized = setBeRemarksEditorContent(
+              value !== undefined && value !== null ? String(value) : "",
+              opts
+            );
+            if (typeof scheduleModelPreviewUpdate === "function") scheduleModelPreviewUpdate();
+            return serialized;
+          };
+          SEM.updateModelBsRemarksEditor = (value, opts = {}) => {
+            const serialized = setBsRemarksEditorContent(
               value !== undefined && value !== null ? String(value) : "",
               opts
             );
@@ -716,6 +789,9 @@
             if (isBonEntreePreview) {
               ensureModelBeRemarksDefault();
             }
+            if (isBonSortiePreview) {
+              ensureModelBsRemarksDefault();
+            }
             const isPurchaseDocType = selectedModelDocTypes.some((docType) => isModelPurchaseDocType(docType));
             const usesManualModelNumbering =
               !!selectedModelDocTypes.length &&
@@ -758,6 +834,12 @@
               getEl("pdfShowBeControlledByModal")?.checked ?? (pdfOptions.showBeControlledBy !== false);
             const showBeValidatedBy =
               getEl("pdfShowBeValidatedByModal")?.checked ?? (pdfOptions.showBeValidatedBy !== false);
+            const showBsIssuedBy =
+              getEl("pdfShowBsIssuedByModal")?.checked ?? (pdfOptions.showBsIssuedBy !== false);
+            const showBsCheckedBy =
+              getEl("pdfShowBsCheckedByModal")?.checked ?? (pdfOptions.showBsCheckedBy !== false);
+            const showBsValidatedBy =
+              getEl("pdfShowBsValidatedByModal")?.checked ?? (pdfOptions.showBsValidatedBy !== false);
             const previewDateValue = formatPreviewDateValue(
               state()?.meta?.date,
               getEl("modelPreviewDate")?.dataset?.default || getEl("modelPreviewDate")?.textContent || ""
@@ -900,6 +982,19 @@
                 ) ?? WH_NOTE_DEFAULT_FONT_SIZE;
               const formattedBeRemarks = ensureBeRemarksSizeWrapper(beRemarksValue, beRemarksSize);
               beRemarksEl.innerHTML = formattedBeRemarks;
+            }
+            const bsRemarksEl = previewRoot.querySelector("#modelPreviewBsRemarks");
+            if (bsRemarksEl) {
+              const bsRemarksValue =
+                getEl("bsRemarksModal")?.value ||
+                state()?.meta?.extras?.pdf?.bsRemarks ||
+                "";
+              const bsRemarksSize =
+                normalizeBeRemarksFontSize(
+                  getEl("bsRemarksFontSizeModal")?.value ?? state()?.meta?.extras?.pdf?.bsRemarksSize
+                ) ?? WH_NOTE_DEFAULT_FONT_SIZE;
+              const formattedBsRemarks = ensureBeRemarksSizeWrapper(bsRemarksValue, bsRemarksSize);
+              bsRemarksEl.innerHTML = formattedBsRemarks;
             }
             const footerNoteEl = previewRoot.querySelector("#modelPreviewFooterNote");
             if (footerNoteEl) {
@@ -1321,22 +1416,33 @@
               setTextWithFallback("modelPreviewBsValidatedBy", "");
             }
             const bsApprovals = previewRoot.querySelector("#modelPreviewBsApprovals");
-            const bsApprovalBlocks = [
-              previewRoot.querySelector("#modelPreviewBsIssuedByBlock"),
-              previewRoot.querySelector("#modelPreviewBsCheckedByBlock"),
-              previewRoot.querySelector("#modelPreviewBsValidatedByBlock")
-            ];
-            bsApprovalBlocks.forEach((node) => {
-              setNodeVisibility(node, isBonSortiePreview);
+            const bsApprovalBlocks = {
+              issuedBy: previewRoot.querySelector("#modelPreviewBsIssuedByBlock"),
+              checkedBy: previewRoot.querySelector("#modelPreviewBsCheckedByBlock"),
+              validatedBy: previewRoot.querySelector("#modelPreviewBsValidatedByBlock")
+            };
+            const bsApprovalVisibility = {
+              issuedBy: showBsIssuedBy,
+              checkedBy: showBsCheckedBy,
+              validatedBy: showBsValidatedBy
+            };
+            Object.entries(bsApprovalBlocks).forEach(([key, node]) => {
+              setNodeVisibility(node, isBonSortiePreview && bsApprovalVisibility[key] !== false);
             });
+            const visibleBsApprovalCount = isBonSortiePreview
+              ? Object.values(bsApprovalVisibility).filter((visible) => visible !== false).length
+              : 0;
             if (bsApprovals) {
-              if (isBonSortiePreview) {
-                bsApprovals.dataset.visibleCount = "3";
+              if (visibleBsApprovalCount > 0) {
+                bsApprovals.dataset.visibleCount = String(visibleBsApprovalCount);
               } else {
                 delete bsApprovals.dataset.visibleCount;
               }
             }
-            setNodeVisibility(bsApprovals, isBonSortiePreview);
+            setNodeVisibility(bsApprovals, visibleBsApprovalCount > 0);
+            syncTextFromSource("modelPreviewBsIssuedBy", "modelPdfOptionsBsIssuedBy");
+            syncTextFromSource("modelPreviewBsCheckedBy", "modelPdfOptionsBsCheckedBy");
+            syncTextFromSource("modelPreviewBsValidatedBy", "modelPdfOptionsBsValidatedBy");
           };
           helpers.updateModelPreview = updateModelPreview;
           raf = w.requestAnimationFrame?.bind(w) || ((fn) => setTimeout(fn, 16));
@@ -1601,8 +1707,13 @@
                 });
               }
             };
-            setModelDocTypeSelection(["facture"]);
-            w.syncModelNumberFormatDisabledState?.(["facture"]);
+            if (typeof w.syncModelDocTypeMenuUi === "function") {
+              w.syncModelDocTypeMenuUi(["facture"], { updateSelect: true });
+            } else {
+              setModelDocTypeSelection(["facture"]);
+              w.syncModelNumberFormatDisabledState?.(["facture"]);
+              w.syncModelBeOnlySectionsVisibility?.(["facture"]);
+            }
             selectRadio("modelCurrencyPanel", "currency", "DT", "modelCurrency");
             selectRadio("modelTaxPanel", "tax", "with", "modelTaxMode");
             const defaults = resolveModelColumnVisibilityDefaults();
@@ -1687,6 +1798,9 @@
             setChecked("pdfShowBeReceivedByModal", true);
             setChecked("pdfShowBeControlledByModal", true);
             setChecked("pdfShowBeValidatedByModal", true);
+            setChecked("pdfShowBsIssuedByModal", true);
+            setChecked("pdfShowBsCheckedByModal", true);
+            setChecked("pdfShowBsValidatedByModal", true);
             setScopedChecked("financingAutoApplyModal", false);
             setScopedDataFlag("financingBox", "subventionAutoApply", true);
             setScopedDataFlag("financingBox", "bankAutoApply", true);
@@ -1755,6 +1869,15 @@
               size: 12,
               applyIfEmpty: false
             });
+            setValPlain("bsRemarksModal");
+            setValPlain("bsRemarksFontSizeModal", "12");
+            setBsRemarksEditorContent("");
+            w.configureModelBsRemarksDefaultState?.({
+              allowDefault: true,
+              touched: false,
+              size: 12,
+              applyIfEmpty: false
+            });
             const defaultColor = "#15335e";
             const colorHex = getEl("modelItemsHeaderHex");
             const colorNative = getEl("modelItemsHeaderColor");
@@ -1807,6 +1930,7 @@
             setModelSelectMenuVisibility(true);
             setModelCreateBtnVisibility(true);
             syncModelStepper(1);
+            w.syncModelBeOnlySectionsVisibility?.();
             if (modelNameInput) {
               modelNameInput.focus();
               try {
@@ -1978,8 +2102,10 @@
           wireModelPreviewZoomControls();
           wireFooterNoteEditor();
           wireBeRemarksEditor();
+          wireBsRemarksEditor();
           setFooterNoteEditorContent(getEl("footerNoteModal")?.value || "");
           setBeRemarksEditorContent(getEl("beRemarksModal")?.value || "");
+          setBsRemarksEditorContent(getEl("bsRemarksModal")?.value || "");
           applyModelPreviewScale(readModelPreviewScale(), { setDefault: true });
           updateModelPreview();
 
@@ -2402,6 +2528,9 @@
             setChecked("pdfShowBeReceivedByModal", pdf.showBeReceivedBy !== false);
             setChecked("pdfShowBeControlledByModal", pdf.showBeControlledBy !== false);
             setChecked("pdfShowBeValidatedByModal", pdf.showBeValidatedBy !== false);
+            setChecked("pdfShowBsIssuedByModal", pdf.showBsIssuedBy !== false);
+            setChecked("pdfShowBsCheckedByModal", pdf.showBsCheckedBy !== false);
+            setChecked("pdfShowBsValidatedByModal", pdf.showBsValidatedBy !== false);
             const footerNoteValue = typeof pdf.footerNote === "string" ? pdf.footerNote : "";
             const footerNoteSizeRaw = Number(pdf.footerNoteSize);
             const footerNoteSize = [7, 8, 9].includes(footerNoteSizeRaw) ? footerNoteSizeRaw : 8;
@@ -2409,6 +2538,10 @@
             const beRemarksSize =
               normalizeBeRemarksFontSize(pdf.beRemarksSize) ?? WH_NOTE_DEFAULT_FONT_SIZE;
             const beRemarksTouched = pdf.beRemarksTouched === true;
+            const bsRemarksValue = typeof pdf.bsRemarks === "string" ? pdf.bsRemarks : "";
+            const bsRemarksSize =
+              normalizeBeRemarksFontSize(pdf.bsRemarksSize) ?? WH_NOTE_DEFAULT_FONT_SIZE;
+            const bsRemarksTouched = pdf.bsRemarksTouched === true;
             setValPlain("footerNoteModal", footerNoteValue);
             setValPlain("footerNoteFontSizeModal", footerNoteSize);
             setFooterNoteEditorContent(footerNoteValue);
@@ -2420,6 +2553,15 @@
               touched: beRemarksTouched,
               size: beRemarksSize,
               applyIfEmpty: docTypes.includes("be")
+            });
+            setValPlain("bsRemarksModal", bsRemarksValue);
+            setValPlain("bsRemarksFontSizeModal", bsRemarksSize);
+            setBsRemarksEditorContent(bsRemarksValue, { size: bsRemarksSize });
+            w.configureModelBsRemarksDefaultState?.({
+              allowDefault: !bsRemarksTouched && !stripNoteText(bsRemarksValue),
+              touched: bsRemarksTouched,
+              size: bsRemarksSize,
+              applyIfEmpty: docTypes.includes("bs")
             });
 
             const templateSelect = getEl("modelTemplate");

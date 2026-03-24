@@ -54,9 +54,11 @@
 
           MAIN_CLIENT_SCOPE_ID = "clientBoxMainscreenClientsPanel";
           MAIN_VENDOR_SCOPE_ID = "clientBoxMainscreenFournisseursPanel";
+          MAIN_TRANSPORTER_SCOPE_ID = "clientBoxMainscreenTransporteursPanel";
           MAIN_CLIENT_SCOPE_SELECTOR = `#${MAIN_CLIENT_SCOPE_ID}`;
           MAIN_VENDOR_SCOPE_SELECTOR = `#${MAIN_VENDOR_SCOPE_ID}`;
-          MAIN_SCOPE_SELECTOR = `${MAIN_CLIENT_SCOPE_SELECTOR}, ${MAIN_VENDOR_SCOPE_SELECTOR}`;
+          MAIN_TRANSPORTER_SCOPE_SELECTOR = `#${MAIN_TRANSPORTER_SCOPE_ID}`;
+          MAIN_SCOPE_SELECTOR = `${MAIN_CLIENT_SCOPE_SELECTOR}, ${MAIN_VENDOR_SCOPE_SELECTOR}, ${MAIN_TRANSPORTER_SCOPE_SELECTOR}`;
           clientSearchInput = getEl("clientSearch");
           clientSearchResults = getEl("clientSearchResults");
           CLIENT_SEARCH_PAGE_SIZE = 3;
@@ -64,10 +66,17 @@
           clientSearchTimer = null;
           clientSearchData = [];
           clientSearchPage = 1;
-          CLIENT_SCOPE_SELECTOR = "#clientBoxNewDoc, #FournisseurBoxNewDoc, #clientSavedModal, #clientSavedModalNv, #fournisseurSavedModal, #fournisseurSavedModalNv, #clientBoxMainscreenClientsPanel, #clientBoxMainscreenFournisseursPanel, #clientFormPopover, #fournisseurFormPopover";
+          CLIENT_SCOPE_SELECTOR = "#clientBoxNewDoc, #FournisseurBoxNewDoc, #clientSavedModal, #clientSavedModalNv, #fournisseurSavedModal, #fournisseurSavedModalNv, #transporteurSavedModal, #transporteurSavedModalNv, #clientBoxMainscreenClientsPanel, #clientBoxMainscreenFournisseursPanel, #clientBoxMainscreenTransporteursPanel, #clientFormPopover, #fournisseurFormPopover, #transporteurFormPopover";
           CLIENT_SCOPE_WITH_ROOT_SELECTOR = `${CLIENT_SCOPE_SELECTOR}, #clientBoxMainscreen`;
           resolveClientEntityType = (scopeNode) =>
             scopeNode &&
+            (scopeNode.dataset?.clientEntityType === "transporter" ||
+              scopeNode.id === "transporteurSavedModal" ||
+              scopeNode.id === "transporteurSavedModalNv" ||
+              scopeNode.id === "transporteurFormPopover" ||
+              scopeNode.id === MAIN_TRANSPORTER_SCOPE_ID)
+              ? "transporter"
+              : scopeNode &&
             (scopeNode.dataset?.clientEntityType === "vendor" ||
               scopeNode.id === "FournisseurBoxNewDoc" ||
               scopeNode.id === "fournisseurSavedModal" ||
@@ -76,42 +85,83 @@
               scopeNode.id === MAIN_VENDOR_SCOPE_ID)
               ? "vendor"
               : "client";
-          CLIENT_FORM_VENDOR_ID_ALIASES = {
-            clientType: "fournisseurType",
-            clientTypeLabel: "fournisseurTypeLabel",
-            clientTypeMenu: "fournisseurTypeMenu",
-            clientTypeDisplay: "fournisseurTypeDisplay",
-            clientTypePanel: "fournisseurTypePanel",
-            clientName: "fournisseurName",
-            clientBeneficiary: "fournisseurBeneficiary",
-            clientAccount: "fournisseurAccount",
-            clientSoldClient: "fournisseurSoldClient",
-            clientVat: "fournisseurVat",
-            clientStegRef: "fournisseurStegRef",
-            clientPhone: "fournisseurPhone",
-            clientEmail: "fournisseurEmail",
-            clientAddress: "fournisseurAddress",
-            clientIdLabel: "fournisseurIdLabel",
-            btnSaveClient: "btnSaveFournisseur",
-            btnUpdateClient: "btnUpdateFournisseur",
-            btnNewClient: "btnNewFournisseur"
+          CLIENT_ENTITY_ID_ALIASES = {
+            vendor: {
+              clientType: "fournisseurType",
+              clientTypeLabel: "fournisseurTypeLabel",
+              clientTypeMenu: "fournisseurTypeMenu",
+              clientTypeDisplay: "fournisseurTypeDisplay",
+              clientTypePanel: "fournisseurTypePanel",
+              clientName: "fournisseurName",
+              clientBeneficiary: "fournisseurBeneficiary",
+              clientAccount: "fournisseurAccount",
+              clientSoldClient: "fournisseurSoldClient",
+              clientVat: "fournisseurVat",
+              clientStegRef: "fournisseurStegRef",
+              clientPhone: "fournisseurPhone",
+              clientEmail: "fournisseurEmail",
+              clientAddress: "fournisseurAddress",
+              clientIdLabel: "fournisseurIdLabel",
+              btnSaveClient: "btnSaveFournisseur",
+              btnUpdateClient: "btnUpdateFournisseur",
+              btnNewClient: "btnNewFournisseur"
+            },
+            transporter: {
+              clientType: "transporteurType",
+              clientTypeLabel: "transporteurTypeLabel",
+              clientTypeMenu: "transporteurTypeMenu",
+              clientTypeDisplay: "transporteurTypeDisplay",
+              clientTypePanel: "transporteurTypePanel",
+              clientName: "transporteurName",
+              clientBeneficiary: "transporteurBeneficiary",
+              clientAccount: "transporteurAccount",
+              clientSoldClient: "transporteurSoldClient",
+              clientVat: "transporteurVat",
+              clientStegRef: "transporteurStegRef",
+              clientPhone: "transporteurPhone",
+              clientEmail: "transporteurEmail",
+              clientAddress: "transporteurAddress",
+              clientIdLabel: "transporteurIdLabel",
+              btnSaveClient: "btnSaveTransporteur",
+              btnUpdateClient: "btnUpdateTransporteur",
+              btnNewClient: "btnNewTransporteur"
+            }
           };
-          CLIENT_FORM_VENDOR_ID_REVERSE = Object.entries(CLIENT_FORM_VENDOR_ID_ALIASES).reduce(
-            (acc, [clientId, vendorId]) => {
-              if (vendorId) acc[vendorId] = clientId;
+          CLIENT_ENTITY_ALIAS_INDEX = Object.values(CLIENT_ENTITY_ID_ALIASES).reduce(
+            (acc, aliases) => {
+              Object.entries(aliases).forEach(([clientId, aliasId]) => {
+                if (!aliasId) return;
+                const list = acc[clientId] || [];
+                list.push(aliasId);
+                acc[clientId] = list;
+              });
+              return acc;
+            },
+            {}
+          );
+          CLIENT_ENTITY_ID_REVERSE = Object.values(CLIENT_ENTITY_ID_ALIASES).reduce(
+            (acc, aliases) => {
+              Object.entries(aliases).forEach(([clientId, aliasId]) => {
+                if (aliasId) acc[aliasId] = clientId;
+              });
               return acc;
             },
             {}
           );
           uniqClientFormIds = (ids = []) => Array.from(new Set(ids.filter(Boolean)));
-          toCanonicalClientFormId = (id) => CLIENT_FORM_VENDOR_ID_REVERSE[id] || id;
+          toCanonicalClientFormId = (id) => CLIENT_ENTITY_ID_REVERSE[id] || id;
           resolveClientFormIdCandidates = (id, scopeNode = null) => {
             const canonicalId = toCanonicalClientFormId(id);
-            const vendorId = CLIENT_FORM_VENDOR_ID_ALIASES[canonicalId] || "";
-            if (scopeNode && resolveClientEntityType(scopeNode) === "vendor") {
-              return uniqClientFormIds([vendorId, canonicalId]);
+            const entityType = resolveClientEntityType(scopeNode);
+            const entityAliases = CLIENT_ENTITY_ALIAS_INDEX[canonicalId] || [];
+            const scopedAlias =
+              entityType && CLIENT_ENTITY_ID_ALIASES[entityType]
+                ? CLIENT_ENTITY_ID_ALIASES[entityType][canonicalId] || ""
+                : "";
+            if (scopeNode && entityType !== "client") {
+              return uniqClientFormIds([scopedAlias, canonicalId, ...entityAliases]);
             }
-            return uniqClientFormIds([canonicalId, vendorId]);
+            return uniqClientFormIds([canonicalId, ...entityAliases]);
           };
           queryScopedClientFormElement = (scopeNode, id) => {
             if (!scopeNode || typeof scopeNode.querySelector !== "function") return null;
@@ -138,13 +188,13 @@
             const mainScope = document.getElementById("clientBoxMainscreen");
             if (!mainScope) return null;
             const activePanel = mainScope.querySelector(
-              `${MAIN_CLIENT_SCOPE_SELECTOR}.is-active, ${MAIN_VENDOR_SCOPE_SELECTOR}.is-active`
+              `${MAIN_CLIENT_SCOPE_SELECTOR}.is-active, ${MAIN_VENDOR_SCOPE_SELECTOR}.is-active, ${MAIN_TRANSPORTER_SCOPE_SELECTOR}.is-active`
             );
             if (activePanel) return activePanel;
             return mainScope.querySelector(MAIN_SCOPE_SELECTOR);
           };
             clientSavedListBtnSelector =
-              "#clientSavedListBtn, #FournisseurSavedListBtn, #btnAddClientMenu, #btnAddFournisseurMenu";
+              "#clientSavedListBtn, #FournisseurSavedListBtn, #TransporteurSavedListBtn, #btnAddClientMenu, #btnAddFournisseurMenu";
             clientFieldsSettingsBtnSelector = "#clientFieldsSettingsBtn";
             articleFieldsSettingsBtnSelector = "#articleFieldsSettingsBtn";
             ARTICLE_FIELD_LABELS_DEFAULTS = {
@@ -717,6 +767,22 @@
             email: "E-mail",
             address: "Adresse"
           };
+          TRANSPORTEUR_FIELD_VISIBILITY_DEFAULTS = {
+            type: true,
+            name: true,
+            taxId: true,
+            phone: true,
+            email: true,
+            address: true
+          };
+          TRANSPORTEUR_FIELD_LABELS_DEFAULTS = {
+            type: "Type de transporteur",
+            name: "Nom du transporteur",
+            taxId: "Matricule fiscal",
+            phone: "Telephone du transporteur",
+            email: "E-mail du transporteur",
+            address: "Adresse du transporteur"
+          };
           resolveClientFieldVisibilityDefaults = () => {
             const defaults = w.DEFAULT_CLIENT_FIELD_VISIBILITY || {};
             return { ...CLIENT_FIELD_VISIBILITY_DEFAULTS, ...defaults };
@@ -725,6 +791,8 @@
             const defaults = w.DEFAULT_CLIENT_FIELD_LABELS || {};
             return { ...CLIENT_FIELD_LABELS_DEFAULTS, ...defaults };
           };
+          resolveTransporteurFieldVisibilityDefaults = () => ({ ...TRANSPORTEUR_FIELD_VISIBILITY_DEFAULTS });
+          resolveTransporteurFieldLabelDefaults = () => ({ ...TRANSPORTEUR_FIELD_LABELS_DEFAULTS });
           normalizeClientFieldVisibility = (raw = {}) => {
             const base = resolveClientFieldVisibilityDefaults();
             const normalized = { ...base };
@@ -752,6 +820,26 @@
                   return;
                 }
                 normalized[key] = trimmed;
+              }
+            });
+            return normalized;
+          };
+          normalizeTransporteurFieldVisibility = (raw = {}) => {
+            const base = resolveTransporteurFieldVisibilityDefaults();
+            const normalized = { ...base };
+            const source = raw && typeof raw === "object" ? { ...raw } : {};
+            Object.keys(base).forEach((key) => {
+              if (key in source) normalized[key] = source[key] !== false;
+            });
+            return normalized;
+          };
+          normalizeTransporteurFieldLabels = (raw = {}) => {
+            const base = resolveTransporteurFieldLabelDefaults();
+            const normalized = { ...base };
+            const source = raw && typeof raw === "object" ? { ...raw } : {};
+            Object.keys(base).forEach((key) => {
+              if (typeof source[key] === "string" && source[key].trim()) {
+                normalized[key] = source[key].trim();
               }
             });
             return normalized;
@@ -816,9 +904,36 @@
           clientFieldLabelsDraft = { ...clientFieldLabels };
           resolveClientFieldLabel = (key, labels = clientFieldLabels) =>
             labels?.[key] || resolveClientFieldLabelDefaults()[key] || "";
+          getScopedClientFieldVisibility = (entityType = "client") => {
+            if (entityType === "transporter") {
+              return normalizeTransporteurFieldVisibility(state()?.transporteurFieldVisibility || {});
+            }
+            return normalizeClientFieldVisibility(clientFieldVisibility);
+          };
+          getScopedClientFieldLabels = (entityType = "client") => {
+            if (entityType === "transporter") {
+              return normalizeTransporteurFieldLabels(state()?.transporteurFieldLabels || {});
+            }
+            return normalizeClientFieldLabels(clientFieldLabels);
+          };
+          resolveScopedClientFieldLabel = (key, entityType = "client", labels = null) => {
+            if (entityType === "transporter") {
+              const scopedLabels =
+                labels && typeof labels === "object"
+                  ? normalizeTransporteurFieldLabels(labels)
+                  : getScopedClientFieldLabels("transporter");
+              return scopedLabels?.[key] || resolveTransporteurFieldLabelDefaults()[key] || "";
+            }
+            const scopedLabels =
+              labels && typeof labels === "object"
+                ? normalizeClientFieldLabels(labels)
+                : getScopedClientFieldLabels("client");
+            return scopedLabels?.[key] || resolveClientFieldLabelDefaults()[key] || "";
+          };
           updateClientImportExampleHeaderCopy = (
             visibility = clientFieldVisibility,
-            labels = clientFieldLabels
+            labels = clientFieldLabels,
+            entityType = "client"
           ) => {
             if (typeof document === "undefined") return;
             const modal = document.getElementById("clientImportModal");
@@ -846,16 +961,25 @@
               copyBtn.dataset.docHistoryCopyValue = headersFromDom.join("\t");
               return;
             }
+            const isTransporter = entityType === "transporter";
             const headers = [
               "Nom",
-              "Matricule fiscal (ou CIN / passeport)",
+              isTransporter ? "Matricule fiscal" : "Matricule fiscal (ou CIN / passeport)",
               "Type"
             ];
-            if (visibility?.soldClient !== false) headers.push(resolveClientFieldLabel("soldClient", labels));
+            if (!isTransporter && visibility?.soldClient !== false) {
+              headers.push(resolveScopedClientFieldLabel("soldClient", entityType, labels));
+            }
             headers.push("Telephone", "Email", "Adresse");
-            if (visibility?.benefit !== false) headers.push(resolveClientFieldLabel("benefit", labels));
-            if (visibility?.account !== false) headers.push(resolveClientFieldLabel("account", labels));
-            if (visibility?.stegRef !== false) headers.push(resolveClientFieldLabel("stegRef", labels));
+            if (!isTransporter && visibility?.benefit !== false) {
+              headers.push(resolveScopedClientFieldLabel("benefit", entityType, labels));
+            }
+            if (!isTransporter && visibility?.account !== false) {
+              headers.push(resolveScopedClientFieldLabel("account", entityType, labels));
+            }
+            if (!isTransporter && visibility?.stegRef !== false) {
+              headers.push(resolveScopedClientFieldLabel("stegRef", entityType, labels));
+            }
             copyBtn.dataset.docHistoryCopyValue = headers.join("\t");
           };
           applyClientFieldVisibility = (scope = document, visibility = clientFieldVisibility) => {

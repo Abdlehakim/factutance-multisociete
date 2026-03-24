@@ -70,6 +70,15 @@
     }
   };
 
+  const normalizeModelConfig = (value) => {
+    if (!value || typeof value !== "object") return null;
+    if (typeof SEM?.sanitizeModelConfigForSave === "function") {
+      const normalized = SEM.sanitizeModelConfigForSave(value);
+      return normalized && typeof normalized === "object" ? cloneValue(normalized, normalized) : null;
+    }
+    return cloneValue(value, value);
+  };
+
   const collectModelEntries = () => {
     const options = [];
     const seen = new Set();
@@ -128,7 +137,7 @@
     const normalized = String(modelName || "").trim();
     if (!normalized) return null;
     if (fallbackConfig && typeof fallbackConfig === "object") {
-      return cloneValue(fallbackConfig, fallbackConfig);
+      return normalizeModelConfig(fallbackConfig);
     }
 
     if (typeof SEM?.getModelEntries === "function") {
@@ -138,7 +147,7 @@
           (entry) => String(entry?.name || "").trim().toLowerCase() === normalized.toLowerCase()
         );
         const cfg = found?.config;
-        if (cfg && typeof cfg === "object") return cloneValue(cfg, cfg);
+        if (cfg && typeof cfg === "object") return normalizeModelConfig(cfg);
       } catch (err) {
         console.warn("doc-history purchase model resolve runtime failed", err);
       }
@@ -147,8 +156,11 @@
     if (w.electronAPI?.loadModel) {
       try {
         const res = await w.electronAPI.loadModel({ name: normalized });
-        const cfg = res?.model?.config;
-        if (res?.ok && cfg && typeof cfg === "object") return cloneValue(cfg, cfg);
+        const cfg =
+          res?.config && typeof res.config === "object"
+            ? res.config
+            : (res?.model?.config && typeof res.model.config === "object" ? res.model.config : null);
+        if (res?.ok && cfg && typeof cfg === "object") return normalizeModelConfig(cfg);
       } catch (err) {
         console.warn("doc-history purchase model resolve db failed", err);
       }

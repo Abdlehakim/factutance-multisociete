@@ -418,6 +418,18 @@
       return changed;
     };
 
+    const getModelVenteSectionRoot = () => {
+      if (!modelActionsModal) return null;
+      const byId = modelActionsModal.querySelector("#modelVenteSection");
+      if (byId) return byId;
+      const sections = Array.from(modelActionsModal.querySelectorAll(".field-toggle-section"));
+      return (
+        sections.find((section) => {
+          const sectionTitle = section.querySelector(".field-toggle-section__title");
+          return String(sectionTitle?.textContent || "").trim().toLowerCase() === "vente";
+        }) || null
+      );
+    };
     const getModelAchatSectionRoot = () => {
       if (!modelActionsModal) return null;
       const byId = modelActionsModal.querySelector("#modelAchatSection");
@@ -434,16 +446,20 @@
       Array.from(modelActionsModal?.querySelectorAll?.("[data-model-be-only-section]") || []);
     const getModelBsOnlySections = () =>
       Array.from(modelActionsModal?.querySelectorAll?.("[data-model-bs-only-section]") || []);
+    const getModelNonStockSections = () =>
+      Array.from(modelActionsModal?.querySelectorAll?.("[data-model-non-stock-section]") || []);
     const getModelNonBeSections = () =>
       Array.from(modelActionsModal?.querySelectorAll?.("[data-model-non-be-section]") || []);
     const syncModelBeOnlySectionsVisibility = (modelDocTypes = getSelectedModelDocTypes()) => {
       const beSections = getModelBeOnlySections();
       const bsSections = getModelBsOnlySections();
+      const nonStockSections = getModelNonStockSections();
       const nonBeSections = getModelNonBeSections();
-      if (!beSections.length && !bsSections.length && !nonBeSections.length) return false;
+      if (!beSections.length && !bsSections.length && !nonStockSections.length && !nonBeSections.length) return false;
       const normalizedList = normalizeModelDocTypeSwitchSelection(modelDocTypes);
       const isBonEntreeActive = normalizedList.includes("be");
       const isBonSortieActive = normalizedList.includes("bs");
+      const isStockDocActive = isBonEntreeActive || isBonSortieActive;
       beSections.forEach((section) => {
         section.hidden = !isBonEntreeActive;
         section.style.display = isBonEntreeActive ? "" : "none";
@@ -454,19 +470,39 @@
         section.style.display = isBonSortieActive ? "" : "none";
         section.setAttribute("aria-hidden", isBonSortieActive ? "false" : "true");
       });
+      nonStockSections.forEach((section) => {
+        section.hidden = isStockDocActive;
+        section.style.display = isStockDocActive ? "none" : "";
+        section.setAttribute("aria-hidden", isStockDocActive ? "true" : "false");
+      });
       nonBeSections.forEach((section) => {
-        section.hidden = isBonEntreeActive;
-        section.style.display = isBonEntreeActive ? "none" : "";
-        section.setAttribute("aria-hidden", isBonEntreeActive ? "true" : "false");
+        const isAlsoNonStock = section.hasAttribute("data-model-non-stock-section");
+        const shouldHide = isBonEntreeActive || (isAlsoNonStock && isStockDocActive);
+        section.hidden = shouldHide;
+        section.style.display = shouldHide ? "none" : "";
+        section.setAttribute("aria-hidden", shouldHide ? "true" : "false");
       });
       if (isBonEntreeActive && typeof w.ensureModelBeRemarksDefault === "function") {
         w.ensureModelBeRemarksDefault();
+      }
+      if (isBonSortieActive && typeof w.ensureModelBsRemarksDefault === "function") {
+        w.ensureModelBsRemarksDefault();
       }
       return isBonEntreeActive;
     };
 
     const setModelAchatSectionLockedState = (locked) => {
       const section = getModelAchatSectionRoot();
+      if (!section) return;
+      section.classList.toggle("is-disabled", !!locked);
+      if (!!locked) {
+        section.setAttribute("aria-disabled", "true");
+      } else {
+        section.removeAttribute("aria-disabled");
+      }
+    };
+    const setModelVenteSectionLockedState = (locked) => {
+      const section = getModelVenteSectionRoot();
       if (!section) return;
       section.classList.toggle("is-disabled", !!locked);
       if (!!locked) {
@@ -679,6 +715,7 @@
     const syncModelContextualFodecToggles = (modelDocTypes = getSelectedModelDocTypes()) => {
       const normalizedList = normalizeModelDocTypeSwitchSelection(modelDocTypes);
       const isPurchaseContext = normalizedList.some((entry) => isModelPurchaseDocType(entry));
+      const isBonSortieContext = normalizedList.includes("bs");
       const saleToggle = getModelColumnToggleById(MODEL_DOC_TYPE_CONTEXTUAL_SALE_FODEC_TOGGLE_ID);
       const purchaseToggle = getModelColumnToggleById(MODEL_DOC_TYPE_CONTEXTUAL_PURCHASE_FODEC_TOGGLE_ID);
       if (!saleToggle && !purchaseToggle) return;
@@ -691,7 +728,7 @@
         "with";
       const taxesEnabled = normalizeTaxValue(rawModelTaxMode, "with") !== "without";
       if (saleToggle) {
-        setModelColumnToggleDisabledState(saleToggle, isPurchaseContext || !taxesEnabled);
+        setModelColumnToggleDisabledState(saleToggle, isPurchaseContext || isBonSortieContext || !taxesEnabled);
       }
       if (purchaseToggle) {
         setModelColumnToggleDisabledState(
@@ -709,6 +746,7 @@
       modelDocTypeFaLockSyncInProgress = true;
       try {
       const isBonEntreeDocTypeActive = normalizedList.includes("be");
+      const isBonSortieDocTypeActive = normalizedList.includes("bs");
       const isPurchaseDocTypeActive = normalizedList.some((entry) => isModelPurchaseDocType(entry));
       const isPurchaseExclusiveDocTypeActive = normalizedList.some(
         (value) =>
@@ -722,6 +760,7 @@
       const allToggles = [...saleToggles, ...purchaseToggles];
       const purchaseToggleIds = new Set(purchaseToggles.map((toggle) => String(toggle?.id || "").trim()));
       const syncTaxLocks = w.SEM?.__bindingHelpers?.syncTaxModeDependentColumnToggles;
+      setModelVenteSectionLockedState(isBonSortieDocTypeActive);
       const enforceFaSalesGridLock = () => {
         saleToggles.forEach((toggle) => {
           if (toggle.dataset[MODEL_DOC_TYPE_FA_FORCED_DATASET_KEY] !== "1") {
@@ -771,6 +810,14 @@
         enforceFaSalesGridLock();
         setModelAchatSectionLockedState(true);
         enforceBonEntreePurchaseGridLock();
+      } else if (isBonSortieDocTypeActive) {
+        if (typeof syncTaxLocks === "function") {
+          syncTaxLocks({ scope: "model" });
+        }
+        setModelAchatSectionLockedState(true);
+        enforceFaSalesGridLock();
+        enforceFacturePurchaseGridLock();
+        enforceModelAchatSectionDisabledState(true);
       } else if (isPurchaseDocTypeActive) {
         const hasStoredPurchasePreferences =
           hasStoredModelPurchaseTogglePreferences(purchaseToggles);
