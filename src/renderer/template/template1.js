@@ -218,10 +218,12 @@ export const template1 = `
                   <div class="doc-design1__head-right">
                     <h1 class="doc-design1__title" id="modelPreviewDoc">${DOC_DESIGN1_DATA.docTitle}</h1>
                     <p class="doc-design1__date">
-                      Date&nbsp;: <span id="modelPreviewDate">${DOC_DESIGN1_DATA.date}</span>
+                      <span class="doc-design1__head-label">Date&nbsp;:</span>
+                      <span id="modelPreviewDate" class="doc-design1__date-value">${DOC_DESIGN1_DATA.date}</span>
                     </p>
                     <p class="doc-design1__number">
-                      N&deg; : <span id="modelPreviewNumber" style="font-weight:600">${DOC_DESIGN1_DATA.number}</span>
+                      <span class="doc-design1__head-label">N&deg; :</span>
+                      <span id="modelPreviewNumber" class="doc-design1__number-value">${DOC_DESIGN1_DATA.number}</span>
                     </p>
                   </div>
                 </div>

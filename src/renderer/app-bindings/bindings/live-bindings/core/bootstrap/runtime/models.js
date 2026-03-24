@@ -670,6 +670,25 @@
                   });
               });
             };
+            const syncBeLastVisibleTableColumn = () => {
+              const table = previewRoot.querySelector(".doc-design1__table");
+              if (!table) return;
+              table
+                .querySelectorAll(".doc-design1__table-cell--be-last-visible")
+                .forEach((cell) => cell.classList.remove("doc-design1__table-cell--be-last-visible"));
+              if (!isBonEntreePreview) return;
+              const headerCells = Array.from(table.querySelectorAll("thead th[data-col]"));
+              const visibleHeaderCells = headerCells.filter((cell) => {
+                if (!cell || cell.hidden) return false;
+                return cell.style.display !== "none";
+              });
+              const lastVisibleHeader = visibleHeaderCells[visibleHeaderCells.length - 1];
+              const lastVisibleCol = String(lastVisibleHeader?.dataset?.col || "").trim();
+              if (!lastVisibleCol) return;
+              table
+                .querySelectorAll(`[data-col="${lastVisibleCol}"]`)
+                .forEach((cell) => cell.classList.add("doc-design1__table-cell--be-last-visible"));
+            };
             const checkedValue = (container) => {
               const input = container?.querySelector("input:checked");
               return input?.value || "";
@@ -1132,6 +1151,7 @@
             });
             previewRoot.classList.remove("hide-col-fodec");
             syncPreviewTableColumns(visibility);
+            syncBeLastVisibleTableColumn();
             // Mini summary totals depend on selected document type, not table column toggles.
             const miniRowVisibility = {
               totalHt: !isPurchaseDocType,

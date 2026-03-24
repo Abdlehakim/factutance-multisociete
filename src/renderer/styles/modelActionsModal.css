@@ -336,10 +336,10 @@ background: #f3f8ff;
 #modelActionsModal #modelActionsPreview .doc-design1__date {
   font-size: 12px;
   margin: 0;
-}
-
-#modelActionsModal #modelActionsPreview .doc-design1__date span {
-  font-weight: 600;
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 4px;
 }
 
 #modelActionsModal #modelActionsPreview .doc-design1__number {
@@ -348,6 +348,27 @@ background: #f3f8ff;
   margin: 0;
   color: #111827;
   font-family: var(--invoice-font);
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+#modelActionsModal #modelActionsPreview .doc-design1__head-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: #111827;
+  font-family: var(--invoice-font);
+  line-height: 1;
+}
+
+#modelActionsModal #modelActionsPreview .doc-design1__date-value {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+#modelActionsModal #modelActionsPreview .doc-design1__number-value {
+  font-weight: 600;
 }
 
 #modelActionsModal #modelActionsPreview .doc-design1__logo-wrap {
@@ -963,6 +984,10 @@ border-collapse: separate;
 
 #modelActionsModal #modelActionsPreview.doc-design1--be .doc-design1__table tbody tr td {
   line-height: 1.35;
+}
+
+#modelActionsModal #modelActionsPreview.doc-design1--be .doc-design1__table .doc-design1__table-cell--be-last-visible {
+  border-right: 0 !important;
 }
 
 #modelActionsModal #modelActionsPreview.doc-design1--be .doc-design1__bottom {
