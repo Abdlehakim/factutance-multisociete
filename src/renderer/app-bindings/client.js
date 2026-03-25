@@ -52,6 +52,44 @@
     ...CLIENT_CONTENT_FIELD_STATE_KEYS
   };
   const CLIENT_CONTENT_FIELD_IDS = Object.keys(CLIENT_CONTENT_FIELD_STATE_KEYS);
+  const CLIENT_ENTITY_FORM_FIELD_IDS = {
+    client: {
+      clientType: ["clientType"],
+      clientName: ["clientName"],
+      clientBeneficiary: ["clientBeneficiary"],
+      clientAccount: ["clientAccount"],
+      clientSoldClient: ["clientSoldClient"],
+      clientVat: ["clientVat"],
+      clientStegRef: ["clientStegRef"],
+      clientPhone: ["clientPhone"],
+      clientEmail: ["clientEmail"],
+      clientAddress: ["clientAddress"]
+    },
+    vendor: {
+      clientType: ["fournisseurType", "clientType"],
+      clientName: ["fournisseurName", "clientName"],
+      clientBeneficiary: ["fournisseurBeneficiary", "clientBeneficiary"],
+      clientAccount: ["fournisseurAccount", "clientAccount"],
+      clientSoldClient: ["fournisseurSoldClient", "clientSoldClient"],
+      clientVat: ["fournisseurVat", "clientVat"],
+      clientStegRef: ["fournisseurStegRef", "clientStegRef"],
+      clientPhone: ["fournisseurPhone", "clientPhone"],
+      clientEmail: ["fournisseurEmail", "clientEmail"],
+      clientAddress: ["fournisseurAddress", "clientAddress"]
+    },
+    transporter: {
+      clientType: ["transporteurType", "clientType"],
+      clientName: ["transporteurName", "clientName"],
+      clientBeneficiary: ["transporteurDriverName", "clientBeneficiary"],
+      clientAccount: ["transporteurVehiclePlate", "clientAccount"],
+      clientSoldClient: ["transporteurSoldClient", "clientSoldClient"],
+      clientVat: ["transporteurVat", "clientVat"],
+      clientStegRef: ["transporteurTransportMode", "clientStegRef"],
+      clientPhone: ["transporteurPhone", "clientPhone"],
+      clientEmail: ["transporteurEmail", "clientEmail"],
+      clientAddress: ["transporteurAddress", "clientAddress"]
+    }
+  };
   const CLIENT_ENTITY_ID_ALIASES = {
     vendor: {
       clientType: "fournisseurType",
@@ -138,19 +176,47 @@
     }
     return null;
   };
+  const readDirectEntityScopedValue = (scopeNode, id, entityType) => {
+    const fieldIds =
+      CLIENT_ENTITY_FORM_FIELD_IDS[normalizeClientEntityType(entityType)]?.[id] ||
+      CLIENT_ENTITY_FORM_FIELD_IDS.client[id] ||
+      [id];
+    for (const candidate of fieldIds) {
+      const scopedInput =
+        scopeNode && typeof scopeNode.querySelector === "function"
+          ? scopeNode.querySelector(`#${candidate}`)
+          : null;
+      if (scopedInput && typeof scopedInput.value === "string") {
+        return scopedInput.value.trim();
+      }
+    }
+    for (const candidate of fieldIds) {
+      const globalInput =
+        typeof getEl === "function"
+          ? getEl(candidate)
+          : typeof document !== "undefined"
+            ? document.getElementById(candidate)
+            : null;
+      if (globalInput && typeof globalInput.value === "string") {
+        return globalInput.value.trim();
+      }
+    }
+    return "";
+  };
 
   function readClientFieldValue(id, scopeNode, fieldMap = CLIENT_CONTENT_FIELD_STATE_KEYS) {
     const canonicalId = toCanonicalClientFormId(id);
+    const entityType = resolveClientEntityTypeFromScope(scopeNode);
+    const directValue = readDirectEntityScopedValue(scopeNode, canonicalId, entityType);
+    if (directValue) {
+      return directValue;
+    }
     const scopedInput = queryScopedClientFormElement(scopeNode, canonicalId);
     if (scopedInput && typeof scopedInput.value === "string") {
       return scopedInput.value.trim();
     }
-    const input = queryGlobalClientFormElement(canonicalId, scopeNode);
-    if (input && typeof input.value === "string") {
-      return input.value.trim();
-    }
     const key = fieldMap[canonicalId];
-    const currentState = state()?.client || {};
+    const currentState = getEntityClientStateForScope(scopeNode);
     let fallback = key ? currentState[key] : "";
     if (fallback === undefined || fallback === null) return "";
     return String(fallback).trim();
@@ -276,6 +342,108 @@
       : scopeNode && (scopeNode.dataset?.clientEntityType === "vendor" || VENDOR_SCOPE_IDS.has(scopeNode.id))
         ? "vendor"
         : "client";
+  const normalizeClientEntityType = (value) =>
+    value === "transporter" ? "transporter" : value === "vendor" ? "vendor" : "client";
+  const ENTITY_FORM_STATE_KEY = "__entityClientForms";
+  const DOCUMENT_PARTY_SCOPE_IDS = new Set([
+    "clientBoxNewDoc",
+    "FournisseurBoxNewDoc",
+    "clientSavedModalNv",
+    "fournisseurSavedModalNv",
+    "transporteurSavedModalNv"
+  ]);
+  const resolveDocumentPartyStateScope = (scopeNode) => {
+    if (!scopeNode) return null;
+    const directMatch =
+      scopeNode instanceof HTMLElement
+        ? scopeNode.closest?.(
+            "#clientBoxNewDoc, #FournisseurBoxNewDoc, #clientSavedModalNv, #fournisseurSavedModalNv, #transporteurSavedModalNv"
+          ) || null
+        : null;
+    if (directMatch) return directMatch;
+    if (!(scopeNode instanceof HTMLElement)) return null;
+    if (DOCUMENT_PARTY_SCOPE_IDS.has(scopeNode.id)) return scopeNode;
+    return null;
+  };
+  const shouldMirrorEntityStateToDocument = (scopeNode) => !!resolveDocumentPartyStateScope(scopeNode);
+  const ensureEntityFormStateEnvelope = () => {
+    const st = state() || (SEM.state = SEM.state || {});
+    if (!st[ENTITY_FORM_STATE_KEY] || typeof st[ENTITY_FORM_STATE_KEY] !== "object") {
+      st[ENTITY_FORM_STATE_KEY] = {};
+    }
+    return st[ENTITY_FORM_STATE_KEY];
+  };
+  const getEntityFormState = (entityType = "client") => {
+    const normalizedType = normalizeClientEntityType(entityType);
+    const envelope = ensureEntityFormStateEnvelope();
+    const stored = envelope[normalizedType] && typeof envelope[normalizedType] === "object"
+      ? envelope[normalizedType]
+      : {};
+    return {
+      ...sanitizeClientSnapshot(stored),
+      __entityType: normalizedType,
+      __dirty: !!stored.__dirty
+    };
+  };
+  const setEntityFormState = (entityType = "client", snapshot = {}) => {
+    const normalizedType = normalizeClientEntityType(entityType);
+    const envelope = ensureEntityFormStateEnvelope();
+    const previous = envelope[normalizedType] && typeof envelope[normalizedType] === "object"
+      ? envelope[normalizedType]
+      : {};
+    const sanitized = sanitizeClientSnapshot({
+      ...previous,
+      ...snapshot,
+      __path: snapshot.__path || previous.__path || ""
+    });
+    envelope[normalizedType] = {
+      ...previous,
+      ...sanitized,
+      __entityType: normalizedType,
+      __dirty: snapshot.__dirty !== undefined ? !!snapshot.__dirty : !!previous.__dirty
+    };
+    return envelope[normalizedType];
+  };
+  const setEntityFormDirty = (entityType = "client", dirty = false) => {
+    const normalizedType = normalizeClientEntityType(entityType);
+    const next = setEntityFormState(normalizedType, { __dirty: !!dirty });
+    if (
+      state().client &&
+      normalizeClientEntityType(state().client.__entityType || "client") === normalizedType
+    ) {
+      state().client.__dirty = !!dirty;
+    }
+    return next;
+  };
+  const getEntityClientStateForScope = (scopeNode) => {
+    const entityType = normalizeClientEntityType(resolveClientEntityTypeFromScope(scopeNode));
+    const baseline =
+      SEM.clientFormBaselineEntityType === entityType && SEM.clientFormBaseline
+        ? sanitizeClientSnapshot(SEM.clientFormBaseline)
+        : {};
+    const entityState = getEntityFormState(entityType);
+    const currentParty =
+      state().client &&
+      normalizeClientEntityType(state().client.__entityType || "client") === entityType
+        ? sanitizeClientSnapshot(state().client)
+        : {};
+    return {
+      ...sanitizeClientSnapshot({
+        ...baseline,
+        ...currentParty,
+        ...entityState,
+        __path: entityState.__path || currentParty.__path || baseline.__path || ""
+      }),
+      __entityType: entityType,
+      __dirty: !!entityState.__dirty
+    };
+  };
+  helpers.getEntityClientFormState = getEntityFormState;
+  helpers.setEntityClientFormState = setEntityFormState;
+  helpers.setEntityClientFormDirty = setEntityFormDirty;
+  helpers.getEntityClientStateForScope = getEntityClientStateForScope;
+  helpers.resolveEntityDocumentPartyStateScope = resolveDocumentPartyStateScope;
+  helpers.shouldMirrorEntityClientStateToDocument = shouldMirrorEntityStateToDocument;
 
   function normalizeClientFormScope(scopeHint) {
     if (!scopeHint || typeof document === "undefined") return null;
@@ -376,7 +544,7 @@
   }
 
   function captureClientSnapshotFromScope(scopeNode) {
-    const currentState = state()?.client || {};
+    const currentState = getEntityClientStateForScope(scopeNode);
     const readValue = (id) => readClientFieldValue(id, scopeNode, CLIENT_SNAPSHOT_FIELD_STATE_KEYS);
     const typeRaw = readValue("clientType") || currentState.type || "";
     const normalizedType = normalizeClientType(typeRaw);
@@ -462,7 +630,7 @@
   SEM.refreshUpdateClientButton = function (scopeHint) {
     const hasSavedClient = !!SEM.clientFormBaseline?.__path;
     const baselineEntityType = SEM.clientFormBaselineEntityType || "client";
-    const currentState = state()?.client || {};
+    const currentState = getEntityFormState(baselineEntityType);
     const isDirty = hasSavedClient && (SEM.clientFormDirty || !!currentState.__dirty);
     const allowUpdate = SEM.clientFormAllowUpdate !== false;
     const isSaving = !!SEM.clientUpdateInProgress;
@@ -820,7 +988,7 @@
       SEM.clientFormBaselineEntityType = null;
     }
     SEM.clientFormDirty = false;
-    if (state().client) state().client.__dirty = false;
+    setEntityFormDirty(resolvedEntityType, false);
     SEM.refreshUpdateClientButton();
   };
 
@@ -830,15 +998,26 @@
       const result = await originalSaveClientDirect(...args);
       try {
         if (result?.ok) {
-          const path = result.path || state()?.client?.__path || "";
+          const payload = args[0] && typeof args[0] === "object" ? args[0] : {};
+          const entityType = normalizeClientEntityType(payload.entityType || "client");
+          const path = result.path || getEntityFormState(entityType).__path || "";
           setTimeout(() => {
             try {
-              if (path && state().client) state().client.__path = path;
+              if (path) {
+                setEntityFormState(entityType, { __path: path });
+                if (
+                  state().client &&
+                  normalizeClientEntityType(state().client.__entityType || "client") === entityType
+                ) {
+                  state().client.__path = path;
+                }
+              }
               SEM.clientFormAllowUpdate = true;
               if (SEM.setClientFormBaseline) {
                 const snapshot = SEM.getClientFormSnapshot ? SEM.getClientFormSnapshot() : (SEM.forms?.captureClientFromForm?.() || {});
-                snapshot.__path = path || snapshot.__path || state().client?.__path || "";
-                if (snapshot.__path) SEM.setClientFormBaseline(snapshot);
+                snapshot.__path = path || snapshot.__path || getEntityFormState(entityType).__path || "";
+                snapshot.__entityType = entityType;
+                if (snapshot.__path) SEM.setClientFormBaseline(snapshot, entityType);
                 else SEM.setClientFormBaseline(null);
               }
               if (SEM.evaluateClientDirtyState) SEM.evaluateClientDirtyState();
@@ -861,15 +1040,26 @@
       const result = await originalUpdateClientDirect(...args);
       try {
         if (result?.ok) {
-          const path = result.path || state()?.client?.__path || "";
+          const payload = args[0] && typeof args[0] === "object" ? args[0] : {};
+          const entityType = normalizeClientEntityType(payload.entityType || "client");
+          const path = result.path || getEntityFormState(entityType).__path || "";
           setTimeout(() => {
             try {
-              if (path && state().client) state().client.__path = path;
+              if (path) {
+                setEntityFormState(entityType, { __path: path });
+                if (
+                  state().client &&
+                  normalizeClientEntityType(state().client.__entityType || "client") === entityType
+                ) {
+                  state().client.__path = path;
+                }
+              }
               SEM.clientFormAllowUpdate = false;
               if (SEM.setClientFormBaseline) {
                 const snapshot = SEM.getClientFormSnapshot ? SEM.getClientFormSnapshot() : (SEM.forms?.captureClientFromForm?.() || {});
-                snapshot.__path = path || snapshot.__path || state().client?.__path || "";
-                if (snapshot.__path) SEM.setClientFormBaseline(snapshot);
+                snapshot.__path = path || snapshot.__path || getEntityFormState(entityType).__path || "";
+                snapshot.__entityType = entityType;
+                if (snapshot.__path) SEM.setClientFormBaseline(snapshot, entityType);
                 else SEM.setClientFormBaseline(null);
               }
               if (SEM.evaluateClientDirtyState) SEM.evaluateClientDirtyState();
@@ -894,13 +1084,24 @@
           if (result?.ok) {
             setTimeout(() => {
               try {
-                const path = result.path || state()?.client?.__path || "";
-                if (path && state().client) state().client.__path = path;
+                const payload = args[0] && typeof args[0] === "object" ? args[0] : {};
+                const entityType = normalizeClientEntityType(payload.entityType || "client");
+                const path = result.path || getEntityFormState(entityType).__path || "";
+                if (path) {
+                  setEntityFormState(entityType, { __path: path });
+                  if (
+                    state().client &&
+                    normalizeClientEntityType(state().client.__entityType || "client") === entityType
+                  ) {
+                    state().client.__path = path;
+                  }
+                }
                 SEM.clientFormAllowUpdate = true;
                 if (SEM.setClientFormBaseline) {
                 const snapshot = SEM.getClientFormSnapshot ? SEM.getClientFormSnapshot() : (SEM.forms?.captureClientFromForm?.() || {});
                 snapshot.__path = path || snapshot.__path || "";
-                if (snapshot.__path) SEM.setClientFormBaseline(snapshot);
+                snapshot.__entityType = entityType;
+                if (snapshot.__path) SEM.setClientFormBaseline(snapshot, entityType);
                 else SEM.setClientFormBaseline(null);
               }
               if (SEM.evaluateClientDirtyState) SEM.evaluateClientDirtyState();
@@ -919,17 +1120,18 @@
 
   SEM.evaluateClientDirtyState = function (scopeHint) {
     const baseline = SEM.clientFormBaseline;
-    const currentState = state().client || {};
+    const baselineEntityType = SEM.clientFormBaselineEntityType || "client";
+    const currentState = getEntityFormState(baselineEntityType);
     if (!baseline?.__path) {
       SEM.clientFormDirty = false;
-      if (currentState) currentState.__dirty = false;
+      setEntityFormDirty(baselineEntityType, false);
       SEM.refreshUpdateClientButton();
       return;
     }
     const current = getCurrentClientSnapshot(scopeHint);
     const dirty = CLIENT_SNAPSHOT_FIELDS.some((field) => current[field] !== baseline[field]);
     SEM.clientFormDirty = dirty;
-    if (currentState) currentState.__dirty = dirty;
+    setEntityFormDirty(baselineEntityType, dirty);
     SEM.refreshUpdateClientButton();
   };
 

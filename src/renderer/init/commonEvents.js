@@ -252,77 +252,116 @@
 
         getEl("btnSaveArticle")?.addEventListener("click", () => handleArticleSave({ requireUpdate: false }));
     getEl("btnUpdateSavedArticle")?.addEventListener("click", () => handleArticleSave({ requireUpdate: true }));
-    if (!shouldUseBindingsClientSave()) getEl("btnSaveClient")?.addEventListener("click", async () => {
-      if (shouldUseBindingsClientSave()) return;
-      const client = F().captureClientFromForm();
-      const clientName = String(client.name || "").trim();
-      const clientAccount = String(client.account || "").trim();
-      const identifierCandidates = [
-        client.vat,
-        client.identifiantFiscal,
-        client.identifiant,
-        client.tva,
-        client.nif
-      ];
-      const hasIdentifier = identifierCandidates.some((value) => String(value || "").trim().length > 0);
-      if (!clientName && !clientAccount && !hasIdentifier) {
-        const validationMessage = getMessage("CLIENT_REQUIRED_FIELDS");
-        await showDialog(validationMessage.text, { title: validationMessage.title });
-        return;
-      }
-      if (w.electronAPI?.ensureClientsSystemFolder) {
-        try {
-          const ensured = await w.electronAPI.ensureClientsSystemFolder();
-          if (!ensured?.ok) {
-            const folderErrorMessage = getMessage("CLIENT_FOLDER_ADMIN_ERROR");
-            await showDialog(ensured?.message || folderErrorMessage.text, { title: folderErrorMessage.title });
-            return;
-          }
-          if (ensured?.fallback && ensured?.message && !clientFolderFallbackWarned) {
-            const infoMessage = getMessage("GENERIC_INFO");
-            await showDialog(ensured.message, { title: infoMessage.title });
-            clientFolderFallbackWarned = true;
-          }
-        } catch (err) {
-          console.error(err);
-          const genericFolderError = getMessage("CLIENT_FOLDER_GENERIC_ERROR");
-          await showDialog(genericFolderError.text, { title: genericFolderError.title });
+    const bindLegacyBrowserClientSave = (buttonId, entityType = "client") => {
+      const trigger = getEl(buttonId);
+      if (!trigger || shouldUseBindingsClientSave()) return;
+      trigger.addEventListener("click", async () => {
+        if (shouldUseBindingsClientSave()) return;
+        const client = F().captureClientFromForm(trigger);
+        const clientName = String(client.name || "").trim();
+        const clientAccount = String(client.account || "").trim();
+        const identifierCandidates = [
+          client.vat,
+          client.identifiantFiscal,
+          client.identifiant,
+          client.tva,
+          client.nif
+        ];
+        const hasIdentifier = identifierCandidates.some((value) => String(value || "").trim().length > 0);
+        const hasMinimalIdentity =
+          entityType === "vendor"
+            ? !!(clientName || hasIdentifier)
+            : entityType === "transporter"
+              ? !!(clientName || clientAccount)
+            : !!(clientName || clientAccount || hasIdentifier);
+        if (!hasMinimalIdentity) {
+          const validationMessage =
+            entityType === "vendor"
+              ? getMessage("SUPPLIER_REQUIRED_FIELDS", {
+                  fallbackText: "Veuillez saisir le nom du fournisseur ou son matricule fiscal / TVA.",
+                  fallbackTitle: "Fournisseur incomplet"
+                })
+              : entityType === "transporter"
+                ? getMessage("TRANSPORTER_REQUIRED_FIELDS", {
+                    fallbackText: "Veuillez saisir le nom du transporteur ou le matricule vehicule.",
+                    fallbackTitle: "Transporteur incomplet"
+                  })
+              : getMessage("CLIENT_REQUIRED_FIELDS");
+          await showDialog(validationMessage.text, { title: validationMessage.title });
           return;
         }
-      }
-
-      const ok = await platform?.saveClient?.({ client, suggestedName: F().pickSuggestedClientName(client) });
-      if (ok) {
-        const successMessage = getMessage("CLIENT_SAVE_SUCCESS");
-        if (typeof w.showToast === "function") {
-          w.showToast(successMessage.text);
-        } else {
-          await showDialog(successMessage.text, { title: successMessage.title });
-        }
-        try {
-          const snapshot =
-            (typeof SEM.getClientFormSnapshot === "function"
-              ? SEM.getClientFormSnapshot()
-              : { ...client }) || {};
-          const currentState = (SEM.state && SEM.state.client) || {};
-          const fallbackPath =
-            snapshot.__path ||
-            currentState.__path ||
-            `client-browser-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-          snapshot.__path = fallbackPath;
-          if (SEM.state && SEM.state.client) SEM.state.client.__path = snapshot.__path;
-          if (typeof SEM.setClientFormBaseline === "function") {
-            SEM.setClientFormBaseline(snapshot);
-          } else {
-            SEM.clientFormBaseline = snapshot;
-            SEM.clientFormDirty = false;
-            if (SEM.refreshClientActionButtons) SEM.refreshClientActionButtons();
+        if (w.electronAPI?.ensureClientsSystemFolder) {
+          try {
+            const ensured = await w.electronAPI.ensureClientsSystemFolder({ entityType });
+            if (!ensured?.ok) {
+              const folderErrorMessage = getMessage("CLIENT_FOLDER_ADMIN_ERROR");
+              await showDialog(ensured?.message || folderErrorMessage.text, { title: folderErrorMessage.title });
+              return;
+            }
+            if (ensured?.fallback && ensured?.message && !clientFolderFallbackWarned) {
+              const infoMessage = getMessage("GENERIC_INFO");
+              await showDialog(ensured.message, { title: infoMessage.title });
+              clientFolderFallbackWarned = true;
+            }
+          } catch (err) {
+            console.error(err);
+            const genericFolderError = getMessage("CLIENT_FOLDER_GENERIC_ERROR");
+            await showDialog(genericFolderError.text, { title: genericFolderError.title });
+            return;
           }
-        } catch (err) {
-          console.warn("client baseline update (saveClient)", err);
         }
-      }
-    });
+
+        const ok = await platform?.saveClient?.({
+          client,
+          suggestedName: F().pickSuggestedClientName(client),
+          entityType
+        });
+        if (ok) {
+          const successMessage =
+            entityType === "vendor"
+              ? getMessage("SUPPLIER_SAVE_SUCCESS", {
+                  fallbackText: "Fournisseur enregistre.",
+                  fallbackTitle: "Succes"
+                })
+              : entityType === "transporter"
+                ? getMessage("TRANSPORTER_SAVE_SUCCESS", {
+                    fallbackText: "Transporteur enregistre.",
+                    fallbackTitle: "Succes"
+                  })
+              : getMessage("CLIENT_SAVE_SUCCESS");
+          if (typeof w.showToast === "function") {
+            w.showToast(successMessage.text);
+          } else {
+            await showDialog(successMessage.text, { title: successMessage.title });
+          }
+          try {
+            const snapshot =
+              (typeof SEM.getClientFormSnapshot === "function"
+                ? SEM.getClientFormSnapshot()
+                : { ...client }) || {};
+            const currentState = (SEM.state && SEM.state.client) || {};
+            const fallbackPath =
+              snapshot.__path ||
+              currentState.__path ||
+              `client-browser-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+            snapshot.__path = fallbackPath;
+            if (SEM.state && SEM.state.client) SEM.state.client.__path = snapshot.__path;
+            if (typeof SEM.setClientFormBaseline === "function") {
+              SEM.setClientFormBaseline(snapshot, entityType);
+            } else {
+              SEM.clientFormBaseline = snapshot;
+              SEM.clientFormDirty = false;
+              if (SEM.refreshClientActionButtons) SEM.refreshClientActionButtons();
+            }
+          } catch (err) {
+            console.warn("client baseline update (saveClient)", err);
+          }
+        }
+      });
+    };
+    bindLegacyBrowserClientSave("btnSaveClient", "client");
+    bindLegacyBrowserClientSave("btnSaveFournisseur", "vendor");
+    bindLegacyBrowserClientSave("btnSaveTransporteur", "transporter");
 
 
   };

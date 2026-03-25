@@ -32,6 +32,43 @@
     const btn = scope?.querySelector?.(`#${id}`);
     if (btn) btn.disabled = !!disabled;
   };
+  const getBindingHelpers = () => SEM.__bindingHelpers || {};
+  const buildSnapshot = (scope) => ({
+    type: readValue(scope, "transporteurType") || "societe",
+    name: readValue(scope, "transporteurName"),
+    benefit: readValue(scope, "transporteurDriverName"),
+    account: readValue(scope, "transporteurVehiclePlate"),
+    soldClient: readValue(scope, "transporteurSoldClient"),
+    vat: readValue(scope, "transporteurVat"),
+    stegRef: readValue(scope, "transporteurTransportMode"),
+    phone: readValue(scope, "transporteurPhone"),
+    email: readValue(scope, "transporteurEmail"),
+    address: readValue(scope, "transporteurAddress"),
+    __path: String(SEM.clientFormBaseline?.__path || "").trim()
+  });
+  const isDirtyFromBaseline = (scope) => {
+    const baseline =
+      SEM.clientFormBaselineEntityType === "transporter" && SEM.clientFormBaseline
+        ? SEM.clientFormBaseline
+        : null;
+    if (!baseline?.__path) return false;
+    const sanitize = getBindingHelpers().sanitizeClientSnapshot;
+    const current = typeof sanitize === "function" ? sanitize(buildSnapshot(scope)) : buildSnapshot(scope);
+    const expected = typeof sanitize === "function" ? sanitize(baseline) : baseline;
+    return [
+      "type",
+      "name",
+      "benefit",
+      "account",
+      "soldClient",
+      "vat",
+      "stegRef",
+      "phone",
+      "email",
+      "address",
+      "__path"
+    ].some((key) => String(current[key] || "") !== String(expected[key] || ""));
+  };
 
   const refreshTransporteurActionButtons = () => {
     const scope = resolvePopover();
@@ -47,8 +84,8 @@
     setDisabled(scope, "btnNewTransporteur", !isCreateMode || !content);
     const hasBaseline =
       !!SEM.clientFormBaseline?.__path && SEM.clientFormBaselineEntityType === "transporter";
-    const isDirty =
-      hasBaseline && (SEM.clientFormDirty || !!SEM.state?.client?.__dirty);
+    const transporterState = getBindingHelpers().getEntityClientFormState?.("transporter") || {};
+    const isDirty = hasBaseline && (isDirtyFromBaseline(scope) || !!transporterState.__dirty);
     setDisabled(scope, "btnUpdateTransporteur", !isEditMode || !isDirty);
   };
 

@@ -2,14 +2,12 @@
   const SEM = (w.SEM = w.SEM || {});
   const POPOVER_SELECTOR = "#fournisseurFormPopover";
   const FIELD_IDS = [
+    "fournisseurType",
     "fournisseurName",
     "fournisseurVat",
     "fournisseurPhone",
     "fournisseurEmail",
-    "fournisseurAddress",
-    "fournisseurBeneficiary",
-    "fournisseurAccount",
-    "fournisseurStegRef"
+    "fournisseurAddress"
   ];
 
   const resolvePopover = () => {
@@ -33,6 +31,43 @@
     const btn = scope?.querySelector?.(`#${id}`);
     if (btn) btn.disabled = !!disabled;
   };
+  const getBindingHelpers = () => SEM.__bindingHelpers || {};
+  const buildSnapshot = (scope) => ({
+    type: readValue(scope, "fournisseurType") || "societe",
+    name: readValue(scope, "fournisseurName"),
+    benefit: "",
+    account: "",
+    soldClient: "",
+    vat: readValue(scope, "fournisseurVat"),
+    stegRef: "",
+    phone: readValue(scope, "fournisseurPhone"),
+    email: readValue(scope, "fournisseurEmail"),
+    address: readValue(scope, "fournisseurAddress"),
+    __path: String(SEM.clientFormBaseline?.__path || "").trim()
+  });
+  const isDirtyFromBaseline = (scope) => {
+    const baseline =
+      SEM.clientFormBaselineEntityType === "vendor" && SEM.clientFormBaseline
+        ? SEM.clientFormBaseline
+        : null;
+    if (!baseline?.__path) return false;
+    const sanitize = getBindingHelpers().sanitizeClientSnapshot;
+    const current = typeof sanitize === "function" ? sanitize(buildSnapshot(scope)) : buildSnapshot(scope);
+    const expected = typeof sanitize === "function" ? sanitize(baseline) : baseline;
+    return [
+      "type",
+      "name",
+      "benefit",
+      "account",
+      "soldClient",
+      "vat",
+      "stegRef",
+      "phone",
+      "email",
+      "address",
+      "__path"
+    ].some((key) => String(current[key] || "") !== String(expected[key] || ""));
+  };
 
   const refreshFournisseurActionButtons = () => {
     const scope = resolvePopover();
@@ -48,8 +83,8 @@
     setDisabled(scope, "btnNewFournisseur", !isCreateMode || !content);
     const hasBaseline =
       !!SEM.clientFormBaseline?.__path && SEM.clientFormBaselineEntityType === "vendor";
-    const isDirty =
-      hasBaseline && (SEM.clientFormDirty || !!SEM.state?.client?.__dirty);
+    const vendorState = getBindingHelpers().getEntityClientFormState?.("vendor") || {};
+    const isDirty = hasBaseline && (isDirtyFromBaseline(scope) || !!vendorState.__dirty);
     setDisabled(scope, "btnUpdateFournisseur", !isEditMode || !isDirty);
   };
 

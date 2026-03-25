@@ -3003,7 +3003,9 @@ const saveClient = ({ client = {}, entityType = "client", suggestedName = "", id
       throw new Error(
         normalizedType === "transporter"
           ? "Un transporteur avec le meme matricule vehicule existe deja."
-          : "Un client avec le meme champ 'Pour le compte de' existe deja."
+          : normalizedType === "vendor"
+            ? "Un fournisseur avec le meme identifiant existe deja."
+            : "Un client avec le meme champ 'Pour le compte de' existe deja."
       );
     }
   }
@@ -3094,7 +3096,9 @@ const updateClient = ({
       throw new Error(
         normalizedType === "transporter"
           ? "Un transporteur avec le meme matricule vehicule existe deja."
-          : "Un client avec le meme champ 'Pour le compte de' existe deja."
+          : normalizedType === "vendor"
+            ? "Un fournisseur avec le meme identifiant existe deja."
+            : "Un client avec le meme champ 'Pour le compte de' existe deja."
       );
     }
   }

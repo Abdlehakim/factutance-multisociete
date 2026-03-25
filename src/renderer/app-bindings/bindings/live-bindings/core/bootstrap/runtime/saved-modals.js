@@ -1347,9 +1347,27 @@
             }
           };
 
-          applyClientToState = (client = {}) => {
-            const st = SEM.state || {};
-            st.client = { ...(st.client || {}), ...client };
+          applyClientToState = (client = {}, options = {}) => {
+            const entityType =
+              options.entityType ||
+              client.__entityType ||
+              resolveClientEntityType(normalizeClientFormScope(options.formScope)) ||
+              clientSavedModalEntityType ||
+              "client";
+            const st = SEM.state || (SEM.state = {});
+            const setEntityState = SEM.__bindingHelpers?.setEntityClientFormState;
+            if (typeof setEntityState === "function") {
+              setEntityState(entityType, { ...client, __entityType: entityType });
+            }
+            const shouldMirrorHelper = SEM.__bindingHelpers?.shouldMirrorEntityClientStateToDocument;
+            const shouldMirror =
+              options.mirrorToDocumentState !== undefined
+                ? !!options.mirrorToDocumentState
+                : typeof shouldMirrorHelper === "function"
+                  ? !!shouldMirrorHelper(normalizeClientFormScope(options.formScope))
+                  : false;
+            if (!shouldMirror) return;
+            st.client = { ...(st.client || {}), ...client, __entityType: entityType };
             const targetVat =
               client.vat ||
               client.identifiantFiscal ||
@@ -1369,6 +1387,12 @@
                   ? record.client
                   : record
                 : {};
+            const entityType =
+              record?.entityType ||
+              payload?.__entityType ||
+              resolveClientEntityType(normalizeClientFormScope(options.formScope)) ||
+              clientSavedModalEntityType ||
+              "client";
             SEM.clientFormAllowUpdate = true;
             const formScope = normalizeClientFormScope(options.formScope);
             if (SEM.forms?.fillClientToForm && !formScope) {
@@ -1376,9 +1400,16 @@
             } else {
               syncClientFormFields(payload, formScope);
             }
-            applyClientToState(payload);
+            const shouldMirrorHelper = SEM.__bindingHelpers?.shouldMirrorEntityClientStateToDocument;
+            const shouldMirrorToDocument =
+              typeof shouldMirrorHelper === "function" ? !!shouldMirrorHelper(formScope) : false;
+            applyClientToState(payload, {
+              formScope,
+              entityType,
+              mirrorToDocumentState: shouldMirrorToDocument
+            });
             const selectedPath = record.path || payload.__path || "";
-            if (state().client) state().client.__path = selectedPath;
+            if (shouldMirrorToDocument && state().client) state().client.__path = selectedPath;
 
             const skipReadInputs = options.skipReadInputs || !!formScope;
             if (!skipReadInputs && typeof SEM.readInputs === "function") {
@@ -1386,7 +1417,7 @@
             }
 
             if (SEM.setClientFormBaseline) {
-              const baselineEntityType = formScope ? resolveClientEntityType(formScope) : null;
+              const baselineEntityType = formScope ? resolveClientEntityType(formScope) : entityType;
               const baselineScope = formScope || options.formScope || null;
               const snapshot =
                 (typeof SEM.getClientFormSnapshot === "function" &&
@@ -1395,6 +1426,7 @@
                   SEM.forms.captureClientFromForm(baselineScope)) ||
                 { ...payload };
               snapshot.__path = selectedPath;
+              snapshot.__entityType = baselineEntityType;
               if (selectedPath) {
                 SEM.setClientFormBaseline(snapshot, baselineEntityType);
               } else {
@@ -1410,7 +1442,11 @@
             }
 
             SEM.clientFormDirty = false;
-            if (state().client) state().client.__dirty = false;
+            if (shouldMirrorToDocument && state().client) state().client.__dirty = false;
+            SEM.__bindingHelpers?.setEntityClientFormDirty?.(
+              resolveClientEntityType(formScope),
+              false
+            );
 
             if (!options.skipDirtyEval && typeof SEM.evaluateClientDirtyState === "function") {
               SEM.evaluateClientDirtyState(formScope || options.formScope || null);
@@ -2845,11 +2881,12 @@
                   document.getElementById("FournisseurBoxNewDoc") ||
                   document.getElementById("clientBoxMainscreenTransporteursPanel") ||
                   getActiveMainClientScope();
-                if (!targetScope) return;
+                if (!targetScope) return null;
                 syncClientFormFields(payload, targetScope);
                 if (typeof SEM?.refreshClientActionButtons === "function") {
                   SEM.refreshClientActionButtons();
                 }
+                return targetScope;
               };
 
               const loadBtn = evt.target.closest("[data-client-saved-load]");
@@ -2864,19 +2901,37 @@
                   !loadBtn.classList?.contains("client-search__edit")
                 ) {
                   const payload = selected.client || selected;
-                  applyClientToState(payload);
+                  const targetScope = syncClientFormScopeFromPayload(payload);
+                  applyClientToState(payload, {
+                    formScope: targetScope,
+                    entityType: selected.entityType || clientSavedModalEntityType || "client"
+                  });
                   const selectedPath = selected.path || payload.__path || "";
-                  if (state().client) state().client.__path = selectedPath;
-                  syncClientFormScopeFromPayload(payload);
+                  if (
+                    targetScope &&
+                    SEM.__bindingHelpers?.shouldMirrorEntityClientStateToDocument?.(targetScope) &&
+                    state().client
+                  ) {
+                    state().client.__path = selectedPath;
+                  }
                   closeClientSavedModal();
                   return;
                 }
                 if (loadBtn.classList?.contains("client-search__edit")) {
                   const payload = selected.client || selected;
-                  applyClientToState(payload);
+                  const targetScope = syncClientFormScopeFromPayload(payload);
+                  applyClientToState(payload, {
+                    formScope: targetScope,
+                    entityType: selected.entityType || clientSavedModalEntityType || "client"
+                  });
                   const selectedPath = selected.path || payload.__path || "";
-                  if (state().client) state().client.__path = selectedPath;
-                  syncClientFormScopeFromPayload(payload);
+                  if (
+                    targetScope &&
+                    SEM.__bindingHelpers?.shouldMirrorEntityClientStateToDocument?.(targetScope) &&
+                    state().client
+                  ) {
+                    state().client.__path = selectedPath;
+                  }
                   closeClientSavedModal();
                   return;
                 }

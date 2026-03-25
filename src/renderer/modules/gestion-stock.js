@@ -1795,7 +1795,9 @@
         mutedBadge.className = "stock-location-badge stock-location-badge--muted";
         const mutedLabel = document.createElement("span");
         mutedLabel.className = "stock-location-badge__label";
-        mutedLabel.textContent = String(emptyLabel || LOCATION_NONE_LABEL).trim() || LOCATION_NONE_LABEL;
+        const emptyText = String(emptyLabel || LOCATION_NONE_LABEL).trim() || LOCATION_NONE_LABEL;
+        mutedLabel.textContent = emptyText;
+        mutedLabel.title = emptyText;
         mutedBadge.appendChild(mutedLabel);
         container.appendChild(mutedBadge);
         return;
@@ -1806,6 +1808,7 @@
         const badgeLabel = document.createElement("span");
         badgeLabel.className = "stock-location-badge__label";
         badgeLabel.textContent = labelText;
+        badgeLabel.title = labelText;
         badge.appendChild(badgeLabel);
         container.appendChild(badge);
       });

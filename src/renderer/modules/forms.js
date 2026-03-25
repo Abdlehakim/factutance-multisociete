@@ -283,14 +283,124 @@
     return (u.ref && ref) || (u.product && product) || (u.desc && desc) || "article";
   }
 
-  function captureClientFromForm() {
-    if (typeof w.SEM?.getClientFormSnapshot === "function") {
-      return w.SEM.getClientFormSnapshot();
+  function resolveClientFormCaptureScope(scopeHint = null) {
+    if (typeof document === "undefined") return null;
+    if (scopeHint instanceof HTMLElement) {
+      return (
+        scopeHint.closest?.(
+          "#clientFormPopover, #fournisseurFormPopover, #transporteurFormPopover, #clientBoxNewDoc, #FournisseurBoxNewDoc, #clientSavedModal, #clientSavedModalNv, #fournisseurSavedModal, #fournisseurSavedModalNv, #transporteurSavedModal, #transporteurSavedModalNv, #clientBoxMainscreenClientsPanel, #clientBoxMainscreenFournisseursPanel, #clientBoxMainscreenTransporteursPanel"
+        ) || scopeHint
+      );
     }
+    if (scopeHint?.target instanceof HTMLElement) {
+      return resolveClientFormCaptureScope(scopeHint.target);
+    }
+    const activeScope = resolveClientFormCaptureScope(document.activeElement);
+    if (activeScope) return activeScope;
+    return (
+      document.querySelector(
+        "#fournisseurFormPopover.is-open, #transporteurFormPopover.is-open, #clientFormPopover.is-open, #fournisseurFormPopover:not([hidden]), #transporteurFormPopover:not([hidden]), #clientFormPopover:not([hidden])"
+      ) ||
+      document.querySelector(
+        "#FournisseurBoxNewDoc, #clientBoxNewDoc, #fournisseurSavedModalNv, #clientSavedModalNv, #transporteurSavedModalNv"
+      ) ||
+      null
+    );
+  }
+  function readScopedClientValue(scopeNode, ids = []) {
+    const idList = Array.isArray(ids) ? ids : [ids];
+    for (const id of idList.filter(Boolean)) {
+      const input =
+        scopeNode?.querySelector?.(`#${id}`) ||
+        (typeof document !== "undefined" ? document.getElementById(id) : null);
+      if (input && "value" in input) return String(input.value ?? "").trim();
+    }
+    return "";
+  }
+  function captureClientFromForm(scopeHint = null) {
+    const scopeNode = resolveClientFormCaptureScope(scopeHint);
+    if (typeof w.SEM?.getClientFormSnapshot === "function") {
+      return w.SEM.getClientFormSnapshot(scopeNode || scopeHint || null);
+    }
+    const isVendor =
+      scopeNode?.id === "FournisseurBoxNewDoc" ||
+      scopeNode?.id === "fournisseurFormPopover" ||
+      scopeNode?.id === "fournisseurSavedModal" ||
+      scopeNode?.id === "fournisseurSavedModalNv";
+    const isTransporter =
+      scopeNode?.id === "transporteurFormPopover" ||
+      scopeNode?.id === "transporteurSavedModal" ||
+      scopeNode?.id === "transporteurSavedModalNv";
+    const typeIds = isVendor
+      ? ["fournisseurType", "clientType"]
+      : isTransporter
+        ? ["transporteurType", "clientType"]
+        : ["clientType", "fournisseurType"];
+    const nameIds = isVendor
+      ? ["fournisseurName", "clientName"]
+      : isTransporter
+        ? ["transporteurName", "clientName"]
+        : ["clientName", "fournisseurName"];
+    const vatIds = isVendor
+      ? ["fournisseurVat", "clientVat"]
+      : isTransporter
+        ? ["transporteurVat", "clientVat"]
+        : ["clientVat", "fournisseurVat"];
+    const phoneIds = isVendor
+      ? ["fournisseurPhone", "clientPhone"]
+      : isTransporter
+        ? ["transporteurPhone", "clientPhone"]
+        : ["clientPhone", "fournisseurPhone"];
+    const emailIds = isVendor
+      ? ["fournisseurEmail", "clientEmail"]
+      : isTransporter
+        ? ["transporteurEmail", "clientEmail"]
+        : ["clientEmail", "fournisseurEmail"];
+    const addressIds = isVendor
+      ? ["fournisseurAddress", "clientAddress"]
+      : isTransporter
+        ? ["transporteurAddress", "clientAddress"]
+        : ["clientAddress", "fournisseurAddress"];
     const currentPath = w.SEM?.state?.client?.__path || "";
     return {
-      type:getStr("clientType"), name:getStr("clientName"), vat:getStr("clientVat"),
-      phone:getStr("clientPhone"), email:getStr("clientEmail"), address:getStr("clientAddress"),
+      type: readScopedClientValue(scopeNode, typeIds) || "societe",
+      name: readScopedClientValue(scopeNode, nameIds),
+      benefit: readScopedClientValue(
+        scopeNode,
+        isVendor
+          ? ["fournisseurBeneficiary", "clientBeneficiary"]
+          : isTransporter
+            ? ["transporteurDriverName", "clientBeneficiary"]
+            : ["clientBeneficiary", "fournisseurBeneficiary"]
+      ),
+      account: readScopedClientValue(
+        scopeNode,
+        isVendor
+          ? ["fournisseurAccount", "clientAccount"]
+          : isTransporter
+            ? ["transporteurVehiclePlate", "clientAccount"]
+            : ["clientAccount", "fournisseurAccount"]
+      ),
+      soldClient: readScopedClientValue(
+        scopeNode,
+        isVendor
+          ? ["fournisseurSoldClient", "clientSoldClient"]
+          : isTransporter
+            ? ["transporteurSoldClient", "clientSoldClient"]
+            : ["clientSoldClient", "fournisseurSoldClient"]
+      ),
+      vat: readScopedClientValue(scopeNode, vatIds),
+      stegRef: readScopedClientValue(
+        scopeNode,
+        isVendor
+          ? ["fournisseurStegRef", "clientStegRef"]
+          : isTransporter
+            ? ["transporteurTransportMode", "clientStegRef"]
+            : ["clientStegRef", "fournisseurStegRef"]
+      ),
+      phone: readScopedClientValue(scopeNode, phoneIds),
+      email: readScopedClientValue(scopeNode, emailIds),
+      address: readScopedClientValue(scopeNode, addressIds),
       __path: currentPath
     };
   }
@@ -304,8 +414,8 @@
     return String(s).trim().replace(/[\/\\:*?"<>|]/g,"-").replace(/\s+/g," ").slice(0,80) || "client";
   }
   function pickSuggestedClientName(c = {}) {
-    const n=(c.name||"").trim(), v=(c.vat||"").trim(), e=(c.email||"").trim(), p=(c.phone||"").trim();
-    return safeClientName(n || v || e || p || "client");
+    const n=(c.name||"").trim(), a=(c.account||"").trim(), v=(c.vat||"").trim(), e=(c.email||"").trim(), p=(c.phone||"").trim();
+    return safeClientName(n || a || v || e || p || "client");
   }
 
   SEM.forms = {

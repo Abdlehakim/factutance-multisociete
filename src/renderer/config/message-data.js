@@ -26,7 +26,11 @@ window.APP_MESSAGE_DATA = {
     itemRequiredFieldsMessage: "Veuillez ajouter au moins un article pour continuer.",
     documentClientRequiredFieldsMessage: "Veuillez ajouter un client pour continuer.",
     articleRequiredFieldsMessage:
-      "Veuillez saisir au moins une R\u00E9f\u00E9rence, une D\u00E9signation ou une Description."
+      "Veuillez saisir au moins une R\u00E9f\u00E9rence, une D\u00E9signation ou une Description.",
+    supplierRequiredFieldsMessage:
+      "Veuillez saisir le nom du fournisseur ou son matricule fiscal / TVA.",
+    transporterRequiredFieldsMessage:
+      "Veuillez saisir le nom du transporteur ou le matricule vehicule."
   },
   appMessages: {
     ITEM_REQUIRED_FIELDS: { stringKey: "itemRequiredFieldsMessage", title: "Article incomplet" },
@@ -51,13 +55,29 @@ window.APP_MESSAGE_DATA = {
     ARTICLE_SAVE_DUPLICATE: { text: "Echec de l'enregistrement.", title: "Doublon" },
     ARTICLE_UPDATE_FAILED: { text: "Impossible de mettre a jour l'article enregistre.", title: "Erreur" },
     CLIENT_REQUIRED_FIELDS: { stringKey: "clientRequiredFieldsMessage", title: "Client incomplet" },
+    SUPPLIER_REQUIRED_FIELDS: {
+      stringKey: "supplierRequiredFieldsMessage",
+      title: "Fournisseur incomplet"
+    },
+    TRANSPORTER_REQUIRED_FIELDS: {
+      stringKey: "transporterRequiredFieldsMessage",
+      title: "Transporteur incomplet"
+    },
     CLIENT_FOLDER_ADMIN_ERROR: { stringKey: "clientFolderEnsureFailedMessage", title: "Erreur" },
     CLIENT_FOLDER_GENERIC_ERROR: { text: "Impossible de preparer le dossier Clients.", title: "Erreur" },
     CLIENT_SAVE_SUCCESS: { text: "Client enregistre.", title: "Succes" },
+    SUPPLIER_SAVE_SUCCESS: { text: "Fournisseur enregistre.", title: "Succes" },
+    TRANSPORTER_SAVE_SUCCESS: { text: "Transporteur enregistre.", title: "Succes" },
     CLIENT_SAVE_FAILED: { text: "Echec de l'enregistrement du client.", title: "Erreur" },
+    SUPPLIER_SAVE_FAILED: { text: "Echec de l'enregistrement du fournisseur.", title: "Erreur" },
+    TRANSPORTER_SAVE_FAILED: { text: "Echec de l'enregistrement du transporteur.", title: "Erreur" },
     CLIENT_DUPLICATE_FOUND: {
       text: "Un client avec les memes informations existe deja ({dupName}).",
       title: "Client deja enregistre"
+    },
+    TRANSPORTER_DUPLICATE_FOUND: {
+      text: "Un transporteur avec les memes informations existe deja ({dupName}).",
+      title: "Transporteur deja enregistre"
     },
     FEATURE_UNAVAILABLE: { text: "Fonctionnalite indisponible dans cette version.", title: "Info" },
     TEMPLATE_SAVE_SUCCESS: { text: "Modele \"{savedName}\" enregistre.", title: "Succes" },
@@ -82,14 +102,38 @@ window.APP_MESSAGE_DATA = {
       title: "Indisponible"
     },
     CLIENT_UPDATE_UNAVAILABLE: { text: "La mise a jour du client n'est pas disponible.", title: "Information" },
+    SUPPLIER_UPDATE_UNAVAILABLE: {
+      text: "La mise a jour du fournisseur n'est pas disponible.",
+      title: "Information"
+    },
+    TRANSPORTER_UPDATE_UNAVAILABLE: {
+      text: "La mise a jour du transporteur n'est pas disponible.",
+      title: "Information"
+    },
     CLIENT_LOAD_OR_SAVE_REQUIRED: {
       text: "Veuillez d'abord charger ou enregistrer un client.",
       title: "Information"
     },
+    SUPPLIER_LOAD_OR_SAVE_REQUIRED: {
+      text: "Veuillez d'abord charger ou enregistrer un fournisseur.",
+      title: "Information"
+    },
+    TRANSPORTER_LOAD_OR_SAVE_REQUIRED: {
+      text: "Veuillez d'abord charger ou enregistrer un transporteur.",
+      title: "Information"
+    },
     CLIENT_NO_CHANGES: { text: "Aucune modification detectee.", title: "Information" },
+    SUPPLIER_NO_CHANGES: { text: "Aucune modification detectee.", title: "Information" },
+    TRANSPORTER_NO_CHANGES: { text: "Aucune modification detectee.", title: "Information" },
     CLIENT_PATH_MISSING: { text: "Chemin du client introuvable.", title: "Erreur" },
+    SUPPLIER_PATH_MISSING: { text: "Chemin du fournisseur introuvable.", title: "Erreur" },
+    TRANSPORTER_PATH_MISSING: { text: "Chemin du transporteur introuvable.", title: "Erreur" },
     CLIENT_UPDATE_SUCCESS: { text: "Client mis a jour.", title: "Succes" },
+    SUPPLIER_UPDATE_SUCCESS: { text: "Fournisseur mis a jour.", title: "Succes" },
+    TRANSPORTER_UPDATE_SUCCESS: { text: "Transporteur mis a jour.", title: "Succes" },
     CLIENT_UPDATE_FAILED: { text: "Echec de la mise a jour du client.", title: "Erreur" },
+    SUPPLIER_UPDATE_FAILED: { text: "Echec de la mise a jour du fournisseur.", title: "Erreur" },
+    TRANSPORTER_UPDATE_FAILED: { text: "Echec de la mise a jour du transporteur.", title: "Erreur" },
     SEAL_PDFJS_MISSING: {
       text: "Impossible de lire le PDF sans pdf.js. Veuillez l'installer ou le charger localement, ou joignez une image.",
       title: "Cachet PDF"

@@ -561,34 +561,58 @@
   margin-bottom: 4px;
 }
 
+#articleFormPopover .article-stock-info-row--selection > .add-item-field {
+  min-width: 0;
+}
+
 #articleFormPopover .stock-location-badges {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 8px;
-  min-height: 34px;
-  align-items: center;
+  min-height: 75px;
+  height: 75px;
+  align-items: stretch;
   width: 100%;
+  min-width: 0;
   border-radius: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
 }
 
 #articleFormPopover .stock-location-badge {
   display: inline-flex;
+  flex: 0 0 168px;
+  width: 168px;
+  min-width: 168px;
+  max-width: 168px;
+  box-sizing: border-box;
   align-items: center;
   justify-content: center;
   height: 75px;
-  padding: 0 14px;
+  padding: 10px 12px;
   border-radius: 4px !important;
   border: 1px solid #c7d7ff;
   background: #f5f8ff;
   box-shadow: none;
   color: #15335e;
+  text-align: center;
+  overflow: hidden;
 }
 
 #articleFormPopover .stock-location-badge__label {
+  display: -webkit-box;
+  width: 100%;
   font-size: 12px;
   font-weight: 600;
-  line-height: 1;
-  white-space: nowrap;
+  line-height: 1.25;
+  white-space: normal;
+  word-break: break-word;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 #articleFormPopover .stock-location-badge--muted {

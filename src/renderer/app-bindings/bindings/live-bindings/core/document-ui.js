@@ -501,13 +501,161 @@
                 ...CLIENT_FORM_BASE_INPUT_IDS.map((id) => CLIENT_FORM_VENDOR_ID_ALIASES[id])
               ])
             );
+            const getClientBindingHelpers = () => SEM.__bindingHelpers || {};
+            const CLIENT_ENTITY_DIRECT_FIELD_IDS = {
+              client: {
+                clientType: ["clientType"],
+                clientName: ["clientName"],
+                clientBeneficiary: ["clientBeneficiary"],
+                clientAccount: ["clientAccount"],
+                clientSoldClient: ["clientSoldClient"],
+                clientVat: ["clientVat"],
+                clientStegRef: ["clientStegRef"],
+                clientPhone: ["clientPhone"],
+                clientEmail: ["clientEmail"],
+                clientAddress: ["clientAddress"]
+              },
+              vendor: {
+                clientType: ["fournisseurType", "clientType"],
+                clientName: ["fournisseurName", "clientName"],
+                clientBeneficiary: ["fournisseurBeneficiary", "clientBeneficiary"],
+                clientAccount: ["fournisseurAccount", "clientAccount"],
+                clientSoldClient: ["fournisseurSoldClient", "clientSoldClient"],
+                clientVat: ["fournisseurVat", "clientVat"],
+                clientStegRef: ["fournisseurStegRef", "clientStegRef"],
+                clientPhone: ["fournisseurPhone", "clientPhone"],
+                clientEmail: ["fournisseurEmail", "clientEmail"],
+                clientAddress: ["fournisseurAddress", "clientAddress"]
+              },
+              transporter: {
+                clientType: ["transporteurType", "clientType"],
+                clientName: ["transporteurName", "clientName"],
+                clientBeneficiary: ["transporteurDriverName", "clientBeneficiary"],
+                clientAccount: ["transporteurVehiclePlate", "clientAccount"],
+                clientSoldClient: ["transporteurSoldClient", "clientSoldClient"],
+                clientVat: ["transporteurVat", "clientVat"],
+                clientStegRef: ["transporteurTransportMode", "clientStegRef"],
+                clientPhone: ["transporteurPhone", "clientPhone"],
+                clientEmail: ["transporteurEmail", "clientEmail"],
+                clientAddress: ["transporteurAddress", "clientAddress"]
+              }
+            };
+            const resolveScopedClientEntityType = (scopeNode, fallbackNode = null) => {
+              const candidate =
+                scopeNode ||
+                fallbackNode?.closest?.(CLIENT_SCOPE_WITH_ROOT_SELECTOR) ||
+                fallbackNode ||
+                null;
+              const candidateId = String(candidate?.id || "").trim();
+              const fallbackId = String(fallbackNode?.id || "").trim();
+              if (
+                candidateId === "FournisseurBoxNewDoc" ||
+                candidateId === "fournisseurSavedModal" ||
+                candidateId === "fournisseurSavedModalNv" ||
+                candidateId === "fournisseurFormPopover" ||
+                fallbackId === "btnSaveFournisseur" ||
+                fallbackId === "btnUpdateFournisseur" ||
+                fallbackId === "btnNewFournisseur"
+              ) {
+                return "vendor";
+              }
+              if (
+                candidateId === "transporteurSavedModal" ||
+                candidateId === "transporteurSavedModalNv" ||
+                candidateId === "transporteurFormPopover" ||
+                fallbackId === "btnSaveTransporteur" ||
+                fallbackId === "btnUpdateTransporteur" ||
+                fallbackId === "btnNewTransporteur"
+              ) {
+                return "transporter";
+              }
+              return resolveClientEntityType(candidate);
+            };
+            const readDirectScopedClientValue = (scopeNode, canonicalId, entityType) => {
+              const ids =
+                CLIENT_ENTITY_DIRECT_FIELD_IDS[entityType]?.[canonicalId] ||
+                CLIENT_ENTITY_DIRECT_FIELD_IDS.client[canonicalId] ||
+                [canonicalId];
+              for (const id of ids) {
+                const scopedInput =
+                  scopeNode && typeof scopeNode.querySelector === "function"
+                    ? scopeNode.querySelector(`#${id}`)
+                    : null;
+                if (scopedInput && "value" in scopedInput) {
+                  return String(scopedInput.value ?? "");
+                }
+              }
+              for (const id of ids) {
+                const input = getEl(id);
+                if (input && "value" in input) return String(input.value ?? "");
+              }
+              return "";
+            };
             const getClientFormValue = (scopeNode, id, fallback = "") => {
               const canonicalId = toCanonicalClientFormId(id);
+              const entityType = resolveScopedClientEntityType(scopeNode);
+              const directValue = readDirectScopedClientValue(scopeNode, canonicalId, entityType);
+              if (String(directValue || "").trim()) return String(directValue ?? "");
               const scopedInput = queryScopedClientFormElement(scopeNode, canonicalId);
               if (scopedInput && "value" in scopedInput) return String(scopedInput.value ?? "");
               const input = queryGlobalClientFormElement(canonicalId, scopeNode);
               if (input && "value" in input) return String(input.value ?? "");
               return String(fallback ?? "");
+            };
+            const resolveClientEntityDraft = (scopeNode) => {
+              const helper = getClientBindingHelpers().getEntityClientStateForScope;
+              if (typeof helper === "function") {
+                const resolved = helper(scopeNode);
+                if (resolved && typeof resolved === "object") return resolved;
+              }
+              return {
+                ...(state().client || {}),
+                __entityType: resolveScopedClientEntityType(scopeNode)
+              };
+            };
+            const persistClientEntityDraft = (snapshot, scopeNode, options = {}) => {
+              const entityType =
+                options.entityType ||
+                snapshot?.__entityType ||
+                resolveScopedClientEntityType(scopeNode);
+              const setEntityState = getClientBindingHelpers().setEntityClientFormState;
+              if (typeof setEntityState === "function") {
+                setEntityState(entityType, { ...snapshot, __entityType: entityType });
+              }
+              const resolveDocumentScope =
+                getClientBindingHelpers().resolveEntityDocumentPartyStateScope;
+              const mirrorScope =
+                typeof resolveDocumentScope === "function" ? resolveDocumentScope(scopeNode) : null;
+              const shouldMirror =
+                options.mirrorToDocumentState !== undefined
+                  ? !!options.mirrorToDocumentState
+                  : !!mirrorScope;
+              if (shouldMirror) {
+                const st = SEM.state || (SEM.state = {});
+                st.client = {
+                  ...(st.client || {}),
+                  ...snapshot,
+                  __path: snapshot.__path || st.client?.__path || "",
+                  __entityType: entityType
+                };
+                refreshClientSummary();
+              }
+              return entityType;
+            };
+            const setClientEntityDirty = (entityType, dirty) => {
+              const markDirty = getClientBindingHelpers().setEntityClientFormDirty;
+              if (typeof markDirty === "function") {
+                markDirty(entityType, dirty);
+                return;
+              }
+              if (state().client) state().client.__dirty = !!dirty;
+            };
+            const shouldMirrorEntityStateToDocument = (scopeNode) => {
+              const helper = getClientBindingHelpers().shouldMirrorEntityClientStateToDocument;
+              if (typeof helper === "function") {
+                return !!helper(scopeNode);
+              }
+              return false;
             };
             const updateClientIdLabelScoped = (scopeNode, typeValue) => {
               if (!scopeNode) return;
@@ -544,7 +692,7 @@
               }
             };
             const captureClientSnapshotFromScope = (scopeNode) => {
-              const currentState = state().client || {};
+              const currentState = resolveClientEntityDraft(scopeNode);
               const soldFallback = currentState.soldClient ?? "";
               const typeRaw = getClientFormValue(scopeNode, "clientType", currentState.type || "societe");
               const snapshot = {
@@ -558,27 +706,27 @@
                 phone: getClientFormValue(scopeNode, "clientPhone", currentState.phone || ""),
                 email: getClientFormValue(scopeNode, "clientEmail", currentState.email || ""),
                 address: getClientFormValue(scopeNode, "clientAddress", currentState.address || ""),
-                __path: currentState.__path || SEM.clientFormBaseline?.__path || ""
+                __path: currentState.__path || SEM.clientFormBaseline?.__path || "",
+                __entityType: resolveScopedClientEntityType(scopeNode)
               };
               return sanitizeClientSnapshot(snapshot);
             };
-            const applyClientSnapshotToState = (snapshot) => {
-              const st = SEM.state || (SEM.state = {});
-              st.client = { ...(st.client || {}), ...snapshot, __path: snapshot.__path || st.client?.__path || "" };
-              refreshClientSummary();
+            const applyClientSnapshotToState = (snapshot, scopeNode, options = {}) => {
+              persistClientEntityDraft(snapshot, scopeNode, options);
             };
             const evaluateClientDirtyFromSnapshot = (snapshot, scopeNode) => {
+              const entityType = resolveScopedClientEntityType(scopeNode);
               const baseline = SEM.clientFormBaseline;
-              if (!baseline?.__path) {
+              if (!baseline?.__path || SEM.clientFormBaselineEntityType !== entityType) {
                 SEM.clientFormDirty = false;
-                if (state().client) state().client.__dirty = false;
+                setClientEntityDirty(entityType, false);
                 SEM.refreshUpdateClientButton?.(scopeNode);
                 return false;
               }
               const normalized = sanitizeClientSnapshot(snapshot);
               const dirty = CLIENT_SNAPSHOT_FIELDS.some((field) => normalized[field] !== baseline[field]);
               SEM.clientFormDirty = dirty;
-              if (state().client) state().client.__dirty = dirty;
+              setClientEntityDirty(entityType, dirty);
               SEM.refreshUpdateClientButton?.(scopeNode);
               return dirty;
             };
@@ -590,7 +738,7 @@
               const formScope = target.closest(CLIENT_SCOPE_SELECTOR);
               if (!formScope) return;
               const snapshot = captureClientSnapshotFromScope(formScope);
-              applyClientSnapshotToState(snapshot);
+              applyClientSnapshotToState(snapshot, formScope);
               if (canonicalTargetId === "clientType") {
                 updateClientIdLabelScoped(formScope, snapshot.type);
                 updateClientTypeDisplayScoped(formScope, snapshot.type);
@@ -625,6 +773,7 @@
 
             const resetClientFormPopoverFields = (scopeNode) => {
               if (!scopeNode) return;
+              const entityType = resolveScopedClientEntityType(scopeNode);
               const blankClient = {
                 type: "societe",
                 name: "",
@@ -635,7 +784,7 @@
               };
               syncClientFormFields(blankClient, scopeNode);
               SEM.clientFormDirty = false;
-              if (state().client) state().client.__dirty = false;
+              setClientEntityDirty(entityType, false);
               SEM.refreshUpdateClientButton?.(scopeNode);
               SEM.refreshClientActionButtons?.();
             };
@@ -1465,6 +1614,126 @@
             });
 
             let clientFolderFallbackWarned = false;
+            const getEntityLabel = (entityType) =>
+              entityType === "vendor"
+                ? "fournisseur"
+                : entityType === "transporter"
+                  ? "transporteur"
+                  : "client";
+            const getEntitySuggestedNameFallback = (entityType) =>
+              entityType === "vendor"
+                ? "fournisseur"
+                : entityType === "transporter"
+                  ? "transporteur"
+                  : "client";
+            const getEntityValidationMessage = (entityType) =>
+              entityType === "vendor"
+                ? getMessage("SUPPLIER_REQUIRED_FIELDS", {
+                    fallbackText: "Veuillez saisir le nom du fournisseur ou son matricule fiscal / TVA.",
+                    fallbackTitle: "Fournisseur incomplet"
+                  })
+                : entityType === "transporter"
+                  ? getMessage("TRANSPORTER_REQUIRED_FIELDS", {
+                      fallbackText: "Veuillez saisir le nom du transporteur ou le matricule vehicule.",
+                      fallbackTitle: "Transporteur incomplet"
+                    })
+                  : getMessage("CLIENT_REQUIRED_FIELDS");
+            const getEntitySaveSuccessMessage = (entityType) =>
+              entityType === "vendor"
+                ? getMessage("SUPPLIER_SAVE_SUCCESS", {
+                    fallbackText: "Fournisseur enregistre.",
+                    fallbackTitle: "Succes"
+                  })
+                : entityType === "transporter"
+                  ? getMessage("TRANSPORTER_SAVE_SUCCESS", {
+                      fallbackText: "Transporteur enregistre.",
+                      fallbackTitle: "Succes"
+                    })
+                  : getMessage("CLIENT_SAVE_SUCCESS");
+            const getEntitySaveErrorMessage = (entityType) =>
+              entityType === "vendor"
+                ? getMessage("SUPPLIER_SAVE_FAILED", {
+                    fallbackText: "Echec de l'enregistrement du fournisseur.",
+                    fallbackTitle: "Erreur"
+                  })
+                : entityType === "transporter"
+                  ? getMessage("TRANSPORTER_SAVE_FAILED", {
+                      fallbackText: "Echec de l'enregistrement du transporteur.",
+                      fallbackTitle: "Erreur"
+                    })
+                  : getMessage("CLIENT_SAVE_FAILED");
+            const getEntityUpdateUnavailableMessage = (entityType) =>
+              entityType === "vendor"
+                ? getMessage("SUPPLIER_UPDATE_UNAVAILABLE", {
+                    fallbackText: "La mise a jour du fournisseur n'est pas disponible.",
+                    fallbackTitle: "Information"
+                  })
+                : entityType === "transporter"
+                  ? getMessage("TRANSPORTER_UPDATE_UNAVAILABLE", {
+                      fallbackText: "La mise a jour du transporteur n'est pas disponible.",
+                      fallbackTitle: "Information"
+                    })
+                  : getMessage("CLIENT_UPDATE_UNAVAILABLE");
+            const getEntityLoadOrSaveRequiredMessage = (entityType) =>
+              entityType === "vendor"
+                ? getMessage("SUPPLIER_LOAD_OR_SAVE_REQUIRED", {
+                    fallbackText: "Veuillez d'abord charger ou enregistrer un fournisseur.",
+                    fallbackTitle: "Information"
+                  })
+                : entityType === "transporter"
+                  ? getMessage("TRANSPORTER_LOAD_OR_SAVE_REQUIRED", {
+                      fallbackText: "Veuillez d'abord charger ou enregistrer un transporteur.",
+                      fallbackTitle: "Information"
+                    })
+                  : getMessage("CLIENT_LOAD_OR_SAVE_REQUIRED");
+            const getEntityNoChangesMessage = (entityType) =>
+              entityType === "vendor"
+                ? getMessage("SUPPLIER_NO_CHANGES", {
+                    fallbackText: "Aucune modification detectee.",
+                    fallbackTitle: "Information"
+                  })
+                : entityType === "transporter"
+                  ? getMessage("TRANSPORTER_NO_CHANGES", {
+                      fallbackText: "Aucune modification detectee.",
+                      fallbackTitle: "Information"
+                    })
+                  : getMessage("CLIENT_NO_CHANGES");
+            const getEntityPathMissingMessage = (entityType) =>
+              entityType === "vendor"
+                ? getMessage("SUPPLIER_PATH_MISSING", {
+                    fallbackText: "Chemin du fournisseur introuvable.",
+                    fallbackTitle: "Erreur"
+                  })
+                : entityType === "transporter"
+                  ? getMessage("TRANSPORTER_PATH_MISSING", {
+                      fallbackText: "Chemin du transporteur introuvable.",
+                      fallbackTitle: "Erreur"
+                    })
+                  : getMessage("CLIENT_PATH_MISSING");
+            const getEntityUpdateSuccessMessage = (entityType) =>
+              entityType === "vendor"
+                ? getMessage("SUPPLIER_UPDATE_SUCCESS", {
+                    fallbackText: "Fournisseur mis a jour.",
+                    fallbackTitle: "Succes"
+                  })
+                : entityType === "transporter"
+                  ? getMessage("TRANSPORTER_UPDATE_SUCCESS", {
+                      fallbackText: "Transporteur mis a jour.",
+                      fallbackTitle: "Succes"
+                    })
+                  : getMessage("CLIENT_UPDATE_SUCCESS");
+            const getEntityUpdateErrorMessage = (entityType) =>
+              entityType === "vendor"
+                ? getMessage("SUPPLIER_UPDATE_FAILED", {
+                    fallbackText: "Echec de la mise a jour du fournisseur.",
+                    fallbackTitle: "Erreur"
+                  })
+                : entityType === "transporter"
+                  ? getMessage("TRANSPORTER_UPDATE_FAILED", {
+                      fallbackText: "Echec de la mise a jour du transporteur.",
+                      fallbackTitle: "Erreur"
+                    })
+                  : getMessage("CLIENT_UPDATE_FAILED");
 
             const resetClientSearchScope = (scopeNode) => {
               if (!scopeNode) {
@@ -1502,6 +1771,7 @@
                     ? formScope
                     : null;
                 const performReset = () => {
+                  const entityType = resolveScopedClientEntityType(useScope || formScope);
                   const blankClient = { type: "societe", name: "", vat: "", phone: "", email: "", address: "", __path: "" };
                   if (SEM.forms?.fillClientToForm && !useScope) {
                     SEM.forms.fillClientToForm(blankClient);
@@ -1509,11 +1779,17 @@
                     syncClientFormFields(blankClient, useScope);
                   }
                   resetClientSearchScope(formScope);
-                  const st = SEM.state || (SEM.state = {});
-                  st.client = { ...blankClient };
-                  refreshClientSummary();
+                  persistClientEntityDraft(blankClient, useScope || formScope, {
+                    entityType,
+                    mirrorToDocumentState: shouldMirrorEntityStateToDocument(useScope || formScope)
+                  });
+                  if (!shouldMirrorEntityStateToDocument(useScope || formScope)) {
+                    const st = SEM.state || (SEM.state = {});
+                    st.client = st.client || {};
+                  }
                   SEM.clientFormDirty = false;
                   SEM.clientFormAllowUpdate = false;
+                  setClientEntityDirty(entityType, false);
                   if (SEM.setClientFormBaseline) SEM.setClientFormBaseline(null);
                   else SEM.refreshUpdateClientButton?.();
                   if (SEM.evaluateClientDirtyState) SEM.evaluateClientDirtyState();
@@ -1591,9 +1867,9 @@
               evt.preventDefault();
               clientSaveInProgress = true;
               setSaveButtonBusyState(trigger, true);
-              const entityType = resolveClientEntityType(formScope);
+              const entityType = resolveScopedClientEntityType(formScope, trigger);
               const client = captureClientSnapshotFromScope(formScope);
-              applyClientSnapshotToState(client);
+              applyClientSnapshotToState(client, formScope, { entityType });
               evaluateClientDirtyFromSnapshot(client, formScope);
               try {
                 const clientName = String(client.name || "").trim();
@@ -1606,8 +1882,14 @@
                   client.nif
                 ];
                 const hasIdentifier = identifierCandidates.some((value) => String(value || "").trim().length > 0);
-                if (!clientName && !clientAccount && !hasIdentifier) {
-                  const validationMessage = getMessage("CLIENT_REQUIRED_FIELDS");
+                const hasMinimalIdentity =
+                  entityType === "vendor"
+                    ? !!(clientName || hasIdentifier)
+                    : entityType === "transporter"
+                      ? !!(clientName || clientAccount)
+                    : !!(clientName || clientAccount || hasIdentifier);
+                if (!hasMinimalIdentity) {
+                  const validationMessage = getEntityValidationMessage(entityType);
                   await showDialog?.(validationMessage.text, { title: validationMessage.title });
                   return;
                 }
@@ -1645,18 +1927,22 @@
                   client.vat ||
                   client.email ||
                   client.phone ||
-                  "client";
+                  getEntitySuggestedNameFallback(entityType);
                 const res = await window.electronAPI.saveClientDirect({
                   client,
                   suggestedName: suggested,
                   entityType
                 });
                 if (res?.ok) {
-                  const resolvedPath = res.path || client.__path || SEM.state?.client?.__path || "";
+                  const getEntityState = getClientBindingHelpers().getEntityClientFormState;
+                  const entityState =
+                    typeof getEntityState === "function" ? getEntityState(entityType) : {};
+                  const resolvedPath = res.path || client.__path || entityState.__path || "";
                   if (resolvedPath) client.__path = resolvedPath;
-                  const st = SEM.state || (SEM.state = {});
-                  st.client = { ...(st.client || {}), ...client, __path: client.__path || st.client?.__path || "" };
-                  refreshClientSummary();
+                  applyClientSnapshotToState(client, formScope, {
+                    entityType,
+                    mirrorToDocumentState: shouldMirrorEntityStateToDocument(formScope)
+                  });
                   if (SEM.setClientFormBaseline) {
                     const snapshotBase = sanitizeClientSnapshot({ ...client, __path: client.__path || "" });
                     SEM.setClientFormBaseline(snapshotBase, entityType);
@@ -1685,19 +1971,19 @@
                     const targetPage = Math.max(1, clientSavedModalState.page || 1);
                     fetchSavedClientsPage(targetPage);
                   }
-                  const successMessage = getMessage("CLIENT_SAVE_SUCCESS");
+                  const successMessage = getEntitySaveSuccessMessage(entityType);
                   if (typeof w.showToast === "function") {
                     w.showToast(successMessage.text);
                   } else {
                     await showDialog?.(successMessage.text, { title: successMessage.title });
                   }
                 } else if (!res?.canceled) {
-                  const saveError = getMessage("CLIENT_SAVE_FAILED");
+                  const saveError = getEntitySaveErrorMessage(entityType);
                   await showDialog?.(res?.error || saveError.text, { title: saveError.title });
                 }
               } catch (err) {
                 console.error(err);
-                const saveError = getMessage("CLIENT_SAVE_FAILED");
+                const saveError = getEntitySaveErrorMessage(entityType);
                 await showDialog?.(saveError.text, { title: saveError.title });
               } finally {
                 clientSaveInProgress = false;
@@ -1712,35 +1998,38 @@
               if (!trigger) return;
               if (SEM.clientUpdateInProgress || trigger.dataset.updateInProgress === "1") return;
               const formScope = trigger.closest(CLIENT_SCOPE_WITH_ROOT_SELECTOR);
-              const entityType = resolveClientEntityType(formScope);
+              const entityType = resolveScopedClientEntityType(formScope, trigger);
               const snapshot = captureClientSnapshotFromScope(formScope);
-              applyClientSnapshotToState(snapshot);
+              applyClientSnapshotToState(snapshot, formScope, { entityType });
               evaluateClientDirtyFromSnapshot(snapshot, formScope);
               if (!window.electronAPI?.updateClientDirect) {
-                const unavailable = getMessage("CLIENT_UPDATE_UNAVAILABLE");
+                const unavailable = getEntityUpdateUnavailableMessage(entityType);
                 await showDialog?.(unavailable.text, { title: unavailable.title });
                 return;
               }
               const baseline = SEM.clientFormBaseline;
-              if (!baseline?.__path) {
-                const loadPrompt = getMessage("CLIENT_LOAD_OR_SAVE_REQUIRED");
+              if (!baseline?.__path || SEM.clientFormBaselineEntityType !== entityType) {
+                const loadPrompt = getEntityLoadOrSaveRequiredMessage(entityType);
                 await showDialog?.(loadPrompt.text, { title: loadPrompt.title });
                 return;
               }
               if (SEM.clientFormAllowUpdate === false) {
-                const loadPrompt = getMessage("CLIENT_LOAD_OR_SAVE_REQUIRED");
+                const loadPrompt = getEntityLoadOrSaveRequiredMessage(entityType);
                 await showDialog?.(loadPrompt.text, { title: loadPrompt.title });
                 return;
               }
               if (!SEM.clientFormDirty) {
-                const noChanges = getMessage("CLIENT_NO_CHANGES");
+                const noChanges = getEntityNoChangesMessage(entityType);
                 await showDialog?.(noChanges.text, { title: noChanges.title });
                 return;
               }
               const client = { ...snapshot };
-              const path = baseline.__path || client.__path || SEM.state?.client?.__path || "";
+              const getEntityState = getClientBindingHelpers().getEntityClientFormState;
+              const entityState =
+                typeof getEntityState === "function" ? getEntityState(entityType) : {};
+              const path = baseline.__path || client.__path || entityState.__path || "";
               if (!path) {
-                const pathMissing = getMessage("CLIENT_PATH_MISSING");
+                const pathMissing = getEntityPathMissingMessage(entityType);
                 await showDialog?.(pathMissing.text, { title: pathMissing.title });
                 return;
               }
@@ -1752,7 +2041,7 @@
                   client.vat ||
                   client.email ||
                   client.phone ||
-                  "client";
+                  getEntitySuggestedNameFallback(entityType);
                 const res = await window.electronAPI.updateClientDirect({
                   client,
                   path,
@@ -1762,9 +2051,10 @@
                 if (res?.ok) {
                   const resolvedPath = res.path || path;
                   client.__path = resolvedPath;
-                  const st = SEM.state || (SEM.state = {});
-                  st.client = { ...(st.client || {}), ...client, __path: resolvedPath };
-                  refreshClientSummary();
+                  applyClientSnapshotToState(client, formScope, {
+                    entityType,
+                    mirrorToDocumentState: shouldMirrorEntityStateToDocument(formScope)
+                  });
                   if (
                     !formScope ||
                     (formScope.id !== "clientBoxNewDoc" &&
@@ -1796,15 +2086,15 @@
                     const targetPage = Math.max(1, clientSavedModalState.page || 1);
                     fetchSavedClientsPage(targetPage);
                   }
-                  const updateSuccess = getMessage("CLIENT_UPDATE_SUCCESS");
+                  const updateSuccess = getEntityUpdateSuccessMessage(entityType);
                   await showDialog?.(updateSuccess.text, { title: updateSuccess.title });
                 } else if (!res?.canceled) {
-                  const updateError = getMessage("CLIENT_UPDATE_FAILED");
+                  const updateError = getEntityUpdateErrorMessage(entityType);
                   await showDialog?.(res?.error || updateError.text, { title: updateError.title });
                 }
               } catch (err) {
                 console.error(err);
-                const updateError = getMessage("CLIENT_UPDATE_FAILED");
+                const updateError = getEntityUpdateErrorMessage(entityType);
                 await showDialog?.(updateError.text, { title: updateError.title });
               } finally {
                 setUpdateButtonBusyState(trigger, false, formScope);
