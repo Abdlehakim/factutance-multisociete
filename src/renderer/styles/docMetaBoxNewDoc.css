@@ -845,6 +845,29 @@
   min-height: 42px;
 }
 
+.items-be-reception-form__input-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.items-be-reception-form__input-group input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.items-be-reception-form__picker-btn.client-search__saved {
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+}
+
+.items-be-reception-form__picker-btn.client-search__saved svg {
+  width: 20px;
+  height: 20px;
+}
+
 .items-be-reception-form__field .swb-date-picker {
   width: 100%;
 }

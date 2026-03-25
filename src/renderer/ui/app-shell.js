@@ -8,6 +8,7 @@ import { renderGeneralDataSection } from "./GeneralDataSection.js";
 import { renderItemsSectionPreview } from "./itemsSectionPreview.js";
 import { renderDocOptions } from "./DocOptions.js";
 import { renderNotesView } from "./NotesView.js";
+import "./beReceptionTimeField.js";
 import { wireClientTabs } from "./client-tabs.js";
 import { wireAddItemTabs } from "./addItemBoxMainscreen.js";
 import { html } from "./utils.js";

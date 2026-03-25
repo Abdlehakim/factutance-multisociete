@@ -627,6 +627,78 @@
       sourceRef: "beReceptionSourceInput"
     };
     const ITEMS_BE_RECEPTION_TIME_PANEL_ID = "beReceptionTimePanel";
+    const ITEMS_BE_RECEPTION_SOURCE_PICKER_ID = "beReceptionSourcePickerBtn";
+    const ITEMS_BE_RECEPTION_SOURCE_DOC_TYPE_LABELS = {
+      fa: "Facture d'achat",
+      bc: "Bon de commande"
+    };
+    const ITEMS_BE_RECEPTION_SOURCE_DOC_TYPE_CHOICES = [
+      { docType: "fa", label: ITEMS_BE_RECEPTION_SOURCE_DOC_TYPE_LABELS.fa },
+      { docType: "bc", label: ITEMS_BE_RECEPTION_SOURCE_DOC_TYPE_LABELS.bc }
+    ];
+    const normalizeItemsModalBeReceptionSourceDocType = (value) => {
+      const raw = String(value || "").trim().toLowerCase();
+      const aliases = {
+        fa: "fa",
+        factureachat: "fa",
+        "facture d'achat": "fa",
+        "facture_achat": "fa",
+        "facture-achat": "fa",
+        bc: "bc",
+        bondecommande: "bc",
+        "bon de commande": "bc",
+        "bon_de_commande": "bc",
+        "bon-de-commande": "bc"
+      };
+      return aliases[raw] || "";
+    };
+    const normalizeItemsModalBeReceptionSourceSelection = (value) => {
+      const raw = value && typeof value === "object" ? value : {};
+      const rawItems = Array.isArray(raw.items)
+        ? raw.items
+        : Array.isArray(raw.documents)
+          ? raw.documents
+          : [];
+      const normalizedItems = rawItems
+        .map((entry, index) => {
+          const item = entry && typeof entry === "object" ? entry : {};
+          const id = String(item.id || "").trim();
+          const path = String(item.path || "").trim();
+          const number = String(item.number || "").trim();
+          const date = String(item.date || "").trim();
+          const displayName = String(item.displayName || item.name || number || "").trim() || `Document ${index + 1}`;
+          const docType = normalizeItemsModalBeReceptionSourceDocType(
+            item.docType || item.type || raw.docType || raw.type || ""
+          );
+          const key =
+            String(item.key || "").trim() ||
+            (id ? `id:${id}` : path ? `path:${path}` : number ? `number:${number}:${index}` : `idx:${index}`);
+          if (!id && !path && !number && !displayName) return null;
+          return { key, id, path, number, date, displayName, docType };
+        })
+        .filter(Boolean);
+      const docType = normalizeItemsModalBeReceptionSourceDocType(
+        raw.docType || raw.type || normalizedItems[0]?.docType || ""
+      );
+      if (!normalizedItems.length || !docType) return null;
+      return {
+        docType,
+        items: normalizedItems.map((item) => ({
+          ...item,
+          docType: item.docType || docType
+        }))
+      };
+    };
+    const formatItemsModalBeReceptionSourceSelectionText = (selection) => {
+      const normalized = normalizeItemsModalBeReceptionSourceSelection(selection);
+      if (!normalized) return "";
+      const label = ITEMS_BE_RECEPTION_SOURCE_DOC_TYPE_LABELS[normalized.docType] || "Document";
+      const refs = normalized.items
+        .map((item) => String(item.number || item.displayName || "").trim())
+        .filter(Boolean);
+      if (!refs.length) return label;
+      return `${label} : ${refs.join(", ")}`;
+    };
     const formatItemsModalReceptionTime = (value = new Date()) => {
       const date = value instanceof Date ? value : new Date(value);
       const safeDate = Number.isFinite(date.getTime()) ? date : new Date();
@@ -647,6 +719,13 @@
       `${String(Math.max(0, Math.min(23, Number(hour) || 0))).padStart(2, "0")}:${String(
         Math.max(0, Math.min(59, Number(minute) || 0))
       ).padStart(2, "0")}`;
+    const renderItemsModalBeReceptionTimeField = () =>
+      typeof w.BeReceptionTimeField?.render === "function"
+        ? w.BeReceptionTimeField.render({
+            inputId: ITEMS_BE_RECEPTION_FIELDS.time,
+            panelId: ITEMS_BE_RECEPTION_TIME_PANEL_ID
+          })
+        : "";
     const ensureItemsModalBeReceptionMeta = (metaInput = null) => {
       const meta =
         metaInput && typeof metaInput === "object"
@@ -672,8 +751,14 @@
             raw.source ??
             meta.beSourceRef ??
             ""
-        ).trim()
+        ).trim(),
+        sourceSelection: normalizeItemsModalBeReceptionSourceSelection(
+          raw.sourceSelection ?? raw.sourceDocuments ?? raw.sourceDocs ?? meta.beSourceSelection ?? null
+        )
       };
+      if (!normalized.sourceRef && normalized.sourceSelection) {
+        normalized.sourceRef = formatItemsModalBeReceptionSourceSelectionText(normalized.sourceSelection);
+      }
       if (docType === "be") {
         if (!normalized.date) {
           normalized.date = String(meta.date || "").trim() || new Date().toISOString().slice(0, 10);
@@ -1185,68 +1270,81 @@
                 ></div>
               </div>
             </label>
-            <label class="items-be-reception-form__field">
-              <span>Heure</span>
-              <div class="swb-time-picker" data-time-picker="">
-                <input
-                  id="${ITEMS_BE_RECEPTION_FIELDS.time}"
-                  type="text"
-                  inputmode="numeric"
-                  placeholder="HH:MM"
-                  autocomplete="off"
-                  spellcheck="false"
-                  aria-haspopup="dialog"
-                  aria-expanded="false"
-                  role="combobox"
-                  aria-controls="${ITEMS_BE_RECEPTION_TIME_PANEL_ID}"
-                />
-                <button
-                  type="button"
-                  class="swb-time-picker__toggle"
-                  data-time-picker-toggle=""
-                  aria-label="Choisir une heure de r&eacute;ception"
-                  aria-haspopup="dialog"
-                  aria-expanded="false"
-                  aria-controls="${ITEMS_BE_RECEPTION_TIME_PANEL_ID}"
-                >
-                  <svg
-                    class="swb-time-picker__toggle-icon"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    aria-hidden="true"
-                    focusable="false"
-                  >
-                    <circle cx="12" cy="12" r="8.5" />
-                    <path d="M12 7.75v4.5l2.75 1.75" stroke-linecap="round" stroke-linejoin="round" />
-                  </svg>
-                </button>
-                <div
-                  class="swb-time-picker__panel"
-                  data-time-picker-panel=""
-                  role="dialog"
-                  aria-modal="false"
-                  aria-label="Choisir une heure"
-                  tabindex="-1"
-                  id="${ITEMS_BE_RECEPTION_TIME_PANEL_ID}"
-                  hidden
-                ></div>
-              </div>
-            </label>
+            ${renderItemsModalBeReceptionTimeField()}
             <label class="items-be-reception-form__field items-be-reception-form__field--wide" for="${ITEMS_BE_RECEPTION_FIELDS.sourceRef}">
               <span>R&eacute;f&eacute;rence source</span>
-              <input
-                id="${ITEMS_BE_RECEPTION_FIELDS.sourceRef}"
-                type="text"
-                placeholder="ex : BL fournisseur / Bon de commande / Facture d&apos;achat"
-                autocomplete="off"
-              />
+              <div class="items-be-reception-form__input-group">
+                <input
+                  id="${ITEMS_BE_RECEPTION_FIELDS.sourceRef}"
+                  type="text"
+                  placeholder="ex : BL fournisseur / Bon de commande / Facture d&apos;achat"
+                  autocomplete="off"
+                />
+                <button
+                  id="${ITEMS_BE_RECEPTION_SOURCE_PICKER_ID}"
+                  type="button"
+                  class="client-search__saved items-be-reception-form__picker-btn"
+                  aria-label="S&eacute;lectionner un document source"
+                  aria-haspopup="dialog"
+                  title="S&eacute;lectionner un document source"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
+                    <circle cx="5" cy="6" r="1.5"></circle>
+                    <circle cx="5" cy="12" r="1.5"></circle>
+                    <circle cx="5" cy="18" r="1.5"></circle>
+                    <line x1="9" y1="6" x2="20" y2="6" stroke-linecap="round"></line>
+                    <line x1="9" y1="12" x2="20" y2="12" stroke-linecap="round"></line>
+                    <line x1="9" y1="18" x2="20" y2="18" stroke-linecap="round"></line>
+                  </svg>
+                </button>
+              </div>
             </label>
           </div>
         </fieldset>
       `.trim();
       return template.content.firstElementChild;
+    };
+    const applyItemsModalBeReceptionSourceSelection = (section, selection) => {
+      const meta = getInvoiceMeta() || {};
+      const reception = ensureItemsModalBeReceptionMeta(meta);
+      const normalizedSelection = normalizeItemsModalBeReceptionSourceSelection(selection);
+      reception.sourceSelection = normalizedSelection;
+      reception.sourceRef = normalizedSelection
+        ? formatItemsModalBeReceptionSourceSelectionText(normalizedSelection)
+        : "";
+      meta.beReception = reception;
+      const sourceInput = section?.querySelector?.(`#${ITEMS_BE_RECEPTION_FIELDS.sourceRef}`) || null;
+      if (sourceInput && sourceInput.value !== reception.sourceRef) {
+        sourceInput.value = reception.sourceRef;
+      }
+      if (typeof SEM.refreshInvoiceSummary === "function") {
+        SEM.refreshInvoiceSummary();
+      }
+    };
+    const openItemsModalBeReceptionSourcePicker = async (trigger, section) => {
+      const pickerApi = w.AppInit?.BonEntreeSourceDocumentPicker?.open;
+      if (typeof pickerApi !== "function") {
+        await w.showDialog?.("Selection de document indisponible.", { title: "Erreur" });
+        return;
+      }
+      const meta = getInvoiceMeta() || {};
+      const reception = ensureItemsModalBeReceptionMeta(meta);
+      const fallbackDocType =
+        normalizeItemsModalBeReceptionSourceDocType(reception?.sourceSelection?.docType) || "fa";
+      const res = await pickerApi(trigger, {
+        choices: ITEMS_BE_RECEPTION_SOURCE_DOC_TYPE_CHOICES,
+        fallbackDocType,
+        initialSelection: reception?.sourceSelection || null,
+        sourceChooserTitle: "Selectionner un document",
+        sourceChooserMessage:
+          "Choisissez le type de document source pour la reference de reception :",
+        searchPlaceholder: "Rechercher par numero"
+      });
+      if (!res?.ok || !Array.isArray(res.items) || !res.items.length) return;
+      applyItemsModalBeReceptionSourceSelection(section, {
+        docType: res.docType,
+        items: res.items
+      });
     };
     const syncItemsModalBeReceptionBoxFromState = (section = getItemsModalBeReceptionBox()) => {
       if (!section) return false;
@@ -1255,6 +1353,7 @@
       const reception = ensureItemsModalBeReceptionMeta(meta);
       ensureItemsModalBeReceptionDatePicker(section);
       const timePicker = ensureItemsModalBeReceptionTimePicker(section);
+      const sourcePickerBtn = section.querySelector(`#${ITEMS_BE_RECEPTION_SOURCE_PICKER_ID}`);
       Object.entries(ITEMS_BE_RECEPTION_FIELDS).forEach(([key, id]) => {
         const input = section.querySelector(`#${id}`);
         if (!input) return;
@@ -1267,6 +1366,10 @@
           input.value = nextValue;
         }
       });
+      if (sourcePickerBtn) {
+        sourcePickerBtn.disabled = !isBonEntree;
+        sourcePickerBtn.setAttribute("aria-hidden", isBonEntree ? "false" : "true");
+      }
       section.hidden = !isBonEntree;
       section.setAttribute("aria-hidden", isBonEntree ? "false" : "true");
       section.style.display = isBonEntree ? "" : "none";
@@ -1292,6 +1395,12 @@
           const meta = getInvoiceMeta() || {};
           const reception = ensureItemsModalBeReceptionMeta(meta);
           reception[key] = String(input.value || "").trim();
+          if (key === "sourceRef") {
+            const selectedText = formatItemsModalBeReceptionSourceSelectionText(reception.sourceSelection);
+            if (!reception[key] || reception[key] !== selectedText) {
+              reception.sourceSelection = null;
+            }
+          }
           meta.beReception = reception;
           if (typeof SEM.refreshInvoiceSummary === "function") {
             SEM.refreshInvoiceSummary();
@@ -1299,6 +1408,10 @@
         };
         input.addEventListener("input", syncValue);
         input.addEventListener("change", syncValue);
+      });
+      const sourcePickerBtn = section.querySelector(`#${ITEMS_BE_RECEPTION_SOURCE_PICKER_ID}`);
+      sourcePickerBtn?.addEventListener("click", () => {
+        void openItemsModalBeReceptionSourcePicker(sourcePickerBtn, section);
       });
     };
 

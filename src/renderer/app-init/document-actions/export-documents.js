@@ -110,6 +110,8 @@
     const normalizedFallback = normalizeDocTypeStrict(fallback);
     return normalizedFallback || "facture";
   };
+  const normalizeModalMode = (value) =>
+    String(value || "").trim().toLowerCase() === "select" ? "select" : "export";
 
   const docTypeLabel = (value) => DOC_TYPE_LABELS[normalizeDocType(value)] || "Document";
   const normalizeEmailText = (value) => String(value ?? "").trim().replace(/\s+/g, "");
@@ -486,6 +488,8 @@
     const selectAllBtn = modal.querySelector(`#${SELECT_ALL_ID}`);
     const unselectAllBtn = modal.querySelector(`#${UNSELECT_ALL_ID}`);
     const confirmExportBtn = modal.querySelector(`#${CONFIRM_EXPORT_ID}`);
+    const postBodyTools = modal.querySelector(".doc-bulk-export-modal__post-body-tools");
+    const postBodySecondary = modal.querySelector(".doc-bulk-export-modal__post-body-secondary");
     const openLocationInput = modal.querySelector(`#${OPEN_LOCATION_ID}`);
     const sendEmailInput = modal.querySelector(`#${EMAIL_ENABLED_ID}`);
     const emailModal = ensureEmailModal();
@@ -517,6 +521,10 @@
 
     const state = {
       docType: "facture",
+      mode: "export",
+      titlePrefix: "Exporter des documents",
+      confirmLabel: "Exporter PDF",
+      searchPlaceholder: "Rechercher par numero",
       busy: false,
       loading: false,
       error: "",
@@ -542,6 +550,32 @@
       pendingPromise: null,
       resolvePending: null,
       restoreFocus: null
+    };
+    const isSelectionMode = () => state.mode === "select";
+    const syncModeUi = () => {
+      const selectionMode = isSelectionMode();
+      modal.classList.toggle("is-selection-mode", selectionMode);
+      if (postBodyTools) {
+        postBodyTools.dataset.mode = state.mode;
+      }
+      if (postBodySecondary) {
+        postBodySecondary.hidden = selectionMode;
+        postBodySecondary.setAttribute("aria-hidden", selectionMode ? "true" : "false");
+      }
+      if (confirmExportBtn) {
+        confirmExportBtn.textContent =
+          String(
+            state.confirmLabel ||
+              (selectionMode ? "Selectionner" : "Exporter PDF")
+          ).trim() || (selectionMode ? "Selectionner" : "Exporter PDF");
+      }
+      if (searchInput) {
+        const placeholder =
+          String(state.searchPlaceholder || "Rechercher par numero").trim() ||
+          "Rechercher par numero";
+        searchInput.placeholder = placeholder;
+        searchInput.setAttribute("aria-label", placeholder);
+      }
     };
 
     const normalizeSearchValue = (value) => String(value || "").trim().toLowerCase();
@@ -894,6 +928,16 @@
         return;
       }
       const selected = selectedCount();
+      if (isSelectionMode()) {
+        if (hasActiveFilters()) {
+          setStatus(
+            `${selected} document(s) selectionne(s) sur ${total} resultat(s) (${totalEntriesCount()} total).`
+          );
+          return;
+        }
+        setStatus(`${selected} document(s) selectionne(s) sur ${total}.`);
+        return;
+      }
       if (hasActiveFilters()) {
         setStatus(
           `${selected} document(s) selectionne(s) pour export sur ${total} resultat(s) (${totalEntriesCount()} total).`
@@ -996,7 +1040,13 @@
     const setDocType = (value) => {
       state.docType = normalizeDocType(value, state.docType || "facture");
       const label = sourceLabel();
-      if (titleEl) titleEl.textContent = `Exporter des documents - ${label}`;
+      const prefix =
+        String(
+          state.titlePrefix ||
+            (isSelectionMode() ? "Selectionner un document" : "Exporter des documents")
+        ).trim() || (isSelectionMode() ? "Selectionner un document" : "Exporter des documents");
+      if (titleEl) titleEl.textContent = `${prefix} - ${label}`;
+      syncModeUi();
     };
 
     const applyEntries = (items, { preserveSelection = false } = {}) => {
@@ -1480,6 +1530,26 @@
       await loadEntries({ preserveSelection: false });
     };
 
+    const confirmCurrentSelection = async () => {
+      if (state.busy) return;
+      if (!isSelectionMode()) {
+        await confirmExportSelection();
+        return;
+      }
+      const selectedEntries = getSelectedEntries();
+      if (!selectedEntries.length) return;
+      closeModal({
+        ok: true,
+        canceled: false,
+        docType: state.docType,
+        items: selectedEntries.map((entry) => ({
+          ...entry,
+          docType: state.docType,
+          docTypeLabel: sourceLabel()
+        }))
+      });
+    };
+
     const onKeydown = (evt) => {
       if (evt.key !== "Escape") return;
       evt.preventDefault();
@@ -1517,7 +1587,7 @@
       syncPagerControls();
     };
 
-    const openModal = async ({ docType, trigger } = {}) => {
+    const openModal = async ({ docType, trigger, mode, titlePrefix, confirmLabel, searchPlaceholder } = {}) => {
       if (state.pendingPromise) return state.pendingPromise;
 
       state.pendingPromise = new Promise((resolve) => {
@@ -1532,6 +1602,19 @@
 
       state.selectedKeys.clear();
       state.entries = [];
+      state.mode = normalizeModalMode(mode);
+      state.titlePrefix =
+        String(
+          titlePrefix ||
+            (state.mode === "select" ? "Selectionner un document" : "Exporter des documents")
+        ).trim() || (state.mode === "select" ? "Selectionner un document" : "Exporter des documents");
+      state.confirmLabel =
+        String(
+          confirmLabel ||
+            (state.mode === "select" ? "Selectionner" : "Exporter PDF")
+        ).trim() || (state.mode === "select" ? "Selectionner" : "Exporter PDF");
+      state.searchPlaceholder =
+        String(searchPlaceholder || "Rechercher par numero").trim() || "Rechercher par numero";
       state.searchNumber = "";
       state.yearFilter = getCurrentYearValue();
       state.error = "";
@@ -1543,6 +1626,7 @@
         openLocationInput.checked = false;
         if (!canOpenExportFolder) openLocationInput.disabled = true;
       }
+      syncModeUi();
       setDocType(docType || "facture");
       if (sendEmailInput) sendEmailInput.checked = false;
       if (emailComposerState.pendingPromise && !emailComposerState.busy) {
@@ -1575,7 +1659,7 @@
     selectAllBtn?.addEventListener("click", selectAllEntries);
     unselectAllBtn?.addEventListener("click", unselectAll);
     confirmExportBtn?.addEventListener("click", () => {
-      void confirmExportSelection();
+      void confirmCurrentSelection();
     });
     sendEmailInput?.addEventListener("change", () => {
       syncEmailControls();
@@ -1667,7 +1751,12 @@
     return modalController;
   };
 
-  const chooseDocumentSource = async ({ choices, fallbackDocType }) => {
+  const chooseDocumentSource = async ({
+    choices,
+    fallbackDocType,
+    title = "Selectionner un document",
+    message = "Choisissez la source de document a exporter :"
+  }) => {
     const normalizedChoices = toDocTypeChoices(choices);
     const fallback = normalizeDocType(
       fallbackDocType || normalizedChoices[0]?.docType || "facture",
@@ -1680,8 +1769,8 @@
     let pickedIndex = null;
     try {
       pickedIndex = await w.showOptionsDialog({
-        title: "Selectionner un document",
-        message: "Choisissez la source de document a exporter :",
+        title,
+        message,
         options: normalizedChoices.map((entry) => ({
           label: entry.label,
           value: entry.docType
@@ -1711,7 +1800,47 @@
       await w.showDialog?.("Fenetre d'export indisponible.", { title: "Erreur" });
       return { ok: false, canceled: false };
     }
-    return await controller.open({ docType: pickedDocType, trigger });
+    return await controller.open({
+      docType: pickedDocType,
+      trigger,
+      mode: "export",
+      titlePrefix: "Exporter des documents",
+      confirmLabel: "Exporter PDF",
+      searchPlaceholder: "Rechercher par numero"
+    });
+  };
+
+  const openDocumentSelection = async (trigger = null, options = {}) => {
+    const choices = toDocTypeChoices(options.docTypeChoices || options.choices);
+    const fallbackDocType = normalizeDocType(
+      options.fallbackDocType || choices[0]?.docType || "facture",
+      choices[0]?.docType || "facture"
+    );
+    const pickedDocType = options.docType
+      ? normalizeDocType(options.docType, fallbackDocType)
+      : await chooseDocumentSource({
+          choices,
+          fallbackDocType,
+          title: options.sourceChooserTitle || "Selectionner un document",
+          message:
+            options.sourceChooserMessage || "Choisissez le type de document source :"
+        });
+    if (!pickedDocType) {
+      return { ok: false, canceled: true };
+    }
+    const controller = createModalController();
+    if (!controller || typeof controller.open !== "function") {
+      await w.showDialog?.("Fenetre de selection indisponible.", { title: "Erreur" });
+      return { ok: false, canceled: false };
+    }
+    return await controller.open({
+      docType: pickedDocType,
+      trigger,
+      mode: "select",
+      titlePrefix: options.titlePrefix || "Selectionner un document",
+      confirmLabel: options.confirmLabel || "Selectionner",
+      searchPlaceholder: options.searchPlaceholder || "Rechercher par numero"
+    });
   };
 
   AppInit.registerDocumentBulkExportActions = function registerDocumentBulkExportActions(ctx = {}) {
@@ -1729,7 +1858,8 @@
       openDocumentBulkExport(
         trigger,
         options.docTypeChoices || options.choices || DEFAULT_DOC_TYPE_CHOICES
-      )
+      ),
+    select: (trigger = null, options = {}) => openDocumentSelection(trigger, options)
   };
 })(window);
 

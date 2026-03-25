@@ -1,0 +1,233 @@
+#beSourceDocumentPickerModal {
+  --be-source-picker-filter-height: 42px;
+}
+
+#beSourceDocumentPickerModal .be-source-document-picker-modal__panel {
+  width: min(980px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 10px);
+}
+
+#beSourceDocumentPickerModal .be-source-document-picker-modal__body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1 1 auto;
+  min-height: 560px;
+  max-height: min(78vh, 860px);
+  overflow: hidden;
+}
+
+#beSourceDocumentPickerModal .be-source-document-picker-modal__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+#beSourceDocumentPickerModal .be-source-document-picker-modal__filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+  flex: 1 1 460px;
+  min-width: 280px;
+}
+
+#beSourceDocumentPickerModal .be-source-document-picker-modal__search {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1 1 250px;
+  min-width: 220px;
+  max-width: 340px;
+}
+
+#beSourceDocumentPickerModal .be-source-document-picker-modal__year {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 0 0 130px;
+  min-width: 120px;
+}
+
+#beSourceDocumentPickerModal .be-source-document-picker-modal__year .doc-dialog-model-picker__field {
+  width: 100%;
+}
+
+#beSourceDocumentPickerModal .be-source-document-picker-modal__search-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+#beSourceDocumentPickerModal .be-source-document-picker-modal__search-input {
+  min-height: var(--be-source-picker-filter-height);
+  border: 1px solid #caddff;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: #0f172a;
+  background: #ffffff;
+  box-sizing: border-box;
+}
+
+#beSourceDocumentPickerModal .be-source-document-picker-modal__search-input:focus {
+  outline: none;
+  border-color: #93b6ed;
+  box-shadow: 0 0 0 2px rgba(20, 70, 160, 0.12);
+}
+
+#beSourceDocumentPickerModal .be-source-document-picker-modal__year .doc-history-model-menu .field-toggle-trigger {
+  min-height: var(--be-source-picker-filter-height);
+  box-sizing: border-box;
+}
+
+#beSourceDocumentPickerModal .be-source-document-picker-modal__selection-tools {
+  display: grid;
+  gap: 8px;
+}
+
+#beSourceDocumentPickerModal .be-source-document-picker-modal__selection-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+#beSourceDocumentPickerModal .be-source-document-picker-modal__selection-buttons .client-search__edit {
+  min-width: 126px;
+}
+
+#beSourceDocumentPickerModal .be-source-document-picker-modal__grid.doc-history-modal__list {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  align-content: center;
+  margin: 0;
+  padding: 2px;
+  min-height: 430px;
+  max-height: min(70vh, 760px);
+  overflow: auto;
+}
+
+#beSourceDocumentPickerModal .be-source-document-picker-modal__card {
+  border: 1px solid #cfe0ff;
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  height: fit-content;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+#beSourceDocumentPickerModal .be-source-document-picker-modal__card:hover {
+  border-color: #9ab7eb;
+  box-shadow: 0 4px 14px rgba(21, 51, 94, 0.14);
+  background: #f9fcff;
+}
+
+#beSourceDocumentPickerModal .be-source-document-picker-modal__checkbox {
+  margin: 0;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+#beSourceDocumentPickerModal .be-source-document-picker-modal__card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+#beSourceDocumentPickerModal .be-source-document-picker-modal__card-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+#beSourceDocumentPickerModal .be-source-document-picker-modal__card-title {
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: #15335e;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+#beSourceDocumentPickerModal .be-source-document-picker-modal__card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-left: 26px;
+}
+
+#beSourceDocumentPickerModal .be-source-document-picker-modal__meta-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #eef4ff;
+  color: #2c4a76;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+#beSourceDocumentPickerModal .be-source-document-picker-modal__status {
+  min-height: 20px;
+}
+
+#beSourceDocumentPickerModal .be-source-document-picker-modal__actions {
+  align-items: center;
+}
+
+#beSourceDocumentPickerModal .be-source-document-picker-modal__actions-right {
+  margin-left: auto;
+}
+
+#beSourceDocumentPickerModal .be-source-document-picker-modal__actions-right .client-search__add {
+  min-width: 126px;
+}
+
+@media (max-width: 1200px) {
+  #beSourceDocumentPickerModal .be-source-document-picker-modal__grid.doc-history-modal__list {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 960px) {
+  #beSourceDocumentPickerModal .be-source-document-picker-modal__grid.doc-history-modal__list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  #beSourceDocumentPickerModal .be-source-document-picker-modal__filters {
+    min-width: 0;
+  }
+
+  #beSourceDocumentPickerModal .be-source-document-picker-modal__grid.doc-history-modal__list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #beSourceDocumentPickerModal .be-source-document-picker-modal__actions {
+    gap: 10px;
+  }
+}
+
+@media (max-width: 560px) {
+  #beSourceDocumentPickerModal .be-source-document-picker-modal__panel {
+    width: min(100vw - 12px, 980px);
+  }
+
+  #beSourceDocumentPickerModal .be-source-document-picker-modal__grid.doc-history-modal__list {
+    grid-template-columns: 1fr;
+  }
+}

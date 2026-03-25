@@ -233,6 +233,73 @@
     const minutes = String(safeDate.getMinutes()).padStart(2, "0");
     return `${hours}:${minutes}`;
   };
+  const BON_ENTREE_SOURCE_DOC_TYPE_LABELS = {
+    fa: "Facture d'achat",
+    bc: "Bon de commande"
+  };
+  const normalizeBonEntreeSourceDocType = (value) => {
+    const raw = String(value || "").trim().toLowerCase();
+    const aliases = {
+      fa: "fa",
+      factureachat: "fa",
+      "facture d'achat": "fa",
+      "facture_achat": "fa",
+      "facture-achat": "fa",
+      bc: "bc",
+      bondecommande: "bc",
+      "bon de commande": "bc",
+      "bon_de_commande": "bc",
+      "bon-de-commande": "bc"
+    };
+    return aliases[raw] || "";
+  };
+  const normalizeBonEntreeSourceSelection = (value) => {
+    const raw = value && typeof value === "object" ? value : {};
+    const rawItems = Array.isArray(raw.items)
+      ? raw.items
+      : Array.isArray(raw.documents)
+        ? raw.documents
+        : [];
+    const items = rawItems
+      .map((entry, index) => {
+        const item = entry && typeof entry === "object" ? entry : {};
+        const id = String(item.id || "").trim();
+        const path = String(item.path || "").trim();
+        const number = String(item.number || "").trim();
+        const date = String(item.date || "").trim();
+        const displayName = String(item.displayName || item.name || number || "").trim() || `Document ${index + 1}`;
+        const docType = normalizeBonEntreeSourceDocType(
+          item.docType || item.type || raw.docType || raw.type || ""
+        );
+        const key =
+          String(item.key || "").trim() ||
+          (id ? `id:${id}` : path ? `path:${path}` : number ? `number:${number}:${index}` : `idx:${index}`);
+        if (!id && !path && !number && !displayName) return null;
+        return { key, id, path, number, date, displayName, docType };
+      })
+      .filter(Boolean);
+    const docType = normalizeBonEntreeSourceDocType(
+      raw.docType || raw.type || items[0]?.docType || ""
+    );
+    if (!items.length || !docType) return null;
+    return {
+      docType,
+      items: items.map((item) => ({
+        ...item,
+        docType: item.docType || docType
+      }))
+    };
+  };
+  const formatBonEntreeSourceSelectionText = (selection) => {
+    const normalized = normalizeBonEntreeSourceSelection(selection);
+    if (!normalized) return "";
+    const label = BON_ENTREE_SOURCE_DOC_TYPE_LABELS[normalized.docType] || "Document";
+    const refs = normalized.items
+      .map((item) => String(item.number || item.displayName || "").trim())
+      .filter(Boolean);
+    if (!refs.length) return label;
+    return `${label} : ${refs.join(", ")}`;
+  };
   const normalizeBonEntreeReceptionMeta = (rawValue = {}, meta = {}) => {
     const raw = rawValue && typeof rawValue === "object" ? rawValue : {};
     const docType = String(meta?.docType || "").trim().toLowerCase();
@@ -254,8 +321,14 @@
           raw.source ??
           meta?.beSourceRef ??
           ""
-      ).trim()
+      ).trim(),
+      sourceSelection: normalizeBonEntreeSourceSelection(
+        raw.sourceSelection ?? raw.sourceDocuments ?? raw.sourceDocs ?? meta?.beSourceSelection ?? null
+      )
     };
+    if (!normalized.sourceRef && normalized.sourceSelection) {
+      normalized.sourceRef = formatBonEntreeSourceSelectionText(normalized.sourceSelection);
+    }
     if (docType === "be") {
       if (!normalized.date) {
         normalized.date = String(meta?.date || "").trim() || new Date().toISOString().slice(0, 10);
