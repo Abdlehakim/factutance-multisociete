@@ -125,6 +125,32 @@ export function renderItemsSectionPreview() {
         </fieldset>
       </div>
 
+      <fieldset id="itemsBeReceptionBlock" class="section-box-pdf items-be-reception" hidden>
+        <legend>Informations de r&eacute;ception</legend>
+        <div class="items-be-reception__grid">
+          <p class="pdf-small pdf-meta-line" id="itemsBeReceptionDepotRow" hidden>
+            <span class="pdf-meta-label">D&eacute;p&ocirc;t / Magasin&nbsp;:</span>
+            <span class="pdf-meta-value is-empty" id="itemsBeReceptionDepot">-</span>
+          </p>
+          <p class="pdf-small pdf-meta-line" id="itemsBeReceptionDateRow" hidden>
+            <span class="pdf-meta-label">Date de r&eacute;ception&nbsp;:</span>
+            <span class="pdf-meta-value is-empty" id="itemsBeReceptionDate">-</span>
+          </p>
+          <p class="pdf-small pdf-meta-line" id="itemsBeReceptionDestinationRow" hidden>
+            <span class="pdf-meta-label">Emplacement de destination&nbsp;:</span>
+            <span class="pdf-meta-value is-empty" id="itemsBeReceptionDestination">-</span>
+          </p>
+          <p class="pdf-small pdf-meta-line" id="itemsBeReceptionTimeRow" hidden>
+            <span class="pdf-meta-label">Heure&nbsp;:</span>
+            <span class="pdf-meta-value is-empty" id="itemsBeReceptionTime">-</span>
+          </p>
+          <p class="pdf-small pdf-meta-line items-be-reception__row--wide" id="itemsBeReceptionSourceRow" hidden>
+            <span class="pdf-meta-label">R&eacute;f&eacute;rence source&nbsp;:</span>
+            <span class="pdf-meta-value is-empty" id="itemsBeReceptionSource">-</span>
+          </p>
+        </div>
+      </fieldset>
+
       <div class="table-wrap tabM">
         <table id="items">
           <thead>

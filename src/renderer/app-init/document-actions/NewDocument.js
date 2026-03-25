@@ -12,6 +12,7 @@
     let itemsDocOptionsRestoreFocus = null;
     let itemsModalMoved = false;
     let itemsModalMode = "new";
+    let syncItemsModalHeaderLayoutForDocType = null;
     const movableRefs = {
       itemsSection: { node: null, parent: null, next: null },
       docOptions: { node: null, parent: null, next: null }
@@ -508,6 +509,10 @@
       if (typeof SEM?.refreshInvoiceSummary === "function") {
         SEM.refreshInvoiceSummary();
       }
+      if (typeof syncItemsModalHeaderLayoutForDocType === "function") {
+        syncItemsModalHeaderLayoutForDocType(docTypeValue);
+      }
+      syncItemsModalBeReceptionBoxFromState();
       return true;
     };
 
@@ -611,6 +616,690 @@
       const acompteDue =
         acompteBox.querySelector?.("#acompteDue") || getEl("acompteDue");
       if (acompteDue) acompteDue.disabled = disabled;
+    };
+
+    const ITEMS_BE_RECEPTION_BOX_ID = "beReceptionBoxNewDoc";
+    const ITEMS_BE_RECEPTION_FIELDS = {
+      depot: "beReceptionDepotInput",
+      destination: "beReceptionDestinationInput",
+      date: "beReceptionDateInput",
+      time: "beReceptionTimeInput",
+      sourceRef: "beReceptionSourceInput"
+    };
+    const ITEMS_BE_RECEPTION_TIME_PANEL_ID = "beReceptionTimePanel";
+    const formatItemsModalReceptionTime = (value = new Date()) => {
+      const date = value instanceof Date ? value : new Date(value);
+      const safeDate = Number.isFinite(date.getTime()) ? date : new Date();
+      return `${String(safeDate.getHours()).padStart(2, "0")}:${String(safeDate.getMinutes()).padStart(2, "0")}`;
+    };
+    const parseItemsModalReceptionTime = (value) => {
+      const match = String(value || "")
+        .trim()
+        .match(/^(\d{1,2}):(\d{2})$/);
+      if (!match) return null;
+      const hour = Number(match[1]);
+      const minute = Number(match[2]);
+      if (!Number.isInteger(hour) || hour < 0 || hour > 23) return null;
+      if (!Number.isInteger(minute) || minute < 0 || minute > 59) return null;
+      return { hour, minute };
+    };
+    const formatItemsModalReceptionTimeParts = (hour, minute) =>
+      `${String(Math.max(0, Math.min(23, Number(hour) || 0))).padStart(2, "0")}:${String(
+        Math.max(0, Math.min(59, Number(minute) || 0))
+      ).padStart(2, "0")}`;
+    const ensureItemsModalBeReceptionMeta = (metaInput = null) => {
+      const meta =
+        metaInput && typeof metaInput === "object"
+          ? metaInput
+          : (getInvoiceMeta() || {});
+      const raw = meta.beReception && typeof meta.beReception === "object" ? meta.beReception : {};
+      const docType = String(meta.docType || "").trim().toLowerCase();
+      const normalized = {
+        depot: String(raw.depot ?? raw.depotName ?? meta.beReceptionDepot ?? meta.beDepot ?? "").trim(),
+        destination: String(
+          raw.destination ??
+            raw.destinationLocation ??
+            raw.location ??
+            meta.beReceptionDestination ??
+            meta.beDestination ??
+            ""
+        ).trim(),
+        date: String(raw.date ?? raw.receptionDate ?? meta.beReceptionDate ?? "").trim(),
+        time: String(raw.time ?? raw.receptionTime ?? meta.beReceptionTime ?? "").trim(),
+        sourceRef: String(
+          raw.sourceRef ??
+            raw.referenceSource ??
+            raw.source ??
+            meta.beSourceRef ??
+            ""
+        ).trim()
+      };
+      if (docType === "be") {
+        if (!normalized.date) {
+          normalized.date = String(meta.date || "").trim() || new Date().toISOString().slice(0, 10);
+        }
+        if (!normalized.time) {
+          normalized.time = formatItemsModalReceptionTime();
+        }
+      }
+      meta.beReception = normalized;
+      return normalized;
+    };
+    const getItemsModalBeReceptionBox = () =>
+      itemsDocOptionsModalContent?.querySelector?.(`#${ITEMS_BE_RECEPTION_BOX_ID}`) || null;
+    const ensureItemsModalBeReceptionDatePicker = (section) => {
+      const dateInput = section?.querySelector?.(`#${ITEMS_BE_RECEPTION_FIELDS.date}`);
+      if (!dateInput || dateInput.dataset.datePickerBound === "1") return;
+      if (w.AppDatePicker?.create) {
+        w.AppDatePicker.create(dateInput, {
+          labels: {
+            today: "Aujourd'hui",
+            clear: "Effacer",
+            prevMonth: "Mois precedent",
+            nextMonth: "Mois suivant",
+            dialog: "Choisir une date"
+          },
+          allowManualInput: true
+        });
+      } else {
+        dateInput.readOnly = false;
+      }
+      dateInput.dataset.datePickerBound = "1";
+    };
+    const ensureItemsModalBeReceptionTimePicker = (section) => {
+      const input = section?.querySelector?.(`#${ITEMS_BE_RECEPTION_FIELDS.time}`);
+      if (!input || input.__swbTimePickerController) return input?.__swbTimePickerController || null;
+      const wrapper =
+        input.closest("[data-time-picker]") || input.parentElement?.closest("[data-time-picker]");
+      const toggle = wrapper?.querySelector?.("[data-time-picker-toggle]") || null;
+      const panel = wrapper?.querySelector?.("[data-time-picker-panel]") || null;
+      if (!wrapper || !toggle || !panel) return null;
+
+      input.type = "text";
+      input.readOnly = true;
+      input.autocomplete = "off";
+      input.spellcheck = false;
+      input.inputMode = "numeric";
+      input.setAttribute("aria-haspopup", "dialog");
+      input.setAttribute("aria-expanded", "false");
+      input.setAttribute("role", "combobox");
+      toggle.setAttribute("aria-haspopup", "dialog");
+      toggle.setAttribute("aria-expanded", "false");
+      panel.hidden = true;
+      panel.setAttribute("role", "dialog");
+      panel.setAttribute("aria-modal", "false");
+      panel.setAttribute("aria-label", "Choisir une heure");
+      panel.tabIndex = -1;
+      if (!panel.id) {
+        panel.id = ITEMS_BE_RECEPTION_TIME_PANEL_ID;
+      }
+      input.setAttribute("aria-controls", panel.id);
+      toggle.setAttribute("aria-controls", panel.id);
+
+      const header = document.createElement("div");
+      header.className = "swb-time-picker__header";
+      const title = document.createElement("div");
+      title.className = "swb-time-picker__title";
+      title.textContent = "Heure de reception";
+      const currentValue = document.createElement("div");
+      currentValue.className = "swb-time-picker__current";
+      currentValue.setAttribute("aria-live", "polite");
+      header.append(title, currentValue);
+
+      const body = document.createElement("div");
+      body.className = "swb-time-picker__body";
+      const stepperRow = document.createElement("div");
+      stepperRow.className = "swb-time-picker__stepper-row";
+      const createStepper = (key, labelText) => {
+        const root = document.createElement("section");
+        root.className = "swb-time-picker__stepper";
+        root.dataset.timePart = key;
+        const label = document.createElement("div");
+        label.className = "swb-time-picker__stepper-label";
+        label.textContent = labelText;
+        const controls = document.createElement("div");
+        controls.className = "swb-time-picker__stepper-controls";
+        const decrementBtn = document.createElement("button");
+        decrementBtn.type = "button";
+        decrementBtn.className = "swb-time-picker__stepper-control";
+        decrementBtn.setAttribute("aria-label", `${labelText} moins`);
+        decrementBtn.textContent = "-";
+        const value = document.createElement("input");
+        value.className = "swb-time-picker__stepper-value";
+        value.type = "text";
+        value.inputMode = "numeric";
+        value.autocomplete = "off";
+        value.spellcheck = false;
+        value.maxLength = 2;
+        value.setAttribute("aria-label", labelText);
+        const incrementBtn = document.createElement("button");
+        incrementBtn.type = "button";
+        incrementBtn.className = "swb-time-picker__stepper-control";
+        incrementBtn.setAttribute("aria-label", `${labelText} plus`);
+        incrementBtn.textContent = "+";
+        controls.append(decrementBtn, value, incrementBtn);
+        root.append(label, controls);
+        return { root, decrementBtn, incrementBtn, value };
+      };
+      const hourStepper = createStepper("hour", "Heure");
+      const minuteStepper = createStepper("minute", "Minute");
+      stepperRow.append(hourStepper.root, minuteStepper.root);
+
+      body.append(stepperRow);
+
+      const footer = document.createElement("div");
+      footer.className = "swb-time-picker__footer";
+      const nowBtn = document.createElement("button");
+      nowBtn.type = "button";
+      nowBtn.className = "swb-time-picker__footer-btn";
+      nowBtn.textContent = "Maintenant";
+      const clearBtn = document.createElement("button");
+      clearBtn.type = "button";
+      clearBtn.className = "swb-time-picker__footer-btn swb-time-picker__footer-btn--muted";
+      clearBtn.textContent = "Effacer";
+      footer.append(nowBtn, clearBtn);
+
+      panel.innerHTML = "";
+      panel.append(header, body, footer);
+
+      const panelPlaceholder = document.createComment("swb-time-picker__panel-placeholder");
+      if (panel.parentNode) {
+        try {
+          panel.parentNode.insertBefore(panelPlaceholder, panel);
+        } catch {}
+      }
+
+      let detachRelayout = null;
+      let panelPortaled = false;
+      let isOpen = false;
+      let selectedTime = parseItemsModalReceptionTime(input.value);
+      if (!selectedTime && input.value) {
+        input.value = "";
+      }
+
+      const relayoutFloatingPanel = () => {
+        const gap = 6;
+        const gutter = 12;
+        const wrapperRect = wrapper.getBoundingClientRect();
+        const width = Math.min(420, Math.max(wrapperRect.width, 340));
+        let left = Math.min(
+          Math.max(wrapperRect.left, gutter),
+          Math.max(gutter, window.innerWidth - width - gutter)
+        );
+        let top = wrapperRect.bottom + gap;
+        const panelHeight = panel.offsetHeight || 0;
+        if (panelHeight) {
+          const overflowBottom = top + panelHeight + gutter - window.innerHeight;
+          if (overflowBottom > 0) {
+            const flippedTop = wrapperRect.top - panelHeight - gap;
+            top =
+              flippedTop >= gutter
+                ? flippedTop
+                : Math.max(gutter, window.innerHeight - panelHeight - gutter);
+          }
+        }
+        panel.style.left = `${Math.round(left)}px`;
+        panel.style.top = `${Math.round(top)}px`;
+        panel.style.width = `${Math.round(width)}px`;
+        panel.style.minWidth = `${Math.round(width)}px`;
+        panel.style.maxWidth = "420px";
+        panel.style.zIndex = "100030";
+      };
+      const detachPanelListeners = () => {
+        if (detachRelayout) {
+          detachRelayout();
+          detachRelayout = null;
+        }
+      };
+      const restorePanel = () => {
+        detachPanelListeners();
+        panel.classList.remove("is-floating");
+        panel.style.position = "";
+        panel.style.left = "";
+        panel.style.top = "";
+        panel.style.width = "";
+        panel.style.minWidth = "";
+        panel.style.maxWidth = "";
+        panel.style.zIndex = "";
+        if (panelPlaceholder.parentNode && panel.parentNode !== panelPlaceholder.parentNode) {
+          try {
+            panelPlaceholder.parentNode.insertBefore(panel, panelPlaceholder);
+          } catch {}
+        }
+        panelPortaled = false;
+      };
+      const portalPanelToBody = () => {
+        if (panelPortaled) {
+          relayoutFloatingPanel();
+          return;
+        }
+        if (panel.parentNode !== document.body) {
+          try {
+            document.body.appendChild(panel);
+          } catch {}
+        }
+        panel.classList.add("is-floating");
+        panel.style.position = "fixed";
+        const handleRelayout = () => relayoutFloatingPanel();
+        relayoutFloatingPanel();
+        window.addEventListener("resize", handleRelayout);
+        window.addEventListener("scroll", handleRelayout, true);
+        detachRelayout = () => {
+          window.removeEventListener("resize", handleRelayout);
+          window.removeEventListener("scroll", handleRelayout, true);
+        };
+        panelPortaled = true;
+      };
+      const emitInputAndChange = () => {
+        try {
+          input.dispatchEvent(new Event("input", { bubbles: true }));
+        } catch {}
+        try {
+          input.dispatchEvent(new Event("change", { bubbles: true }));
+        } catch {}
+      };
+      const setSelectedTime = (parts, { silent = false } = {}) => {
+        if (!parts) {
+          selectedTime = null;
+          input.value = "";
+        } else {
+          selectedTime = {
+            hour: Math.max(0, Math.min(23, Number(parts.hour) || 0)),
+            minute: Math.max(0, Math.min(59, Number(parts.minute) || 0))
+          };
+          input.value = formatItemsModalReceptionTimeParts(selectedTime.hour, selectedTime.minute);
+        }
+        renderTimePanel();
+        if (!silent) emitInputAndChange();
+      };
+      const getWorkingTime = () => {
+        const active = selectedTime || parseItemsModalReceptionTime(input.value);
+        if (active) return { hour: active.hour, minute: active.minute };
+        const now = new Date();
+        return { hour: now.getHours(), minute: now.getMinutes() };
+      };
+      const clampStepperPartValue = (part, rawValue) => {
+        const digits = String(rawValue || "")
+          .replace(/\D+/g, "")
+          .slice(0, 2);
+        if (!digits) return { raw: "", numeric: null };
+        const max = part === "hour" ? 23 : 59;
+        const numeric = Math.max(0, Math.min(max, Number(digits)));
+        return { raw: String(numeric), numeric };
+      };
+      const updateCurrentValueSummary = () => {
+        const active = selectedTime || parseItemsModalReceptionTime(input.value);
+        currentValue.textContent = active
+          ? formatItemsModalReceptionTimeParts(active.hour, active.minute)
+          : "Choisir une heure";
+      };
+      const adjustSelectedTime = (part, delta) => {
+        const base = getWorkingTime();
+        let nextHour = base.hour;
+        let nextMinute = base.minute;
+        if (part === "hour") {
+          nextHour = (base.hour + delta + 24) % 24;
+        } else {
+          nextMinute = (base.minute + delta + 60) % 60;
+        }
+        setSelectedTime({ hour: nextHour, minute: nextMinute });
+      };
+      const commitStepperValue = (part, rawValue, { emit = true, finalize = false } = {}) => {
+        const targetField = part === "hour" ? hourStepper.value : minuteStepper.value;
+        const normalized = clampStepperPartValue(part, rawValue);
+        if (targetField.value !== normalized.raw) {
+          targetField.value = normalized.raw;
+        }
+        if (normalized.numeric === null) {
+          if (finalize) {
+            renderTimePanel();
+          } else {
+            updateCurrentValueSummary();
+          }
+          return;
+        }
+        const base = getWorkingTime();
+        const next = {
+          hour: part === "hour" ? normalized.numeric : base.hour,
+          minute: part === "minute" ? normalized.numeric : base.minute
+        };
+        selectedTime = next;
+        input.value = formatItemsModalReceptionTimeParts(next.hour, next.minute);
+        if (finalize) {
+          renderTimePanel();
+        } else {
+          updateCurrentValueSummary();
+        }
+        if (emit) emitInputAndChange();
+      };
+      const handleStepperKeydown = (part, evt) => {
+        if (evt.ctrlKey || evt.metaKey || evt.altKey) return;
+        if (evt.key === "ArrowUp") {
+          evt.preventDefault();
+          adjustSelectedTime(part, part === "hour" ? 1 : 5);
+          return;
+        }
+        if (evt.key === "ArrowDown") {
+          evt.preventDefault();
+          adjustSelectedTime(part, part === "hour" ? -1 : -5);
+          return;
+        }
+        const allowedKeys = new Set([
+          "Backspace",
+          "Delete",
+          "Tab",
+          "Enter",
+          "Escape",
+          "ArrowLeft",
+          "ArrowRight",
+          "Home",
+          "End"
+        ]);
+        if (allowedKeys.has(evt.key)) return;
+        if (/^\d$/.test(evt.key)) return;
+        evt.preventDefault();
+      };
+      const renderTimePanel = () => {
+        const active = selectedTime || parseItemsModalReceptionTime(input.value);
+        const display = active || getWorkingTime();
+        updateCurrentValueSummary();
+        hourStepper.value.value = String(display.hour).padStart(2, "0");
+        minuteStepper.value.value = String(display.minute).padStart(2, "0");
+      };
+      const closePanel = () => {
+        if (!isOpen) return;
+        isOpen = false;
+        wrapper.classList.remove("is-open");
+        restorePanel();
+        panel.hidden = true;
+        input.setAttribute("aria-expanded", "false");
+        toggle.setAttribute("aria-expanded", "false");
+        document.removeEventListener("click", outsideClick);
+        document.removeEventListener("keydown", handleKeydown, true);
+      };
+      const openPanel = () => {
+        if (isOpen) return;
+        isOpen = true;
+        wrapper.classList.add("is-open");
+        panel.hidden = false;
+        input.setAttribute("aria-expanded", "true");
+        toggle.setAttribute("aria-expanded", "true");
+        renderTimePanel();
+        portalPanelToBody();
+        document.addEventListener("click", outsideClick);
+        document.addEventListener("keydown", handleKeydown, true);
+        requestAnimationFrame(() => {
+          try {
+            panel.focus();
+          } catch {}
+        });
+      };
+      const outsideClick = (evt) => {
+        if (!isOpen) return;
+        if (wrapper.contains(evt.target) || panel.contains(evt.target)) return;
+        closePanel();
+      };
+      const handleKeydown = (evt) => {
+        if (!isOpen) return;
+        if (evt.key === "Escape") {
+          evt.preventDefault();
+          closePanel();
+          try {
+            toggle.focus();
+          } catch {}
+        }
+      };
+
+      nowBtn.addEventListener("click", () => {
+        const now = new Date();
+        setSelectedTime({ hour: now.getHours(), minute: now.getMinutes() });
+        closePanel();
+      });
+      hourStepper.decrementBtn.addEventListener("click", () => adjustSelectedTime("hour", -1));
+      hourStepper.incrementBtn.addEventListener("click", () => adjustSelectedTime("hour", 1));
+      minuteStepper.decrementBtn.addEventListener("click", () => adjustSelectedTime("minute", -5));
+      minuteStepper.incrementBtn.addEventListener("click", () => adjustSelectedTime("minute", 5));
+      [
+        ["hour", hourStepper.value],
+        ["minute", minuteStepper.value]
+      ].forEach(([part, field]) => {
+        field.addEventListener("keydown", (evt) => handleStepperKeydown(part, evt));
+        field.addEventListener("input", () => commitStepperValue(part, field.value, { emit: true, finalize: false }));
+        field.addEventListener("blur", () => commitStepperValue(part, field.value, { emit: false, finalize: true }));
+        field.addEventListener("focus", () => {
+          try {
+            field.select();
+          } catch {}
+        });
+      });
+      clearBtn.addEventListener("click", () => {
+        setSelectedTime(null);
+        closePanel();
+      });
+      toggle.addEventListener("click", (evt) => {
+        evt.preventDefault();
+        if (isOpen) closePanel();
+        else openPanel();
+      });
+      input.addEventListener("click", () => {
+        openPanel();
+      });
+      input.addEventListener("keydown", (evt) => {
+        if (evt.key === "Enter" || evt.key === " " || evt.key === "ArrowDown") {
+          evt.preventDefault();
+          openPanel();
+        }
+        if (evt.key === "Escape") {
+          evt.preventDefault();
+          closePanel();
+        }
+      });
+
+      const controller = {
+        setValue(value, { silent = true } = {}) {
+          const next = parseItemsModalReceptionTime(value);
+          setSelectedTime(next, { silent });
+        },
+        close: () => {
+          closePanel();
+        },
+        open: () => {
+          openPanel();
+        }
+      };
+
+      input.__swbTimePickerController = controller;
+      renderTimePanel();
+      return controller;
+    };
+    const renderItemsModalBeReceptionBox = () => {
+      const template = document.createElement("template");
+      template.innerHTML = `
+        <fieldset id="${ITEMS_BE_RECEPTION_BOX_ID}" class="section-box items-be-reception-form" hidden>
+          <legend>Informations de r&eacute;ception</legend>
+          <div class="items-be-reception-form__grid">
+            <label class="items-be-reception-form__field" for="${ITEMS_BE_RECEPTION_FIELDS.depot}">
+              <span>D&eacute;p&ocirc;t / Magasin</span>
+              <input
+                id="${ITEMS_BE_RECEPTION_FIELDS.depot}"
+                type="text"
+                placeholder="ex : Magasin Central"
+                autocomplete="off"
+              />
+            </label>
+            <label class="items-be-reception-form__field" for="${ITEMS_BE_RECEPTION_FIELDS.destination}">
+              <span>Emplacement de destination</span>
+              <input
+                id="${ITEMS_BE_RECEPTION_FIELDS.destination}"
+                type="text"
+                placeholder="ex : Rack A1"
+                autocomplete="off"
+              />
+            </label>
+            <label class="items-be-reception-form__field">
+              <span>Date de r&eacute;ception</span>
+              <div class="swb-date-picker" data-date-picker="">
+                <input
+                  id="${ITEMS_BE_RECEPTION_FIELDS.date}"
+                  type="text"
+                  inputmode="numeric"
+                  placeholder="AAAA-MM-JJ"
+                  autocomplete="off"
+                  spellcheck="false"
+                  aria-haspopup="dialog"
+                  aria-expanded="false"
+                  role="combobox"
+                  aria-controls="beReceptionDatePanel"
+                />
+                <button
+                  type="button"
+                  class="swb-date-picker__toggle"
+                  data-date-picker-toggle=""
+                  aria-label="Choisir une date de r&eacute;ception"
+                  aria-haspopup="dialog"
+                  aria-expanded="false"
+                  aria-controls="beReceptionDatePanel"
+                >
+                  <svg
+                    class="swb-date-picker__toggle-icon"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    aria-hidden="true"
+                    focusable="false"
+                  >
+                    <rect x="3.5" y="5" width="17" height="15" rx="2" />
+                    <path d="M8 3.5v3M16 3.5v3M3.5 10h17" stroke-linecap="round" />
+                  </svg>
+                </button>
+                <div
+                  class="swb-date-picker__panel"
+                  data-date-picker-panel=""
+                  role="dialog"
+                  aria-modal="false"
+                  aria-label="Choisir une date"
+                  tabindex="-1"
+                  id="beReceptionDatePanel"
+                  hidden
+                ></div>
+              </div>
+            </label>
+            <label class="items-be-reception-form__field">
+              <span>Heure</span>
+              <div class="swb-time-picker" data-time-picker="">
+                <input
+                  id="${ITEMS_BE_RECEPTION_FIELDS.time}"
+                  type="text"
+                  inputmode="numeric"
+                  placeholder="HH:MM"
+                  autocomplete="off"
+                  spellcheck="false"
+                  aria-haspopup="dialog"
+                  aria-expanded="false"
+                  role="combobox"
+                  aria-controls="${ITEMS_BE_RECEPTION_TIME_PANEL_ID}"
+                />
+                <button
+                  type="button"
+                  class="swb-time-picker__toggle"
+                  data-time-picker-toggle=""
+                  aria-label="Choisir une heure de r&eacute;ception"
+                  aria-haspopup="dialog"
+                  aria-expanded="false"
+                  aria-controls="${ITEMS_BE_RECEPTION_TIME_PANEL_ID}"
+                >
+                  <svg
+                    class="swb-time-picker__toggle-icon"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    aria-hidden="true"
+                    focusable="false"
+                  >
+                    <circle cx="12" cy="12" r="8.5" />
+                    <path d="M12 7.75v4.5l2.75 1.75" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </button>
+                <div
+                  class="swb-time-picker__panel"
+                  data-time-picker-panel=""
+                  role="dialog"
+                  aria-modal="false"
+                  aria-label="Choisir une heure"
+                  tabindex="-1"
+                  id="${ITEMS_BE_RECEPTION_TIME_PANEL_ID}"
+                  hidden
+                ></div>
+              </div>
+            </label>
+            <label class="items-be-reception-form__field items-be-reception-form__field--wide" for="${ITEMS_BE_RECEPTION_FIELDS.sourceRef}">
+              <span>R&eacute;f&eacute;rence source</span>
+              <input
+                id="${ITEMS_BE_RECEPTION_FIELDS.sourceRef}"
+                type="text"
+                placeholder="ex : BL fournisseur / Bon de commande / Facture d&apos;achat"
+                autocomplete="off"
+              />
+            </label>
+          </div>
+        </fieldset>
+      `.trim();
+      return template.content.firstElementChild;
+    };
+    const syncItemsModalBeReceptionBoxFromState = (section = getItemsModalBeReceptionBox()) => {
+      if (!section) return false;
+      const meta = getInvoiceMeta() || {};
+      const isBonEntree = String(meta.docType || "facture").trim().toLowerCase() === "be";
+      const reception = ensureItemsModalBeReceptionMeta(meta);
+      ensureItemsModalBeReceptionDatePicker(section);
+      const timePicker = ensureItemsModalBeReceptionTimePicker(section);
+      Object.entries(ITEMS_BE_RECEPTION_FIELDS).forEach(([key, id]) => {
+        const input = section.querySelector(`#${id}`);
+        if (!input) return;
+        const nextValue = String(reception?.[key] || "");
+        if (key === "time" && timePicker) {
+          timePicker.setValue(nextValue, { silent: true });
+          return;
+        }
+        if (input.value !== nextValue) {
+          input.value = nextValue;
+        }
+      });
+      section.hidden = !isBonEntree;
+      section.setAttribute("aria-hidden", isBonEntree ? "false" : "true");
+      section.style.display = isBonEntree ? "" : "none";
+      if (!isBonEntree) {
+        try {
+          timePicker?.close?.();
+        } catch {}
+      }
+      if (typeof SEM.refreshInvoiceSummary === "function") {
+        SEM.refreshInvoiceSummary();
+      }
+      return true;
+    };
+    const wireItemsModalBeReceptionBox = (section) => {
+      if (!section || section.dataset.wired === "1") return;
+      section.dataset.wired = "1";
+      ensureItemsModalBeReceptionDatePicker(section);
+      ensureItemsModalBeReceptionTimePicker(section);
+      Object.entries(ITEMS_BE_RECEPTION_FIELDS).forEach(([key, id]) => {
+        const input = section.querySelector(`#${id}`);
+        if (!input) return;
+        const syncValue = () => {
+          const meta = getInvoiceMeta() || {};
+          const reception = ensureItemsModalBeReceptionMeta(meta);
+          reception[key] = String(input.value || "").trim();
+          meta.beReception = reception;
+          if (typeof SEM.refreshInvoiceSummary === "function") {
+            SEM.refreshInvoiceSummary();
+          }
+        };
+        input.addEventListener("input", syncValue);
+        input.addEventListener("change", syncValue);
+      });
     };
 
     const CLIENT_SCOPE_SELECTOR = "#clientBoxNewDoc, #FournisseurBoxNewDoc";
@@ -1940,6 +2629,11 @@
 
     const restoreMovedContent = () => {
       if (!itemsModalMoved || !itemsDocOptionsModalContent) return;
+      const beReceptionBox = getItemsModalBeReceptionBox();
+      const beReceptionTimeInput = beReceptionBox?.querySelector?.(`#${ITEMS_BE_RECEPTION_FIELDS.time}`) || null;
+      try {
+        beReceptionTimeInput?.__swbTimePickerController?.close?.();
+      } catch {}
       Object.entries(movableRefs).forEach(([key, ref]) => {
         if (!ref?.node || !ref.parent) return;
         try {
@@ -1952,6 +2646,7 @@
       });
       itemsDocOptionsModalContent.innerHTML = "";
       itemsModalMoved = false;
+      syncItemsModalHeaderLayoutForDocType = null;
     };
 
     const buildItemsModalContent = () => {
@@ -1959,9 +2654,14 @@
       itemsModalMoved = false;
       const fragment = document.createDocumentFragment();
       const rowTop = document.createElement("section");
-      rowTop.className = "grid two";
+      rowTop.className = "grid two items-options-modal__top-row";
+      const bePartyRow = document.createElement("section");
+      bePartyRow.className = "grid two items-options-modal__be-party-row";
+      bePartyRow.hidden = true;
+      bePartyRow.setAttribute("aria-hidden", "true");
       const rowBottom = document.createElement("div");
       rowBottom.className = "section-row";
+      let beReceptionBox = null;
 
       const renderDocMetaBox = () => {
         try {
@@ -1976,6 +2676,8 @@
       const CLIENT_BOX_SELECTOR = "#clientBoxNewDoc, #FournisseurBoxNewDoc";
       const resolveDocTypeValue = () =>
         String(getInvoiceMeta()?.docType || getEl("docType")?.value || "facture").toLowerCase();
+      const isBonEntreeDocType = (docTypeValue) =>
+        String(docTypeValue || "").trim().toLowerCase() === "be";
       const shouldUseVendorBox = (docTypeValue) => isPurchaseDocType(docTypeValue);
       const renderClientBox = (docTypeValue) => {
         try {
@@ -2051,11 +2753,46 @@
           }
         });
       };
+      const syncHeaderRowsForDocType = (docTypeValue) => {
+        const isBonEntree = isBonEntreeDocType(docTypeValue);
+        const activeClientBox =
+          rowTop.querySelector(CLIENT_BOX_SELECTOR) || bePartyRow.querySelector(CLIENT_BOX_SELECTOR);
+        rowTop.classList.toggle("three", isBonEntree);
+        rowTop.classList.toggle("two", !isBonEntree);
+        rowTop.classList.toggle("items-options-modal__top-row--be", isBonEntree);
+        if (activeClientBox) {
+          if (activeClientBox.parentNode !== rowTop) {
+            rowTop.appendChild(activeClientBox);
+          }
+        }
+        if (beReceptionBox) {
+          if (isBonEntree) {
+            const clientReference =
+              rowTop.querySelector(CLIENT_BOX_SELECTOR) || null;
+            rowTop.insertBefore(beReceptionBox, clientReference);
+          } else if (beReceptionBox.parentNode !== bePartyRow) {
+            bePartyRow.appendChild(beReceptionBox);
+          }
+        }
+        bePartyRow.hidden = true;
+        bePartyRow.setAttribute("aria-hidden", "true");
+      };
+      syncItemsModalHeaderLayoutForDocType = syncHeaderRowsForDocType;
       const swapClientBoxForDocType = (docTypeValue) => {
         const targetBox = renderClientBox(docTypeValue);
-        if (!targetBox) return;
-        const existing = rowTop.querySelector(CLIENT_BOX_SELECTOR);
-        if (existing && existing.id === targetBox.id) return;
+        if (!targetBox) {
+          syncHeaderRowsForDocType(docTypeValue);
+          return;
+        }
+        const existing =
+          rowTop.querySelector(CLIENT_BOX_SELECTOR) || bePartyRow.querySelector(CLIENT_BOX_SELECTOR);
+        if (existing && existing.id === targetBox.id) {
+          if (existing.parentNode !== rowTop) {
+            rowTop.appendChild(existing);
+          }
+          syncHeaderRowsForDocType(docTypeValue);
+          return;
+        }
         const snapshot = snapshotClientBoxValues(existing);
         if (existing && existing.parentNode) {
           existing.parentNode.replaceChild(targetBox, existing);
@@ -2064,6 +2801,7 @@
         }
         applyClientBoxValues(targetBox, snapshot);
         wireClientBox(targetBox);
+        syncHeaderRowsForDocType(docTypeValue);
       };
 
       const docMetaBox = renderDocMetaBox();
@@ -2081,6 +2819,7 @@
           }
         }
         const meta = getInvoiceMeta() || {};
+        ensureItemsModalBeReceptionMeta(meta);
         syncDocMetaBoxModelDefaults(docMetaBox);
         if (meta.historyPath) {
           syncDocMetaBoxFromState(docMetaBox);
@@ -2108,10 +2847,12 @@
           }
           invDateInput.addEventListener("input", () => {
             meta.date = String(invDateInput.value || "").trim();
+            syncItemsModalBeReceptionBoxFromState();
           });
           invDateInput.addEventListener("change", () => {
             meta.date = String(invDateInput.value || "").trim();
             updateNumberFromDate(docMetaBox);
+            syncItemsModalBeReceptionBoxFromState();
           });
         }
         const docTypeSelectModal = docMetaBox.querySelector("#docType");
@@ -2128,11 +2869,13 @@
         docTypeSelectModal?.addEventListener("change", () => {
           const meta = getInvoiceMeta() || {};
           meta.docType = String(docTypeSelectModal.value || meta.docType || "facture").toLowerCase();
+          ensureItemsModalBeReceptionMeta(meta);
           if (typeof w.syncDocTypeMenuUi === "function") {
             w.syncDocTypeMenuUi(meta.docType, { updateSelect: true });
           }
           void applyNextNumberToDocMetaBox(docMetaBox);
           swapClientBoxForDocType(meta.docType);
+          syncItemsModalBeReceptionBoxFromState();
           void ensureItemsModalModelForDocType(docMetaBox, {
             docTypeValue: meta.docType,
             autoSelectFallback: true,
@@ -2160,6 +2903,13 @@
         rowTop.appendChild(clientBox);
         wireClientBox(clientBox);
       }
+
+      beReceptionBox = renderItemsModalBeReceptionBox();
+      if (beReceptionBox) {
+        wireItemsModalBeReceptionBox(beReceptionBox);
+        bePartyRow.appendChild(beReceptionBox);
+      }
+      syncHeaderRowsForDocType(resolveDocTypeValue());
 
       if (!docMetaBox || !clientBox) {
         console.warn("new document modal missing dedicated components", {
@@ -2189,8 +2939,11 @@
 
       itemsDocOptionsModalContent.innerHTML = "";
       fragment.appendChild(rowTop);
+      fragment.appendChild(bePartyRow);
       if (rowBottom.childElementCount) fragment.appendChild(rowBottom);
       itemsDocOptionsModalContent.appendChild(fragment);
+      syncHeaderRowsForDocType(resolveDocTypeValue());
+      syncItemsModalBeReceptionBoxFromState(beReceptionBox);
       if (typeof w.syncDocTypeMenuUi === "function") {
         const meta = getInvoiceMeta() || {};
         const docTypeValue = String(
@@ -2231,6 +2984,7 @@
           SEM.renderItems();
         }
         syncDocMetaBoxFromState();
+        syncItemsModalBeReceptionBoxFromState();
         applyItemsModalOptionalSectionsVisibility({
           modelName: sanitizeModelSeed(
             getInvoiceMeta()?.documentModelName ||
@@ -2258,6 +3012,7 @@
         if (typeof SEM?.applyColumnHiding === "function") {
           SEM.applyColumnHiding();
         }
+        syncItemsModalBeReceptionBoxFromState();
         const modelName = sanitizeModelSeed(
           options.model ||
             getInvoiceMeta()?.documentModelName ||

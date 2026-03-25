@@ -226,6 +226,46 @@
     if (t === "devis") return "devis";
     return "facture";
   };
+  const formatReceptionTimeValue = (value = new Date()) => {
+    const date = value instanceof Date ? value : new Date(value);
+    const safeDate = Number.isFinite(date.getTime()) ? date : new Date();
+    const hours = String(safeDate.getHours()).padStart(2, "0");
+    const minutes = String(safeDate.getMinutes()).padStart(2, "0");
+    return `${hours}:${minutes}`;
+  };
+  const normalizeBonEntreeReceptionMeta = (rawValue = {}, meta = {}) => {
+    const raw = rawValue && typeof rawValue === "object" ? rawValue : {};
+    const docType = String(meta?.docType || "").trim().toLowerCase();
+    const normalized = {
+      depot: String(raw.depot ?? raw.depotName ?? meta?.beReceptionDepot ?? meta?.beDepot ?? "").trim(),
+      destination: String(
+        raw.destination ??
+          raw.destinationLocation ??
+          raw.location ??
+          meta?.beReceptionDestination ??
+          meta?.beDestination ??
+          ""
+      ).trim(),
+      date: String(raw.date ?? raw.receptionDate ?? meta?.beReceptionDate ?? "").trim(),
+      time: String(raw.time ?? raw.receptionTime ?? meta?.beReceptionTime ?? "").trim(),
+      sourceRef: String(
+        raw.sourceRef ??
+          raw.referenceSource ??
+          raw.source ??
+          meta?.beSourceRef ??
+          ""
+      ).trim()
+    };
+    if (docType === "be") {
+      if (!normalized.date) {
+        normalized.date = String(meta?.date || "").trim() || new Date().toISOString().slice(0, 10);
+      }
+      if (!normalized.time) {
+        normalized.time = formatReceptionTimeValue();
+      }
+    }
+    return normalized;
+  };
 
   function normalizeInvoiceMeta(metaInput, options = {}) {
     const { refreshDates = false } = options;
@@ -320,6 +360,10 @@
     meta.due = refreshDates ? dueISO : (meta.due || baseMeta.due || dueISO);
     const taxesBase = typeof baseMeta.taxesEnabled === "boolean" ? baseMeta.taxesEnabled : true;
     meta.taxesEnabled = isTaxesEnabled(meta.taxesEnabled, taxesBase !== false);
+    meta.beReception = normalizeBonEntreeReceptionMeta(
+      meta.beReception ?? baseMeta.beReception,
+      meta
+    );
 
     meta.extras = {
       shipping: { ...shippingDefaults, ...(baseExtras.shipping || {}), ...(inputExtras.shipping || {}) },

@@ -773,9 +773,339 @@
   min-width: 480px;
 }
 
+.items-options-modal__content .items-options-modal__top-row,
+.items-options-modal__content .items-options-modal__be-party-row {
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
+.items-options-modal__content .items-options-modal__top-row.items-options-modal__top-row--be {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+}
+
+.items-options-modal__content .items-options-modal__be-party-row {
+  margin-top: 0;
+}
+
+.items-options-modal__content .items-options-modal__be-party-row[hidden] {
+  display: none !important;
+}
+
+.items-options-modal__content .items-options-modal__top-row > *,
+.items-options-modal__content .items-options-modal__be-party-row > * {
+  min-width: 0;
+}
+
+.items-options-modal__content .items-options-modal__top-row.items-options-modal__top-row--be > * {
+  height: 100%;
+}
+
 .items-options-modal__content .section-row {
   margin-top: 0;
   flex: 1 1 100%;
+}
+
+.items-options-modal__content .items-be-reception-form {
+  flex: 1 1 100%;
+  min-width: 0;
+  margin: 0;
+}
+
+.items-options-modal__content .items-be-reception-form[hidden] {
+  display: none !important;
+}
+
+.items-be-reception-form__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+.items-be-reception-form__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.items-be-reception-form__field--wide {
+  grid-column: 1 / -1;
+}
+
+.items-be-reception-form__field > span {
+  font-size: 13px;
+  font-weight: 600;
+  color: #15335e;
+}
+
+.items-be-reception-form__field input {
+  width: 100%;
+  min-height: 42px;
+}
+
+.items-be-reception-form__field .swb-date-picker {
+  width: 100%;
+}
+
+.items-be-reception-form__field .swb-date-picker input {
+  width: 100%;
+}
+
+.items-be-reception-form__field .swb-time-picker {
+  width: 100%;
+  min-height: 42px;
+  padding: 0;
+  border: 1px solid #caddff;
+  border-radius: 5px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.items-be-reception-form__field .swb-time-picker input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  padding: 10px 12px;
+  height: 42px;
+  line-height: 1.2;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.items-be-reception-form__field .swb-time-picker__toggle {
+  width: 42px;
+  min-width: 42px;
+  height: 42px;
+  border: none;
+  border-left: 1px solid #caddff;
+  border-radius: 0 5px 5px 0;
+  background: #f8fafc;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #15335e;
+  transition: background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+
+.items-be-reception-form__field .swb-time-picker__toggle:hover,
+.items-be-reception-form__field .swb-time-picker.is-open .swb-time-picker__toggle {
+  background: #eef4ff;
+  color: #0f2d5c;
+}
+
+.items-be-reception-form__field .swb-time-picker__toggle-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.swb-time-picker__panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 50;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  border-radius: 12px;
+  box-shadow: 0 18px 30px rgba(15, 23, 42, 0.18);
+  padding: 12px;
+  min-width: 320px;
+  max-width: 420px;
+  width: max(320px, 100%);
+}
+
+.swb-time-picker__panel[hidden] {
+  display: none;
+}
+
+.swb-time-picker__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.swb-time-picker__title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #15335e;
+}
+
+.swb-time-picker__current {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0b1220;
+  text-align: right;
+}
+
+.swb-time-picker__body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.swb-time-picker__stepper-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.swb-time-picker__stepper {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.swb-time-picker__stepper-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.swb-time-picker__stepper-controls {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 34px;
+  align-items: center;
+  gap: 8px;
+}
+
+.swb-time-picker__stepper-control {
+  border: 1px solid #d7e3fb;
+  border-radius: 8px;
+  min-height: 34px;
+  padding: 0;
+  font-size: 18px;
+  line-height: 1;
+  font-weight: 600;
+  background: #f8fbff;
+  color: #15335e;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.swb-time-picker__stepper-control:hover {
+  background: #eef4ff;
+  border-color: #b7cdf7;
+  color: #0f2d5c;
+}
+
+.swb-time-picker__stepper-value {
+  width: 100%;
+  border: 1px solid #d7e3fb;
+  border-radius: 8px;
+  min-height: 34px;
+  padding: 0 8px;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.1;
+  text-align: center;
+  background: #f8fbff;
+  color: #15335e;
+  outline: none;
+  appearance: textfield;
+  -moz-appearance: textfield;
+  caret-color: #15335e;
+}
+
+.swb-time-picker__stepper-value::-webkit-outer-spin-button,
+.swb-time-picker__stepper-value::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.swb-time-picker__stepper-value:focus {
+  border-color: #8fb0ea;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(143, 176, 234, 0.2);
+}
+
+.swb-time-picker__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.swb-time-picker__footer-btn {
+  flex: 1;
+  border: 1px solid #cbd5f5;
+  border-radius: 7px;
+  padding: 7px 10px;
+  font-size: 10px;
+  font-weight: 700;
+  background: #eef2ff;
+  color: #4338ca;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.swb-time-picker__footer-btn:hover {
+  background: #e0e7ff;
+}
+
+.swb-time-picker__footer-btn--muted {
+  background: transparent;
+  color: #475569;
+  border-color: #cfd6e1;
+}
+
+.swb-time-picker__footer-btn--muted:hover {
+  background: #f8fafc;
+}
+
+#itemsSection .items-be-reception {
+  margin: 12px 0 14px;
+}
+
+#itemsSection .items-be-reception__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 24px;
+  align-items: start;
+}
+
+#itemsSection .items-be-reception__row--wide {
+  grid-column: 1 / -1;
+}
+
+#itemsSection .items-be-reception .pdf-meta-value {
+  white-space: pre-line;
+  word-break: break-word;
+}
+
+@media (max-width: 900px) {
+  .items-options-modal__content .items-options-modal__top-row.items-options-modal__top-row--be {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .swb-time-picker__stepper-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .items-be-reception-form__grid,
+  #itemsSection .items-be-reception__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #itemsSection .items-be-reception__row--wide {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 1200px) and (min-width: 901px) {
+  .items-options-modal__content .items-options-modal__top-row.items-options-modal__top-row--be {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

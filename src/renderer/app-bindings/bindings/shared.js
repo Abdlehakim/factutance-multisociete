@@ -469,6 +469,86 @@
   }
   SEM.refreshClientSummary = refreshClientSummary;
 
+  const formatItemsReceptionTimeValue = (value = new Date()) => {
+    const date = value instanceof Date ? value : new Date(value);
+    const safeDate = Number.isFinite(date.getTime()) ? date : new Date();
+    const hours = String(safeDate.getHours()).padStart(2, "0");
+    const minutes = String(safeDate.getMinutes()).padStart(2, "0");
+    return `${hours}:${minutes}`;
+  };
+  const normalizeItemsBeReceptionMeta = (metaInput = null) => {
+    const meta =
+      metaInput && typeof metaInput === "object"
+        ? metaInput
+        : (state().meta || (state().meta = {}));
+    const raw = meta.beReception && typeof meta.beReception === "object" ? meta.beReception : {};
+    const docType = String(meta.docType || "").trim().toLowerCase();
+    const normalized = {
+      depot: String(raw.depot ?? raw.depotName ?? meta.beReceptionDepot ?? meta.beDepot ?? "").trim(),
+      destination: String(
+        raw.destination ??
+          raw.destinationLocation ??
+          raw.location ??
+          meta.beReceptionDestination ??
+          meta.beDestination ??
+          ""
+      ).trim(),
+      date: String(raw.date ?? raw.receptionDate ?? meta.beReceptionDate ?? "").trim(),
+      time: String(raw.time ?? raw.receptionTime ?? meta.beReceptionTime ?? "").trim(),
+      sourceRef: String(
+        raw.sourceRef ??
+          raw.referenceSource ??
+          raw.source ??
+          meta.beSourceRef ??
+          ""
+      ).trim()
+    };
+    if (docType === "be") {
+      if (!normalized.date) {
+        normalized.date = String(meta.date || "").trim() || new Date().toISOString().slice(0, 10);
+      }
+      if (!normalized.time) {
+        normalized.time = formatItemsReceptionTimeValue();
+      }
+    }
+    meta.beReception = normalized;
+    return normalized;
+  };
+  function refreshBonEntreeReceptionSummary() {
+    const meta = state().meta || (state().meta = {});
+    const block = getEl("itemsBeReceptionBlock");
+    if (!block) return;
+    const isBonEntree = String(meta.docType || "facture").trim().toLowerCase() === "be";
+    const reception = normalizeItemsBeReceptionMeta(meta);
+    const fields = [
+      ["depot", "itemsBeReceptionDepotRow", "itemsBeReceptionDepot"],
+      ["destination", "itemsBeReceptionDestinationRow", "itemsBeReceptionDestination"],
+      ["date", "itemsBeReceptionDateRow", "itemsBeReceptionDate"],
+      ["time", "itemsBeReceptionTimeRow", "itemsBeReceptionTime"],
+      ["sourceRef", "itemsBeReceptionSourceRow", "itemsBeReceptionSource"]
+    ];
+    let visibleCount = 0;
+    fields.forEach(([key, rowId, valueId]) => {
+      const row = getEl(rowId);
+      const valueEl = getEl(valueId);
+      const text = String(reception?.[key] || "").trim();
+      if (valueEl) {
+        valueEl.textContent = text || "-";
+        valueEl.classList.toggle("is-empty", !text);
+      }
+      const show = isBonEntree && !!text;
+      if (row) {
+        row.hidden = !show;
+        row.style.display = show ? "" : "none";
+      }
+      if (show) visibleCount += 1;
+    });
+    const showBlock = isBonEntree && visibleCount > 0;
+    block.hidden = !showBlock;
+    block.style.display = showBlock ? "" : "none";
+  }
+  SEM.refreshBonEntreeReceptionSummary = refreshBonEntreeReceptionSummary;
+
   const DOC_TYPE_SUMMARY_LABELS = {
     facture: {
       number: "N\u00B0 :",
@@ -547,6 +627,7 @@
       el.textContent = text || "-";
       el.classList.toggle("is-empty", !text);
     });
+    refreshBonEntreeReceptionSummary();
   }
   SEM.refreshInvoiceSummary = refreshInvoiceSummary;
 
