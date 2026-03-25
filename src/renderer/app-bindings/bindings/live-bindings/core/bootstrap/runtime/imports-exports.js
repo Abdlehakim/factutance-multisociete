@@ -89,30 +89,143 @@
             };
           };
 
+          renderClientImportExample = (entityType = clientImportModalState.entityType) => {
+            if (!clientImportModal) return;
+            const table = clientImportModal.querySelector(".client-import-modal__example-table table");
+            const headerRow = table?.querySelector("thead tr");
+            const bodyRow = table?.querySelector("tbody tr");
+            const note = clientImportModal.querySelector(".client-import-modal__note");
+            if (!headerRow || !bodyRow) return;
+
+            if (entityType === "transporter") {
+              const scopedLabels = getScopedClientFieldLabels("transporter");
+              const scopedVisibility = getScopedClientFieldVisibility("transporter");
+              const resolveLabel = (key) =>
+                resolveScopedClientFieldLabel(key, "transporter", scopedLabels);
+              const transporterColumns = [
+                { key: "name", label: resolveLabel("name"), sample: "Translog Express" },
+                { key: "driverName", label: resolveLabel("driverName"), sample: "Mohamed Ben Ali" },
+                { key: "vehiclePlate", label: resolveLabel("vehiclePlate"), sample: "197 TUN 2456" },
+                { key: "transportMode", label: resolveLabel("transportMode"), sample: "Camion" },
+                { key: "phone", label: resolveLabel("phone"), sample: "28112233" },
+                { key: "email", label: resolveLabel("email"), sample: "contact@translog.tn" },
+                { key: "address", label: resolveLabel("address"), sample: "Zone logistique, Tunis" }
+              ].filter((column) => scopedVisibility[column.key] !== false);
+              headerRow.innerHTML = transporterColumns
+                .map(
+                  (column) =>
+                    `<th data-client-import-field="${escapeHTML(column.key)}">${escapeHTML(column.label)}</th>`
+                )
+                .join("");
+              bodyRow.innerHTML = transporterColumns
+                .map(
+                  (column) =>
+                    `<td data-client-import-field="${escapeHTML(column.key)}">${escapeHTML(column.sample)}</td>`
+                )
+                .join("");
+              if (note) {
+                note.hidden = true;
+                note.style.display = "none";
+              }
+              return;
+            }
+
+            const labels = getClientImportModalLabels(entityType);
+            const scopedLabels = getScopedClientFieldLabels(entityType);
+            const scopedVisibility = getScopedClientFieldVisibility(entityType);
+            const resolveLabel = (key) =>
+              resolveScopedClientFieldLabel(key, entityType, scopedLabels);
+            const columns = [
+              { key: "name", label: "Nom", sample: "Sarl Demo" },
+              {
+                key: "taxId",
+                label: labels.allowParticulier ? "Matricule fiscal (ou CIN / passeport)" : "Matricule fiscal",
+                sample: "IF123456"
+              },
+              { key: "type", label: "Type", sample: "Societe / personne morale (PM)" }
+            ];
+            if (scopedVisibility.soldClient !== false) {
+              columns.push({
+                key: "soldClient",
+                label: resolveLabel("soldClient"),
+                sample: "1000"
+              });
+            }
+            columns.push(
+              { key: "phone", label: "Telephone", sample: "0612345678" },
+              { key: "email", label: "Email", sample: "demo@exemple.com" },
+              { key: "address", label: "Adresse", sample: "12 Rue Exemple, Casablanca" }
+            );
+            if (scopedVisibility.benefit !== false) {
+              columns.push({
+                key: "benefit",
+                label: resolveLabel("benefit"),
+                sample: "Beneficiaire Demo"
+              });
+            }
+            if (scopedVisibility.account !== false) {
+              columns.push({
+                key: "account",
+                label: resolveLabel("account"),
+                sample: "Compte Demo"
+              });
+            }
+            if (scopedVisibility.stegRef !== false) {
+              columns.push({
+                key: "stegRef",
+                label: resolveLabel("stegRef"),
+                sample: "STEG-001"
+              });
+            }
+            headerRow.innerHTML = columns
+              .map(
+                (column) =>
+                  `<th data-client-import-field="${escapeHTML(column.key)}">${escapeHTML(column.label)}</th>`
+              )
+              .join("");
+            bodyRow.innerHTML = columns
+              .map(
+                (column) =>
+                  `<td data-client-import-field="${escapeHTML(column.key)}">${escapeHTML(column.sample)}</td>`
+              )
+              .join("");
+            if (note) {
+              note.hidden = false;
+              note.style.display = "";
+            }
+          };
+
           applyClientImportModalLabels = (entityType = clientImportModalState.entityType) => {
             const labels = getClientImportModalLabels(entityType);
             if (clientImportModalTitle) {
               clientImportModalTitle.textContent = labels.title;
             }
             if (clientImportHint) {
-              const scopedLabels = getScopedClientFieldLabels(entityType);
-              const benefitLabel = resolveScopedClientFieldLabel("benefit", entityType, scopedLabels);
-              const accountLabel = resolveScopedClientFieldLabel("account", entityType, scopedLabels);
-              const soldClientLabel = resolveScopedClientFieldLabel("soldClient", entityType, scopedLabels);
-              const stegRefLabel = resolveScopedClientFieldLabel("stegRef", entityType, scopedLabels);
-              const extraHeaders =
-                entityType === "transporter"
-                  ? []
-                  : [benefitLabel, accountLabel, soldClientLabel, stegRefLabel].filter(Boolean);
-              const extraHint = extraHeaders.length ? `, ${extraHeaders.join(", ")}` : "";
-              const typeHint = labels.allowParticulier
-                ? "Type (Societe / personne morale (PM), Personne physique (PP), Particulier)"
-                : "Type (Societe / personne morale (PM), Personne physique (PP))";
-              clientImportHint.textContent =
-                `Selectionnez un fichier Excel (XLSX) ou CSV contenant plusieurs ${labels.plural}. ` +
-                `Colonnes acceptees : Nom, Matricule fiscal${labels.allowParticulier ? " (ou CIN / passeport pour Particulier)" : ""}, ${typeHint}, Telephone, Email, Adresse` +
-                `${extraHint}.`;
+              if (entityType === "transporter") {
+                const scopedLabels = getScopedClientFieldLabels("transporter");
+                clientImportHint.textContent =
+                  `Selectionnez un fichier Excel (XLSX) ou CSV contenant plusieurs ${labels.plural}. ` +
+                  `Colonnes acceptees : Nom, ${resolveScopedClientFieldLabel("driverName", "transporter", scopedLabels)}, ` +
+                  `${resolveScopedClientFieldLabel("vehiclePlate", "transporter", scopedLabels)}, ` +
+                  `${resolveScopedClientFieldLabel("transportMode", "transporter", scopedLabels)}, Telephone, Email, Adresse.`;
+              } else {
+                const scopedLabels = getScopedClientFieldLabels(entityType);
+                const benefitLabel = resolveScopedClientFieldLabel("benefit", entityType, scopedLabels);
+                const accountLabel = resolveScopedClientFieldLabel("account", entityType, scopedLabels);
+                const soldClientLabel = resolveScopedClientFieldLabel("soldClient", entityType, scopedLabels);
+                const stegRefLabel = resolveScopedClientFieldLabel("stegRef", entityType, scopedLabels);
+                const extraHeaders = [benefitLabel, accountLabel, soldClientLabel, stegRefLabel].filter(Boolean);
+                const extraHint = extraHeaders.length ? `, ${extraHeaders.join(", ")}` : "";
+                const typeHint = labels.allowParticulier
+                  ? "Type (Societe / personne morale (PM), Personne physique (PP), Particulier)"
+                  : "Type (Societe / personne morale (PM), Personne physique (PP))";
+                clientImportHint.textContent =
+                  `Selectionnez un fichier Excel (XLSX) ou CSV contenant plusieurs ${labels.plural}. ` +
+                  `Colonnes acceptees : Nom, Matricule fiscal${labels.allowParticulier ? " (ou CIN / passeport pour Particulier)" : ""}, ${typeHint}, Telephone, Email, Adresse` +
+                  `${extraHint}.`;
+              }
             }
+            renderClientImportExample(entityType);
           };
 
           setClientImportBusy = (isBusy) => {
@@ -422,11 +535,14 @@
             client.cin ||
             client.passeport ||
             client.passport ||
+            client.vehiclePlate ||
             "";
           resolveClientFallbackKey = (client = {}) => {
             const nameValue = normalizeClientKeyId(client.name || client.company || "");
             if (nameValue) return nameValue;
-            const accountValue = normalizeClientKeyId(client.account || client.accountOf || "");
+            const accountValue = normalizeClientKeyId(
+              client.vehiclePlate || client.account || client.accountOf || ""
+            );
             return accountValue || "";
           };
           getClientUniqueKey = (client = {}) => {
@@ -451,11 +567,15 @@
             if (identifier) return identifier;
             const nameValue = normalizeClientKeyId(client.name || "");
             if (nameValue) return nameValue;
-            const accountValue = normalizeClientKeyId(client.account || client.accountOf || "");
+            const accountValue = normalizeClientKeyId(
+              client.vehiclePlate || client.account || client.accountOf || ""
+            );
             if (accountValue) return accountValue;
             const recordNameValue = normalizeClientKeyId(record.name || "");
             const isGenericRecordName =
-              recordNameValue === "client" || recordNameValue === "fournisseur";
+              recordNameValue === "client" ||
+              recordNameValue === "fournisseur" ||
+              recordNameValue === "transporteur";
             if (recordNameValue && !isGenericRecordName) return recordNameValue;
             return "";
           };
@@ -467,6 +587,7 @@
             entreprise: "name",
             client: "name",
             fournisseur: "name",
+            transporteur: "name",
             type: "type",
             typeclient: "type",
             typefournisseur: "type",
@@ -495,6 +616,21 @@
             courriel: "email",
             adresse: "address",
             address: "address",
+            chauffeur: "driverName",
+            conducteur: "driverName",
+            driver: "driverName",
+            drivername: "driverName",
+            nomduchauffeur: "driverName",
+            matriculevehicule: "vehiclePlate",
+            matriculevehicle: "vehiclePlate",
+            vehicule: "vehiclePlate",
+            vehicle: "vehiclePlate",
+            vehicleplate: "vehiclePlate",
+            plaque: "vehiclePlate",
+            plaquevehicule: "vehiclePlate",
+            modedetransport: "transportMode",
+            transportmode: "transportMode",
+            modeexpedition: "transportMode",
             beneficiaire: "benefit",
             beneficiaires: "benefit",
             benefit: "benefit",
@@ -516,6 +652,40 @@
             const key = normalizeImportHeaderKey(header);
             if (!key) return "";
             if (CLIENT_IMPORT_HEADER_MAP[key]) return CLIENT_IMPORT_HEADER_MAP[key];
+            if (clientImportModalState.entityType === "transporter") {
+              const labelDefaults = resolveTransporteurFieldLabelDefaults();
+              const scopedLabels = getScopedClientFieldLabels("transporter");
+              const customLabelCandidates = {
+                driverName: [scopedLabels?.driverName, labelDefaults.driverName],
+                vehiclePlate: [scopedLabels?.vehiclePlate, labelDefaults.vehiclePlate],
+                transportMode: [scopedLabels?.transportMode, labelDefaults.transportMode]
+              };
+              for (const [fieldKey, candidates] of Object.entries(customLabelCandidates)) {
+                const match = candidates.some((value) => {
+                  const normalizedValue = normalizeImportHeaderKey(value);
+                  return normalizedValue && normalizedValue === key;
+                });
+                if (match) return fieldKey;
+              }
+              if (key.includes("email")) return "email";
+              if (key.includes("telephone") || key.startsWith("tel") || key.includes("phone") || key.includes("gsm") || key.includes("mobile")) {
+                return "phone";
+              }
+              if (key.includes("adresse") || key.includes("address")) return "address";
+              if (key.includes("chauffeur") || key.includes("driver") || key.includes("conducteur")) {
+                return "driverName";
+              }
+              if (key.includes("vehicule") || key.includes("vehicle") || key.includes("plaque") || key.includes("matricule")) {
+                return "vehiclePlate";
+              }
+              if (key.includes("modedetransport") || key.includes("transportmode")) {
+                return "transportMode";
+              }
+              if (key.includes("transporteur") || key.includes("nom") || key.includes("raison") || key.includes("societe") || key.includes("entreprise")) {
+                return "name";
+              }
+              return "";
+            }
             const labelDefaults = resolveClientFieldLabelDefaults();
             const customLabelCandidates = {
               benefit: [clientFieldLabels?.benefit, labelDefaults.benefit],
@@ -967,7 +1137,9 @@
             const headerFields = headerRow.map((cell) => resolveImportField(cell));
             if (!headerFields.some(Boolean)) {
               result.errors.push(
-                "Colonnes non reconnues. Utilisez: Nom, Matricule fiscal (ou CIN / passeport), Telephone, Email, Adresse, Type, Au profit de, Pour le compte de, Ref STEG."
+                clientImportModalState.entityType === "transporter"
+                  ? "Colonnes non reconnues. Utilisez: Nom, Nom du chauffeur, Matricule vehicule, Mode de transport, Telephone, Email, Adresse."
+                  : "Colonnes non reconnues. Utilisez: Nom, Matricule fiscal (ou CIN / passeport), Telephone, Email, Adresse, Type, Au profit de, Pour le compte de, Ref STEG."
               );
               return result;
             }
@@ -983,6 +1155,30 @@
                 if (!field) return;
                 data[field] = normalizeClientImportValue(row[idx]);
               });
+              if (clientImportModalState.entityType === "transporter") {
+                const transporter = {
+                  name: String(data.name || "").trim(),
+                  driverName: String(data.driverName || data.benefit || "").trim(),
+                  vehiclePlate: String(data.vehiclePlate || data.account || "").trim(),
+                  transportMode: String(data.transportMode || data.stegRef || "").trim(),
+                  phone: data.phone || "",
+                  email: data.email || "",
+                  address: data.address || ""
+                };
+                if (!transporter.name && !transporter.vehiclePlate) {
+                  result.errors.push(`Ligne ${i + 1}: nom ou matricule vehicule manquant.`);
+                  continue;
+                }
+                const dedupeKey = getClientUniqueKey(transporter);
+                if (dedupeKey && seen.has(dedupeKey)) {
+                  const existingIndex = seen.get(dedupeKey);
+                  result.items[existingIndex] = transporter;
+                  continue;
+                }
+                if (dedupeKey) seen.set(dedupeKey, result.items.length);
+                result.items.push(transporter);
+                continue;
+              }
               const rawName = data.name || "";
               const rawBenefit = data.benefit || "";
               const rawAccount = data.account || "";
@@ -1464,6 +1660,7 @@
             }
             setClientImportBusy(true);
             const entityType = clientImportModalState.entityType || "client";
+            const entityLabels = getClientImportModalLabels(entityType);
             let existingClientsByKey = new Map();
             if (window.electronAPI?.deleteClient || window.electronAPI?.updateClientDirect) {
               try {
@@ -1503,6 +1700,7 @@
               const suggested =
                 SEM.forms?.pickSuggestedClientName?.(client) ||
                 client.name ||
+                client.vehiclePlate ||
                 client.vat ||
                 client.email ||
                 client.phone ||
@@ -1528,11 +1726,11 @@
                             entityType
                           });
                           if (!delRes?.ok) {
-                            saveErrors.push(`Ligne ${i + 1}: suppression de l'ancien client impossible.`);
+                            saveErrors.push(`Ligne ${i + 1}: suppression de l'ancien ${entityLabels.singular} impossible.`);
                           }
                         } catch (err) {
                           console.error("client import delete", err);
-                          saveErrors.push(`Ligne ${i + 1}: suppression de l'ancien client impossible.`);
+                          saveErrors.push(`Ligne ${i + 1}: suppression de l'ancien ${entityLabels.singular} impossible.`);
                         }
                       }
                     }
@@ -1567,11 +1765,11 @@
                             entityType
                           });
                           if (!delRes?.ok) {
-                            saveErrors.push(`Ligne ${i + 1}: suppression de l'ancien client impossible.`);
+                            saveErrors.push(`Ligne ${i + 1}: suppression de l'ancien ${entityLabels.singular} impossible.`);
                           }
                         } catch (err) {
                           console.error("client import delete", err);
-                          saveErrors.push(`Ligne ${i + 1}: suppression de l'ancien client impossible.`);
+                          saveErrors.push(`Ligne ${i + 1}: suppression de l'ancien ${entityLabels.singular} impossible.`);
                         }
                       }
                     }

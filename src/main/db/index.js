@@ -327,7 +327,7 @@ const migrateLegacyClients = (db) => {
     legacyRows.forEach((row) => {
       const dataRaw = parseJsonSafeForMigration(row.data);
       const data = dataRaw && typeof dataRaw === "object" ? dataRaw : {};
-      const normalizedClient = normalizeClientRecord(data);
+      const normalizedClient = normalizeClientRecord(data, row.type);
       const accountValue = normalizeAccountValue(normalizedClient.account);
       const searchText = buildSearchText([
         normalizedClient.name,
@@ -614,7 +614,7 @@ const migrateClientFieldsToColumns = (db) => {
   const tx = db.transaction(() => {
     rows.forEach((row) => {
       const data = loadFieldRows(db, "client_fields", "client_id", row.id);
-      const normalized = normalizeClientRecord(data);
+      const normalized = normalizeClientRecord(data, row.type);
       const accountValue = normalizeAccountValue(normalized.account);
       const searchText = buildSearchText([
         normalized.name,
@@ -1152,21 +1152,87 @@ const buildClientIdentifier = (client = {}) => {
   return String(candidate || "").trim();
 };
 
-const normalizeClientRecord = (client = {}) => ({
-  clientType: normalizeClientProfileType(client.type),
-  name: normalizeTextValue(client.name || client.company),
-  benefit: normalizeTextValue(client.benefit),
-  account: normalizeTextValue(client.account || client.accountOf),
-  vat: normalizeTextValue(client.vat),
-  identifiantFiscal: normalizeTextValue(client.identifiantFiscal),
-  cin: normalizeTextValue(client.cin),
-  passport: normalizeTextValue(client.passport || client.passeport),
-  stegRef: normalizeTextValue(client.stegRef),
-  phone: normalizeTextValue(client.phone || client.telephone || client.tel),
-  email: normalizeTextValue(client.email),
-  address: normalizeTextValue(client.address),
-  soldClient: normalizeClientBalanceValue(client.soldClient)
-});
+const isTransporterEntityType = (value) => normalizeClientEntityType(value) === "transporter";
+
+const normalizeClientRecord = (client = {}, entityType = "client") => {
+  const isTransporter = isTransporterEntityType(entityType || client.entityType || client.typeEntity);
+  if (isTransporter) {
+    return {
+      clientType: "",
+      name: normalizeTextValue(client.name || client.company || client.transporter),
+      benefit: normalizeTextValue(client.driverName || client.driver || client.chauffeur || client.benefit),
+      account: normalizeTextValue(
+        client.vehiclePlate ||
+          client.vehicle ||
+          client.vehicule ||
+          client.matriculeVehicule ||
+          client.matriculeVehicle ||
+          client.plate ||
+          client.account ||
+          client.accountOf ||
+          client.vat
+      ),
+      vat: "",
+      identifiantFiscal: "",
+      cin: "",
+      passport: "",
+      stegRef: normalizeTextValue(
+        client.transportMode ||
+          client.modeTransport ||
+          client.modeDeTransport ||
+          client.transport ||
+          client.stegRef
+      ),
+      phone: normalizeTextValue(client.phone || client.telephone || client.tel),
+      email: normalizeTextValue(client.email),
+      address: normalizeTextValue(client.address),
+      soldClient: ""
+    };
+  }
+  return {
+    clientType: normalizeClientProfileType(client.type),
+    name: normalizeTextValue(client.name || client.company),
+    benefit: normalizeTextValue(client.benefit),
+    account: normalizeTextValue(client.account || client.accountOf),
+    vat: normalizeTextValue(client.vat),
+    identifiantFiscal: normalizeTextValue(client.identifiantFiscal),
+    cin: normalizeTextValue(client.cin),
+    passport: normalizeTextValue(client.passport || client.passeport),
+    stegRef: normalizeTextValue(client.stegRef),
+    phone: normalizeTextValue(client.phone || client.telephone || client.tel),
+    email: normalizeTextValue(client.email),
+    address: normalizeTextValue(client.address),
+    soldClient: normalizeClientBalanceValue(client.soldClient)
+  };
+};
+
+const hydrateClientFromRow = (row = {}) => {
+  const entityType = normalizeClientEntityType(row.type);
+  const base = {
+    type: row.client_type || "",
+    name: row.name || "",
+    benefit: row.benefit || "",
+    account: row.account || "",
+    vat: row.vat || "",
+    identifiantFiscal: row.identifiant_fiscal || "",
+    cin: row.cin || "",
+    passport: row.passport || "",
+    stegRef: row.steg_ref || "",
+    phone: row.phone || "",
+    email: row.email || "",
+    address: row.address || "",
+    soldClient: row.sold_client ?? ""
+  };
+  if (entityType === "transporter") {
+    return {
+      ...base,
+      driverName: base.benefit || "",
+      vehiclePlate: base.account || base.vat || "",
+      transportMode: base.stegRef || base.type || ""
+    };
+  }
+  return base;
+};
 
 const normalizeArticleField = (value) =>
   typeof value === "string" ? value.trim().toLowerCase() : "";
@@ -2922,7 +2988,7 @@ const saveClient = ({ client = {}, entityType = "client", suggestedName = "", id
   const assignedId = id ? parseClientIdFromPath(id) || id : generateId("client");
   const db = initDatabase();
   const existingRecord = getClientById(assignedId);
-  const normalizedClient = normalizeClientRecord(client);
+  const normalizedClient = normalizeClientRecord(client, normalizedType);
   const baseName =
     String(suggestedName || normalizedClient.name || client.name || client.company || "")
       .trim()
@@ -2934,7 +3000,11 @@ const saveClient = ({ client = {}, entityType = "client", suggestedName = "", id
       .prepare("SELECT id FROM clients WHERE account_normalized = ? AND type = ? AND id != ?")
       .get(accountValue, normalizedType, assignedId);
     if (match) {
-      throw new Error("Un client avec le meme champ 'Pour le compte de' existe deja.");
+      throw new Error(
+        normalizedType === "transporter"
+          ? "Un transporteur avec le meme matricule vehicule existe deja."
+          : "Un client avec le meme champ 'Pour le compte de' existe deja."
+      );
     }
   }
   const now = new Date().toISOString();
@@ -3021,7 +3091,11 @@ const updateClient = ({
       .prepare("SELECT id FROM clients WHERE account_normalized = ? AND type = ? AND id != ?")
       .get(accountValue, normalizedType, record.id);
     if (match) {
-      throw new Error("Un client avec le meme champ 'Pour le compte de' existe deja.");
+      throw new Error(
+        normalizedType === "transporter"
+          ? "Un transporteur avec le meme matricule vehicule existe deja."
+          : "Un client avec le meme champ 'Pour le compte de' existe deja."
+      );
     }
   }
   const node = saveClient({
@@ -3141,21 +3215,7 @@ const getClientById = (id) => {
   const db = initDatabase();
   const row = db.prepare("SELECT * FROM clients WHERE id = ?").get(id);
   if (!row) return null;
-  const parsed = {
-    type: row.client_type || "",
-    name: row.name || "",
-    benefit: row.benefit || "",
-    account: row.account || "",
-    vat: row.vat || "",
-    identifiantFiscal: row.identifiant_fiscal || "",
-    cin: row.cin || "",
-    passport: row.passport || "",
-    stegRef: row.steg_ref || "",
-    phone: row.phone || "",
-    email: row.email || "",
-    address: row.address || "",
-    soldClient: row.sold_client ?? ""
-  };
+  const parsed = hydrateClientFromRow(row);
   return {
     id: row.id,
     entityType: row.type,
@@ -3208,21 +3268,7 @@ const searchClients = ({ query = "", limit, offset, entityType } = {}) => {
   }
   const rows = db.prepare(parts.join(" ")).all(...params);
     const results = rows.map((row) => {
-      const data = {
-        type: row.client_type || "",
-        name: row.name || "",
-        benefit: row.benefit || "",
-      account: row.account || "",
-      vat: row.vat || "",
-      identifiantFiscal: row.identifiant_fiscal || "",
-      cin: row.cin || "",
-      passport: row.passport || "",
-      stegRef: row.steg_ref || "",
-      phone: row.phone || "",
-      email: row.email || "",
-      address: row.address || "",
-      soldClient: row.sold_client ?? ""
-    };
+      const data = hydrateClientFromRow(row);
     return {
       id: row.id,
       name: row.name || data.name || "",

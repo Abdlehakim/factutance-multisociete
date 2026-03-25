@@ -3,13 +3,12 @@
   const POPOVER_SELECTOR = "#transporteurFormPopover";
   const FIELD_IDS = [
     "transporteurName",
-    "transporteurVat",
+    "transporteurDriverName",
+    "transporteurVehiclePlate",
+    "transporteurTransportMode",
     "transporteurPhone",
     "transporteurEmail",
-    "transporteurAddress",
-    "transporteurBeneficiary",
-    "transporteurAccount",
-    "transporteurStegRef"
+    "transporteurAddress"
   ];
 
   const resolvePopover = () => {

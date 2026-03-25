@@ -72,15 +72,14 @@
     transporter: {
       clientType: "transporteurType",
       clientName: "transporteurName",
-      clientBeneficiary: "transporteurBeneficiary",
-      clientAccount: "transporteurAccount",
+      clientBeneficiary: "transporteurDriverName",
+      clientAccount: "transporteurVehiclePlate",
       clientSoldClient: "transporteurSoldClient",
       clientVat: "transporteurVat",
-      clientStegRef: "transporteurStegRef",
+      clientStegRef: "transporteurTransportMode",
       clientPhone: "transporteurPhone",
       clientEmail: "transporteurEmail",
       clientAddress: "transporteurAddress",
-      clientIdLabel: "transporteurIdLabel",
       btnSaveClient: "btnSaveTransporteur",
       btnUpdateClient: "btnUpdateTransporteur",
       btnNewClient: "btnNewTransporteur"
@@ -940,18 +939,17 @@
     const labelText = isParticulier ? "CIN / passeport" : "Matricule fiscal";
     const placeholder = isParticulier ? "CIN ou Passeport" : "ex: 1284118/W/A/M/000";
     if (typeof document !== "undefined") {
-      document.querySelectorAll("#clientIdLabel, #fournisseurIdLabel, #transporteurIdLabel").forEach((label) => {
+      document.querySelectorAll("#clientIdLabel, #fournisseurIdLabel").forEach((label) => {
         label.textContent = labelText;
       });
-      document.querySelectorAll("#clientVat, #fournisseurVat, #transporteurVat").forEach((input) => {
+      document.querySelectorAll("#clientVat, #fournisseurVat").forEach((input) => {
         if ("placeholder" in input) input.placeholder = placeholder;
       });
       return;
     }
     setText("clientIdLabel", labelText);
     setText("fournisseurIdLabel", labelText);
-    setText("transporteurIdLabel", labelText);
-    const idInput = getEl("clientVat") || getEl("fournisseurVat") || getEl("transporteurVat");
+    const idInput = getEl("clientVat") || getEl("fournisseurVat");
     if (idInput) idInput.placeholder = placeholder;
   };
 

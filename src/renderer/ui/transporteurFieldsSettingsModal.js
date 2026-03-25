@@ -25,27 +25,31 @@ export const renderTransporteurFieldsSettingsModal = () => `
           <div class="field-toggle-menu__title">Champs du transporteur</div>
           <div class="field-toggle-panel">
             <label class="toggle-option">
-              <input id="transporteurFieldToggleType" data-transporteur-field-key="type" type="checkbox" class="col-toggle" aria-label="Masquer champ Type de transporteur" checked />
-              <span class="model-save-dot">Type</span>
+              <input id="transporteurFieldToggleName" data-transporteur-field-key="name" type="checkbox" class="col-toggle" aria-label="Masquer champ Transporteur / Nom" checked />
+              <span class="model-save-dot">Transporteur / Nom</span>
             </label>
             <label class="toggle-option">
-              <input id="transporteurFieldToggleName" data-transporteur-field-key="name" type="checkbox" class="col-toggle" aria-label="Masquer champ Nom du transporteur" checked />
-              <span class="model-save-dot">Nom</span>
+              <input id="transporteurFieldToggleDriverName" data-transporteur-field-key="driverName" type="checkbox" class="col-toggle" aria-label="Masquer champ Nom du chauffeur" checked />
+              <span class="model-save-dot">Nom du chauffeur</span>
             </label>
             <label class="toggle-option">
-              <input id="transporteurFieldToggleTaxId" data-transporteur-field-key="taxId" type="checkbox" class="col-toggle" aria-label="Masquer champ Matricule fiscal" checked />
-              <span class="model-save-dot">Matricule fiscal</span>
+              <input id="transporteurFieldToggleVehiclePlate" data-transporteur-field-key="vehiclePlate" type="checkbox" class="col-toggle" aria-label="Masquer champ Matricule vehicule" checked />
+              <span class="model-save-dot">Matricule vehicule</span>
             </label>
             <label class="toggle-option">
-              <input id="transporteurFieldTogglePhone" data-transporteur-field-key="phone" type="checkbox" class="col-toggle" aria-label="Masquer champ Telephone du transporteur" checked />
+              <input id="transporteurFieldToggleTransportMode" data-transporteur-field-key="transportMode" type="checkbox" class="col-toggle" aria-label="Masquer champ Mode de transport" checked />
+              <span class="model-save-dot">Mode de transport</span>
+            </label>
+            <label class="toggle-option">
+              <input id="transporteurFieldTogglePhone" data-transporteur-field-key="phone" type="checkbox" class="col-toggle" aria-label="Masquer champ Telephone" checked />
               <span class="model-save-dot">Telephone</span>
             </label>
             <label class="toggle-option">
-              <input id="transporteurFieldToggleEmail" data-transporteur-field-key="email" type="checkbox" class="col-toggle" aria-label="Masquer champ E-mail du transporteur" checked />
+              <input id="transporteurFieldToggleEmail" data-transporteur-field-key="email" type="checkbox" class="col-toggle" aria-label="Masquer champ E-mail" checked />
               <span class="model-save-dot">E-mail</span>
             </label>
             <label class="toggle-option">
-              <input id="transporteurFieldToggleAddress" data-transporteur-field-key="address" type="checkbox" class="col-toggle" aria-label="Masquer champ Adresse du transporteur" checked />
+              <input id="transporteurFieldToggleAddress" data-transporteur-field-key="address" type="checkbox" class="col-toggle" aria-label="Masquer champ Adresse" checked />
               <span class="model-save-dot">Adresse</span>
             </label>
           </div>
@@ -53,11 +57,11 @@ export const renderTransporteurFieldsSettingsModal = () => `
           <div class="field-toggle-panel field-toggle-panel--labels">
             <div class="fournisseur-field-label-option">
               <div class="fournisseur-field-label-header">
-                <span class="fournisseur-field-label-default" data-transporteur-field-label="type">Type de transporteur</span>
+                <span class="fournisseur-field-label-default" data-transporteur-field-label="name">Transporteur / Nom</span>
               </div>
               <div class="fournisseur-field-label-input-wrap">
-                <input type="text" class="fournisseur-field-label-input" data-transporteur-field-label-input="type" aria-label="Modifier libelle Type de transporteur" />
-                <button type="button" class="fournisseur-field-label-reset" data-transporteur-field-label-reset="type" aria-label="Reinitialiser libelle Type de transporteur">
+                <input type="text" class="fournisseur-field-label-input" data-transporteur-field-label-input="name" aria-label="Modifier libelle Transporteur / Nom" />
+                <button type="button" class="fournisseur-field-label-reset" data-transporteur-field-label-reset="name" aria-label="Reinitialiser libelle Transporteur / Nom">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M3 12a9 9 0 1 0 3-6.7" stroke-linecap="round" />
                     <path d="M3 4v6h6" stroke-linecap="round" stroke-linejoin="round" />
@@ -67,11 +71,11 @@ export const renderTransporteurFieldsSettingsModal = () => `
             </div>
             <div class="fournisseur-field-label-option">
               <div class="fournisseur-field-label-header">
-                <span class="fournisseur-field-label-default" data-transporteur-field-label="name">Nom du transporteur</span>
+                <span class="fournisseur-field-label-default" data-transporteur-field-label="driverName">Nom du chauffeur</span>
               </div>
               <div class="fournisseur-field-label-input-wrap">
-                <input type="text" class="fournisseur-field-label-input" data-transporteur-field-label-input="name" aria-label="Modifier libelle Nom du transporteur" />
-                <button type="button" class="fournisseur-field-label-reset" data-transporteur-field-label-reset="name" aria-label="Reinitialiser libelle Nom du transporteur">
+                <input type="text" class="fournisseur-field-label-input" data-transporteur-field-label-input="driverName" aria-label="Modifier libelle Nom du chauffeur" />
+                <button type="button" class="fournisseur-field-label-reset" data-transporteur-field-label-reset="driverName" aria-label="Reinitialiser libelle Nom du chauffeur">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M3 12a9 9 0 1 0 3-6.7" stroke-linecap="round" />
                     <path d="M3 4v6h6" stroke-linecap="round" stroke-linejoin="round" />
@@ -81,11 +85,11 @@ export const renderTransporteurFieldsSettingsModal = () => `
             </div>
             <div class="fournisseur-field-label-option">
               <div class="fournisseur-field-label-header">
-                <span class="fournisseur-field-label-default" data-transporteur-field-label="taxId">Matricule fiscal</span>
+                <span class="fournisseur-field-label-default" data-transporteur-field-label="vehiclePlate">Matricule vehicule</span>
               </div>
               <div class="fournisseur-field-label-input-wrap">
-                <input type="text" class="fournisseur-field-label-input" data-transporteur-field-label-input="taxId" aria-label="Modifier libelle Matricule fiscal" />
-                <button type="button" class="fournisseur-field-label-reset" data-transporteur-field-label-reset="taxId" aria-label="Reinitialiser libelle Matricule fiscal">
+                <input type="text" class="fournisseur-field-label-input" data-transporteur-field-label-input="vehiclePlate" aria-label="Modifier libelle Matricule vehicule" />
+                <button type="button" class="fournisseur-field-label-reset" data-transporteur-field-label-reset="vehiclePlate" aria-label="Reinitialiser libelle Matricule vehicule">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M3 12a9 9 0 1 0 3-6.7" stroke-linecap="round" />
                     <path d="M3 4v6h6" stroke-linecap="round" stroke-linejoin="round" />
@@ -95,11 +99,11 @@ export const renderTransporteurFieldsSettingsModal = () => `
             </div>
             <div class="fournisseur-field-label-option">
               <div class="fournisseur-field-label-header">
-                <span class="fournisseur-field-label-default" data-transporteur-field-label="phone">Telephone du transporteur</span>
+                <span class="fournisseur-field-label-default" data-transporteur-field-label="transportMode">Mode de transport</span>
               </div>
               <div class="fournisseur-field-label-input-wrap">
-                <input type="text" class="fournisseur-field-label-input" data-transporteur-field-label-input="phone" aria-label="Modifier libelle Telephone du transporteur" />
-                <button type="button" class="fournisseur-field-label-reset" data-transporteur-field-label-reset="phone" aria-label="Reinitialiser libelle Telephone du transporteur">
+                <input type="text" class="fournisseur-field-label-input" data-transporteur-field-label-input="transportMode" aria-label="Modifier libelle Mode de transport" />
+                <button type="button" class="fournisseur-field-label-reset" data-transporteur-field-label-reset="transportMode" aria-label="Reinitialiser libelle Mode de transport">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M3 12a9 9 0 1 0 3-6.7" stroke-linecap="round" />
                     <path d="M3 4v6h6" stroke-linecap="round" stroke-linejoin="round" />
@@ -109,11 +113,11 @@ export const renderTransporteurFieldsSettingsModal = () => `
             </div>
             <div class="fournisseur-field-label-option">
               <div class="fournisseur-field-label-header">
-                <span class="fournisseur-field-label-default" data-transporteur-field-label="email">E-mail du transporteur</span>
+                <span class="fournisseur-field-label-default" data-transporteur-field-label="phone">Telephone</span>
               </div>
               <div class="fournisseur-field-label-input-wrap">
-                <input type="text" class="fournisseur-field-label-input" data-transporteur-field-label-input="email" aria-label="Modifier libelle E-mail du transporteur" />
-                <button type="button" class="fournisseur-field-label-reset" data-transporteur-field-label-reset="email" aria-label="Reinitialiser libelle E-mail du transporteur">
+                <input type="text" class="fournisseur-field-label-input" data-transporteur-field-label-input="phone" aria-label="Modifier libelle Telephone" />
+                <button type="button" class="fournisseur-field-label-reset" data-transporteur-field-label-reset="phone" aria-label="Reinitialiser libelle Telephone">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M3 12a9 9 0 1 0 3-6.7" stroke-linecap="round" />
                     <path d="M3 4v6h6" stroke-linecap="round" stroke-linejoin="round" />
@@ -123,11 +127,25 @@ export const renderTransporteurFieldsSettingsModal = () => `
             </div>
             <div class="fournisseur-field-label-option">
               <div class="fournisseur-field-label-header">
-                <span class="fournisseur-field-label-default" data-transporteur-field-label="address">Adresse du transporteur</span>
+                <span class="fournisseur-field-label-default" data-transporteur-field-label="email">E-mail</span>
               </div>
               <div class="fournisseur-field-label-input-wrap">
-                <input type="text" class="fournisseur-field-label-input" data-transporteur-field-label-input="address" aria-label="Modifier libelle Adresse du transporteur" />
-                <button type="button" class="fournisseur-field-label-reset" data-transporteur-field-label-reset="address" aria-label="Reinitialiser libelle Adresse du transporteur">
+                <input type="text" class="fournisseur-field-label-input" data-transporteur-field-label-input="email" aria-label="Modifier libelle E-mail" />
+                <button type="button" class="fournisseur-field-label-reset" data-transporteur-field-label-reset="email" aria-label="Reinitialiser libelle E-mail">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 12a9 9 0 1 0 3-6.7" stroke-linecap="round" />
+                    <path d="M3 4v6h6" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="fournisseur-field-label-option">
+              <div class="fournisseur-field-label-header">
+                <span class="fournisseur-field-label-default" data-transporteur-field-label="address">Adresse</span>
+              </div>
+              <div class="fournisseur-field-label-input-wrap">
+                <input type="text" class="fournisseur-field-label-input" data-transporteur-field-label-input="address" aria-label="Modifier libelle Adresse" />
+                <button type="button" class="fournisseur-field-label-reset" data-transporteur-field-label-reset="address" aria-label="Reinitialiser libelle Adresse">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M3 12a9 9 0 1 0 3-6.7" stroke-linecap="round" />
                     <path d="M3 4v6h6" stroke-linecap="round" stroke-linejoin="round" />

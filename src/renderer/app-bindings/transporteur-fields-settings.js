@@ -12,26 +12,31 @@
   const TRANSPORTEUR_SETTINGS_KEY = "transporteur";
 
   const TRANSPORTEUR_FIELD_DEFAULT_VISIBILITY = {
-    type: true,
     name: true,
-    taxId: true,
+    driverName: true,
+    vehiclePlate: true,
+    transportMode: true,
     phone: true,
     email: true,
     address: true
   };
   const TRANSPORTEUR_FIELD_DEFAULT_LABELS = {
-    type: "Type de transporteur",
-    name: "Nom du transporteur",
-    taxId: "Matricule fiscal",
-    phone: "Telephone du transporteur",
-    email: "E-mail du transporteur",
-    address: "Adresse du transporteur"
+    name: "Transporteur / Nom",
+    driverName: "Nom du chauffeur",
+    vehiclePlate: "Matricule vehicule",
+    transportMode: "Mode de transport",
+    phone: "Telephone",
+    email: "E-mail",
+    address: "Adresse"
   };
   const TRANSPORTEUR_FIELD_KEYS = Object.keys(TRANSPORTEUR_FIELD_DEFAULT_VISIBILITY);
 
   const normalizeVisibility = (raw = {}) => {
     const source = raw && typeof raw === "object" ? raw : {};
     const next = { ...TRANSPORTEUR_FIELD_DEFAULT_VISIBILITY };
+    if (!("vehiclePlate" in source) && "taxId" in source) {
+      next.vehiclePlate = source.taxId !== false;
+    }
     TRANSPORTEUR_FIELD_KEYS.forEach((key) => {
       if (!(key in source)) return;
       next[key] = source[key] !== false;
@@ -42,6 +47,9 @@
   const normalizeLabels = (raw = {}) => {
     const source = raw && typeof raw === "object" ? raw : {};
     const next = { ...TRANSPORTEUR_FIELD_DEFAULT_LABELS };
+    if (!source.vehiclePlate && typeof source.taxId === "string" && source.taxId.trim()) {
+      next.vehiclePlate = source.taxId.trim();
+    }
     TRANSPORTEUR_FIELD_KEYS.forEach((key) => {
       if (typeof source[key] !== "string") return;
       const trimmed = source[key].trim();

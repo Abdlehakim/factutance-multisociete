@@ -979,27 +979,84 @@
               return list.find((entry) => String(entry?.path || "").trim() === selectedPath) || null;
             };
 
-            const addArticleFromPopoverSelection = async (popover) => {
-              if (!popover) return false;
+            const captureArticlePopoverDraft = (popover) => {
+              if (!popover) return null;
+              const ctx = getArticleFormPopoverContext(popover);
+              if (ctx?.scope && typeof SEM.setActiveAddFormScope === "function") {
+                SEM.setActiveAddFormScope(ctx.scope);
+              }
               const selected = resolveArticlePopoverSelectedRecord(popover);
               const captured = SEM.forms?.captureArticleFromForm?.() || {};
               const hasRef = (captured.ref || "").trim();
               const hasProduct = (captured.product || "").trim();
               const hasDesc = (captured.desc || "").trim();
-              if (hasRef || hasProduct || hasDesc) {
-                const selectedArticle =
-                  selected && selected.article && typeof selected.article === "object"
-                    ? selected.article
-                    : {};
-                const mergedArticle = { ...selectedArticle, ...captured };
-                const resolvedPath =
-                  (SEM.articleEditContext?.path || "").trim() ||
-                  String(selected?.path || "").trim();
-                addArticleToItems(mergedArticle, { path: resolvedPath });
+              const hasTypedContent = !!(hasRef || hasProduct || hasDesc);
+              const selectedArticle =
+                selected && selected.article && typeof selected.article === "object"
+                  ? selected.article
+                  : {};
+              const mergedArticle = { ...selectedArticle, ...captured };
+              const resolvedPath =
+                (SEM.articleEditContext?.path || "").trim() ||
+                String(selected?.path || "").trim();
+              return {
+                ctx,
+                selected,
+                captured,
+                hasTypedContent,
+                mergedArticle,
+                resolvedPath,
+                label:
+                  (mergedArticle.product || "").trim() ||
+                  (mergedArticle.ref || "").trim() ||
+                  String(selected?.name || "").trim()
+              };
+            };
+
+            const restoreArticlePopoverDraft = (draft) => {
+              if (!draft?.ctx?.scope) return;
+              if (typeof SEM.setActiveAddFormScope === "function") {
+                SEM.setActiveAddFormScope(draft.ctx.scope);
+              }
+              if (typeof SEM.fillAddFormFromItem === "function") {
+                SEM.fillAddFormFromItem(draft.mergedArticle || {});
+              }
+              if (draft.resolvedPath) {
+                SEM.enterArticleEditContext?.({ path: draft.resolvedPath, name: draft.label || "" });
+              } else {
+                SEM.clearArticleEditContext?.();
+              }
+              SEM.markItemFormDirty?.(true);
+              SEM.markArticleFormDirty?.(true);
+            };
+
+            const addArticleFromPopoverSelection = async (popover, options = {}) => {
+              if (!popover) return false;
+              const draft = captureArticlePopoverDraft(popover);
+              if (!draft) return false;
+              if (draft.hasTypedContent) {
+                if (draft.ctx?.scope && typeof SEM.setActiveAddFormScope === "function") {
+                  SEM.setActiveAddFormScope(draft.ctx.scope);
+                }
+                if (typeof SEM.setSubmitMode === "function") {
+                  SEM.setSubmitMode("add");
+                }
+                SEM.selectedItemIndex = null;
+                if (typeof SEM.submitItemForm === "function") {
+                  const added = await SEM.submitItemForm({ updateLinkedArticle: false });
+                  if (added && options.restoreFormAfterAdd) {
+                    restoreArticlePopoverDraft(draft);
+                  }
+                  return !!added;
+                }
+                addArticleToItems(draft.mergedArticle, { path: draft.resolvedPath });
+                if (options.restoreFormAfterAdd) {
+                  restoreArticlePopoverDraft(draft);
+                }
                 return true;
               }
-              if (selected) {
-                addArticleToItems(selected.article || {}, { path: selected.path });
+              if (draft.selected) {
+                addArticleToItems(draft.selected.article || {}, { path: draft.selected.path });
                 return true;
               }
               const missingItemMessage = getMessage("ITEM_REQUIRED_FIELDS");
@@ -1310,7 +1367,9 @@
                 if (addAndSaveBtn.disabled) return;
                 const ctx = getArticleFormPopoverContext(addAndSaveBtn);
                 if (!ctx?.popover) return;
-                const added = await addArticleFromPopoverSelection(ctx.popover);
+                const added = await addArticleFromPopoverSelection(ctx.popover, {
+                  restoreFormAfterAdd: true
+                });
                 if (!added) return;
                 if (typeof SEM.handleArticleSave === "function") {
                   await SEM.handleArticleSave({

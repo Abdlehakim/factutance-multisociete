@@ -1,19 +1,4 @@
 export const renderTransporteurFormPopover = ({ includeParticulier = false } = {}) => {
-  const particulierOption = includeParticulier
-    ? `
-                  <button
-                    type="button"
-                    class="model-select-option"
-                    data-client-type-option="particulier"
-                    role="option"
-                    aria-selected="false"
-                  >
-                    Particulier
-                  </button>`
-    : "";
-  const particulierSelectOption = includeParticulier
-    ? '\n                <option value="particulier">Particulier</option>'
-    : "";
   return `
   <div
     id="transporteurFormPopover"
@@ -45,84 +30,44 @@ export const renderTransporteurFormPopover = ({ includeParticulier = false } = {
       </div>
       <div class="client-form-modal__body swbDialog__msg">
         <div class="grid two">
-          <label class="full client-type-field doc-type-field" data-transporteur-field="type">
-            <span id="transporteurTypeLabel" data-transporteur-field-label="type">Type de transporteur</span>
-            <div class="client-type-field__controls doc-type-field__controls">
-              <details id="transporteurTypeMenu" class="field-toggle-menu client-type-menu doc-type-menu">
-                <summary
-                  class="btn success field-toggle-trigger"
-                  role="button"
-                  aria-haspopup="listbox"
-                  aria-expanded="false"
-                  aria-labelledby="transporteurTypeLabel transporteurTypeDisplay"
-                >
-                  <span id="transporteurTypeDisplay">Societe / personne morale</span>
-                  <svg class="chevron" aria-hidden="true" focusable="false" stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="none" d="M0 0h24v24H0V0z"></path><path d="M12 4c4.41 0 8 3.59 8 8s-3.59 8-8 8-8-3.59-8-8 3.59-8 8-8m0-2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 13-4-4h8z"></path></svg>
-                </summary>
-                <div
-                  id="transporteurTypePanel"
-                  class="field-toggle-panel model-select-panel client-type-panel doc-type-panel"
-                  role="listbox"
-                  aria-labelledby="transporteurTypeLabel"
-                >
-                  <button
-                    type="button"
-                    class="model-select-option is-active"
-                    data-client-type-option="societe"
-                    role="option"
-                    aria-selected="true"
-                  >
-                    Societe / personne morale
-                  </button>
-                  <button
-                    type="button"
-                    class="model-select-option"
-                    data-client-type-option="personne_physique"
-                    role="option"
-                    aria-selected="false"
-                  >
-                    Personne physique
-                  </button>
-${particulierOption}
-                </div>
-              </details>
-              <select id="transporteurType" class="client-type-select doc-type-select" aria-hidden="true" tabindex="-1">
-                <option value="societe" selected>Societe / personne morale</option>
-                <option value="personne_physique">Personne physique</option>
-${particulierSelectOption}
-              </select>
-            </div>
-          </label>
-
           <div class="grid two full" data-transporteur-field-group="identity" data-grid-columns="2">
             <label data-transporteur-field="name">
-              <span data-transporteur-field-label="name">Nom du transporteur</span>
+              <span data-transporteur-field-label="name">Transporteur / Nom</span>
               <input id="transporteurName" placeholder="Transporteur ou Entreprise" />
             </label>
-            <label data-transporteur-field="taxId">
-              <span id="transporteurIdLabel" data-transporteur-field-label="taxId">Matricule fiscal</span>
-              <input id="transporteurVat" placeholder="ex: 1284118/W/A/M/000" />
+            <label data-transporteur-field="driverName">
+              <span data-transporteur-field-label="driverName">Nom du chauffeur</span>
+              <input id="transporteurDriverName" placeholder="Nom du chauffeur" />
+            </label>
+          </div>
+          <div class="grid two full" data-transporteur-field-group="transport" data-grid-columns="2">
+            <label data-transporteur-field="vehiclePlate">
+              <span data-transporteur-field-label="vehiclePlate">Matricule vehicule</span>
+              <input id="transporteurVehiclePlate" placeholder="ex: 197 TUN 2456" />
+            </label>
+            <label data-transporteur-field="transportMode">
+              <span data-transporteur-field-label="transportMode">Mode de transport</span>
+              <input id="transporteurTransportMode" placeholder="Camion, Fourgon, etc." />
             </label>
           </div>
           <label data-transporteur-field="phone">
-            <span data-transporteur-field-label="phone">Telephone du transporteur</span>
+            <span data-transporteur-field-label="phone">Telephone</span>
             <input id="transporteurPhone" placeholder="+216 ..." />
           </label>
           <label data-transporteur-field="email">
-            <span data-transporteur-field-label="email">E-mail du transporteur</span>
+            <span data-transporteur-field-label="email">E-mail</span>
             <input id="transporteurEmail" placeholder="transporteur@email.com" />
           </label>
           <label class="full" data-transporteur-field="address">
-            <span data-transporteur-field-label="address">Adresse du transporteur</span>
+            <span data-transporteur-field-label="address">Adresse</span>
             <input id="transporteurAddress" placeholder="Rue, Ville, Pays" />
           </label>
         </div>
       </div>
       <div class="client-form-modal__actions swbDialog__actions">
-        <input id="transporteurBeneficiary" type="hidden" value="" />
-        <input id="transporteurAccount" type="hidden" value="" />
+        <input id="transporteurType" type="hidden" value="societe" />
+        <input id="transporteurVat" type="hidden" value="" />
         <input id="transporteurSoldClient" type="hidden" value="" />
-        <input id="transporteurStegRef" type="hidden" value="" />
         <div class="swbDialog__group swbDialog__group--left">
           <button
             id="transporteurFormPopoverCancel"

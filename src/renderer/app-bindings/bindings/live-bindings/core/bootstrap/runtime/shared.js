@@ -108,20 +108,15 @@
             },
             transporter: {
               clientType: "transporteurType",
-              clientTypeLabel: "transporteurTypeLabel",
-              clientTypeMenu: "transporteurTypeMenu",
-              clientTypeDisplay: "transporteurTypeDisplay",
-              clientTypePanel: "transporteurTypePanel",
               clientName: "transporteurName",
-              clientBeneficiary: "transporteurBeneficiary",
-              clientAccount: "transporteurAccount",
+              clientBeneficiary: "transporteurDriverName",
+              clientAccount: "transporteurVehiclePlate",
               clientSoldClient: "transporteurSoldClient",
               clientVat: "transporteurVat",
-              clientStegRef: "transporteurStegRef",
+              clientStegRef: "transporteurTransportMode",
               clientPhone: "transporteurPhone",
               clientEmail: "transporteurEmail",
               clientAddress: "transporteurAddress",
-              clientIdLabel: "transporteurIdLabel",
               btnSaveClient: "btnSaveTransporteur",
               btnUpdateClient: "btnUpdateTransporteur",
               btnNewClient: "btnNewTransporteur"
@@ -768,20 +763,22 @@
             address: "Adresse"
           };
           TRANSPORTEUR_FIELD_VISIBILITY_DEFAULTS = {
-            type: true,
             name: true,
-            taxId: true,
+            driverName: true,
+            vehiclePlate: true,
+            transportMode: true,
             phone: true,
             email: true,
             address: true
           };
           TRANSPORTEUR_FIELD_LABELS_DEFAULTS = {
-            type: "Type de transporteur",
-            name: "Nom du transporteur",
-            taxId: "Matricule fiscal",
-            phone: "Telephone du transporteur",
-            email: "E-mail du transporteur",
-            address: "Adresse du transporteur"
+            name: "Transporteur / Nom",
+            driverName: "Nom du chauffeur",
+            vehiclePlate: "Matricule vehicule",
+            transportMode: "Mode de transport",
+            phone: "Telephone",
+            email: "E-mail",
+            address: "Adresse"
           };
           resolveClientFieldVisibilityDefaults = () => {
             const defaults = w.DEFAULT_CLIENT_FIELD_VISIBILITY || {};
@@ -828,6 +825,9 @@
             const base = resolveTransporteurFieldVisibilityDefaults();
             const normalized = { ...base };
             const source = raw && typeof raw === "object" ? { ...raw } : {};
+            if (!("vehiclePlate" in source) && "taxId" in source) {
+              normalized.vehiclePlate = source.taxId !== false;
+            }
             Object.keys(base).forEach((key) => {
               if (key in source) normalized[key] = source[key] !== false;
             });
@@ -837,6 +837,9 @@
             const base = resolveTransporteurFieldLabelDefaults();
             const normalized = { ...base };
             const source = raw && typeof raw === "object" ? { ...raw } : {};
+            if (!source.vehiclePlate && typeof source.taxId === "string" && source.taxId.trim()) {
+              normalized.vehiclePlate = source.taxId.trim();
+            }
             Object.keys(base).forEach((key) => {
               if (typeof source[key] === "string" && source[key].trim()) {
                 normalized[key] = source[key].trim();
@@ -962,11 +965,14 @@
               return;
             }
             const isTransporter = entityType === "transporter";
-            const headers = [
-              "Nom",
-              isTransporter ? "Matricule fiscal" : "Matricule fiscal (ou CIN / passeport)",
-              "Type"
-            ];
+            const headers = isTransporter
+              ? [
+                  "Nom",
+                  resolveScopedClientFieldLabel("driverName", entityType, labels),
+                  resolveScopedClientFieldLabel("vehiclePlate", entityType, labels),
+                  resolveScopedClientFieldLabel("transportMode", entityType, labels)
+                ]
+              : ["Nom", "Matricule fiscal (ou CIN / passeport)", "Type"];
             if (!isTransporter && visibility?.soldClient !== false) {
               headers.push(resolveScopedClientFieldLabel("soldClient", entityType, labels));
             }

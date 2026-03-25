@@ -59,12 +59,12 @@
               importLabel: `Importer des ${plural}`,
               formTitle: `Fiche ${singular}`,
               typeLabel: isTransporter
-                ? "Type de transporteur"
+                ? ""
                 : isVendor
                   ? "Type de fournisseur"
                   : "Type de client",
               nameLabel: isTransporter
-                ? "Nom du transporteur"
+                ? "Transporteur / Nom"
                 : isVendor
                   ? "Nom du fournisseur"
                   : "Nom du client",
@@ -74,12 +74,12 @@
                   ? "Fournisseur ou Entreprise"
                   : "Client ou Entreprise",
               phoneLabel: isTransporter
-                ? "Telephone du transporteur"
+                ? "Telephone"
                 : isVendor
                   ? "Telephone du fournisseur"
                   : "Telephone du client",
               emailLabel: isTransporter
-                ? "E-mail du transporteur"
+                ? "E-mail"
                 : isVendor
                   ? "E-mail du fournisseur"
                   : "E-mail du client",
@@ -89,7 +89,7 @@
                   ? "fournisseur@email.com"
                   : "client@email.com",
               addressLabel: isTransporter
-                ? "Adresse du transporteur"
+                ? "Adresse"
                 : isVendor
                   ? "Adresse du fournisseur"
                   : "Adresse du client",
@@ -97,7 +97,7 @@
               emptyStatusText: `Aucun ${singular} enregistre pour le moment.`,
               loadingText: `Chargement des ${plural}...`,
               noneFoundText: `Aucun ${singular} trouve`,
-              typeFieldKey: isTransporter ? "type" : null,
+              typeFieldKey: null,
               popoverSelector: isTransporter
                 ? "#transporteurFormPopover"
                 : isVendor
@@ -933,6 +933,78 @@
               const option = document.createElement("div");
               option.className = "client-search__option";
               option.dataset.clientIndex = String(actualIndex);
+              const actionsHtml = [
+                allowAddAction
+                  ? `<button type="button" class="client-search__edit" data-client-edit="${actualIndex}">Ajouter</button>`
+                  : "",
+                `<button type="button" class="client-search__edit" data-client-saved-update="${actualIndex}">Mettre a jour</button>`,
+                `<button type="button" class="client-search__delete" data-client-delete="${actualIndex}">Supprimer</button>`
+              ]
+                .filter(Boolean)
+                .join("");
+              if (entityType === "transporter") {
+                const transporter = item?.client && typeof item.client === "object" ? item.client : item || {};
+                const name = String(transporter.name || item?.name || "").trim();
+                const driverName = item?.driverName || transporter.driverName || transporter.benefit || "";
+                const vehiclePlate =
+                  item?.vehiclePlate || transporter.vehiclePlate || transporter.account || "";
+                const transportMode =
+                  item?.transportMode || transporter.transportMode || transporter.stegRef || "";
+                const phone =
+                  item?.phone ||
+                  item?.telephone ||
+                  item?.tel ||
+                  transporter.phone ||
+                  transporter.telephone ||
+                  transporter.tel ||
+                  "";
+                const email = item?.email || transporter.email || "";
+                const address = item?.address || transporter.address || transporter.adresse || "";
+                option.innerHTML = `
+                  <button type="button" class="client-search__select client-search__select--detailed" data-client-select="${actualIndex}">
+                    <div class="client-search__details-grid">
+                      <div class="client-search__details-row">
+                        <div class="client-search__detail client-search__detail--inline client-search__detail--name" data-client-field="name">
+                          <span class="client-search__detail-label">${escapeHTML(resolveFieldLabel("name"))}</span>
+                          <span class="client-search__detail-value">${formatValue(name)}</span>
+                        </div>
+                        <div class="client-search__detail client-search__detail--inline" data-client-field="driverName">
+                          <span class="client-search__detail-label">${escapeHTML(resolveFieldLabel("driverName"))}</span>
+                          <span class="client-search__detail-value">${formatValue(driverName)}</span>
+                        </div>
+                      </div>
+                      <div class="client-search__details-row">
+                        <div class="client-search__detail client-search__detail--inline" data-client-field="vehiclePlate">
+                          <span class="client-search__detail-label">${escapeHTML(resolveFieldLabel("vehiclePlate"))}</span>
+                          <span class="client-search__detail-value">${formatValue(vehiclePlate)}</span>
+                        </div>
+                        <div class="client-search__detail client-search__detail--inline" data-client-field="transportMode">
+                          <span class="client-search__detail-label">${escapeHTML(resolveFieldLabel("transportMode"))}</span>
+                          <span class="client-search__detail-value">${formatValue(transportMode)}</span>
+                        </div>
+                      </div>
+                      <div class="client-search__details-row">
+                        <div class="client-search__detail client-search__detail--inline client-search__detail--phone" data-client-field="phone">
+                          <span class="client-search__detail-label">${escapeHTML(resolveFieldLabel("phone"))}</span>
+                          <span class="client-search__detail-value">${formatValue(phone)}</span>
+                        </div>
+                        <div class="client-search__detail client-search__detail--inline client-search__detail--email" data-client-field="email">
+                          <span class="client-search__detail-label">${escapeHTML(resolveFieldLabel("email"))}</span>
+                          <span class="client-search__detail-value">${formatValue(email)}</span>
+                        </div>
+                      </div>
+                      <div class="client-search__detail client-search__detail--inline client-search__detail--full" data-client-field="address">
+                        <span class="client-search__detail-label">${escapeHTML(resolveFieldLabel("address"))}</span>
+                        <span class="client-search__detail-value">${formatValue(address)}</span>
+                      </div>
+                    </div>
+                  </button>
+                  <div class="client-search__actions">
+                    ${actionsHtml}
+                  </div>`;
+                list.appendChild(option);
+                return;
+              }
               const clientName = String(item?.client?.name || item?.clientName || "").trim();
               const hasClientData =
                 item?.client && typeof item.client === "object" && Object.keys(item.client).length > 0;
@@ -943,15 +1015,6 @@
               const nameLabel = resolveFieldLabel("name");
               const taxIdLabel = resolveFieldLabel("taxId");
               const phoneLabel = resolveFieldLabel("phone");
-              const actionsHtml = [
-                allowAddAction
-                  ? `<button type="button" class="client-search__edit" data-client-edit="${actualIndex}">Ajouter</button>`
-                  : "",
-                `<button type="button" class="client-search__edit" data-client-saved-update="${actualIndex}">Mettre a jour</button>`,
-                `<button type="button" class="client-search__delete" data-client-delete="${actualIndex}">Supprimer</button>`
-              ]
-                .filter(Boolean)
-                .join("");
               option.innerHTML = `
                 <button type="button" class="client-search__select client-search__select--detailed" data-client-select="${actualIndex}">
                   <div class="client-search__details-grid">
@@ -984,6 +1047,13 @@
                 node.hidden = !isVisible;
                 node.style.display = isVisible ? "" : "none";
                 node.classList.toggle("is-hidden", !isVisible);
+              });
+              list.querySelectorAll(".client-search__details-row").forEach((row) => {
+                const hasVisibleField = Array.from(row.querySelectorAll("[data-client-field]")).some(
+                  (node) => !node.hidden
+                );
+                row.hidden = !hasVisibleField;
+                row.style.display = hasVisibleField ? "" : "none";
               });
             } else {
               applyClientFieldVisibility(list, clientFieldVisibility);
@@ -2146,6 +2216,100 @@
                 const row = document.createElement("div");
                 row.className = "client-search__option client-saved-item";
                 const safeClient = item.client || {};
+                if (clientSavedModalEntityType === "transporter") {
+                  const transporter = safeClient && typeof safeClient === "object" ? safeClient : item || {};
+                  const name = String(transporter.name || item.name || "").trim();
+                  const driverName =
+                    item.driverName || transporter.driverName || transporter.benefit || "";
+                  const vehiclePlate =
+                    item.vehiclePlate || transporter.vehiclePlate || transporter.account || "";
+                  const transportMode =
+                    item.transportMode || transporter.transportMode || transporter.stegRef || "";
+                  const phone =
+                    item.phone ||
+                    item.telephone ||
+                    item.tel ||
+                    transporter.phone ||
+                    transporter.telephone ||
+                    transporter.tel ||
+                    "";
+                  const email = item.email || transporter.email || "";
+                  const address =
+                    item.address ||
+                    item.adresse ||
+                    transporter.address ||
+                    transporter.adresse ||
+                    "";
+                  const formatValue = (value) => {
+                    if (value === null || value === undefined || value === "") {
+                      return '<span class="client-search__empty">N.R.</span>';
+                    }
+                    return escapeHTML(String(value));
+                  };
+                  const nameLabel = resolveFieldLabel("name");
+                  const driverNameLabel = resolveFieldLabel("driverName");
+                  const vehiclePlateLabel = resolveFieldLabel("vehiclePlate");
+                  const transportModeLabel = resolveFieldLabel("transportMode");
+                  const phoneLabel = resolveFieldLabel("phone");
+                  const emailLabel = resolveFieldLabel("email");
+                  const addressLabel = resolveFieldLabel("address");
+                  const actionButtons = [];
+                  if (clientSavedModalAllowAddAction) {
+                    actionButtons.push(
+                      `<button type="button" class="client-search__edit" data-client-saved-load="${index}">Ajouter</button>`
+                    );
+                  }
+                  actionButtons.push(
+                    `<button type="button" class="client-search__edit" data-client-saved-update="${index}">Mettre a jour</button>`
+                  );
+                  actionButtons.push(
+                    `<button type="button" class="client-search__delete" data-client-saved-delete="${index}">Supprimer</button>`
+                  );
+                  row.innerHTML = `
+                    <button type="button" class="client-search__select client-search__select--detailed" data-client-saved-load="${index}">
+                      <div class="client-search__details-grid">
+                        <div class="client-search__details-row">
+                          <div class="client-search__detail client-search__detail--inline client-search__detail--name" data-client-field="name">
+                            <span class="client-search__detail-label">${escapeHTML(nameLabel)} :</span>
+                            <span class="client-search__detail-value">${formatValue(name)}</span>
+                          </div>
+                          <div class="client-search__detail client-search__detail--inline" data-client-field="driverName">
+                            <span class="client-search__detail-label">${escapeHTML(driverNameLabel)} :</span>
+                            <span class="client-search__detail-value">${formatValue(driverName)}</span>
+                          </div>
+                        </div>
+                        <div class="client-search__details-row">
+                          <div class="client-search__detail client-search__detail--inline" data-client-field="vehiclePlate">
+                            <span class="client-search__detail-label">${escapeHTML(vehiclePlateLabel)} :</span>
+                            <span class="client-search__detail-value">${formatValue(vehiclePlate)}</span>
+                          </div>
+                          <div class="client-search__detail client-search__detail--inline" data-client-field="transportMode">
+                            <span class="client-search__detail-label">${escapeHTML(transportModeLabel)} :</span>
+                            <span class="client-search__detail-value">${formatValue(transportMode)}</span>
+                          </div>
+                        </div>
+                        <div class="client-search__details-row">
+                          <div class="client-search__detail client-search__detail--inline client-search__detail--phone" data-client-field="phone">
+                            <span class="client-search__detail-label">${escapeHTML(phoneLabel)} :</span>
+                            <span class="client-search__detail-value">${formatValue(phone)}</span>
+                          </div>
+                          <div class="client-search__detail client-search__detail--inline client-search__detail--email" data-client-field="email">
+                            <span class="client-search__detail-label">${escapeHTML(emailLabel)} :</span>
+                            <span class="client-search__detail-value">${formatValue(email)}</span>
+                          </div>
+                        </div>
+                        <div class="client-search__detail client-search__detail--inline client-search__detail--full" data-client-field="address">
+                          <span class="client-search__detail-label">${escapeHTML(addressLabel)} :</span>
+                          <span class="client-search__detail-value">${formatValue(address)}</span>
+                        </div>
+                      </div>
+                    </button>
+                    <div class="client-search__actions">
+                      ${actionButtons.join("\n              ")}
+                    </div>`;
+                  clientSavedModalList.appendChild(row);
+                  return;
+                }
                 const clientName = String(safeClient.name || item.clientName || "").trim();
                 const hasClientData = Object.keys(safeClient).length > 0;
                 const fallbackName = !hasClientData ? String(item.name || "").trim() : "";
@@ -2312,6 +2476,13 @@
                 node.hidden = !isVisible;
                 node.style.display = isVisible ? "" : "none";
                 node.classList.toggle("is-hidden", !isVisible);
+              });
+              clientSavedModalList.querySelectorAll(".client-search__details-row").forEach((row) => {
+                const hasVisibleField = Array.from(row.querySelectorAll("[data-client-field]")).some(
+                  (node) => !node.hidden
+                );
+                row.hidden = !hasVisibleField;
+                row.style.display = hasVisibleField ? "" : "none";
               });
             } else {
               applyClientFieldVisibility(clientSavedModalList, clientFieldVisibility);

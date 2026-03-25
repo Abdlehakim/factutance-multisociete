@@ -11,25 +11,22 @@
   const TRANSPORTEUR_EXPORT_MODAL_ID = "transporteurExportModal";
   const TRANSPORTEUR_EXPORT_LIMIT = 500;
   const TRANSPORTEUR_EXPORT_DEFAULT_VISIBILITY = {
-    type: true,
     name: true,
-    taxId: true,
+    driverName: true,
+    vehiclePlate: true,
+    transportMode: true,
     phone: true,
     email: true,
     address: true
   };
   const TRANSPORTEUR_EXPORT_DEFAULT_LABELS = {
-    type: "Type de transporteur",
-    name: "Nom du transporteur",
-    taxId: "Matricule fiscal (ou CIN / passeport)",
-    phone: "Telephone du transporteur",
-    email: "E-mail du transporteur",
-    address: "Adresse du transporteur"
-  };
-  const TRANSPORTEUR_TYPE_LABELS = {
-    societe: "Societe / personne morale (PM)",
-    personne_physique: "Personne physique (PP)",
-    particulier: "Particulier"
+    name: "Transporteur / Nom",
+    driverName: "Nom du chauffeur",
+    vehiclePlate: "Matricule vehicule",
+    transportMode: "Mode de transport",
+    phone: "Telephone",
+    email: "E-mail",
+    address: "Adresse"
   };
   const EXPORT_FORMAT_LABELS = {
     xlsx: "XLSX",
@@ -52,14 +49,6 @@
   };
 
   const normalizeText = (value) => String(value ?? "").trim();
-  const normalizeType = (value) => {
-    const key = normalizeText(value).toLowerCase();
-    if (key === "particulier" || key === "personne_physique") return key;
-    return "societe";
-  };
-  const resolveTypeLabel = (value) =>
-    TRANSPORTEUR_TYPE_LABELS[normalizeType(value)] || TRANSPORTEUR_TYPE_LABELS.societe;
-
   const isTransporteurExportTrigger = (trigger) => {
     if (!trigger || typeof trigger.closest !== "function") return false;
     if (trigger.id === "TransporteurExportBtn") return true;
@@ -71,28 +60,56 @@
 
   const resolveVisibility = () => {
     const current = state().transporteurFieldVisibility;
+    const normalizedCurrent =
+      current && typeof current === "object"
+        ? {
+            ...current,
+            ...(!("vehiclePlate" in current) && "taxId" in current ? { vehiclePlate: current.taxId } : {})
+          }
+        : {};
     return {
       ...TRANSPORTEUR_EXPORT_DEFAULT_VISIBILITY,
-      ...(current && typeof current === "object" ? current : {})
+      ...normalizedCurrent
     };
   };
   const resolveLabels = () => {
     const current = state().transporteurFieldLabels;
+    const normalizedCurrent =
+      current && typeof current === "object"
+        ? {
+            ...current,
+            ...(!current.vehiclePlate && typeof current.taxId === "string" && current.taxId.trim()
+              ? { vehiclePlate: current.taxId.trim() }
+              : {})
+          }
+        : {};
     return {
       ...TRANSPORTEUR_EXPORT_DEFAULT_LABELS,
-      ...(current && typeof current === "object" ? current : {})
+      ...normalizedCurrent
     };
   };
 
-  const resolveIdentifier = (transporter = {}) =>
+  const resolveDriverName = (transporter = {}) =>
+    normalizeText(transporter.driverName || transporter.driver || transporter.chauffeur || transporter.benefit || "");
+  const resolveVehiclePlate = (transporter = {}) =>
     normalizeText(
-      transporter.vat ||
-        transporter.identifiantFiscal ||
-        transporter.identifiant ||
-        transporter.nif ||
-        transporter.cin ||
-        transporter.passeport ||
-        transporter.passport ||
+      transporter.vehiclePlate ||
+        transporter.vehicle ||
+        transporter.vehicule ||
+        transporter.matriculeVehicule ||
+        transporter.matriculeVehicle ||
+        transporter.plate ||
+        transporter.account ||
+        transporter.accountOf ||
+        ""
+    );
+  const resolveTransportMode = (transporter = {}) =>
+    normalizeText(
+      transporter.transportMode ||
+        transporter.modeTransport ||
+        transporter.modeDeTransport ||
+        transporter.transport ||
+        transporter.stegRef ||
         ""
     );
   const resolvePhone = (transporter = {}) =>
@@ -125,8 +142,15 @@
   const buildExportRows = (transporteurs, visibility, labels) => {
     const headers = [];
     if (visibility.name !== false) headers.push(labels.name || TRANSPORTEUR_EXPORT_DEFAULT_LABELS.name);
-    if (visibility.taxId !== false) headers.push(labels.taxId || TRANSPORTEUR_EXPORT_DEFAULT_LABELS.taxId);
-    if (visibility.type !== false) headers.push(labels.type || TRANSPORTEUR_EXPORT_DEFAULT_LABELS.type);
+    if (visibility.driverName !== false) {
+      headers.push(labels.driverName || TRANSPORTEUR_EXPORT_DEFAULT_LABELS.driverName);
+    }
+    if (visibility.vehiclePlate !== false) {
+      headers.push(labels.vehiclePlate || TRANSPORTEUR_EXPORT_DEFAULT_LABELS.vehiclePlate);
+    }
+    if (visibility.transportMode !== false) {
+      headers.push(labels.transportMode || TRANSPORTEUR_EXPORT_DEFAULT_LABELS.transportMode);
+    }
     if (visibility.phone !== false) headers.push(labels.phone || TRANSPORTEUR_EXPORT_DEFAULT_LABELS.phone);
     if (visibility.email !== false) headers.push(labels.email || TRANSPORTEUR_EXPORT_DEFAULT_LABELS.email);
     if (visibility.address !== false) headers.push(labels.address || TRANSPORTEUR_EXPORT_DEFAULT_LABELS.address);
@@ -135,8 +159,9 @@
       const transporter = entry?.client || {};
       const row = [];
       if (visibility.name !== false) row.push(normalizeText(transporter.name || ""));
-      if (visibility.taxId !== false) row.push(resolveIdentifier(transporter));
-      if (visibility.type !== false) row.push(resolveTypeLabel(transporter.type));
+      if (visibility.driverName !== false) row.push(resolveDriverName(transporter));
+      if (visibility.vehiclePlate !== false) row.push(resolveVehiclePlate(transporter));
+      if (visibility.transportMode !== false) row.push(resolveTransportMode(transporter));
       if (visibility.phone !== false) row.push(resolvePhone(transporter));
       if (visibility.email !== false) row.push(normalizeText(transporter.email || ""));
       if (visibility.address !== false) row.push(normalizeText(transporter.address || ""));
@@ -365,30 +390,34 @@
                 <thead>
                   <tr>
                     <th data-transporteur-export-field="name">
-                      <span data-transporteur-export-field-label="name">Nom du transporteur</span>
+                      <span data-transporteur-export-field-label="name">Transporteur / Nom</span>
                     </th>
-                    <th data-transporteur-export-field="taxId">
-                      <span data-transporteur-export-field-label="taxId">Matricule fiscal (ou CIN / passeport)</span>
+                    <th data-transporteur-export-field="driverName">
+                      <span data-transporteur-export-field-label="driverName">Nom du chauffeur</span>
                     </th>
-                    <th data-transporteur-export-field="type">
-                      <span data-transporteur-export-field-label="type">Type de transporteur</span>
+                    <th data-transporteur-export-field="vehiclePlate">
+                      <span data-transporteur-export-field-label="vehiclePlate">Matricule vehicule</span>
+                    </th>
+                    <th data-transporteur-export-field="transportMode">
+                      <span data-transporteur-export-field-label="transportMode">Mode de transport</span>
                     </th>
                     <th data-transporteur-export-field="phone">
-                      <span data-transporteur-export-field-label="phone">Telephone du transporteur</span>
+                      <span data-transporteur-export-field-label="phone">Telephone</span>
                     </th>
                     <th data-transporteur-export-field="email">
-                      <span data-transporteur-export-field-label="email">E-mail du transporteur</span>
+                      <span data-transporteur-export-field-label="email">E-mail</span>
                     </th>
                     <th data-transporteur-export-field="address">
-                      <span data-transporteur-export-field-label="address">Adresse du transporteur</span>
+                      <span data-transporteur-export-field-label="address">Adresse</span>
                     </th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
                     <td data-transporteur-export-field="name">Translog Express</td>
-                    <td data-transporteur-export-field="taxId">IF998877</td>
-                    <td data-transporteur-export-field="type">Societe / personne morale (PM)</td>
+                    <td data-transporteur-export-field="driverName">Mohamed Ben Ali</td>
+                    <td data-transporteur-export-field="vehiclePlate">197 TUN 2456</td>
+                    <td data-transporteur-export-field="transportMode">Camion</td>
                     <td data-transporteur-export-field="phone">28112233</td>
                     <td data-transporteur-export-field="email">contact@translog.tn</td>
                     <td data-transporteur-export-field="address">Zone logistique, Tunis</td>
