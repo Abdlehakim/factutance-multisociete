@@ -166,25 +166,47 @@
     if (!Number.isFinite(num)) return null;
     return Math.round((num + Number.EPSILON) * 1000) / 1000;
   };
+  const PURCHASE_DOC_TYPES = new Set(["fa", "bc", "be"]);
+  const isPurchaseDocType = (value) =>
+    PURCHASE_DOC_TYPES.has(String(value || "").trim().toLowerCase());
 
-  function collectModelChoices() {
+  async function collectModelChoices() {
     const models = [];
     const seen = new Set();
+    const pushModel = (entry = {}) => {
+      const name = String(entry?.name || "").trim();
+      if (!name || seen.has(name)) return;
+      seen.add(name);
+      models.push({
+        value: name,
+        label: name,
+        docTypes: entry?.config?.docTypes !== undefined ? entry?.config?.docTypes : entry?.config?.docType || ""
+      });
+    };
+
+    if (typeof SEM?.__bindingHelpers?.ensureModelCache === "function") {
+      try {
+        await SEM.__bindingHelpers.ensureModelCache();
+      } catch (err) {
+        console.warn("collectModelChoices cache hydrate failed", err);
+      }
+    }
+
     if (typeof SEM?.getModelEntries === "function") {
       try {
         const entries = SEM.getModelEntries() || [];
-        entries.forEach((entry = {}) => {
-          const name = (entry.name || "").trim();
-          if (!name || seen.has(name)) return;
-          seen.add(name);
-          models.push({
-            value: name,
-            label: name,
-            docTypes: entry?.config?.docTypes !== undefined ? entry?.config?.docTypes : entry?.config?.docType || ""
-          });
-        });
+        entries.forEach((entry = {}) => pushModel(entry));
       } catch (err) {
         console.warn("collectModelChoices failed", err);
+      }
+    }
+    if (!models.length && typeof w.electronAPI?.listModels === "function") {
+      try {
+        const res = await w.electronAPI.listModels();
+        const entries = Array.isArray(res?.models) ? res.models : [];
+        entries.forEach((entry = {}) => pushModel(entry));
+      } catch (err) {
+        console.warn("collectModelChoices listModels fallback failed", err);
       }
     }
     if (!models.length) {
@@ -215,6 +237,12 @@
     let selectedFactureStatus = "";
     let lastPaymentMethod = "";
     let selectedPaidAmount = 0;
+    const normalizePaidValue = (value) => {
+      const raw = String(value ?? "").trim();
+      if (!raw) return 0;
+      const parsed = Number(raw.replace(",", "."));
+      return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+    };
     const promptOptions = options && typeof options === "object" ? options : {};
     const SELECTABLE_DOC_TYPES = new Set(["facture", "fa", "bc", "avoir", "devis", "bl"]);
     const targetDocTypesRaw = Array.isArray(promptOptions.targetDocTypes)
@@ -252,9 +280,6 @@
       devis: "Devis",
       bl: "Bon de livraison"
     };
-    const PURCHASE_DOC_TYPES = new Set(["fa", "bc", "be"]);
-    const isPurchaseDocType = (value) =>
-      PURCHASE_DOC_TYPES.has(String(value || "").trim().toLowerCase());
     const getDocTypeDisplayLabel = (value) => {
       const normalized = String(value || "").trim().toLowerCase();
       if (!normalized) return "Document";
@@ -276,12 +301,127 @@
     const dialogTitle = promptOptions.titleText || "Convertir le devis";
     const okText = promptOptions.okText || "Convertir";
     const cancelText = promptOptions.cancelText || "Annuler";
-    const models = collectModelChoices();
+    const models = await collectModelChoices();
     const today = new Date().toISOString().slice(0, 10);
+    let dialogModelSelect = null;
+    let dialogDateInput = null;
+    let dialogPaymentMethodSelect = null;
+    let dialogPaymentStatusSelect = null;
+    let dialogPaymentReferenceInput = null;
+    let dialogAcomptePaidInput = null;
+    let dialogTargetSelect = null;
+    let dialogTargetRadios = [];
+    const submitHandler = typeof promptOptions.onSubmit === "function" ? promptOptions.onSubmit : null;
+    let submitInFlight = false;
+    let submittedChoices = null;
+    let submitResult = null;
+    let submitErrorElement = null;
+    const setSubmitError = (value) => {
+      if (!submitErrorElement) return;
+      const text = String(value || "").trim();
+      submitErrorElement.textContent = text;
+      submitErrorElement.hidden = !text;
+      submitErrorElement.style.display = text ? "" : "none";
+    };
+    const syncSelectionsFromForm = () => {
+      if (dialogModelSelect) {
+        selectedModel = String(dialogModelSelect.value || "").trim();
+      }
+      const chosenTarget =
+        dialogTargetRadios.find((radio) => radio?.checked)?.value ||
+        dialogTargetSelect?.value ||
+        targetDocType ||
+        defaultTargetDocType ||
+        "facture";
+      targetDocType = String(chosenTarget || "").trim().toLowerCase() || targetDocType || "facture";
+      if (dialogDateInput) {
+        selectedDate = String(dialogDateInput.value || selectedDate || "").trim();
+      }
+      if (dialogPaymentMethodSelect) {
+        selectedPaymentMethod = String(dialogPaymentMethodSelect.value || selectedPaymentMethod || "").trim();
+      }
+      if (dialogPaymentStatusSelect) {
+        selectedFactureStatus = String(dialogPaymentStatusSelect.value || selectedFactureStatus || "").trim();
+      }
+      if (dialogPaymentReferenceInput) {
+        selectedPaymentReference = String(dialogPaymentReferenceInput.value || selectedPaymentReference || "").trim();
+      }
+      if (dialogAcomptePaidInput) {
+        selectedPaidAmount = normalizePaidValue(dialogAcomptePaidInput.value);
+      }
+    };
+    const buildChoicePayload = () => {
+      const normalizedTarget = String(targetDocType || "").trim().toLowerCase();
+      const paymentMethod = normalizedTarget === "facture" ? selectedPaymentMethod : "";
+      const paymentReference = normalizedTarget === "facture" ? selectedPaymentReference : "";
+      const status = normalizedTarget === "facture" ? selectedFactureStatus : "";
+      const paidAmount =
+        normalizedTarget === "facture" &&
+        normalizeFactureStatusValue(selectedFactureStatus) === "partiellement-payee"
+          ? selectedPaidAmount
+          : null;
+      return {
+        model: selectedModel,
+        target: targetDocType,
+        date: selectedDate,
+        paymentMethod,
+        paymentReference,
+        status,
+        paidAmount
+      };
+    };
+    const handleConfirmOk = async () => {
+      syncSelectionsFromForm();
+      const draftChoices = buildChoicePayload();
+      console.info("[doc-convert] click Convertir", {
+        sourcePath: String(entry?.path || ""),
+        target: draftChoices.target || "",
+        model: draftChoices.model || "",
+        hasDate: !!draftChoices.date,
+        hasPaymentMethod: !!draftChoices.paymentMethod,
+        hasStatus: !!draftChoices.status
+      });
+      setSubmitError("");
+      if (!submitHandler) {
+        submittedChoices = draftChoices;
+        submitResult = true;
+        return true;
+      }
+      if (submitInFlight) return false;
+      submitInFlight = true;
+      try {
+        submitResult = await submitHandler(draftChoices);
+        const failedWithDetails =
+          submitResult && typeof submitResult === "object" && submitResult.ok === false;
+        const success = !failedWithDetails && submitResult !== false;
+        const submitErrorText = failedWithDetails
+          ? String(submitResult.error || submitResult.message || "").trim()
+          : "";
+        console.info("[doc-convert] submit validation result", {
+          success,
+          target: draftChoices.target || "",
+          model: draftChoices.model || ""
+        });
+        if (!success) {
+          setSubmitError(submitErrorText || "Impossible de convertir le document.");
+          return false;
+        }
+        submittedChoices = draftChoices;
+        return true;
+      } catch (err) {
+        console.error("convert submit failed", err);
+        submitResult = false;
+        setSubmitError(String(err?.message || "Impossible de convertir le document."));
+        return false;
+      } finally {
+        submitInFlight = false;
+      }
+    };
     const confirmed = await showConfirm(dialogTitle, {
       title: dialogTitle,
       okText,
       cancelText,
+      onOk: handleConfirmOk,
       renderMessage(container) {
         container.innerHTML = "";
         container.style.maxHeight = "none";
@@ -384,11 +524,9 @@
           promptOptions.allowedModelsByDocType &&
           typeof promptOptions.allowedModelsByDocType === "object"
             ? promptOptions.allowedModelsByDocType
-            : {
-                facture: ["facture", "facture sans remise"]
-              };
+            : null;
         const strictAllowedModelsByDocType = {};
-        Object.entries(strictAllowedModelsByDocTypeRaw).forEach(([docTypeKey, modelNames]) => {
+        Object.entries(strictAllowedModelsByDocTypeRaw || {}).forEach(([docTypeKey, modelNames]) => {
           const normalizedDocType = String(docTypeKey || "").trim().toLowerCase();
           if (!normalizedDocType) return;
           const normalizedNames = new Set(
@@ -489,12 +627,6 @@
         };
         const isPartialStatus = () =>
           normalizeFactureStatusValue(selectedFactureStatus) === "partiellement-payee";
-        const normalizePaidValue = (value) => {
-          const raw = String(value ?? "").trim();
-          if (!raw) return 0;
-          const parsed = Number(raw.replace(",", "."));
-          return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
-        };
         const resolveAcompteBase = () => {
           const totalTTC = Number(entry?.totalTTC);
           if (Number.isFinite(totalTTC)) return totalTTC;
@@ -972,7 +1104,9 @@
           renderModelOptions();
           setModelPickerEnabled(visibleModelOptions.length > 0);
           const hasSelectedModel = visibleModelOptions.some((opt) => opt.value === selectedModel);
-          const fallbackModel = hasSelectedModel ? selectedModel : "";
+          const fallbackModel = hasSelectedModel
+            ? selectedModel
+            : visibleModelOptions[0]?.value || "";
           setModelSelection(fallbackModel, { closeMenu: false });
         };
 
@@ -1327,50 +1461,34 @@
         wrapper.appendChild(dateGroup);
         wrapper.appendChild(paymentRow);
         wrapper.appendChild(acompteRow);
+        submitErrorElement = document.createElement("p");
+        submitErrorElement.className = "doc-dialog-error";
+        submitErrorElement.hidden = true;
+        submitErrorElement.style.display = "none";
+        wrapper.appendChild(submitErrorElement);
         container.appendChild(wrapper);
+        dialogModelSelect = modelSelect;
+        dialogDateInput = dateInput;
+        dialogPaymentMethodSelect = paymentMethodSelectEl;
+        dialogPaymentStatusSelect = paymentStatusSelectEl;
+        dialogPaymentReferenceInput = paymentReferenceInputEl;
+        dialogAcomptePaidInput = acomptePaidInput;
+        dialogTargetSelect = targetSelect;
+        dialogTargetRadios = targetRadios.slice();
         updatePaymentVisibility();
-
-        if (okBtn) {
-          okBtn.addEventListener(
-            "click",
-            () => {
-              selectedModel = modelSelect.value || "";
-              const chosen = wrapper.querySelector('input[name="docHistoryConvertTarget"]:checked');
-              targetDocType = chosen?.value || targetDocType || defaultTargetDocType || "facture";
-              if (dateInput) selectedDate = dateInput.value || selectedDate || "";
-              if (paymentMethodSelectEl) {
-                const selectValue = paymentMethodSelectEl.value || "";
-                if (selectValue) selectedPaymentMethod = selectValue;
-              }
-              if (paymentStatusSelectEl) selectedFactureStatus = paymentStatusSelectEl.value || "";
-              if (acomptePaidInput) {
-                selectedPaidAmount = normalizePaidValue(acomptePaidInput.value);
-              }
-            },
-            { once: true }
-          );
-        }
       }
     });
     if (!confirmed) return null;
-    const normalizedTarget = String(targetDocType || "").trim().toLowerCase();
-    const paymentMethod = normalizedTarget === "facture" ? selectedPaymentMethod : "";
-    const paymentReference = normalizedTarget === "facture" ? selectedPaymentReference : "";
-    const status = normalizedTarget === "facture" ? selectedFactureStatus : "";
-    const paidAmount =
-      normalizedTarget === "facture" &&
-      normalizeFactureStatusValue(selectedFactureStatus) === "partiellement-payee"
-        ? selectedPaidAmount
-        : null;
-    return {
-      model: selectedModel,
-      target: targetDocType,
-      date: selectedDate,
-      paymentMethod,
-      paymentReference,
-      status,
-      paidAmount
-    };
+    syncSelectionsFromForm();
+    const finalizedChoices = submittedChoices || buildChoicePayload();
+    if (submitHandler) {
+      return {
+        submitted: submitResult !== false,
+        submitResult,
+        choices: finalizedChoices
+      };
+    }
+    return finalizedChoices;
   }
 
   function forceDocTypeSelection(docType) {
@@ -1461,6 +1579,11 @@
     docType,
     { dateOverride, convertedFrom, paymentMethod, paymentReference, historyStatus, paidAmount } = {}
   ) {
+    const logConvert = (stage, data) => {
+      try {
+        console.info("[doc-convert]", stage, data || {});
+      } catch {}
+    };
     const normalizedDocType = String(docType || "facture").toLowerCase();
     const isFacture = normalizedDocType === "facture";
     const normalizedPaymentMethod = String(paymentMethod || "").trim();
@@ -1495,6 +1618,11 @@
       meta.previewNumber = "";
     }
     const assignedNumber = await ensureNextNumberForDocType(normalizedDocType);
+    logConvert("generated-number", {
+      targetDocType: normalizedDocType,
+      assignedNumber: String(assignedNumber || ""),
+      sourceNumber: String(convertedFrom?.number || "")
+    });
     const date =
       (dateOverride || meta.date || getEl("invDate")?.value || new Date().toISOString().slice(0, 10)).slice(0, 10);
     meta.date = date;
@@ -1665,6 +1793,14 @@
       data: snapshot,
       meta: { ...snapMeta, status: isFacture ? normalizedStatus : "", silent: true }
     };
+    logConvert("built-payload", {
+      targetDocType: normalizedDocType,
+      number: String(savePayload?.meta?.number || ""),
+      date: String(savePayload?.meta?.date || ""),
+      status: String(savePayload?.meta?.status || ""),
+      itemCount: Array.isArray(savePayload?.data?.items) ? savePayload.data.items.length : 0,
+      hasClient: !!savePayload?.data?.client
+    });
 
     const handleMarkNumber = () => {
       if (typeof w.markDocumentNumberUsed === "function") {
@@ -1795,7 +1931,17 @@
 
     if (w.electronAPI?.saveInvoiceJSON) {
       try {
+        logConvert("save-call-start", {
+          targetDocType: normalizedDocType,
+          number: String(savePayload?.meta?.number || "")
+        });
         let res = await w.electronAPI.saveInvoiceJSON(savePayload);
+        logConvert("save-call-result", {
+          ok: !!res?.ok,
+          reason: String(res?.reason || ""),
+          number: String(res?.number || ""),
+          error: String(res?.error || "")
+        });
         const outOfSequence = res?.reason === "number_out_of_sequence";
         if ((res?.reason === "number_changed" || outOfSequence) && res?.suggestedNumber) {
           const suggestedNumber = String(res.suggestedNumber || "").trim();
@@ -1847,6 +1993,12 @@
                 ? { ...savePayload.meta, acceptNumberChange: true, allowProvidedNumber: true }
                 : { ...savePayload.meta, number: suggestedNumber, previewNumber: suggestedNumber, acceptNumberChange: true }
             });
+            logConvert("save-call-result-retry", {
+              ok: !!res?.ok,
+              reason: String(res?.reason || ""),
+              number: String(res?.number || ""),
+              error: String(res?.error || "")
+            });
           }
         }
         if (res?.ok) {
@@ -1881,11 +2033,25 @@
               title: getMessage("GENERIC_INFO").title
             });
           }
-          return true;
+          return {
+            ok: true,
+            path: String(res?.path || ""),
+            number: String(savedNumber || ""),
+            docType: normalizedDocType,
+            name: String(res?.name || "")
+          };
         }
+        logConvert("save-call-failed", {
+          ok: !!res?.ok,
+          reason: String(res?.reason || ""),
+          error: String(res?.error || "")
+        });
         return false;
       } catch (err) {
         console.error("convert devis save failed", err);
+        logConvert("save-call-exception", {
+          message: String(err?.message || err || "")
+        });
         return false;
       }
     }
@@ -1902,7 +2068,12 @@
         if (typeof w.SEM?.markDocumentDirty === "function") {
           w.SEM.markDocumentDirty(false);
         }
-        return true;
+        return {
+          ok: true,
+          path: String(meta.historyPath || ""),
+          number: String(meta.number || ""),
+          docType: normalizedDocType
+        };
       } catch (err) {
         console.error("convert devis fallback save failed", err);
         return false;
@@ -1917,9 +2088,12 @@
     const normalizedSource = String(sourceDocType || "").trim().toLowerCase();
     const entryDocType = String(entry.docType || "").trim().toLowerCase();
     if (entryDocType && normalizedSource && entryDocType !== normalizedSource) return false;
-    const choices = await promptDevisConversion(entry, promptOptions);
-    if (!choices) return false;
     const resolvedSourceDocType = normalizedSource || entryDocType || "facture";
+    console.info("[doc-convert] start", {
+      sourceDocType: resolvedSourceDocType,
+      sourcePath: String(entry.path || ""),
+      sourceNumber: String(entry.number || entry.invNumber || "")
+    });
     let raw = null;
     try {
       raw = await w.openInvoiceFromFilePicker({ path: entry.path, docType: resolvedSourceDocType });
@@ -1939,107 +2113,207 @@
       return false;
     }
     const convertedFrom = getConvertedFromInfo(entry, raw, resolvedSourceDocType);
-    let cloned = null;
-    try {
-      cloned = JSON.parse(JSON.stringify(raw));
-    } catch {
-      cloned = raw;
-    }
-    const metaTarget =
-      (cloned && typeof cloned === "object" && cloned.data && typeof cloned.data === "object" ? cloned.data.meta : null) ||
-      (cloned && typeof cloned === "object" ? cloned.meta : null) ||
-      (cloned.data && (cloned.data.meta = {})) ||
-      (cloned.meta = {});
     const fallbackTarget = String(promptOptions?.defaultTarget || "facture").trim().toLowerCase();
-    const normalizedTarget = String(choices.target || fallbackTarget || "facture").toLowerCase();
-    metaTarget.docType = normalizedTarget || "facture";
-    if (choices.date) metaTarget.date = choices.date;
-    metaTarget.historyPath = null;
-    metaTarget.historyDocType = null;
-    if (normalizedTarget === "facture") {
-      if (choices.paymentMethod) metaTarget.paymentMethod = choices.paymentMethod;
-      else if ("paymentMethod" in metaTarget) delete metaTarget.paymentMethod;
-      if (choices.paymentReference) {
-        metaTarget.paymentReference = choices.paymentReference;
-        metaTarget.paymentRef = choices.paymentReference;
+    const performConversion = async (choices = {}) => {
+      const targetDocType = String(choices.target || fallbackTarget || "facture").toLowerCase();
+      console.info("[doc-convert] apply conversion choices", {
+        sourceDocType: resolvedSourceDocType,
+        targetDocType,
+        model: String(choices.model || ""),
+        date: String(choices.date || ""),
+        paymentMethod: String(choices.paymentMethod || ""),
+        status: String(choices.status || "")
+      });
+      let cloned = null;
+      try {
+        cloned = JSON.parse(JSON.stringify(raw));
+      } catch {
+        cloned = raw;
+      }
+      const metaTarget =
+        (cloned && typeof cloned === "object" && cloned.data && typeof cloned.data === "object"
+          ? cloned.data.meta
+          : null) ||
+        (cloned && typeof cloned === "object" ? cloned.meta : null) ||
+        (cloned.data && (cloned.data.meta = {})) ||
+        (cloned.meta = {});
+      const normalizedTarget = String(choices.target || fallbackTarget || "facture").toLowerCase();
+      metaTarget.docType = normalizedTarget || "facture";
+      if (choices.date) metaTarget.date = choices.date;
+      metaTarget.historyPath = null;
+      metaTarget.historyDocType = null;
+      if (normalizedTarget === "facture") {
+        if (choices.paymentMethod) metaTarget.paymentMethod = choices.paymentMethod;
+        else if ("paymentMethod" in metaTarget) delete metaTarget.paymentMethod;
+        if (choices.paymentReference) {
+          metaTarget.paymentReference = choices.paymentReference;
+          metaTarget.paymentRef = choices.paymentReference;
+        } else {
+          if ("paymentReference" in metaTarget) delete metaTarget.paymentReference;
+          if ("paymentRef" in metaTarget) delete metaTarget.paymentRef;
+        }
       } else {
+        if ("paymentMethod" in metaTarget) delete metaTarget.paymentMethod;
         if ("paymentReference" in metaTarget) delete metaTarget.paymentReference;
         if ("paymentRef" in metaTarget) delete metaTarget.paymentRef;
       }
-    } else {
-      if ("paymentMethod" in metaTarget) delete metaTarget.paymentMethod;
-      if ("paymentReference" in metaTarget) delete metaTarget.paymentReference;
-      if ("paymentRef" in metaTarget) delete metaTarget.paymentRef;
-    }
-    if (typeof w.mergeInvoiceDataIntoState === "function") {
-      try {
-        w.mergeInvoiceDataIntoState(cloned);
-      } catch (err) {
-        console.warn("mergeInvoiceDataIntoState failed", err);
-      }
-    }
-    if (typeof w.SEM?.bind === "function") {
-      w.__suppressModelApplyOnce = 2;
-      w.SEM.bind();
-    }
-    forceDocTypeSelection(metaTarget.docType);
-    if (choices.date) {
-      const dateInput = getEl("invDate");
-      if (dateInput) {
-        dateInput.value = choices.date;
+      if (typeof w.mergeInvoiceDataIntoState === "function") {
         try {
-          dateInput.dispatchEvent(new Event("change", { bubbles: true }));
+          w.mergeInvoiceDataIntoState(cloned);
+        } catch (err) {
+          console.warn("mergeInvoiceDataIntoState failed", err);
+        }
+      }
+      if (typeof w.SEM?.bind === "function") {
+        w.__suppressModelApplyOnce = 2;
+        w.SEM.bind();
+      }
+      forceDocTypeSelection(metaTarget.docType);
+      if (choices.date) {
+        const dateInput = getEl("invDate");
+        if (dateInput) {
+          dateInput.value = choices.date;
+          try {
+            dateInput.dispatchEvent(new Event("change", { bubbles: true }));
+          } catch {}
+        }
+        const st = SEM.state || (SEM.state = {});
+        const meta = st.meta || (st.meta = {});
+        meta.date = choices.date;
+      }
+      if (choices.model && typeof SEM?.applyModelByName === "function") {
+        try {
+          await SEM.applyModelByName(choices.model);
+        } catch (err) {
+          console.warn("apply model on convert failed", err);
+        }
+        syncModelSelectionUi(choices.model);
+      }
+      if (typeof w.setDocTypeMenuAllowedDocTypes === "function") {
+        w.setDocTypeMenuAllowedDocTypes(null);
+      }
+      forceDocTypeSelection(targetDocType);
+      if (typeof SEM?.computeTotals === "function") {
+        try {
+          SEM.computeTotals();
         } catch {}
       }
-      const st = SEM.state || (SEM.state = {});
-      const meta = st.meta || (st.meta = {});
-      meta.date = choices.date;
-    }
-    const targetDocType = String(choices.target || fallbackTarget || "facture").toLowerCase();
-    if (choices.model && typeof SEM?.applyModelByName === "function") {
-      try {
-        await SEM.applyModelByName(choices.model);
-      } catch (err) {
-        console.warn("apply model on convert failed", err);
+      const saved = await saveConvertedDocument(targetDocType, {
+        dateOverride: choices.date,
+        convertedFrom,
+        paymentMethod: choices.paymentMethod,
+        paymentReference: choices.paymentReference,
+        historyStatus: choices.status,
+        paidAmount: choices.paidAmount
+      });
+      if (!saved) {
+        const label = typeof w.docTypeLabel === "function" ? w.docTypeLabel(targetDocType) : "document";
+        const isFeminine = ["facture", "retenue", "avoir"].includes(targetDocType);
+        const article = isFeminine ? "la" : "le";
+        const fallbackText = `Impossible de cr\u00e9er ${article} ${String(label || "document").toLowerCase()}.`;
+        const saveError = getMessage("DOCUMENT_SAVE_FAILED", { fallbackText });
+        console.warn("[doc-convert] save failed", { targetDocType, sourcePath: String(entry.path || "") });
+        return { ok: false, error: saveError.text || fallbackText };
       }
-      syncModelSelectionUi(choices.model);
-    }
-    if (typeof w.setDocTypeMenuAllowedDocTypes === "function") {
-      w.setDocTypeMenuAllowedDocTypes(null);
-    }
-    forceDocTypeSelection(targetDocType);
-    if (typeof SEM?.computeTotals === "function") {
+      const savedInfo =
+        saved && typeof saved === "object"
+          ? saved
+          : {
+              ok: saved !== false,
+              path: "",
+              number: "",
+              docType: targetDocType
+            };
       try {
-        SEM.computeTotals();
+        const st = SEM.state || {};
+        const meta = st.meta || {};
+        const invNumber = getEl("invNumber")?.value;
+        const invDate = getEl("invDate")?.value;
+        if (invNumber) meta.number = invNumber;
+        if (invDate) meta.date = invDate;
+        if (typeof SEM.refreshInvoiceSummary === "function") SEM.refreshInvoiceSummary();
       } catch {}
-    }
-    const saved = await saveConvertedDocument(targetDocType, {
-      dateOverride: choices.date,
-      convertedFrom,
-      paymentMethod: choices.paymentMethod,
-      paymentReference: choices.paymentReference,
-      historyStatus: choices.status,
-      paidAmount: choices.paidAmount
-    });
-    if (!saved) {
-      const label = typeof w.docTypeLabel === "function" ? w.docTypeLabel(targetDocType) : "document";
-      const isFeminine = ["facture", "retenue", "avoir"].includes(targetDocType);
-      const article = isFeminine ? "la" : "le";
-      const fallbackText = `Impossible de cr\u00e9er ${article} ${String(label || "document").toLowerCase()}.`;
-      const saveError = getMessage("DOCUMENT_SAVE_FAILED", { fallbackText });
-      await w.showDialog?.(saveError.text, { title: saveError.title });
-    }
+      const resolvedSavedPath = String(
+        savedInfo?.path || w.SEM?.state?.meta?.historyPath || ""
+      ).trim();
+      const resolvedSavedNumber = String(
+        savedInfo?.number || getEl("invNumber")?.value || ""
+      ).trim();
+      if (typeof onClose === "function") {
+        console.info("[doc-convert] close source dialog after success", {
+          targetDocType,
+          sourcePath: String(entry.path || "")
+        });
+        onClose();
+      }
+      try {
+        const historyApi = w.AppInit?.__runtime?.history || null;
+        if (historyApi) {
+          console.info("[doc-convert] open history modal for converted target", {
+            targetDocType,
+            savedPath: resolvedSavedPath,
+            savedNumber: resolvedSavedNumber
+          });
+          if (typeof historyApi.setSelectedType === "function") {
+            historyApi.setSelectedType(targetDocType);
+          }
+          if (typeof historyApi.resetFilters === "function") {
+            historyApi.resetFilters({ renderIfOpen: false });
+          }
+          if (typeof historyApi.openModalAfterRefresh === "function") {
+            await historyApi.openModalAfterRefresh({
+              docType: targetDocType,
+              focusPath: resolvedSavedPath,
+              focusNumber: resolvedSavedNumber
+            });
+          } else {
+            if (typeof historyApi.refreshFromDisk === "function") {
+              await historyApi.refreshFromDisk(targetDocType, { force: true });
+            }
+            if (typeof historyApi.openModal === "function") {
+              historyApi.openModal({
+                docType: targetDocType,
+                focusPath: resolvedSavedPath,
+                focusNumber: resolvedSavedNumber
+              });
+            }
+          }
+        }
+      } catch (historyErr) {
+        console.warn("convert history modal open failed", historyErr);
+      }
+      return { ok: true };
+    };
+    const promptConfig =
+      promptOptions && typeof promptOptions === "object" ? { ...promptOptions } : {};
+    promptConfig.onSubmit = performConversion;
+    let promptResult = null;
     try {
-      const st = SEM.state || {};
-      const meta = st.meta || {};
-      const invNumber = getEl("invNumber")?.value;
-      const invDate = getEl("invDate")?.value;
-      if (invNumber) meta.number = invNumber;
-      if (invDate) meta.date = invDate;
-      if (typeof SEM.refreshInvoiceSummary === "function") SEM.refreshInvoiceSummary();
-    } catch {}
-    if (typeof onClose === "function") onClose();
-    return true;
+      promptResult = await promptDevisConversion(entry, promptConfig);
+    } catch (err) {
+      console.error("convert prompt failed", err);
+      const convertPromptError = getMessage("HISTORY_CONVERT_PROMPT_FAILED", {
+        fallbackText: "Impossible d'initialiser la conversion."
+      });
+      await w.showDialog?.(convertPromptError.text, { title: convertPromptError.title });
+      return false;
+    }
+    if (!promptResult) {
+      console.info("[doc-convert] user canceled conversion");
+      return false;
+    }
+    if (
+      promptResult &&
+      typeof promptResult === "object" &&
+      Object.prototype.hasOwnProperty.call(promptResult, "submitted")
+    ) {
+      return promptResult.submitted !== false;
+    }
+    const fallbackSubmit = await performConversion(promptResult?.choices || promptResult);
+    if (fallbackSubmit && typeof fallbackSubmit === "object") {
+      return fallbackSubmit.ok !== false;
+    }
+    return fallbackSubmit !== false;
   }
 
   async function convertDevisEntry(entry, { onClose } = {}) {

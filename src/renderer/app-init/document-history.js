@@ -92,6 +92,8 @@
       docType: docTypeSelect?.value || "facture",
       page: 1,
       items: [],
+      focusPath: "",
+      focusNumber: "",
       filters: {
         number: "",
         query: "",
@@ -3750,6 +3752,9 @@
       } else {
         const startIdx = (safePage - 1) * HISTORY_MODAL_PAGE_SIZE;
         const slice = filteredEntries.slice(startIdx, startIdx + HISTORY_MODAL_PAGE_SIZE);
+        const pendingFocusPath = String(historyModalState.focusPath || "").trim();
+        const pendingFocusNumber = String(historyModalState.focusNumber || "").trim();
+        let focusedRow = null;
         try {
           await hydrateHistoryPaymentMeta(slice, historyModalState.docType);
         } catch (err) {
@@ -3831,6 +3836,17 @@
           ensurePaidStatusIfSettled(entry, historyModalState.docType);
           const row = document.createElement("div");
           row.className = "client-search__option doc-history-item";
+          const rowPath = String(entry?.path || "").trim();
+          const rowNumber = String(entry?.number || "").trim();
+          if (rowPath) row.dataset.docHistoryPath = rowPath;
+          if (rowNumber) row.dataset.docHistoryNumber = rowNumber;
+          if (
+            !focusedRow &&
+            ((pendingFocusPath && rowPath && rowPath === pendingFocusPath) ||
+              (pendingFocusNumber && rowNumber && rowNumber === pendingFocusNumber))
+          ) {
+            focusedRow = row;
+          }
           const baseLabel =
             entry.label ||
             entry.name ||
@@ -3893,10 +3909,14 @@
             entryDocType === "facture" &&
             isDevisOrBlOrigin &&
             convertedFromNumber;
+          const showBlConvertedFrom =
+            entryDocType === "bl" &&
+            !!convertedFromNumber;
           const showAvoirConvertedFrom =
             entryDocType === "avoir" &&
             !!convertedFromNumber;
-          const showConvertedFrom = showFactureConvertedFrom || showAvoirConvertedFrom;
+          const showConvertedFrom =
+            showFactureConvertedFrom || showBlConvertedFrom || showAvoirConvertedFrom;
           const paymentMethodRaw =
             entry && (entry.paymentMethod || entry.mode)
               ? String(entry.paymentMethod || entry.mode).trim()
@@ -4080,6 +4100,21 @@
             </div>`;
           historyModalList.appendChild(row);
         });
+        if (focusedRow) {
+          focusedRow.classList.add("doc-history-item--focus");
+          requestAnimationFrame(() => {
+            try {
+              focusedRow.scrollIntoView({ block: "center", behavior: "smooth" });
+            } catch {}
+          });
+          setTimeout(() => {
+            try {
+              focusedRow.classList.remove("doc-history-item--focus");
+            } catch {}
+          }, 2400);
+          historyModalState.focusPath = "";
+          historyModalState.focusNumber = "";
+        }
       }
 
       if (historyModalPage) {
@@ -4178,7 +4213,7 @@
       }
     }
 
-    function openHistoryModal({ docType } = {}) {
+    function openHistoryModal({ docType, focusPath, focusNumber } = {}) {
       if (!historyModal) return false;
       historyModalRestoreFocus =
         document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -4187,6 +4222,8 @@
           ? String(docType || "facture").toLowerCase()
           : null;
       const targetType = normalizedType || historyModalState.docType || "facture";
+      historyModalState.focusPath = String(focusPath || "").trim();
+      historyModalState.focusNumber = String(focusNumber || "").trim();
       if (normalizedType) {
         renderHistoryList(normalizedType);
       }
@@ -5625,6 +5662,40 @@
       }
     }
 
+    function resetHistoryFilters({ renderIfOpen = true } = {}) {
+      historyModalState.filters.number = "";
+      historyModalState.filters.query = "";
+      historyModalState.filters.startDate = "";
+      historyModalState.filters.endDate = "";
+      historyModalState.filters.year = getCurrentHistoryYearValue();
+      if (docHistoryStartDatePickerController) {
+        docHistoryStartDatePickerController.setValue("", { silent: true });
+        docHistoryStartDatePickerController.close();
+      } else if (docHistoryFilterStart) {
+        docHistoryFilterStart.value = "";
+      }
+      if (docHistoryEndDatePickerController) {
+        docHistoryEndDatePickerController.setValue("", { silent: true });
+        docHistoryEndDatePickerController.close();
+      } else if (docHistoryFilterEnd) {
+        docHistoryFilterEnd.value = "";
+      }
+      if (docHistoryFilterYear) {
+        docHistoryFilterYear.value = historyModalState.filters.year;
+      }
+      if (docHistoryFilterYearDisplay) {
+        syncHistoryYearMenuUi(historyModalState.filters.year, { updateSelect: true, closeMenu: true });
+      } else {
+        setHistoryYearMenuState(false);
+      }
+      if (renderIfOpen) {
+        handleHistoryFilterChange();
+      } else {
+        historyModalState.page = 1;
+        syncHistoryModalFilterControls();
+      }
+    }
+
     async function handleDocMetaSearchResultsClick(evt) {
       if (!docMetaSearchResults) return;
       const closeBtn = evt.target.closest("[data-doc-meta-search-close]");
@@ -5959,27 +6030,7 @@
         isHistoryYearDefault(historyModalState.filters.year)
       )
         return;
-      historyModalState.filters.number = "";
-      historyModalState.filters.query = "";
-      historyModalState.filters.startDate = "";
-      historyModalState.filters.endDate = "";
-      historyModalState.filters.year = getCurrentHistoryYearValue();
-      if (docHistoryStartDatePickerController) {
-        docHistoryStartDatePickerController.setValue("", { silent: true });
-        docHistoryStartDatePickerController.close();
-      } else if (docHistoryFilterStart) {
-        docHistoryFilterStart.value = "";
-      }
-      if (docHistoryEndDatePickerController) {
-        docHistoryEndDatePickerController.setValue("", { silent: true });
-        docHistoryEndDatePickerController.close();
-      } else if (docHistoryFilterEnd) {
-        docHistoryFilterEnd.value = "";
-      }
-      if (docHistoryFilterYear) {
-        docHistoryFilterYear.value = historyModalState.filters.year;
-      }
-      handleHistoryFilterChange();
+      resetHistoryFilters({ renderIfOpen: true });
     });
 
     if (docMetaSearchInput) {
@@ -7836,7 +7887,17 @@
           renderHistoryModal();
         }
       },
-      openModal: (options) => openHistoryModal(options || {})
+      openModal: (options) => openHistoryModal(options || {}),
+      refreshFromDisk: (docType, options = {}) =>
+        refreshHistoryFromDisk(docType, options || {}),
+      resetFilters: (options = {}) => resetHistoryFilters(options || {}),
+      openModalAfterRefresh: async (options = {}) => {
+        const targetType = normalizeHistoryTypeValue(
+          options?.docType || historyModalState.docType || "facture"
+        );
+        await refreshHistoryFromDisk(targetType, { force: true });
+        return openHistoryModal(options || {});
+      }
     };
   };
 })(window);

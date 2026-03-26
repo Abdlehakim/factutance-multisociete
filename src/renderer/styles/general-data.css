@@ -2008,6 +2008,11 @@ body:not(.printing):not(.print-mode):not(.exporting-pdf)
   min-width: 140px;
   align-items: stretch;
 }
+.doc-history-modal__list .doc-history-item.doc-history-item--focus {
+  background: #eef6ff;
+  border-color: #93c5fd;
+  box-shadow: inset 0 0 0 1px #93c5fd;
+}
 .doc-history-modal__list .client-search__actions-row {
   justify-content: flex-start;
 }

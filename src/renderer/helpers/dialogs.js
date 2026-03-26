@@ -826,19 +826,32 @@
         closeOverlayA11y(overlay, previouslyFocused, [ok, cancel, extraBtn]);
         resolve(result);
       }
-      function runOpeners() {
-        try {
-          onOk && onOk();
-        } catch {}
+      async function runOpeners() {
+        let shouldProceed = true;
+        if (typeof onOk === "function") {
+          try {
+            const maybeResult = onOk();
+            const resolvedResult =
+              maybeResult && typeof maybeResult.then === "function"
+                ? await maybeResult
+                : maybeResult;
+            if (resolvedResult === false) shouldProceed = false;
+          } catch {
+            shouldProceed = false;
+          }
+        }
+        if (!shouldProceed) return false;
         urls.forEach((u) => {
           try {
             window.open(u, "_blank", "noopener,noreferrer");
           } catch {}
         });
+        return true;
       }
-      function onOkClick() {
+      async function onOkClick() {
         if (isOkDisabled()) return;
-        runOpeners();
+        const canClose = await runOpeners();
+        if (!canClose) return;
         if (!okKeepsOpen) close(true);
       }
       function onCancel() {
