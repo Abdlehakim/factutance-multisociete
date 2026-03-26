@@ -749,11 +749,17 @@
               table
                 .querySelectorAll(".doc-design1__table-cell--be-last-visible")
                 .forEach((cell) => cell.classList.remove("doc-design1__table-cell--be-last-visible"));
-              if (!isStockMovementPreview) return;
               const headerCells = Array.from(table.querySelectorAll("thead th[data-col]"));
               const visibleHeaderCells = headerCells.filter((cell) => {
-                if (!cell || cell.hidden) return false;
-                return cell.style.display !== "none";
+                if (!cell) return false;
+                if (cell.hidden) return false;
+                if (String(cell.getAttribute("aria-hidden") || "").toLowerCase() === "true") return false;
+                if (cell.style.display === "none") return false;
+                if (typeof window !== "undefined" && typeof window.getComputedStyle === "function") {
+                  const computed = window.getComputedStyle(cell);
+                  if (computed?.display === "none") return false;
+                }
+                return true;
               });
               const lastVisibleHeader = visibleHeaderCells[visibleHeaderCells.length - 1];
               const lastVisibleCol = String(lastVisibleHeader?.dataset?.col || "").trim();

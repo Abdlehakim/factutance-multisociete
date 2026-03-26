@@ -127,6 +127,12 @@ body.exporting-pdf .pdf-preview-modal__content .pdf-page {
 .pdf-page.first-page .pdf-table tbody tr:last-child td {
   height: 100%;
 }
+.pdf-page[data-template="template1"] .pdf-table,
+.pdf-page[data-template="template1"] .pdf-table tbody,
+.pdf-page[data-template="template1"] .pdf-table tbody tr:last-child,
+.pdf-page[data-template="template1"] .pdf-table tbody tr:last-child td {
+  height: auto;
+}
 .pdf-page:last-child {
   break-after: avoid-page;
   display: flex;
@@ -258,13 +264,14 @@ body.exporting-pdf .pdf-preview-modal__content .pdf-page {
 
 .pdf-table {
   width: 100%;
-  font-size: 10px;
+  font-size: 12px;
   table-layout: auto;
   font-family: var(--invoice-font);
+  border-collapse: separate;
 }
 .pdf-table th,
 .pdf-table td {
-  padding: 4px;
+  padding: 5px;
   vertical-align: top;
 }
 .pdf-table thead th {
@@ -272,7 +279,7 @@ body.exporting-pdf .pdf-preview-modal__content .pdf-page {
   background-color: var(--items-head-bg, var(--primary, #15335e));
   color: #fff;
   text-align: left;
-  border-right: 1px solid #ffffffff;
+  border-right: 0;
 }
 .pdf-table {
   border-spacing: 0px;
@@ -343,8 +350,8 @@ body.exporting-pdf .pdf-preview-modal__content .pdf-page {
   white-space: nowrap;
 }
 .pdf-table tbody tr td {
-  border-bottom: 1px solid var(--items-head-bg, var(--primary, #15335e));
-  border-right: 1px solid var(--items-head-bg, var(--primary, #15335e));
+  border-bottom: 1px solid #000;
+  border-right: 0;
 }
 .pdf-table .no-wrap {
   white-space: nowrap;

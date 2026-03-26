@@ -530,8 +530,8 @@ background: #f3f8ff;
 #modelActionsModal #modelActionsPreview .doc-design1__table-wrap {
   margin-top: 0;
   border-radius: 5px;
-  border: 2px solid var(--items-head-bg, var(--primary, #15335e));
-  overflow: visible;
+  border: 2px solid var(--items-head-bg, var(--primary));
+  overflow-x: auto;
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
@@ -540,24 +540,24 @@ background: #f3f8ff;
 
 #modelActionsModal #modelActionsPreview .doc-design1__table {
   width: 100%;
-  font-size: 10px;
+  font-size: 12px;
   table-layout: auto;
   font-family: var(--invoice-font);
-  border-spacing: 0;
 }
 
 #modelActionsModal #modelActionsPreview .doc-design1__table th,
 #modelActionsModal #modelActionsPreview .doc-design1__table td {
-  padding: 4px;
+  padding: 5px;
   vertical-align: top;
+  border-left: 0;
+  border-right: 0;
 }
 
 #modelActionsModal #modelActionsPreview .doc-design1__table thead th {
   font-weight: 700;
-  background-color: var(--items-head-bg, var(--primary, #15335e));
+  background-color: var(--items-head-bg, var(--primary));
   color: #fff;
   text-align: left;
-  border-right: 1px solid #ffffff;
 }
 
 #modelActionsModal #modelActionsPreview .doc-design1__table th[data-col="desc"],
@@ -621,13 +621,7 @@ background: #f3f8ff;
 }
 
 #modelActionsModal #modelActionsPreview .doc-design1__table tbody tr td {
-  border-bottom: 1px solid var(--items-head-bg, var(--primary, #15335e));
-  border-right: 1px solid var(--items-head-bg, var(--primary, #15335e));
-}
-
-#modelActionsModal #modelActionsPreview .doc-design1__table thead th:last-child,
-#modelActionsModal #modelActionsPreview .doc-design1__table tbody td:last-child {
-  border-right: 0;
+  border-bottom: 1px solid #000;
 }
 
 #modelActionsModal #modelActionsPreview .doc-design1__table .no-wrap {
@@ -821,6 +815,7 @@ background: #f3f8ff;
   flex-direction: column;
   gap: 8px;
   border: 2px solid var(--items-head-bg, var(--primary, #15335e));
+  border-radius: 5px;
 }
 
 #modelActionsModal #modelActionsPreview .doc-design1__mini-table {
@@ -1003,10 +998,6 @@ border-collapse: separate;
   transform-origin: center;
 }
 
-#modelActionsModal #modelActionsPreview.doc-design1--be .doc-design1__table-wrap {
-  border-width: 1px;
-}
-
 #modelActionsModal #modelActionsPreview.doc-design1--be .doc-design1__table thead th {
   white-space: normal;
   line-height: 1.2;
@@ -1023,14 +1014,6 @@ border-collapse: separate;
 
 #modelActionsModal #modelActionsPreview.doc-design1--bs .doc-design1__table tbody tr td {
   line-height: 1.35;
-}
-
-#modelActionsModal #modelActionsPreview.doc-design1--be .doc-design1__table .doc-design1__table-cell--be-last-visible {
-  border-right: 0 !important;
-}
-
-#modelActionsModal #modelActionsPreview.doc-design1--bs .doc-design1__table .doc-design1__table-cell--be-last-visible {
-  border-right: 0 !important;
 }
 
 #modelActionsModal #modelActionsPreview.doc-design1--be .doc-design1__bottom {

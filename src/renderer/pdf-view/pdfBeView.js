@@ -610,8 +610,15 @@
       .querySelectorAll(".doc-design1__table-cell--be-last-visible")
       .forEach((cell) => cell.classList.remove("doc-design1__table-cell--be-last-visible"));
     const visibleHeaderCells = Array.from(table.querySelectorAll("thead th[data-col]")).filter((cell) => {
+      if (!cell) return false;
       if (cell.hidden) return false;
-      return cell.style.display !== "none";
+      if (String(cell.getAttribute("aria-hidden") || "").toLowerCase() === "true") return false;
+      if (cell.style.display === "none") return false;
+      if (typeof window !== "undefined" && typeof window.getComputedStyle === "function") {
+        const computed = window.getComputedStyle(cell);
+        if (computed?.display === "none") return false;
+      }
+      return true;
     });
     const lastHeader = visibleHeaderCells[visibleHeaderCells.length - 1];
     const lastColumn = String(lastHeader?.dataset?.col || "").trim();
