@@ -374,6 +374,31 @@
     return st;
   }
 
+  async function buildInvoicePdfSnapshot(
+    stateInput,
+    { strict = null, markPrepared = false } = {}
+  ) {
+    let st = ensureStateDefaults(cloneInvoiceData(stateInput || {}));
+    if (!st.meta || typeof st.meta !== "object") st.meta = {};
+    const meta = st.meta;
+    if (meta.__pdfPreviewPrepared === true) {
+      return st;
+    }
+
+    const strictMode = strict === true || meta.__pdfPreviewStrict === true;
+    if (strictMode) {
+      meta.__pdfPreviewStrict = true;
+      if (markPrepared) meta.__pdfPreviewPrepared = true;
+      return st;
+    }
+
+    if ("__pdfPreviewStrict" in meta) delete meta.__pdfPreviewStrict;
+    st = await hydrateStateWithModelDefaults(st);
+    if (!st.meta || typeof st.meta !== "object") st.meta = {};
+    if (markPrepared) st.meta.__pdfPreviewPrepared = true;
+    return st;
+  }
+
   function computeTotalsForSnapshot(snapshot, fallbackTotals = null) {
     const sem = window.SEM;
     if (!sem || typeof sem.computeTotalsReturn !== "function") return fallbackTotals;
@@ -391,6 +416,34 @@
       if (sem.state !== originalState) sem.state = originalState;
     }
     return totals;
+  }
+
+  function getInvoicePdfRenderer() {
+    if (window.PDFModelView) return window.PDFModelView;
+    if (window.PDFView) return window.PDFView;
+    return null;
+  }
+
+  async function ensureInvoicePdfRendererReady(renderer = getInvoicePdfRenderer()) {
+    if (!renderer) return null;
+    if (typeof renderer.ready === "function") {
+      try {
+        await renderer.ready();
+      } catch {}
+    }
+    return renderer;
+  }
+
+  function applyTotalsSnapshotToState(stateInput, totalsSnapshot = null) {
+    const st = ensureStateDefaults(stateInput || {});
+    const totalsResolved = totalsSnapshot || computeTotalsForSnapshot(st, null);
+    if (!st.meta || typeof st.meta !== "object") st.meta = {};
+    if (totalsResolved && typeof totalsResolved === "object") {
+      st.meta.__pdfPreviewTotals = clonePlain(totalsResolved, { ...totalsResolved });
+    } else if ("__pdfPreviewTotals" in st.meta) {
+      delete st.meta.__pdfPreviewTotals;
+    }
+    return totalsResolved;
   }
 
   function captureHistorySummary() {
@@ -1117,7 +1170,7 @@
         overwritePolicy
       });
     }
-    const st = ensureStateDefaults(stateInput || {});
+    const st = await buildInvoicePdfSnapshot(stateInput);
     const docTypeKey = (String(st.meta?.docType || "").trim().toLowerCase()) || "facture";
     const resolvedHistoryPath = historyPath || st.meta?.historyPath || "";
     const resolvedHistoryDocType =
@@ -1145,9 +1198,16 @@
       ...overrides
     });
 
+    const renderer = await ensureInvoicePdfRendererReady();
+    if (!renderer) {
+      const pdfUnavailable = getMessage("PDF_OPEN_UNAVAILABLE");
+      await showDialog?.(pdfUnavailable.text, { title: pdfUnavailable.title });
+      return buildResult();
+    }
     const assets = API?.assets || {};
-    const htmlInv = window.PDFView.build(st, assets);
-    const cssInv  = window.PDFView.css;
+    const totalsSnapshotResolved = applyTotalsSnapshotToState(st, totalsSnapshot);
+    const htmlInv = renderer.build(st, assets);
+    const cssInv = renderer.css || "";
 
     const typeLbl = docTypeLabel(st.meta?.docType);
     const invRaw  = String(st.meta?.number || "").trim();
@@ -1187,7 +1247,6 @@
 
     // Optionally export withholding certificate (from pdfWH.js)
     let resWH = null;
-    const totalsSnapshotResolved = totalsSnapshot || computeTotalsForSnapshot(st, null);
     const whAmountComputed = totalsSnapshotResolved?.whAmount ?? 0;
     if (st.meta?.withholding?.enabled && whAmountComputed > 0 && window.PDFWH) {
       const htmlWH = window.PDFWH.build(st, assets);
@@ -1830,12 +1889,13 @@ function buildBonEntreePreviewTitle(stateInput) {
     if (window.SEM?.computeTotals) window.SEM.computeTotals(); else if (typeof computeTotals === "function") computeTotals();
     syncActiveInvoiceHistoryStatus();
 
-    const st = (window.SEM?.state || window.state || {});
+    const st = await buildInvoicePdfSnapshot(window.SEM?.state || window.state || {});
     if (normalizeDocTypeKey(st?.meta?.docType || "facture") === "be") {
       await printBonEntreeState(st);
       return;
     }
-    if (!window.PDFView) {
+    const renderer = await ensureInvoicePdfRendererReady();
+    if (!renderer) {
       const pdfUnavailable = getMessage("PDF_OPEN_UNAVAILABLE");
       await showDialog?.(pdfUnavailable.text, { title: pdfUnavailable.title });
       return;
@@ -1844,8 +1904,9 @@ function buildBonEntreePreviewTitle(stateInput) {
     if (typeof API?.printHTML === "function") {
       try {
         const assets = API?.assets || {};
-        const htmlInv = window.PDFView.build(st, assets);
-        const cssInv = window.PDFView.css || "";
+        applyTotalsSnapshotToState(st, null);
+        const htmlInv = renderer.build(st, assets);
+        const cssInv = renderer.css || "";
         const res = await API.printHTML({
           html: htmlInv,
           css: cssInv,
@@ -1882,13 +1943,10 @@ function buildBonEntreePreviewTitle(stateInput) {
     }
     const strictDbSnapshot =
       options?.strictDb === true || options?.strictFromDb === true || options?.strictPreview === true;
-    let cloned = ensureStateDefaults(cloneInvoiceData(rawData));
-    if (strictDbSnapshot) {
-      if (!cloned.meta || typeof cloned.meta !== "object") cloned.meta = {};
-      cloned.meta.__pdfPreviewStrict = true;
-    } else {
-      cloned = await hydrateStateWithModelDefaults(cloned);
-    }
+    const cloned = await buildInvoicePdfSnapshot(rawData, {
+      strict: strictDbSnapshot,
+      markPrepared: true
+    });
     const totalsSnapshot = computeTotalsForSnapshot(cloned, null);
     return await exportStateSnapshot(cloned, {
       totalsSnapshot,
@@ -2113,9 +2171,11 @@ function buildBonEntreePreviewTitle(stateInput) {
       root.appendChild(iframe);
       return;
     }
-    if (!lastPreviewState || !window.PDFView) return;
+    const renderer = getInvoicePdfRenderer();
+    if (!lastPreviewState || !renderer) return;
     const assets = API?.assets || {};
-    window.PDFView.render(lastPreviewState, assets, { root });
+    applyTotalsSnapshotToState(lastPreviewState, lastPreviewTotals);
+    renderer.render(lastPreviewState, assets, { root });
   }
 
   function updatePdfPreviewOptionsFromToggles(overlay) {
@@ -2385,13 +2445,15 @@ function buildBonEntreePreviewTitle(stateInput) {
       return;
     }
     updatePdfPreviewOptionsFromToggles(document.getElementById("pdfPreviewModal"));
+    const renderer = await ensureInvoicePdfRendererReady();
 
-    if (window.PDFView && typeof API?.printHTML === "function") {
+    if (renderer && typeof API?.printHTML === "function") {
       try {
         const st = lastPreviewState;
         const assets = API?.assets || {};
-        const htmlInv = window.PDFView.build(st, assets);
-        const cssInv = window.PDFView.css || "";
+        applyTotalsSnapshotToState(st, lastPreviewTotals);
+        const htmlInv = renderer.build(st, assets);
+        const cssInv = renderer.css || "";
         const res = await API.printHTML({
           html: htmlInv,
           css: cssInv,
@@ -2404,13 +2466,14 @@ function buildBonEntreePreviewTitle(stateInput) {
       }
     }
 
-    const canExportToPdf = !!(API?.exportPDFFromHTML && window.PDFView);
+    const canExportToPdf = !!(API?.exportPDFFromHTML && renderer);
     if (canExportToPdf) {
       try {
         const st = lastPreviewState;
         const assets = API?.assets || {};
-        const htmlInv = window.PDFView.build(st, assets);
-        const cssInv = window.PDFView.css || "";
+        applyTotalsSnapshotToState(st, lastPreviewTotals);
+        const htmlInv = renderer.build(st, assets);
+        const cssInv = renderer.css || "";
 
         const invRaw = String(st.meta?.number || "").trim();
         const invNum = invRaw ? slugForFile(invRaw) : "";
@@ -2471,7 +2534,8 @@ function buildBonEntreePreviewTitle(stateInput) {
       await exportPreviewedPDFInBrowser();
       return;
     }
-    if (!window.PDFView) {
+    const renderer = await ensureInvoicePdfRendererReady();
+    if (!renderer) {
       const pdfUnavailable = getMessage("PDF_OPEN_UNAVAILABLE");
       await showDialog?.(pdfUnavailable.text, { title: pdfUnavailable.title });
       return;
@@ -2568,22 +2632,19 @@ function buildBonEntreePreviewTitle(stateInput) {
       await previewBonEntreeDataAsPDF(rawData);
       return;
     }
-    if (!window.PDFView) {
+    const renderer = await ensureInvoicePdfRendererReady();
+    if (!renderer) {
       const pdfUnavailable = getMessage("PDF_OPEN_UNAVAILABLE");
       await showDialog?.(pdfUnavailable.text, { title: pdfUnavailable.title });
       return;
     }
-    // Preview modal must reflect persisted document data only (no model-default overrides).
-    const st = ensureStateDefaults(cloneInvoiceData(rawData));
-    if (!st.meta || typeof st.meta !== "object") st.meta = {};
-    st.meta.__pdfPreviewStrict = true;
+    const st = await buildInvoicePdfSnapshot(rawData, { markPrepared: true });
     const pdfOptions = ensurePdfPreviewOptions(st.meta) || {};
     const showSeal = resolvePdfPreviewOption(pdfOptions, "showSeal", true);
     const showSignature = resolvePdfPreviewOption(pdfOptions, "showSignature", true);
     if (typeof pdfOptions.showSeal !== "boolean") pdfOptions.showSeal = showSeal;
     if (typeof pdfOptions.showSignature !== "boolean") pdfOptions.showSignature = showSignature;
     const assets = API?.assets || {};
-    const cssInv = window.PDFView.css || "";
     const viewTitleParts = [
       docTypeLabel(st.meta?.docType),
       st.meta?.number ? ` ${st.meta.number}` : "",
@@ -2595,8 +2656,6 @@ function buildBonEntreePreviewTitle(stateInput) {
     applyPdfPreviewMode(overlay, "invoice");
     const titleEl = overlay.querySelector("#pdfPreviewModalTitle");
     if (titleEl) titleEl.textContent = viewTitle;
-    const styleEl = overlay.querySelector("#pdfPreviewModalStyle");
-    if (styleEl) styleEl.textContent = cssInv || "";
     const showSealInput = overlay.querySelector("#pdfPreviewShowSeal");
     if (showSealInput) showSealInput.checked = showSeal;
     const showSignatureInput = overlay.querySelector("#pdfPreviewShowSignature");
@@ -2609,11 +2668,14 @@ function buildBonEntreePreviewTitle(stateInput) {
       root.id = "pdfRoot";
       root.className = "pdf-preview-root";
       content.appendChild(root);
-      window.PDFView.render(st, assets, { root });
+      lastPreviewTotals = applyTotalsSnapshotToState(st, null);
+      renderer.render(st, assets, { root });
+      const styleEl = overlay.querySelector("#pdfPreviewModalStyle");
+      if (styleEl) styleEl.textContent = renderer.css || "";
       content.scrollTop = 0;
     }
     lastPreviewState = st;
-    lastPreviewTotals = computeTotalsForSnapshot(st, null);
+    if (!lastPreviewTotals) lastPreviewTotals = applyTotalsSnapshotToState(st, null);
     overlay.hidden = false;
     overlay.classList.add("is-open");
     overlay.setAttribute("aria-hidden", "false");

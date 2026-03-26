@@ -45,6 +45,7 @@ let dbFileName = "";
 const dbInstances = new Map();
 const dbContextStorage = new AsyncLocalStorage();
 let currentDbPath = "";
+const dbTableColumnCache = new WeakMap();
 
 const ensureAccessor = () => {
   if (typeof getRootDir !== "function") {
@@ -162,6 +163,42 @@ const ensureTables = (db) => {
 const ensureSchemaTables = (db, tables = []) => {
   if (!db) return;
   alignSchema(db, { tables });
+};
+
+const quoteSqlIdentifier = (value) => `"${String(value || "").replace(/"/g, "\"\"")}"`;
+
+const getCachedTableColumns = (db, table) => {
+  const safeTable = String(table || "").trim();
+  if (!db || !safeTable) return new Set();
+  let tableCache = dbTableColumnCache.get(db);
+  if (!tableCache) {
+    tableCache = new Map();
+    dbTableColumnCache.set(db, tableCache);
+  }
+  const cached = tableCache.get(safeTable);
+  if (cached) return cached;
+  let names = new Set();
+  try {
+    names = new Set(
+      db
+        .prepare(`PRAGMA table_info(${quoteSqlIdentifier(safeTable)})`)
+        .all()
+        .map((col) => String(col?.name || "").trim())
+        .filter(Boolean)
+    );
+  } catch {
+    names = new Set();
+  }
+  tableCache.set(safeTable, names);
+  return names;
+};
+
+const filterRowEntriesByTableColumns = (db, table, row = {}) => {
+  const entries = Object.entries(row).filter(([, value]) => value !== undefined);
+  if (!entries.length) return entries;
+  const availableColumns = getCachedTableColumns(db, table);
+  if (!availableColumns.size) return entries;
+  return entries.filter(([key]) => availableColumns.has(key));
 };
 
 const tableHasColumn = (db, table, column) => {
@@ -1919,6 +1956,7 @@ const normalizeDocumentPayload = (payload = {}, { docType = "" } = {}) => {
   const client = data.client && typeof data.client === "object" ? data.client : {};
   const meta = data.meta && typeof data.meta === "object" ? data.meta : {};
   const normalizedDocType = normalizeDocType(meta.docType || docType || "facture");
+  const isBonEntreeDoc = normalizedDocType === "be";
   const totals = data.totals && typeof data.totals === "object" ? data.totals : {};
   const itemsRaw = Array.isArray(data.items) ? data.items : [];
   const notes = typeof data.notes === "string" ? data.notes : "";
@@ -2039,9 +2077,13 @@ const normalizeDocumentPayload = (payload = {}, { docType = "" } = {}) => {
     meta_pdf_show_amount_words: normalizeOptionalBool(pdf.showAmountWords),
     meta_pdf_footer_note: normalizeOptionalText(pdf.footerNote),
     meta_pdf_footer_note_size: normalizeOptionalNumber(pdf.footerNoteSize),
-    meta_pdf_be_remarks: normalizeOptionalText(pdf.beRemarks),
-    meta_pdf_be_remarks_size: normalizeOptionalNumber(pdf.beRemarksSize),
-    meta_pdf_be_remarks_touched: normalizeOptionalBool(pdf.beRemarksTouched),
+    meta_pdf_be_remarks: isBonEntreeDoc ? normalizeOptionalText(pdf.beRemarks) : undefined,
+    meta_pdf_be_remarks_size: isBonEntreeDoc
+      ? normalizeOptionalNumber(pdf.beRemarksSize)
+      : undefined,
+    meta_pdf_be_remarks_touched: isBonEntreeDoc
+      ? normalizeOptionalBool(pdf.beRemarksTouched)
+      : undefined,
     meta_taxes_enabled: normalizeOptionalBool(meta.taxesEnabled),
     meta_note_interne: normalizeOptionalText(meta.noteInterne),
     meta_reglement_enabled: normalizeOptionalBool(meta.reglementEnabled ?? reglement.enabled),
@@ -2088,25 +2130,51 @@ const normalizeDocumentPayload = (payload = {}, { docType = "" } = {}) => {
     meta_add_form_fodec_tva: normalizeOptionalNumber(addFormFodec.tva),
     meta_add_form_purchase_tva: normalizeOptionalNumber(addForm.purchaseTva),
     meta_add_form_tva: normalizeOptionalNumber(addForm.tva),
-    meta_be_reception_depot: normalizeOptionalText(beReception.depot),
-    meta_be_reception_depot_id: normalizeOptionalText(beReception.depotId),
-    meta_be_reception_destination: normalizeOptionalText(beReception.destination),
-    meta_be_reception_destination_id: normalizeOptionalText(beReception.destinationId),
-    meta_be_reception_destination_ids_json: serializeOptionalJsonValue(beReception.destinationIds),
-    meta_be_reception_destination_labels_json: serializeOptionalJsonValue(beReception.destinationLabels),
-    meta_be_reception_date: normalizeOptionalText(beReception.date),
-    meta_be_reception_time: normalizeOptionalText(beReception.time),
-    meta_be_reception_source_ref: normalizeOptionalText(beReception.sourceRef),
-    meta_be_reception_source_doc_type: normalizeOptionalText(beSourceDocType),
-    meta_be_reception_source_doc_id: normalizeOptionalText(beSourcePrimary?.id),
-    meta_be_reception_source_doc_key: normalizeOptionalText(beSourcePrimary?.key),
-    meta_be_reception_source_doc_number: normalizeOptionalText(beSourcePrimary?.number),
-    meta_be_reception_source_doc_label: normalizeOptionalText(beSourcePrimary?.displayName),
-    meta_be_reception_source_doc_path: normalizeOptionalText(beSourcePrimary?.path),
-    meta_be_reception_source_selection_json: serializeOptionalJsonValue(beSourceSelection),
-    meta_be_reception_source_imported_keys_json: serializeOptionalJsonValue(
-      normalizeBeReceptionImportedSourceKeys(beReception.importedSourceKeys, beSourceSelection)
-    ),
+    meta_be_reception_depot: isBonEntreeDoc ? normalizeOptionalText(beReception.depot) : undefined,
+    meta_be_reception_depot_id: isBonEntreeDoc ? normalizeOptionalText(beReception.depotId) : undefined,
+    meta_be_reception_destination: isBonEntreeDoc
+      ? normalizeOptionalText(beReception.destination)
+      : undefined,
+    meta_be_reception_destination_id: isBonEntreeDoc
+      ? normalizeOptionalText(beReception.destinationId)
+      : undefined,
+    meta_be_reception_destination_ids_json: isBonEntreeDoc
+      ? serializeOptionalJsonValue(beReception.destinationIds)
+      : undefined,
+    meta_be_reception_destination_labels_json: isBonEntreeDoc
+      ? serializeOptionalJsonValue(beReception.destinationLabels)
+      : undefined,
+    meta_be_reception_date: isBonEntreeDoc ? normalizeOptionalText(beReception.date) : undefined,
+    meta_be_reception_time: isBonEntreeDoc ? normalizeOptionalText(beReception.time) : undefined,
+    meta_be_reception_source_ref: isBonEntreeDoc
+      ? normalizeOptionalText(beReception.sourceRef)
+      : undefined,
+    meta_be_reception_source_doc_type: isBonEntreeDoc
+      ? normalizeOptionalText(beSourceDocType)
+      : undefined,
+    meta_be_reception_source_doc_id: isBonEntreeDoc
+      ? normalizeOptionalText(beSourcePrimary?.id)
+      : undefined,
+    meta_be_reception_source_doc_key: isBonEntreeDoc
+      ? normalizeOptionalText(beSourcePrimary?.key)
+      : undefined,
+    meta_be_reception_source_doc_number: isBonEntreeDoc
+      ? normalizeOptionalText(beSourcePrimary?.number)
+      : undefined,
+    meta_be_reception_source_doc_label: isBonEntreeDoc
+      ? normalizeOptionalText(beSourcePrimary?.displayName)
+      : undefined,
+    meta_be_reception_source_doc_path: isBonEntreeDoc
+      ? normalizeOptionalText(beSourcePrimary?.path)
+      : undefined,
+    meta_be_reception_source_selection_json: isBonEntreeDoc
+      ? serializeOptionalJsonValue(beSourceSelection)
+      : undefined,
+    meta_be_reception_source_imported_keys_json: isBonEntreeDoc
+      ? serializeOptionalJsonValue(
+          normalizeBeReceptionImportedSourceKeys(beReception.importedSourceKeys, beSourceSelection)
+        )
+      : undefined,
     meta_col_ref: normalizeOptionalBool(normalizedColumns.ref),
     meta_col_product: normalizeOptionalBool(normalizedColumns.product),
     meta_col_desc: normalizeOptionalBool(normalizedColumns.desc),
@@ -5673,21 +5741,26 @@ const saveDocumentData = (db, docType, documentId, payload = {}) => {
   const itemsTable = resolveDocItemsTableName(docType);
   const normalized = normalizeDocumentPayload(payload, { docType });
   const row = { ...normalized.row, document_id: documentId };
-  const entries = Object.entries(row);
+  const entries = filterRowEntriesByTableColumns(db, table, row);
+  if (!entries.some(([key]) => key === "document_id")) {
+    entries.unshift(["document_id", documentId]);
+  }
   const columns = entries.map(([key]) => key);
   const placeholders = entries.map(() => "?").join(", ");
   const updateAssignments = columns
     .filter((key) => key !== "document_id")
     .map((key) => `${key} = excluded.${key}`)
     .join(", ");
+  const conflictClause = updateAssignments
+    ? `ON CONFLICT(document_id) DO UPDATE SET ${updateAssignments}`
+    : "ON CONFLICT(document_id) DO NOTHING";
   const values = entries.map(([, value]) => (value === undefined ? null : value));
   db
     .prepare(
       `
       INSERT INTO ${table} (${columns.join(", ")})
       VALUES (${placeholders})
-      ON CONFLICT(document_id) DO UPDATE SET
-        ${updateAssignments}
+      ${conflictClause}
     `
     )
     .run(...values);
