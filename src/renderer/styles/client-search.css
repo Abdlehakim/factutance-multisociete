@@ -115,6 +115,7 @@
 #articleSearchResults,
 #clientSearchResults,
 #fournisseurSearchResults,
+#transporteurSearchResults,
 #depotMagasinSearchResults {
   max-width: none;
   --article-search-row-height: 75px;
@@ -132,6 +133,7 @@
 }
 #clientSearchResults,
 #fournisseurSearchResults,
+#transporteurSearchResults,
 #depotMagasinSearchResults {
   --article-search-row-height: 90px;
   --article-search-row-gap: 10px;
@@ -150,6 +152,7 @@
 #articleSearchResults.article-search--paged,
 #clientSearchResults.client-search--paged,
 #fournisseurSearchResults.client-search--paged,
+#transporteurSearchResults.client-search--paged,
 #depotMagasinSearchResults.client-search--paged {
   display: flex;
   flex-direction: column;
@@ -882,6 +885,7 @@
 }
 .client-search__results#clientSearchResults .client-search__actions,
 .client-search__results#fournisseurSearchResults .client-search__actions,
+.client-search__results#transporteurSearchResults .client-search__actions,
 .client-search__results#depotMagasinSearchResults .client-search__actions {
   display: flex;
   flex-direction: column;
@@ -894,6 +898,7 @@
 }
 .client-search__results#clientSearchResults .client-search__actions > *,
 .client-search__results#fournisseurSearchResults .client-search__actions > *,
+.client-search__results#transporteurSearchResults .client-search__actions > *,
 .client-search__results#depotMagasinSearchResults .client-search__actions > * {
   width: 100%;
   min-width: 0;
@@ -2228,6 +2233,7 @@ color: #000;
 .client-search__results#articleSearchResults .client-search__actions,
 .client-search__results#clientSearchResults .client-search__actions,
 .client-search__results#fournisseurSearchResults .client-search__actions,
+.client-search__results#transporteurSearchResults .client-search__actions,
 .swbDialog__panel.client-saved-modal__panel .client-search__actions,
 .swbDialog__panel.article-saved-modal__panel .client-search__actions,
 .swbDialog__panel.doc-history-modal__panel .client-search__actions {

@@ -4464,7 +4464,13 @@
           document.addEventListener("input", (evt) => {
             const target = evt.target;
             if (!(target instanceof HTMLElement)) return;
-            if (target.id !== "clientSearch" && target.id !== "fournisseurSearch") return;
+            if (
+              target.id !== "clientSearch" &&
+              target.id !== "fournisseurSearch" &&
+              target.id !== "transporteurSearch"
+            ) {
+              return;
+            }
             const scopeNode = target.closest(`#clientBoxNewDoc, #FournisseurBoxNewDoc, ${MAIN_SCOPE_SELECTOR}`);
             if (!scopeNode) return;
             const resultsEl = resolveClientSearchResultsElement(scopeNode);
@@ -4474,7 +4480,13 @@
           document.addEventListener("focusin", (evt) => {
             const target = evt.target;
             if (!(target instanceof HTMLElement)) return;
-            if (target.id !== "clientSearch" && target.id !== "fournisseurSearch") return;
+            if (
+              target.id !== "clientSearch" &&
+              target.id !== "fournisseurSearch" &&
+              target.id !== "transporteurSearch"
+            ) {
+              return;
+            }
             const scopeNode = target.closest(`#clientBoxNewDoc, #FournisseurBoxNewDoc, ${MAIN_SCOPE_SELECTOR}`);
             if (!scopeNode) return;
             const resultsEl = resolveClientSearchResultsElement(scopeNode);
@@ -4484,7 +4496,13 @@
           document.addEventListener("keydown", (evt) => {
             const target = evt.target;
             if (!(target instanceof HTMLElement)) return;
-            if (target.id !== "clientSearch" && target.id !== "fournisseurSearch") return;
+            if (
+              target.id !== "clientSearch" &&
+              target.id !== "fournisseurSearch" &&
+              target.id !== "transporteurSearch"
+            ) {
+              return;
+            }
             const scopeNode = target.closest(`#clientBoxNewDoc, #FournisseurBoxNewDoc, ${MAIN_SCOPE_SELECTOR}`);
             if (!scopeNode) return;
             const resultsEl = resolveClientSearchResultsElement(scopeNode);
@@ -4492,7 +4510,9 @@
           });
 
           document.addEventListener("click", (evt) => {
-            const actionBtn = evt.target?.closest?.("#clientSearchBtn, #fournisseurSearchBtn");
+            const actionBtn = evt.target?.closest?.(
+              "#clientSearchBtn, #fournisseurSearchBtn, #transporteurSearchBtn"
+            );
             if (!actionBtn) return;
             const scopeNode = actionBtn.closest(`#clientBoxNewDoc, #FournisseurBoxNewDoc, ${MAIN_SCOPE_SELECTOR}`);
             if (!scopeNode) return;
@@ -4502,7 +4522,9 @@
           });
 
           document.addEventListener("click", async (evt) => {
-            const resultsEl = evt.target?.closest?.("#clientSearchResults, #fournisseurSearchResults");
+            const resultsEl = evt.target?.closest?.(
+              "#clientSearchResults, #fournisseurSearchResults, #transporteurSearchResults"
+            );
             if (!resultsEl) return;
             const scopeNode = resultsEl.closest(`#clientBoxNewDoc, #FournisseurBoxNewDoc, ${MAIN_SCOPE_SELECTOR}`);
             if (!scopeNode) return;

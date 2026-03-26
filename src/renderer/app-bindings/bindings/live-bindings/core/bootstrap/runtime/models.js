@@ -2909,11 +2909,17 @@
           updateModelButtons();
 
           getDefaultClientSearchInput = () =>
-            getActiveMainClientScope()?.querySelector?.("#fournisseurSearch, #clientSearch") ||
+            getActiveMainClientScope()?.querySelector?.(
+              "#transporteurSearch, #fournisseurSearch, #clientSearch"
+            ) ||
+            transporteurSearchInput ||
             fournisseurSearchInput ||
             clientSearchInput;
           getDefaultClientSearchResults = () =>
-            getActiveMainClientScope()?.querySelector?.("#fournisseurSearchResults, #clientSearchResults") ||
+            getActiveMainClientScope()?.querySelector?.(
+              "#transporteurSearchResults, #fournisseurSearchResults, #clientSearchResults"
+            ) ||
+            transporteurSearchResults ||
             fournisseurSearchResults ||
             clientSearchResults;
 

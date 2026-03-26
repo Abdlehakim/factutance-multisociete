@@ -1879,10 +1879,12 @@
                 hideClientSearchResults();
                 return;
               }
-              const scopedSearchInput = scopeNode.querySelector("#fournisseurSearch, #clientSearch");
+              const scopedSearchInput = scopeNode.querySelector(
+                "#transporteurSearch, #fournisseurSearch, #clientSearch"
+              );
               if (scopedSearchInput) scopedSearchInput.value = "";
               const scopedSearchResults = scopeNode.querySelector(
-                "#fournisseurSearchResults, #clientSearchResults"
+                "#transporteurSearchResults, #fournisseurSearchResults, #clientSearchResults"
               );
               if (scopedSearchResults) {
                 scopedSearchResults.innerHTML = "";

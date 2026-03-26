@@ -3712,16 +3712,44 @@ const deleteClient = (id) => {
 const searchClients = ({ query = "", limit, offset, entityType } = {}) => {
   const db = initDatabase();
   const normalizedQuery = String(query || "").trim().toLowerCase();
+  const normalizedEntityType = entityType ? normalizeClientEntityType(entityType) : "";
   const params = [];
   let whereClause = "";
   const clauses = [];
   if (entityType) {
     clauses.push("type = ?");
-    params.push(normalizeClientEntityType(entityType));
+    params.push(normalizedEntityType);
   }
   if (normalizedQuery) {
-    clauses.push("search_text LIKE ?");
-    params.push(`%${normalizedQuery}%`);
+    if (normalizedEntityType === "transporter") {
+      const likeValue = `%${normalizedQuery}%`;
+      const transportSearchColumns = [
+        "LOWER(COALESCE(name, ''))",
+        "LOWER(COALESCE(benefit, ''))",
+        "LOWER(COALESCE(account, ''))",
+        "LOWER(COALESCE(steg_ref, ''))",
+        "LOWER(COALESCE(phone, ''))",
+        "LOWER(COALESCE(email, ''))",
+        "LOWER(COALESCE(address, ''))"
+      ];
+      clauses.push(`(${transportSearchColumns.map((column) => `${column} LIKE ?`).join(" OR ")})`);
+      transportSearchColumns.forEach(() => params.push(likeValue));
+    } else if (normalizedEntityType === "vendor") {
+      const likeValue = `%${normalizedQuery}%`;
+      const vendorSearchColumns = [
+        "LOWER(COALESCE(name, ''))",
+        "LOWER(COALESCE(vat, ''))",
+        "LOWER(COALESCE(identifiant_fiscal, ''))",
+        "LOWER(COALESCE(phone, ''))",
+        "LOWER(COALESCE(email, ''))",
+        "LOWER(COALESCE(address, ''))"
+      ];
+      clauses.push(`(${vendorSearchColumns.map((column) => `${column} LIKE ?`).join(" OR ")})`);
+      vendorSearchColumns.forEach(() => params.push(likeValue));
+    } else {
+      clauses.push("search_text LIKE ?");
+      params.push(`%${normalizedQuery}%`);
+    }
   }
   if (clauses.length) {
     whereClause = `WHERE ${clauses.join(" AND ")}`;

@@ -63,6 +63,8 @@
           clientSearchResults = getEl("clientSearchResults");
           fournisseurSearchInput = getEl("fournisseurSearch");
           fournisseurSearchResults = getEl("fournisseurSearchResults");
+          transporteurSearchInput = getEl("transporteurSearch");
+          transporteurSearchResults = getEl("transporteurSearchResults");
           CLIENT_SEARCH_PAGE_SIZE = 3;
           MIN_CLIENT_SEARCH_LENGTH = 2;
           clientSearchTimer = null;
@@ -71,6 +73,9 @@
           fournisseurSearchTimer = null;
           fournisseurSearchData = [];
           fournisseurSearchPage = 1;
+          transporteurSearchTimer = null;
+          transporteurSearchData = [];
+          transporteurSearchPage = 1;
           CLIENT_SCOPE_SELECTOR = "#clientBoxNewDoc, #FournisseurBoxNewDoc, #clientSavedModal, #clientSavedModalNv, #fournisseurSavedModal, #fournisseurSavedModalNv, #transporteurSavedModal, #transporteurSavedModalNv, #clientBoxMainscreenClientsPanel, #clientBoxMainscreenFournisseursPanel, #clientBoxMainscreenTransporteursPanel, #clientFormPopover, #fournisseurFormPopover, #transporteurFormPopover";
           CLIENT_SCOPE_WITH_ROOT_SELECTOR = `${CLIENT_SCOPE_SELECTOR}, #clientBoxMainscreen`;
           resolveClientEntityType = (scopeNode) =>
@@ -183,31 +188,54 @@
           resolveClientScopeFromNode = (node) =>
             node && typeof node.closest === "function" ? node.closest(CLIENT_SCOPE_SELECTOR) : null;
           resolveScopedClientSearchInput = (scopeNode) =>
-            scopeNode?.querySelector?.("#fournisseurSearch, #clientSearch") || null;
+            scopeNode?.querySelector?.("#transporteurSearch, #fournisseurSearch, #clientSearch") || null;
           resolveScopedClientSearchResults = (scopeNode) =>
-            scopeNode?.querySelector?.("#fournisseurSearchResults, #clientSearchResults") || null;
+            scopeNode?.querySelector?.(
+              "#transporteurSearchResults, #fournisseurSearchResults, #clientSearchResults"
+            ) || null;
           resolveClientSearchScope = (inputEl, resultsEl) =>
             resolveClientScopeFromNode(inputEl) || resolveClientScopeFromNode(resultsEl);
+          isTransporteurSearchContext = ({ scopeNode = null, inputEl = null, resultsEl = null } = {}) => {
+            if (scopeNode?.id === MAIN_TRANSPORTER_SCOPE_ID) return true;
+            if (inputEl?.id === "transporteurSearch") return true;
+            if (resultsEl?.id === "transporteurSearchResults") return true;
+            return false;
+          };
           isFournisseurSearchContext = ({ scopeNode = null, inputEl = null, resultsEl = null } = {}) => {
             if (scopeNode?.id === MAIN_VENDOR_SCOPE_ID) return true;
             if (inputEl?.id === "fournisseurSearch") return true;
             if (resultsEl?.id === "fournisseurSearchResults") return true;
             return false;
           };
-          resolveClientSearchStateBucket = ({ scopeNode = null, inputEl = null, resultsEl = null } = {}) =>
-            isFournisseurSearchContext({ scopeNode, inputEl, resultsEl }) ? "vendor" : "client";
+          resolveClientSearchStateBucket = ({ scopeNode = null, inputEl = null, resultsEl = null } = {}) => {
+            if (isTransporteurSearchContext({ scopeNode, inputEl, resultsEl })) return "transporter";
+            if (isFournisseurSearchContext({ scopeNode, inputEl, resultsEl })) return "vendor";
+            return "client";
+          };
           getClientSearchBucketData = (bucket) =>
-            bucket === "vendor" ? fournisseurSearchData : clientSearchData;
+            bucket === "vendor"
+              ? fournisseurSearchData
+              : bucket === "transporter"
+                ? transporteurSearchData
+                : clientSearchData;
           setClientSearchBucketData = (bucket, value) => {
             const next = Array.isArray(value) ? value : [];
             if (bucket === "vendor") {
               fournisseurSearchData = next;
               return;
             }
+            if (bucket === "transporter") {
+              transporteurSearchData = next;
+              return;
+            }
             clientSearchData = next;
           };
           getClientSearchBucketPage = (bucket) =>
-            bucket === "vendor" ? fournisseurSearchPage : clientSearchPage;
+            bucket === "vendor"
+              ? fournisseurSearchPage
+              : bucket === "transporter"
+                ? transporteurSearchPage
+                : clientSearchPage;
           setClientSearchBucketPage = (bucket, value) => {
             const parsed = Number(value);
             const next = Number.isFinite(parsed) && parsed > 0 ? Math.trunc(parsed) : 1;
@@ -215,13 +243,25 @@
               fournisseurSearchPage = next;
               return;
             }
+            if (bucket === "transporter") {
+              transporteurSearchPage = next;
+              return;
+            }
             clientSearchPage = next;
           };
           getClientSearchBucketTimer = (bucket) =>
-            bucket === "vendor" ? fournisseurSearchTimer : clientSearchTimer;
+            bucket === "vendor"
+              ? fournisseurSearchTimer
+              : bucket === "transporter"
+                ? transporteurSearchTimer
+                : clientSearchTimer;
           setClientSearchBucketTimer = (bucket, value) => {
             if (bucket === "vendor") {
               fournisseurSearchTimer = value;
+              return;
+            }
+            if (bucket === "transporter") {
+              transporteurSearchTimer = value;
               return;
             }
             clientSearchTimer = value;
