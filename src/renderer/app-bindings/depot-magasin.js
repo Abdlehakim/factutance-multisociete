@@ -479,6 +479,9 @@
 
     const query = normalizeText(getEl(SEARCH_INPUT_ID)?.value);
     await refreshDepots({ query, showDropdown: false });
+    try {
+      await SEM.depotMagasinSavedModal?.refresh?.();
+    } catch {}
     setResultsHidden(true);
     if (forceCreate) {
       resetForm();

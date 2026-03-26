@@ -114,6 +114,10 @@
     if (!state.total) return 1;
     return Math.max(1, Math.ceil(state.total / PAGE_SIZE));
   };
+  const isDepotFormPopoverOpen = () => {
+    const popover = document.getElementById("depotMagasinFormPopover");
+    return !!popover && !popover.hidden && popover.getAttribute("aria-hidden") !== "true";
+  };
 
   const clearSearchTimer = () => {
     if (!searchTimer) return;
@@ -409,7 +413,6 @@
       await showMessage("Depot/magasin introuvable.");
       return;
     }
-    closeModal({ restoreFocus: false });
     if (typeof SEM.depotMagasin?.openEditForm === "function") {
       await SEM.depotMagasin.openEditForm(path);
       return;
@@ -528,6 +531,7 @@
       if (!isOpen()) return;
 
       if (evt.key === "Escape") {
+        if (isDepotFormPopoverOpen()) return;
         if (target?.id === "depotMagasinSavedModalPageInput") {
           const { pageInput } = hydrateRefs();
           if (pageInput) pageInput.value = String(state.page || 1);
