@@ -1103,6 +1103,17 @@
       overwritePolicy = null
     } = {}
   ) {
+    const incomingDocType = normalizeDocTypeKey(stateInput?.meta?.docType || "facture");
+    if (incomingDocType === "be") {
+      return await exportBonEntreeStateSnapshot(stateInput, {
+        totalsSnapshot,
+        historyPath,
+        historyDocType,
+        suppressPrompt,
+        openAfterExport,
+        overwritePolicy
+      });
+    }
     const st = ensureStateDefaults(stateInput || {});
     const docTypeKey = (String(st.meta?.docType || "").trim().toLowerCase()) || "facture";
     const resolvedHistoryPath = historyPath || st.meta?.historyPath || "";
@@ -1310,6 +1321,316 @@
     });
   }
 
+  function buildBonEntreeExportResult(docTypeKey, resolvedHistoryPath, resolvedHistoryDocType, overrides = {}) {
+    return {
+      ok: false,
+      canceled: false,
+      invoicePath: null,
+      invoiceName: null,
+      docType: docTypeKey,
+      historyPath: resolvedHistoryPath || null,
+      historyDocType: resolvedHistoryDocType,
+      hasWithholdingCertificate: false,
+      withholdingPath: null,
+      ...overrides
+    };
+  }
+
+  async function buildBonEntreePdfSnapshot(stateInput) {
+    if (!window.PDFBeView) {
+      const pdfUnavailable = getMessage("PDF_OPEN_UNAVAILABLE");
+      await showDialog?.(pdfUnavailable.text, { title: pdfUnavailable.title });
+      return null;
+    }
+    await window.PDFBeView.ready?.();
+    let st = ensureStateDefaults(cloneInvoiceData(stateInput || {}));
+    if (st?.meta?.__pdfPreviewStrict !== true) {
+      st = await hydrateStateWithModelDefaults(st);
+    }
+    const assets = API?.assets || {};
+    const html = window.PDFBeView.build(st, assets);
+    const css = window.PDFBeView.css || "";
+    return { st, html, css };
+  }
+
+function buildBonEntreePreviewTitle(stateInput) {
+    const st = ensureStateDefaults(stateInput || {});
+    const parts = [
+      docTypeLabel(st.meta?.docType || "be"),
+      st.meta?.number ? ` ${st.meta.number}` : "",
+      st.meta?.date ? ` • ${st.meta.date}` : ""
+    ].filter(Boolean);
+    return parts.join("") || "Bon d'entrée";
+  }
+
+  async function exportBonEntreeStateSnapshot(
+    stateInput,
+    {
+      historyPath,
+      historyDocType,
+      suppressPrompt = false,
+      openAfterExport = false,
+      overwritePolicy = null
+    } = {}
+  ) {
+    const snapshot = await buildBonEntreePdfSnapshot(stateInput);
+    if (!snapshot) {
+      const docTypeKey = normalizeDocTypeKey(stateInput?.meta?.docType || "be");
+      return buildBonEntreeExportResult(docTypeKey, historyPath || "", historyDocType || docTypeKey);
+    }
+    const { st, html, css } = snapshot;
+    const docTypeKey = normalizeDocTypeKey(st.meta?.docType || "be");
+    const resolvedHistoryPath = historyPath || st.meta?.historyPath || "";
+    const resolvedHistoryDocType =
+      String(historyDocType || st.meta?.historyDocType || docTypeKey).trim().toLowerCase() || docTypeKey;
+    const persistPdfPath = (pdfPath) => {
+      if (!pdfPath || !resolvedHistoryPath) return;
+      if (typeof window.setDocumentHistoryPdfPath === "function") {
+        try {
+          window.setDocumentHistoryPdfPath(resolvedHistoryDocType, resolvedHistoryPath, pdfPath);
+        } catch (err) {
+          console.warn("setDocumentHistoryPdfPath failed", err);
+        }
+      }
+    };
+
+    const invRaw = String(st.meta?.number || "").trim();
+    const invNum = invRaw ? slugForFile(invRaw) : "";
+    const base = resolvePdfBaseNameByDocType({
+      docType: docTypeKey,
+      invNum,
+      historyPath: resolvedHistoryPath,
+      fallback: "Document"
+    });
+    const fileName = ensurePdfExt(base);
+    const clientName = String(st.client?.name || "").trim();
+    const clientVat = String(st.client?.vat || "").trim();
+
+    const resInv = await exportWithOverwrite(
+      {
+        html,
+        css,
+        meta: {
+          number: st.meta?.number,
+          docType: st.meta?.docType,
+          filename: fileName,
+          date: st.meta?.date,
+          clientName,
+          clientVat,
+          silent: true,
+          to: "pdf",
+          deferOpen: true
+        }
+      },
+      fileName,
+      overwritePolicy
+    );
+    if (resInv && resInv.ok === false) {
+      if (resInv.canceled) {
+        return buildBonEntreeExportResult(docTypeKey, resolvedHistoryPath, resolvedHistoryDocType, {
+          canceled: true
+        });
+      }
+      const pdfError = getMessage("PDF_EXPORT_FAILED");
+      await showDialog?.(resInv.error || pdfError.text, { title: pdfError.title });
+      return buildBonEntreeExportResult(docTypeKey, resolvedHistoryPath, resolvedHistoryDocType);
+    }
+
+    const invLabel = cleanDocNameForDialog({
+      rawName: displayFileTitle(resInv?.name || fileName),
+      docType: docTypeKey,
+      fallback: displayFileTitle(resInv?.name || fileName)
+    });
+    const grammar = resolveDocGrammar(docTypeKey, invLabel);
+    const readyText = (isFeminine = false) =>
+      (isFeminine ? dialogStrings.exportReadyFeminine : dialogStrings.exportReadyMasculine) ||
+      (isFeminine ? "a ete exportee et peut maintenant etre ouverte." : "a ete exporte et peut maintenant etre ouvert.");
+    const summaryEntries = [
+      {
+        prefix: grammar.article,
+        name: invLabel,
+        suffix: readyText(grammar.feminine)
+      }
+    ];
+    const summaryTemplate =
+      typeof dialogTemplates.documentReadySummary === "function"
+        ? dialogTemplates.documentReadySummary({ entries: summaryEntries })
+        : null;
+    const msg =
+      summaryTemplate?.text ||
+      summaryEntries.map((entry) => `${entry.prefix} ${entry.name} ${entry.suffix}`.trim()).join("\n\n");
+
+    persistPdfPath(resInv?.path);
+
+    if (!suppressPrompt) {
+      await showConfirm?.(msg, {
+        title: "Ouvrir les documents",
+        okText: "Ouvrir le bon d'entrée",
+        cancelText: "Fermer",
+        okKeepsOpen: true,
+        renderMessage:
+          summaryTemplate?.renderMessage ||
+          ((container) => {
+            container.innerHTML = "";
+            summaryEntries.forEach((entry) => {
+              const line = document.createElement("p");
+              if (entry.prefix) line.append(`${entry.prefix} `);
+              const strong = document.createElement("strong");
+              strong.className = "swbDialogMsg__filename";
+              strong.textContent =
+                cleanDocNameForDialog({
+                  rawName: entry.name,
+                  docType: docTypeKey,
+                  fallback: entry.name
+                }) || "";
+              line.appendChild(strong);
+              if (entry.suffix) line.append(` ${entry.suffix}`);
+              container.appendChild(line);
+            });
+          }),
+        onOk: () => {
+          try {
+            openPDF(resInv);
+          } catch {}
+        }
+      });
+    } else if (openAfterExport) {
+      try {
+        openPDF(resInv);
+      } catch {}
+    }
+
+    return buildBonEntreeExportResult(docTypeKey, resolvedHistoryPath, resolvedHistoryDocType, {
+      ok: !!resInv?.ok,
+      canceled: !!resInv?.canceled,
+      invoicePath: resInv?.path || null,
+      invoiceName: resInv?.name || null
+    });
+  }
+
+  async function printBonEntreeState(stateInput) {
+    const snapshot = await buildBonEntreePdfSnapshot(stateInput);
+    if (!snapshot) return;
+    const { st, html, css } = snapshot;
+
+    if (typeof API?.printHTML === "function") {
+      try {
+        const res = await API.printHTML({
+          html,
+          css,
+          print: { silent: true, printBackground: true }
+        });
+        if (res?.ok) return;
+        const printError = getMessage("PRINT_FAILED", {
+          fallbackTitle: "Impression",
+          fallbackText: "Impossible d'imprimer le document."
+        });
+        showDialog?.(String(res?.error || printError.text), { title: printError.title });
+        return;
+      } catch (err) {
+        const printError = getMessage("PRINT_FAILED", {
+          fallbackTitle: "Impression",
+          fallbackText: "Impossible d'imprimer le document."
+        });
+        showDialog?.(String(err?.message || err || printError.text), { title: printError.title });
+        return;
+      }
+    }
+
+    if (API?.exportPDFFromHTML) {
+      try {
+        const invRaw = String(st.meta?.number || "").trim();
+        const invNum = invRaw ? slugForFile(invRaw) : "";
+        const baseName = resolvePdfBaseNameByDocType({
+          docType: st.meta?.docType,
+          invNum,
+          historyPath: st.meta?.historyPath,
+          fallback: "Document"
+        });
+        const fileName = ensurePdfExt(baseName);
+        const res = await API.exportPDFFromHTML({
+          html,
+          css,
+          meta: {
+            number: st.meta?.number,
+            docType: st.meta?.docType,
+            filename: fileName,
+            date: st.meta?.date,
+            clientName: String(st.client?.name || "").trim(),
+            clientVat: String(st.client?.vat || "").trim(),
+            silent: true,
+            to: "pdf",
+            forceOverwrite: true
+          }
+        });
+        if (res?.ok) {
+          const opened = await openPdfInBrowserForPrint(res);
+          if (opened) return;
+        } else if (res && !res.canceled) {
+          const printError = getMessage("PRINT_FAILED", {
+            fallbackTitle: "Impression",
+            fallbackText: "Impossible d'imprimer le document."
+          });
+          showDialog?.(res.error || printError.text, { title: printError.title });
+          return;
+        }
+      } catch (err) {
+        console.warn("Bon d'entree print export failed", err);
+      }
+    }
+
+    const printError = getMessage("PRINT_FAILED", {
+      fallbackTitle: "Impression",
+      fallbackText: "Impression silencieuse indisponible."
+    });
+    showDialog?.(printError.text, { title: printError.title });
+  }
+
+  async function exportPreviewedBonEntreePDF() {
+    const st = window.PDFBePreview?.getState?.();
+    if (!st) {
+      const loadError = getMessage("PDF_DOCUMENT_LOAD_FAILED");
+      await showDialog?.(loadError.text, { title: loadError.title });
+      return;
+    }
+    return await exportBonEntreeStateSnapshot(st);
+  }
+
+  async function printPreviewedBonEntreePDF() {
+    const st = window.PDFBePreview?.getState?.();
+    if (!st) {
+      const loadError = getMessage("PDF_DOCUMENT_LOAD_FAILED");
+      await showDialog?.(loadError.text, { title: loadError.title });
+      return;
+    }
+    await printBonEntreeState(st);
+  }
+
+  async function previewBonEntreeDataAsPDF(rawData) {
+    resetLastPreviewState();
+    closePdfPreviewModal();
+    if (!rawData) {
+      const loadError = getMessage("PDF_DOCUMENT_LOAD_FAILED");
+      await showDialog?.(loadError.text, { title: loadError.title });
+      return;
+    }
+    if (!window.PDFBeView || !window.PDFBePreview) {
+      const pdfUnavailable = getMessage("PDF_OPEN_UNAVAILABLE");
+      await showDialog?.(pdfUnavailable.text, { title: pdfUnavailable.title });
+      return;
+    }
+    const st = ensureStateDefaults(cloneInvoiceData(rawData));
+    if (!st.meta || typeof st.meta !== "object") st.meta = {};
+    st.meta.__pdfPreviewStrict = true;
+    await window.PDFBePreview.preview(st, {
+      title: buildBonEntreePreviewTitle(st),
+      printLabel: "Imprimer Bon d'entrée",
+      exportLabel: "Exporter Bon d'entrée PDF",
+      onPrint: printPreviewedBonEntreePDF,
+      onExport: exportPreviewedBonEntreePDF
+    });
+  }
+
   async function onOpenInvoiceClick(options = {}) {
     const raw = await openInvoiceFromFilePicker(options);
     if (!raw) {
@@ -1507,6 +1828,10 @@
     syncActiveInvoiceHistoryStatus();
 
     const st = (window.SEM?.state || window.state || {});
+    if (normalizeDocTypeKey(st?.meta?.docType || "facture") === "be") {
+      await printBonEntreeState(st);
+      return;
+    }
     if (!window.PDFView) {
       const pdfUnavailable = getMessage("PDF_OPEN_UNAVAILABLE");
       await showDialog?.(pdfUnavailable.text, { title: pdfUnavailable.title });
@@ -1704,11 +2029,13 @@
     lastPreviewHtml = "";
     lastPreviewCss = "";
     lastPreviewPdfPath = "";
+    window.PDFBePreview?.reset?.({ closeModal: true });
   }
 
   function invalidatePdfPreviewCache(options = {}) {
     const closeModal = options?.closeModal !== false;
     resetLastPreviewState();
+    window.PDFBePreview?.reset?.({ closeModal });
     const overlay = document.getElementById("pdfPreviewModal");
     if (!overlay) return;
     if (closeModal) {
@@ -2231,6 +2558,11 @@
     if (!rawData) {
       const loadError = getMessage("PDF_DOCUMENT_LOAD_FAILED");
       await showDialog?.(loadError.text, { title: loadError.title });
+      return;
+    }
+    const previewDocType = normalizeDocTypeKey(rawData?.meta?.docType || rawData?.data?.meta?.docType || "facture");
+    if (previewDocType === "be") {
+      await previewBonEntreeDataAsPDF(rawData);
       return;
     }
     if (!window.PDFView) {
@@ -2879,6 +3211,7 @@
   window.exportInvoiceDataAsPDF = exportInvoiceDataAsPDF;
   window.exportWithholdingDataAsPDF = exportWithholdingDataAsPDF;
   window.previewInvoiceDataAsPDF = previewInvoiceDataAsPDF;
+  window.previewBonEntreeDataAsPDF = previewBonEntreeDataAsPDF;
   window.previewWithholdingDataAsPDF = previewWithholdingDataAsPDF;
   window.previewPdfFileInModal = previewPdfFileInModal;
   window.previewXmlFileInModal = previewXmlFileInModal;
