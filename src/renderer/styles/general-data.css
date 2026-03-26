@@ -1917,6 +1917,18 @@ aspect-ratio: 1 / 1;
   inset: auto;
   background: transparent;
 }
+body:not(.printing):not(.print-mode):not(.exporting-pdf)
+  #pdfPreviewModal
+  #pdfPreviewContent
+  #pdfRoot {
+  display: flex !important;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: max-content;
+  min-width: 100%;
+  margin-inline: auto;
+}
 .pdf-preview-modal__content .pdf-preview-embed {
   width: min(100%, 980px);
   height: calc(90vh - 140px);

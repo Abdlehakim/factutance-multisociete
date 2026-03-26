@@ -695,6 +695,24 @@
               const text = typeof value === "string" ? value.trim() : "";
               el.textContent = text || fallback;
             };
+            const normalizeContactLinesForPreview = (value) => {
+              const raw = String(value || "").trim();
+              if (!raw) return "";
+              const parts = raw
+                .split(/[\r\n,;\/|]+|\s+-\s+/)
+                .map((entry) => entry.trim())
+                .filter(Boolean);
+              return (parts.length ? parts : [raw]).join("\n");
+            };
+            const setPhoneTextWithFallback = (id, value) => {
+              const el = getEl(id);
+              if (!el) return;
+              const fallbackRaw = el.dataset?.default || el.textContent || "";
+              const sourceRaw = typeof value === "string" ? value : "";
+              const normalized = normalizeContactLinesForPreview(sourceRaw);
+              const normalizedFallback = normalizeContactLinesForPreview(fallbackRaw);
+              el.textContent = normalized || normalizedFallback || fallbackRaw;
+            };
             const setHtmlWithFallback = (id, value) => {
               const el = getEl(id);
               if (!el) return "";
@@ -932,7 +950,7 @@
             if (modelPreviewExtras) modelPreviewExtras.textContent = extras.length ? extras.join(", ") : "Aucune option active";
             setTextWithFallback("modelPreviewCompanyName", company.name);
             setTextWithFallback("modelPreviewCompanyMf", company.vat || company.mf);
-            setTextWithFallback("modelPreviewCompanyPhone", company.phone);
+            setPhoneTextWithFallback("modelPreviewCompanyPhone", company.phone);
             setTextWithFallback("modelPreviewCompanyEmail", company.email);
             setTextWithFallback("modelPreviewCompanyAddress", company.address);
             const shippingRow = previewRoot.querySelector('[data-mini-key="shipping"]');

@@ -434,6 +434,10 @@ background: #f3f8ff;
   word-break: break-word;
 }
 
+#modelActionsModal #modelActionsPreview #modelPreviewCompanyPhone {
+  white-space: pre-line;
+}
+
 #modelActionsModal #modelActionsPreview .doc-design1__section {
   position: relative;
   border: none;

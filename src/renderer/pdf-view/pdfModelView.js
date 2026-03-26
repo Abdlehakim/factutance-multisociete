@@ -562,6 +562,16 @@
     node.textContent = text || node.dataset?.default || "";
   }
 
+  function normalizeContactLines(value) {
+    const raw = String(value ?? "").trim();
+    if (!raw) return "";
+    const parts = raw
+      .split(/[\r\n,;\/|]+|\s+-\s+/)
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+    return (parts.length ? parts : [raw]).join("\n");
+  }
+
   function setHtml(page, id, html, fallback = "") {
     const node = page?.querySelector?.(`#${id}`);
     if (!node) return;
@@ -682,7 +692,7 @@
     const party = state?.client && typeof state.client === "object" ? state.client : {};
     setText(page, "modelPreviewCompanyName", company.name || "-", "-");
     setText(page, "modelPreviewCompanyMf", company.vat || company.mf || "-", "-");
-    setText(page, "modelPreviewCompanyPhone", company.phone || "-", "-");
+    setText(page, "modelPreviewCompanyPhone", normalizeContactLines(company.phone || ""), "-");
     setText(page, "modelPreviewCompanyEmail", company.email || "-", "-");
     setText(page, "modelPreviewCompanyAddress", company.address || "-", "-");
 
