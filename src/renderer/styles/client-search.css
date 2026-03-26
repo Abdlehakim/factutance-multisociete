@@ -140,6 +140,35 @@
   --article-search-list-padding: 8px;
   --article-search-pager-height: 82px;
 }
+#clientSearchResults {
+  --article-search-row-height: 82px;
+  --article-search-row-gap: 8px;
+  --article-search-list-padding: 6px;
+  --article-search-pager-height: 74px;
+  --article-search-list-height: calc(
+    2 * var(--article-search-row-height, 82px) +
+      var(--article-search-row-gap, 8px) +
+      var(--article-search-list-padding, 6px)
+  );
+  --article-search-total-height: calc(
+    var(--article-search-list-height, 178px) + var(--article-search-pager-height, 74px)
+  );
+}
+#fournisseurSearchResults,
+#transporteurSearchResults {
+  --article-search-row-height: 82px;
+  --article-search-row-gap: 8px;
+  --article-search-list-padding: 6px;
+  --article-search-pager-height: 74px;
+  --article-search-list-height: calc(
+    2 * var(--article-search-row-height, 82px) +
+      var(--article-search-row-gap, 8px) +
+      var(--article-search-list-padding, 6px)
+  );
+  --article-search-total-height: calc(
+    var(--article-search-list-height, 178px) + var(--article-search-pager-height, 74px)
+  );
+}
 #articleSearchResults {
   --article-search-row-height: 90px;
   --article-search-row-gap: 10px;

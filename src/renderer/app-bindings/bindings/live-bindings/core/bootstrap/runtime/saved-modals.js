@@ -968,6 +968,18 @@
             });
           };
 
+          resolveClientSearchPageSize = (resultsEl) => {
+            const fallbackSize = Math.max(1, Number(CLIENT_SEARCH_PAGE_SIZE) || 1);
+            if (
+              resultsEl?.id === "clientSearchResults" ||
+              resultsEl?.id === "fournisseurSearchResults" ||
+              resultsEl?.id === "transporteurSearchResults"
+            ) {
+              return 2;
+            }
+            return fallbackSize;
+          };
+
           renderClientSearchResults = (items, queryText, resultsEl = clientSearchResults, options = {}) => {
             if (!resultsEl) return;
             resultsEl.innerHTML = "";
@@ -999,13 +1011,14 @@
             }
 
             const total = items.length;
-            const totalPages = Math.max(1, Math.ceil(total / CLIENT_SEARCH_PAGE_SIZE));
+            const pageSize = resolveClientSearchPageSize(resultsEl);
+            const totalPages = Math.max(1, Math.ceil(total / pageSize));
             let normalizedPage = currentPage;
             if (normalizedPage > totalPages) normalizedPage = totalPages;
             if (normalizedPage < 1) normalizedPage = 1;
             searchState?.setPage?.(normalizedPage);
-            const startIdx = (normalizedPage - 1) * CLIENT_SEARCH_PAGE_SIZE;
-            const slice = items.slice(startIdx, startIdx + CLIENT_SEARCH_PAGE_SIZE);
+            const startIdx = (normalizedPage - 1) * pageSize;
+            const slice = items.slice(startIdx, startIdx + pageSize);
 
             const list = document.createElement("div");
             list.className = "article-search__list";
@@ -4253,13 +4266,14 @@
               inputEl,
               resultsEl
             });
+            const pageSize = resolveClientSearchPageSize(resultsEl);
             const getCurrentItems = () => searchState?.getData?.() || [];
             const pagerBtn = evt.target.closest("[data-article-page]");
             if (pagerBtn) {
               const direction = pagerBtn.getAttribute("data-article-page");
               const currentItems = getCurrentItems();
               const currentPage = Math.max(1, Number(searchState?.getPage?.() || 1) || 1);
-              const totalPages = Math.max(1, Math.ceil(currentItems.length / CLIENT_SEARCH_PAGE_SIZE));
+              const totalPages = Math.max(1, Math.ceil(currentItems.length / pageSize));
               if (direction === "prev" && currentPage > 1) {
                 searchState?.setPage?.(currentPage - 1);
                 renderClientSearchResults(currentItems, queryValue, resultsEl, { searchState });
@@ -4343,7 +4357,7 @@
                 nextItems.splice(idx, 1);
                 searchState?.setData?.(nextItems);
                 if (nextItems.length) {
-                  const totalPages = Math.max(1, Math.ceil(nextItems.length / CLIENT_SEARCH_PAGE_SIZE));
+                  const totalPages = Math.max(1, Math.ceil(nextItems.length / pageSize));
                   const currentPage = Math.max(1, Number(searchState?.getPage?.() || 1) || 1);
                   if (currentPage > totalPages) {
                     searchState?.setPage?.(totalPages);
@@ -4367,6 +4381,14 @@
 
             const selectBtn = evt.target.closest("[data-client-select]");
             if (!selectBtn) return;
+            if (
+              resultsEl?.id === "clientSearchResults" ||
+              resultsEl?.id === "fournisseurSearchResults" ||
+              resultsEl?.id === "transporteurSearchResults"
+            ) {
+              evt.preventDefault();
+              return;
+            }
             const idx = Number(selectBtn.dataset.clientSelect);
             const selected = getCurrentItems()[idx];
             if (!selected) return;
