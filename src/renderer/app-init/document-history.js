@@ -134,18 +134,22 @@
       facture: "Facture",
       fa: "Facture d'achat",
       bc: "Bon de commande",
+      be: "Bon d'entrée",
+      bs: "Bon de sortie",
       avoir: "Facture d'avoir",
       devis: "Devis",
       bl: "Bon de livraison"
     };
-    const DOC_HISTORY_LEGACY_TYPE_LABELS = {
-      be: "Bon d'entr\u00e9e",
-      bs: "Bon de sortie"
-    };
+    const DOC_HISTORY_LEGACY_TYPE_LABELS = {};
     const DOC_HISTORY_TYPE_LABELS = {
       ...DOC_HISTORY_SELECTABLE_TYPE_LABELS,
       ...DOC_HISTORY_LEGACY_TYPE_LABELS
     };
+    const DOC_HISTORY_DIALOG_TYPE_ROW_VALUES = [
+      ["devis", "facture", "bl", "bc"],
+      ["fa", "bc", "be", "bs"],
+      ["avoir"]
+    ];
     const DOC_HISTORY_SELECTABLE_TYPES = new Set(Object.keys(DOC_HISTORY_SELECTABLE_TYPE_LABELS));
     const DOC_HISTORY_LEGACY_TYPES = new Set(Object.keys(DOC_HISTORY_LEGACY_TYPE_LABELS));
     const DOC_HISTORY_STATUS_OPTIONS = [
@@ -4968,14 +4972,24 @@
     docTypeActionOpen?.addEventListener("click", async () => {
       const chooser = w.showOptionsDialog;
       if (typeof chooser === "function") {
-        const typeOptions = Object.entries(DOC_HISTORY_SELECTABLE_TYPE_LABELS).map(([value, label]) => ({
-          value,
-          label
-        }));
+        const typeOptionRows = DOC_HISTORY_DIALOG_TYPE_ROW_VALUES.map((row) =>
+          row
+            .map((value) =>
+              DOC_HISTORY_SELECTABLE_TYPES.has(value)
+                ? {
+                    value,
+                    label: DOC_HISTORY_TYPE_LABELS[value] || value
+                  }
+                : null
+            )
+            .filter(Boolean)
+        ).filter((row) => row.length > 0);
+        const typeOptions = typeOptionRows.flat();
         const choiceIndex = await chooser({
           title: "Ouvrir un document",
           message: "Choisissez le type de document a ouvrir :",
-          options: typeOptions.map((entry) => ({ label: entry.label, value: entry.value }))
+          options: typeOptions.map((entry) => ({ label: entry.label, value: entry.value })),
+          choiceRows: typeOptionRows
         });
         if (choiceIndex === null || choiceIndex === undefined) return;
         const picked = typeOptions[choiceIndex] || typeOptions[0];

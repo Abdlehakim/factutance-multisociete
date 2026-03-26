@@ -691,6 +691,68 @@
                 toggle.setAttribute("aria-expanded", menu?.open ? "true" : "false");
               }
             };
+            const resolveScopedClientTypeMenu = (scopeOrMenu) => {
+              if (
+                scopeOrMenu instanceof HTMLElement &&
+                scopeOrMenu.matches?.("details.client-type-menu")
+              ) {
+                return scopeOrMenu;
+              }
+              return queryScopedClientFormElement(scopeOrMenu, "clientTypeMenu");
+            };
+            const syncScopedClientTypeMenuExpandedState = (scopeOrMenu) => {
+              const menu = resolveScopedClientTypeMenu(scopeOrMenu);
+              if (!(menu instanceof HTMLElement)) return false;
+              const toggle = menu.querySelector("summary");
+              if (toggle instanceof HTMLElement) {
+                toggle.setAttribute("aria-expanded", menu.open ? "true" : "false");
+              }
+              return true;
+            };
+            const closeScopedClientTypeMenu = (scopeOrMenu, { focusToggle = false } = {}) => {
+              const menu = resolveScopedClientTypeMenu(scopeOrMenu);
+              if (!(menu instanceof HTMLElement)) return false;
+              if (menu.open) {
+                menu.open = false;
+              } else {
+                menu.removeAttribute("open");
+              }
+              const toggle = menu.querySelector("summary");
+              if (toggle instanceof HTMLElement) {
+                syncScopedClientTypeMenuExpandedState(menu);
+                if (focusToggle) {
+                  try {
+                    toggle.focus();
+                  } catch {}
+                }
+              }
+              return true;
+            };
+            const syncScopedClientTypeSelection = (scopeNode, typeValue) => {
+              if (!scopeNode) return null;
+              const normalized = normalizeClientTypeValue(typeValue);
+              const select = queryScopedClientFormElement(scopeNode, "clientType");
+              if (select) {
+                select.value = normalized;
+                if (select instanceof HTMLSelectElement) {
+                  Array.from(select.options).forEach((option) => {
+                    option.selected = option.value === normalized;
+                  });
+                }
+              }
+              updateClientIdLabelScoped(scopeNode, normalized);
+              updateClientTypeDisplayScoped(scopeNode, normalized);
+              const snapshot = captureClientSnapshotFromScope(scopeNode);
+              snapshot.type = normalized;
+              applyClientSnapshotToState(snapshot, scopeNode);
+              evaluateClientDirtyFromSnapshot(snapshot, scopeNode);
+              SEM.refreshClientActionButtons?.();
+              return { normalized, select, snapshot };
+            };
+            const findOpenClientTypeMenus = (rootNode = document) =>
+              Array.from(rootNode?.querySelectorAll?.("details.client-type-menu[open]") || []).filter(
+                (menu) => menu instanceof HTMLElement && !!menu.closest?.(CLIENT_SCOPE_SELECTOR)
+              );
             const captureClientSnapshotFromScope = (scopeNode) => {
               const currentState = resolveClientEntityDraft(scopeNode);
               const soldFallback = currentState.soldClient ?? "";
@@ -1059,6 +1121,11 @@
                   return;
                 }
                 const scopeNode = openPopover.closest(CLIENT_SCOPE_WITH_ROOT_SELECTOR);
+                const openTypeMenus = findOpenClientTypeMenus(openPopover);
+                if (openTypeMenus.length) {
+                  openTypeMenus.forEach((menu) => closeScopedClientTypeMenu(menu));
+                  return;
+                }
                 const toggle = scopeNode?.querySelector("#clientFormToggleBtn");
                 if (toggle && toggle.contains(evt.target)) return;
                 closeClientFormPopover(scopeNode);
@@ -1075,6 +1142,12 @@
                   return;
                 }
                 const scopeNode = openPopover.closest(CLIENT_SCOPE_WITH_ROOT_SELECTOR);
+                const openTypeMenus = findOpenClientTypeMenus(openPopover);
+                if (openTypeMenus.length) {
+                  evt.preventDefault();
+                  openTypeMenus.forEach((menu) => closeScopedClientTypeMenu(menu, { focusToggle: true }));
+                  return;
+                }
                 closeClientFormPopover(scopeNode);
               });
 
@@ -1597,20 +1670,50 @@
             });
 
             document.addEventListener("click", (evt) => {
+              const summary = evt.target?.closest?.("details.client-type-menu > summary");
+              if (!(summary instanceof HTMLElement)) return;
+              const menu = summary.closest("details.client-type-menu");
+              if (!(menu instanceof HTMLElement)) return;
+              requestAnimationFrame(() => {
+                syncScopedClientTypeMenuExpandedState(menu);
+              });
+            });
+
+            document.addEventListener("click", (evt) => {
               const optionBtn = evt.target?.closest?.("[data-client-type-option]");
               if (!optionBtn) return;
-              const scopeNode = optionBtn.closest(CLIENT_SCOPE_SELECTOR);
+              const menu = optionBtn.closest("details.client-type-menu");
+              const scopeNode = menu?.closest(CLIENT_SCOPE_SELECTOR) || optionBtn.closest(CLIENT_SCOPE_SELECTOR);
               if (!scopeNode) return;
               evt.preventDefault();
-              const normalized = normalizeClientTypeValue(optionBtn.dataset.clientTypeOption);
-              const select = queryScopedClientFormElement(scopeNode, "clientType");
+              const synced = syncScopedClientTypeSelection(
+                scopeNode,
+                optionBtn.dataset.clientTypeOption
+              );
+              const select = synced?.select || null;
               if (select) {
-                select.value = normalized;
+                select.dispatchEvent(new Event("input", { bubbles: true }));
                 select.dispatchEvent(new Event("change", { bubbles: true }));
-              } else {
-                updateClientTypeDisplayScoped(scopeNode, normalized);
-                updateClientIdLabelScoped(scopeNode, normalized);
               }
+              closeScopedClientTypeMenu(menu, { focusToggle: true });
+            });
+
+            document.addEventListener("change", (evt) => {
+              const target = evt.target;
+              if (!(target instanceof HTMLSelectElement)) return;
+              if (toCanonicalClientFormId(target.id) !== "clientType") return;
+              const scopeNode = target.closest(CLIENT_SCOPE_SELECTOR);
+              if (!scopeNode) return;
+              syncScopedClientTypeSelection(scopeNode, target.value);
+            });
+
+            document.addEventListener("click", (evt) => {
+              const target = evt.target instanceof Element ? evt.target : null;
+              if (!target) return;
+              findOpenClientTypeMenus(document).forEach((menu) => {
+                if (menu.contains(target)) return;
+                closeScopedClientTypeMenu(menu);
+              });
             });
 
             let clientFolderFallbackWarned = false;

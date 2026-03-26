@@ -2636,6 +2636,16 @@
     setDepotRecords,
     refreshDepotRecords,
     getDepotRecords: () => depotRecords.slice(),
+    utils: {
+      normalizeDepotRefId,
+      normalizeEmplacementRecords,
+      normalizeLocationSelection,
+      getSelectedLocationIds,
+      setSelectedLocationIds,
+      getLocationDisplayLabel,
+      setLocationSelectOptions,
+      closePickerMenu
+    },
     init
   };
 

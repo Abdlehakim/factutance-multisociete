@@ -543,6 +543,35 @@
     if (!refs.length) return label;
     return `${label} : ${refs.join(", ")}`;
   };
+  const normalizeItemsBeDestinationIds = (value = []) => {
+    const source = Array.isArray(value) ? value : [value];
+    const seen = new Set();
+    return source
+      .map((entry) =>
+        String(entry ?? "")
+          .trim()
+          .replace(/^sqlite:\/\/emplacements\//i, "")
+      )
+      .filter((entry) => {
+        if (!entry) return false;
+        const key = entry.toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+  };
+  const normalizeItemsBeDestinationLabels = (value = []) => {
+    const source = Array.isArray(value)
+      ? value
+      : typeof value === "string"
+        ? value.split(",")
+        : [value];
+    return source
+      .map((entry) => String(entry || "").replace(/\s+/g, " ").trim())
+      .filter(Boolean);
+  };
+  const formatItemsBeDestinationText = (labels = []) =>
+    normalizeItemsBeDestinationLabels(labels).join(", ");
   const normalizeItemsBeReceptionMeta = (metaInput = null) => {
     const meta =
       metaInput && typeof metaInput === "object"
@@ -550,8 +579,33 @@
         : (state().meta || (state().meta = {}));
     const raw = meta.beReception && typeof meta.beReception === "object" ? meta.beReception : {};
     const docType = String(meta.docType || "").trim().toLowerCase();
+    const destinationIds = normalizeItemsBeDestinationIds(
+      raw.destinationIds ??
+        raw.destinationIdList ??
+        raw.destinationSelection?.ids ??
+        raw.destinationSelection ??
+        raw.destinationId ??
+        raw.destinationLocationId ??
+        raw.locationId ??
+        raw.emplacementId ??
+        raw.emplacement_id ??
+        meta.beReceptionDestinationIds ??
+        meta.beReceptionDestinationId ??
+        []
+    );
+    const destinationLabels = normalizeItemsBeDestinationLabels(
+      raw.destinationLabels ??
+        raw.destinationLabelList ??
+        raw.destinationSelection?.labels ??
+        []
+    );
     const normalized = {
       depot: String(raw.depot ?? raw.depotName ?? meta.beReceptionDepot ?? meta.beDepot ?? "").trim(),
+      depotId: String(
+        raw.depotId ?? raw.depotDbId ?? raw.magasinId ?? raw.magasin_id ?? meta.beReceptionDepotId ?? ""
+      )
+        .trim()
+        .replace(/^sqlite:\/\/depots\//i, ""),
       destination: String(
         raw.destination ??
           raw.destinationLocation ??
@@ -560,6 +614,20 @@
           meta.beDestination ??
           ""
       ).trim(),
+      destinationId: String(
+        destinationIds[0] ??
+          raw.destinationId ??
+          raw.destinationLocationId ??
+          raw.locationId ??
+          raw.emplacementId ??
+          raw.emplacement_id ??
+          meta.beReceptionDestinationId ??
+          ""
+      )
+        .trim()
+        .replace(/^sqlite:\/\/emplacements\//i, ""),
+      destinationIds,
+      destinationLabels,
       date: String(raw.date ?? raw.receptionDate ?? meta.beReceptionDate ?? "").trim(),
       time: String(raw.time ?? raw.receptionTime ?? meta.beReceptionTime ?? "").trim(),
       sourceRef: String(
@@ -575,6 +643,12 @@
     };
     if (!normalized.sourceRef && normalized.sourceSelection) {
       normalized.sourceRef = formatItemsBeSourceSelectionText(normalized.sourceSelection);
+    }
+    if (normalized.destinationLabels.length && !normalized.destination) {
+      normalized.destination = formatItemsBeDestinationText(normalized.destinationLabels);
+    }
+    if (normalized.destination && !normalized.destinationLabels.length) {
+      normalized.destinationLabels = normalizeItemsBeDestinationLabels(normalized.destination);
     }
     if (docType === "be") {
       if (!normalized.date) {

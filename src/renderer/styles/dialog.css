@@ -218,6 +218,14 @@
   align-items: center;
   grid-auto-flow: row;
 }
+.swbDialog__options-stack {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.swbDialog__options-stack .swbDialog__options {
+  margin-bottom: 0;
+}
 
 @media (max-width: 720px) {
   .swbDialog__options {

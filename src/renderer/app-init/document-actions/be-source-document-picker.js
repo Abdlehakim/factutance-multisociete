@@ -34,6 +34,11 @@
     { docType: "fa", label: DOC_TYPE_LABELS.fa },
     { docType: "bc", label: DOC_TYPE_LABELS.bc }
   ];
+  const SOURCE_DOC_TYPE_CHOICE_ROW_VALUES = [
+    ["devis", "facture", "bl", "bc"],
+    ["fa", "bc", "be", "bs"],
+    ["avoir"]
+  ];
 
   const CLOSE_ICON_SVG = `
     <svg stroke="currentColor" fill="none" stroke-width="0" viewBox="0 0 24 24" height="200px" width="200px" xmlns="http://www.w3.org/2000/svg">
@@ -91,6 +96,48 @@
       out.push({ docType, label });
     });
     return out.length ? out : DEFAULT_DOC_TYPE_CHOICES.slice();
+  };
+
+  const buildDialogDocTypeChoiceLayout = (choices) => {
+    const choiceList = Array.isArray(choices) ? choices.filter(Boolean) : [];
+    if (!choiceList.length) {
+      return {
+        orderedChoices: DEFAULT_DOC_TYPE_CHOICES.slice(),
+        choiceRows: [DEFAULT_DOC_TYPE_CHOICES.slice()]
+      };
+    }
+    const choiceByDocType = new Map();
+    choiceList.forEach((entry) => {
+      const docType = normalizeDocType(entry?.docType || entry?.value || entry, "");
+      if (!docType || choiceByDocType.has(docType)) return;
+      choiceByDocType.set(docType, entry);
+    });
+    const orderedChoices = [];
+    const choiceRows = [];
+    SOURCE_DOC_TYPE_CHOICE_ROW_VALUES.forEach((rowValues) => {
+      const rowChoices = rowValues
+        .map((docType) => choiceByDocType.get(normalizeDocType(docType, "")))
+        .filter(Boolean);
+      if (!rowChoices.length) return;
+      orderedChoices.push(...rowChoices);
+      choiceRows.push(rowChoices.map((entry) => entry.docType));
+    });
+    const remainingChoices = choiceList.filter((entry) => {
+      const docType = normalizeDocType(entry?.docType || entry?.value || entry, "");
+      if (!docType) return false;
+      return !SOURCE_DOC_TYPE_CHOICE_ROW_VALUES.some((rowValues) => rowValues.includes(docType));
+    });
+    if (remainingChoices.length) {
+      orderedChoices.push(...remainingChoices);
+      choiceRows.push(remainingChoices.map((entry) => entry.docType));
+    }
+    if (!orderedChoices.length) {
+      return {
+        orderedChoices: choiceList.slice(),
+        choiceRows: [choiceList.map((entry) => entry.docType)]
+      };
+    }
+    return { orderedChoices, choiceRows };
   };
 
   const extractDocumentLabel = (value) => {
@@ -987,20 +1034,22 @@
     message = "Choisissez le type de document source :"
   }) => {
     const normalizedChoices = toDocTypeChoices(choices);
+    const { orderedChoices, choiceRows } = buildDialogDocTypeChoiceLayout(normalizedChoices);
     const fallback = normalizeDocType(fallbackDocType || normalizedChoices[0]?.docType || "fa", "fa");
     if (typeof w.showOptionsDialog !== "function") {
       return fallback;
     }
-    const initialChoice = normalizedChoices.findIndex((entry) => entry.docType === fallback);
+    const initialChoice = orderedChoices.findIndex((entry) => entry.docType === fallback);
     let pickedIndex = null;
     try {
       pickedIndex = await w.showOptionsDialog({
         title,
         message,
-        options: normalizedChoices.map((entry) => ({
+        options: orderedChoices.map((entry) => ({
           label: entry.label,
           value: entry.docType
         })),
+        choiceRows,
         initialChoice: initialChoice >= 0 ? initialChoice : 0
       });
     } catch (err) {
@@ -1008,7 +1057,7 @@
       return fallback;
     }
     if (pickedIndex === null || pickedIndex === undefined) return "";
-    const picked = normalizedChoices[Number(pickedIndex)] || normalizedChoices[0];
+    const picked = orderedChoices[Number(pickedIndex)] || orderedChoices[0] || normalizedChoices[0];
     return normalizeDocType(picked?.docType || fallback, fallback);
   };
 

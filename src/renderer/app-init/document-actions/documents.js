@@ -1754,6 +1754,23 @@
       return cleaned || safeFallback;
     };
 
+    const DIALOG_DOC_TYPE_CHOICES = [
+      { label: "Devis", docType: "devis" },
+      { label: "Facture", docType: "facture" },
+      { label: "Bon de livraison", docType: "bl" },
+      { label: "Bon de commande", docType: "bc" },
+      { label: "Facture d'achat", docType: "fa" },
+      { label: "Bon de commande", docType: "bc" },
+      { label: "Bon d'entrée", docType: "be" },
+      { label: "Bon de sortie", docType: "bs" },
+      { label: "Facture d'avoir", docType: "avoir" }
+    ];
+    const DIALOG_DOC_TYPE_CHOICE_ROWS = [
+      DIALOG_DOC_TYPE_CHOICES.slice(0, 4),
+      DIALOG_DOC_TYPE_CHOICES.slice(4, 8),
+      DIALOG_DOC_TYPE_CHOICES.slice(8)
+    ];
+
     function pathBaseName(fullPath) {
       if (!fullPath) return "";
       const str = String(fullPath);
@@ -3053,6 +3070,8 @@
         message: "Choisissez le type de document a ouvrir :",
         fallback: getHistorySelectedType() || "facture",
         allowedDocTypes: null,
+        choices: DIALOG_DOC_TYPE_CHOICES,
+        choiceRows: DIALOG_DOC_TYPE_CHOICE_ROWS,
         renderMessage: renderOpenDocDialogMessage
       });
       if (!selected) return;
@@ -4625,6 +4644,8 @@
         message: "Quel document souhaitez-vous créer ?",
         fallback: fallbackDocType,
         allowedDocTypes: null,
+        choices: DIALOG_DOC_TYPE_CHOICES,
+        choiceRows: DIALOG_DOC_TYPE_CHOICE_ROWS,
         renderMessage: renderNewDocDialogMessage,
         confirmChoice: true,
         confirmText: "Cr\u00e9er",

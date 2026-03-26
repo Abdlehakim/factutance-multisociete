@@ -297,6 +297,7 @@
     options = [],
     renderMessage,
     onOptionsReady,
+    choiceRows = null,
     confirmChoice = false,
     confirmText,
     onChoiceChange,
@@ -398,6 +399,12 @@
       });
       const getOptionValue = (opt) => String(opt?.value ?? "");
       const getOptionLabel = (opt) => String(opt?.label ?? "").trim();
+      const normalizedChoiceRows =
+        !useModelPicker && Array.isArray(choiceRows) && choiceRows.length
+          ? choiceRows
+              .map((row) => (Array.isArray(row) ? row.filter(Boolean) : []))
+              .filter((row) => row.length > 0)
+          : null;
       let optionsRoot = null;
       let modelMenu = null;
       let modelSummary = null;
@@ -675,6 +682,43 @@
         group.append(label, field);
         wrapper.appendChild(group);
         optionsRoot = wrapper;
+      } else if (normalizedChoiceRows?.length) {
+        const stack = document.createElement("div");
+        stack.className = "swbDialog__options-stack";
+        let optionIndex = 0;
+        normalizedChoiceRows.forEach((row) => {
+          const list = document.createElement("div");
+          list.className = "swbDialog__options swbDialog__options--row";
+          for (let idx = 0; idx < row.length && optionIndex < normalizedOptions.length; idx += 1) {
+            createOptionButton({
+              option: normalizedOptions[optionIndex],
+              index: optionIndex,
+              className: "btn better-style-v2",
+              parent: list
+            });
+            optionIndex += 1;
+          }
+          if (list.childElementCount) {
+            stack.appendChild(list);
+          }
+        });
+        if (optionIndex < normalizedOptions.length) {
+          const overflowRow = document.createElement("div");
+          overflowRow.className = "swbDialog__options swbDialog__options--row";
+          while (optionIndex < normalizedOptions.length) {
+            createOptionButton({
+              option: normalizedOptions[optionIndex],
+              index: optionIndex,
+              className: "btn better-style-v2",
+              parent: overflowRow
+            });
+            optionIndex += 1;
+          }
+          if (overflowRow.childElementCount) {
+            stack.appendChild(overflowRow);
+          }
+        }
+        optionsRoot = stack;
       } else {
         const list = document.createElement("div");
         list.className = "swbDialog__options";

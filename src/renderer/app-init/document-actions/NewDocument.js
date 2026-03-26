@@ -626,8 +626,21 @@
       time: "beReceptionTimeInput",
       sourceRef: "beReceptionSourceInput"
     };
+    const ITEMS_BE_RECEPTION_PICKERS = {
+      depotLabel: "beReceptionDepotLabel",
+      depotMenu: "beReceptionDepotMenu",
+      depotPanel: "beReceptionDepotPanel",
+      depotDisplay: "beReceptionDepotDisplay",
+      destinationLabel: "beReceptionDestinationLabel",
+      destinationMenu: "beReceptionDestinationMenu",
+      destinationPanel: "beReceptionDestinationPanel",
+      destinationDisplay: "beReceptionDestinationDisplay"
+    };
     const ITEMS_BE_RECEPTION_TIME_PANEL_ID = "beReceptionTimePanel";
     const ITEMS_BE_RECEPTION_SOURCE_PICKER_ID = "beReceptionSourcePickerBtn";
+    const ITEMS_BE_RECEPTION_DEPOT_PLACEHOLDER = "Selectionner un depot";
+    const ITEMS_BE_RECEPTION_LOCATION_PLACEHOLDER = "Aucun emplacement";
+    const ITEMS_BE_RECEPTION_LOCATION_DEPOT_REQUIRED = "Selectionnez d'abord un depot";
     const ITEMS_BE_RECEPTION_SOURCE_DOC_TYPE_LABELS = {
       fa: "Facture d'achat",
       bc: "Bon de commande"
@@ -719,6 +732,279 @@
       `${String(Math.max(0, Math.min(23, Number(hour) || 0))).padStart(2, "0")}:${String(
         Math.max(0, Math.min(59, Number(minute) || 0))
       ).padStart(2, "0")}`;
+    const normalizeItemsModalBeReceptionDepotId = (value = "") =>
+      String(value || "")
+        .trim()
+        .replace(/^sqlite:\/\/depots\//i, "");
+    const normalizeItemsModalBeReceptionLocationId = (value = "") =>
+      String(value || "")
+        .trim()
+        .replace(/^sqlite:\/\/emplacements\//i, "");
+    const getItemsModalBeReceptionStockUtils = () => SEM?.stockWindow?.utils || {};
+    const normalizeItemsModalBeReceptionDestinationIds = (value = []) => {
+      const stockUtils = getItemsModalBeReceptionStockUtils();
+      if (typeof stockUtils.normalizeLocationSelection === "function") {
+        return stockUtils.normalizeLocationSelection(value);
+      }
+      const source = Array.isArray(value) ? value : [value];
+      const seen = new Set();
+      return source
+        .map((entry) => normalizeItemsModalBeReceptionLocationId(entry))
+        .filter((entry) => {
+          if (!entry) return false;
+          const key = entry.toLowerCase();
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+    };
+    const normalizeItemsModalBeReceptionDestinationLabels = (value = []) => {
+      const source = Array.isArray(value)
+        ? value
+        : typeof value === "string"
+          ? value.split(",")
+          : [value];
+      return source
+        .map((entry) => normalizeItemsModalBeReceptionText(entry))
+        .filter(Boolean);
+    };
+    const formatItemsModalBeReceptionDestinationText = (labels = []) =>
+      normalizeItemsModalBeReceptionDestinationLabels(labels).join(", ");
+    const normalizeItemsModalBeReceptionText = (value = "") =>
+      String(value || "")
+        .replace(/\s+/g, " ")
+        .trim();
+    const normalizeItemsModalBeReceptionDepotRecord = (record = {}, indexHint = -1) => {
+      const source = record && typeof record === "object" ? record : {};
+      const id = normalizeItemsModalBeReceptionDepotId(
+        source.id || source.value || source.depotId || source.path?.replace?.(/^sqlite:\/\/depots\//i, "") || ""
+      );
+      const fallbackNumber = Number.isFinite(indexHint) && indexHint >= 0 ? indexHint + 1 : null;
+      const fallbackName = Number.isFinite(fallbackNumber) ? `Depot ${fallbackNumber}` : "Depot";
+      const name = normalizeItemsModalBeReceptionText(source.name || source.label || source.title || fallbackName);
+      if (!id) return null;
+      return {
+        id,
+        name: name || fallbackName,
+        emplacements: Array.isArray(source.emplacements) ? source.emplacements : []
+      };
+    };
+    const normalizeItemsModalBeReceptionDepotRecords = (records = []) => {
+      const source = Array.isArray(records) ? records : [];
+      const seen = new Set();
+      return source
+        .map((entry, index) => normalizeItemsModalBeReceptionDepotRecord(entry, index))
+        .filter((entry) => {
+          if (!entry?.id) return false;
+          const key = entry.id.toLowerCase();
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+    };
+    const normalizeItemsModalBeReceptionLocationRecord = (entry = {}, depotIdHint = "") => {
+      const source = entry && typeof entry === "object" ? entry : { code: entry };
+      const id = normalizeItemsModalBeReceptionLocationId(
+        source.id ||
+          source.value ||
+          source.emplacementId ||
+          source.emplacement_id ||
+          source.path?.replace?.(/^sqlite:\/\/emplacements\//i, "") ||
+          ""
+      );
+      const code = normalizeItemsModalBeReceptionText(source.code || source.name || source.label || source.value || "");
+      const depotId = normalizeItemsModalBeReceptionDepotId(source.depotId || source.depot_id || depotIdHint || "");
+      if (!id && !code) return null;
+      return {
+        id: id || code,
+        code: code || id,
+        depotId
+      };
+    };
+    const normalizeItemsModalBeReceptionLocationRecords = (entries = [], depotIdHint = "") => {
+      const source = Array.isArray(entries) ? entries : [];
+      const seen = new Set();
+      return source
+        .map((entry) => normalizeItemsModalBeReceptionLocationRecord(entry, depotIdHint))
+        .filter((entry) => {
+          if (!entry?.id) return false;
+          const key = String(entry.id || "").toLowerCase();
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+    };
+    const findItemsModalBeReceptionDepotRecord = (records = [], reception = {}) => {
+      const targetId = normalizeItemsModalBeReceptionDepotId(reception?.depotId || "");
+      const targetLabel = normalizeItemsModalBeReceptionText(reception?.depot || "").toLowerCase();
+      return (
+        records.find((entry) => normalizeItemsModalBeReceptionDepotId(entry?.id || "") === targetId) ||
+        records.find((entry) => normalizeItemsModalBeReceptionText(entry?.name || "").toLowerCase() === targetLabel) ||
+        null
+      );
+    };
+    const findItemsModalBeReceptionLocationRecord = (records = [], reception = {}) => {
+      const targetId = normalizeItemsModalBeReceptionLocationId(reception?.destinationId || "");
+      const targetLabel = normalizeItemsModalBeReceptionText(reception?.destination || "").toLowerCase();
+      return (
+        records.find((entry) => normalizeItemsModalBeReceptionLocationId(entry?.id || "") === targetId) ||
+        records.find((entry) => normalizeItemsModalBeReceptionText(entry?.code || "").toLowerCase() === targetLabel) ||
+        null
+      );
+    };
+    const resolveItemsModalBeReceptionSelectedLocationIds = (records = [], reception = {}) => {
+      const byId = new Map(
+        (Array.isArray(records) ? records : [])
+          .map((entry) => [normalizeItemsModalBeReceptionLocationId(entry?.id || ""), entry])
+          .filter(([id]) => !!id)
+      );
+      const explicitIds = normalizeItemsModalBeReceptionDestinationIds(
+        reception?.destinationIds?.length
+          ? reception.destinationIds
+          : reception?.destinationId
+            ? [reception.destinationId]
+            : []
+      ).filter((id) => byId.has(id));
+      if (explicitIds.length) return explicitIds;
+      const targetLabels = normalizeItemsModalBeReceptionDestinationLabels(
+        reception?.destinationLabels?.length
+          ? reception.destinationLabels
+          : reception?.destination
+            ? reception.destination
+            : []
+      );
+      return normalizeItemsModalBeReceptionDestinationIds(
+        targetLabels
+          .map((label) =>
+            (Array.isArray(records) ? records : []).find(
+              (entry) => normalizeItemsModalBeReceptionText(entry?.code || "").toLowerCase() === label.toLowerCase()
+            )?.id || ""
+          )
+          .filter(Boolean)
+      );
+    };
+    const getItemsModalBeReceptionPickerRefs = (section) => ({
+      depotSelect: section?.querySelector?.(`#${ITEMS_BE_RECEPTION_FIELDS.depot}`) || null,
+      depotMenu: section?.querySelector?.(`#${ITEMS_BE_RECEPTION_PICKERS.depotMenu}`) || null,
+      depotPanel: section?.querySelector?.(`#${ITEMS_BE_RECEPTION_PICKERS.depotPanel}`) || null,
+      depotDisplay: section?.querySelector?.(`#${ITEMS_BE_RECEPTION_PICKERS.depotDisplay}`) || null,
+      destinationSelect: section?.querySelector?.(`#${ITEMS_BE_RECEPTION_FIELDS.destination}`) || null,
+      destinationMenu: section?.querySelector?.(`#${ITEMS_BE_RECEPTION_PICKERS.destinationMenu}`) || null,
+      destinationPanel: section?.querySelector?.(`#${ITEMS_BE_RECEPTION_PICKERS.destinationPanel}`) || null,
+      destinationDisplay: section?.querySelector?.(`#${ITEMS_BE_RECEPTION_PICKERS.destinationDisplay}`) || null
+    });
+    const getItemsModalBeReceptionDepotRecords = async ({ refresh = false } = {}) => {
+      let records = normalizeItemsModalBeReceptionDepotRecords(
+        SEM?.stockWindow?.getDepotRecords?.() || SEM?.depotMagasin?.getRecords?.() || []
+      );
+      if ((!records.length || refresh) && typeof SEM?.stockWindow?.refreshDepotRecords === "function") {
+        try {
+          records = normalizeItemsModalBeReceptionDepotRecords(await SEM.stockWindow.refreshDepotRecords());
+        } catch {}
+      }
+      if ((!records.length || refresh) && typeof w.electronAPI?.listDepots === "function") {
+        try {
+          const response = await w.electronAPI.listDepots();
+          if (response?.ok && Array.isArray(response.results)) {
+            records = normalizeItemsModalBeReceptionDepotRecords(response.results);
+            if (typeof SEM?.stockWindow?.setDepotRecords === "function") {
+              SEM.stockWindow.setDepotRecords(records);
+            }
+          }
+        } catch {}
+      }
+      return records;
+    };
+    const getItemsModalBeReceptionLocationsForDepot = async (depotId = "") => {
+      const targetDepotId = normalizeItemsModalBeReceptionDepotId(depotId);
+      if (!targetDepotId) return [];
+      let records = normalizeItemsModalBeReceptionDepotRecords(
+        SEM?.stockWindow?.getDepotRecords?.() || SEM?.depotMagasin?.getRecords?.() || []
+      );
+      let depotRecord =
+        records.find((entry) => normalizeItemsModalBeReceptionDepotId(entry?.id || "") === targetDepotId) || null;
+      let locations = normalizeItemsModalBeReceptionLocationRecords(depotRecord?.emplacements || [], targetDepotId);
+      if (locations.length) return locations;
+      if (typeof w.electronAPI?.listEmplacementsByDepot === "function") {
+        try {
+          const response = await w.electronAPI.listEmplacementsByDepot({ depotId: targetDepotId });
+          if (response?.ok && Array.isArray(response.results)) {
+            locations = normalizeItemsModalBeReceptionLocationRecords(response.results, targetDepotId);
+            if (locations.length) {
+              const nextRecords = (records.length ? records : [{ id: targetDepotId, name: depotRecord?.name || targetDepotId }]).map((entry) =>
+                normalizeItemsModalBeReceptionDepotId(entry?.id || "") === targetDepotId
+                  ? { ...entry, emplacements: locations }
+                  : entry
+              );
+              if (typeof SEM?.stockWindow?.setDepotRecords === "function") {
+                SEM.stockWindow.setDepotRecords(nextRecords);
+              }
+            }
+          }
+        } catch {}
+      }
+      return locations;
+    };
+    const setItemsModalBeReceptionSelectOptions = (
+      select,
+      entries = [],
+      {
+        placeholder = "",
+        selectedValue = "",
+        valueKey = "id",
+        labelKey = "name",
+        dataFactory = null,
+        normalizeValue = (value) => String(value || "").trim()
+      } = {}
+    ) => {
+      if (!(select instanceof HTMLSelectElement)) return "";
+      const normalizedValue = normalizeValue(selectedValue || "");
+      select.replaceChildren();
+      const placeholderOption = document.createElement("option");
+      placeholderOption.value = "";
+      placeholderOption.textContent = placeholder;
+      select.appendChild(placeholderOption);
+      let resolvedValue = "";
+      (Array.isArray(entries) ? entries : []).forEach((entry) => {
+        const option = document.createElement("option");
+        option.value = String(entry?.[valueKey] || "").trim();
+        option.textContent = String(entry?.[labelKey] || "").trim();
+        if (typeof dataFactory === "function") {
+          const data = dataFactory(entry) || {};
+          Object.entries(data).forEach(([key, value]) => {
+            if (value === undefined || value === null || value === "") return;
+            option.dataset[key] = String(value);
+          });
+        }
+        if (!resolvedValue && option.value === normalizedValue) {
+          resolvedValue = option.value;
+        }
+        select.appendChild(option);
+      });
+      select.value = resolvedValue || "";
+      return select.value;
+    };
+    const setItemsModalBeReceptionPickerDisabled = (menu, select, disabled) => {
+      if (select instanceof HTMLSelectElement) {
+        select.disabled = !!disabled;
+        select.setAttribute("aria-disabled", disabled ? "true" : "false");
+      }
+      if (!(menu instanceof HTMLElement)) return;
+      menu.dataset.disabled = disabled ? "true" : "false";
+      const summary = menu.querySelector("summary.field-toggle-trigger");
+      if (summary instanceof HTMLElement) {
+        summary.setAttribute("aria-disabled", disabled ? "true" : "false");
+      }
+      if (disabled && menu.hasAttribute("open")) {
+        menu.removeAttribute("open");
+        summary?.setAttribute("aria-expanded", "false");
+      }
+    };
+    const closeItemsModalBeReceptionPickerMenu = (menu) => {
+      if (!(menu instanceof HTMLElement)) return;
+      menu.removeAttribute("open");
+      menu.querySelector("summary.field-toggle-trigger")?.setAttribute("aria-expanded", "false");
+    };
     const renderItemsModalBeReceptionTimeField = () =>
       typeof w.BeReceptionTimeField?.render === "function"
         ? w.BeReceptionTimeField.render({
@@ -733,8 +1019,31 @@
           : (getInvoiceMeta() || {});
       const raw = meta.beReception && typeof meta.beReception === "object" ? meta.beReception : {};
       const docType = String(meta.docType || "").trim().toLowerCase();
+      const normalizedDestinationIds = normalizeItemsModalBeReceptionDestinationIds(
+        raw.destinationIds ??
+          raw.destinationIdList ??
+          raw.destinationSelection?.ids ??
+          raw.destinationSelection ??
+          raw.destinationId ??
+          raw.destinationLocationId ??
+          raw.locationId ??
+          raw.emplacementId ??
+          raw.emplacement_id ??
+          meta.beReceptionDestinationIds ??
+          meta.beReceptionDestinationId ??
+          []
+      );
+      const normalizedDestinationLabels = normalizeItemsModalBeReceptionDestinationLabels(
+        raw.destinationLabels ??
+          raw.destinationLabelList ??
+          raw.destinationSelection?.labels ??
+          []
+      );
       const normalized = {
         depot: String(raw.depot ?? raw.depotName ?? meta.beReceptionDepot ?? meta.beDepot ?? "").trim(),
+        depotId: normalizeItemsModalBeReceptionDepotId(
+          raw.depotId ?? raw.depotDbId ?? raw.magasinId ?? raw.magasin_id ?? meta.beReceptionDepotId ?? ""
+        ),
         destination: String(
           raw.destination ??
             raw.destinationLocation ??
@@ -743,6 +1052,18 @@
             meta.beDestination ??
             ""
         ).trim(),
+        destinationId: normalizeItemsModalBeReceptionLocationId(
+          normalizedDestinationIds[0] ??
+            raw.destinationId ??
+            raw.destinationLocationId ??
+            raw.locationId ??
+            raw.emplacementId ??
+            raw.emplacement_id ??
+            meta.beReceptionDestinationId ??
+            ""
+        ),
+        destinationIds: normalizedDestinationIds,
+        destinationLabels: normalizedDestinationLabels,
         date: String(raw.date ?? raw.receptionDate ?? meta.beReceptionDate ?? "").trim(),
         time: String(raw.time ?? raw.receptionTime ?? meta.beReceptionTime ?? "").trim(),
         sourceRef: String(
@@ -758,6 +1079,12 @@
       };
       if (!normalized.sourceRef && normalized.sourceSelection) {
         normalized.sourceRef = formatItemsModalBeReceptionSourceSelectionText(normalized.sourceSelection);
+      }
+      if (normalized.destinationLabels.length && !normalized.destination) {
+        normalized.destination = formatItemsModalBeReceptionDestinationText(normalized.destinationLabels);
+      }
+      if (normalized.destination && !normalized.destinationLabels.length) {
+        normalized.destinationLabels = normalizeItemsModalBeReceptionDestinationLabels(normalized.destination);
       }
       if (docType === "be") {
         if (!normalized.date) {
@@ -1197,30 +1524,83 @@
       renderTimePanel();
       return controller;
     };
+    const renderItemsModalBeReceptionSelectField = ({
+      fieldKey = "depot",
+      labelText = "",
+      labelId = "",
+      menuId = "",
+      panelId = "",
+      displayId = "",
+      placeholder = "",
+      useLocationStyle = false,
+      multiple = false
+    } = {}) => `
+      <label class="items-be-reception-form__field doc-history-modal__filter article-stock-depot-filter${
+        useLocationStyle ? " article-stock-location-filter" : ""
+      }">
+        <span id="${labelId}">${labelText}</span>
+        <div class="doc-dialog-model-picker__field">
+          <details
+            id="${menuId}"
+            class="field-toggle-menu doc-dialog-model-menu doc-history-model-menu"
+            data-disabled="false"
+          >
+            <summary
+              class="btn success field-toggle-trigger"
+              role="button"
+              aria-haspopup="listbox"
+              aria-expanded="false"
+              aria-labelledby="${labelId} ${displayId}"
+              aria-disabled="false"
+            >
+              <span id="${displayId}" class="model-select-display">${placeholder}</span>
+              <svg class="chevron" aria-hidden="true" focusable="false" stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="none" d="M0 0h24v24H0V0z"></path><path d="M12 4c4.41 0 8 3.59 8 8s-3.59 8-8 8-8-3.59-8-8 3.59-8 8-8m0-2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 13-4-4h8z"></path></svg>
+            </summary>
+            <div
+              class="field-toggle-panel model-select-panel doc-history-model-panel"
+              id="${panelId}"
+              role="listbox"
+              aria-labelledby="${labelId}"
+            ></div>
+          </details>
+          <select
+            id="${ITEMS_BE_RECEPTION_FIELDS[fieldKey]}"
+            class="model-select doc-dialog-model-select"
+            aria-hidden="true"
+            tabindex="-1"
+            aria-disabled="false"${multiple ? " multiple" : ""}
+          >
+            <option value="">${placeholder}</option>
+          </select>
+        </div>
+      </label>
+    `;
     const renderItemsModalBeReceptionBox = () => {
       const template = document.createElement("template");
       template.innerHTML = `
         <fieldset id="${ITEMS_BE_RECEPTION_BOX_ID}" class="section-box items-be-reception-form" hidden>
           <legend>Informations de r&eacute;ception</legend>
           <div class="items-be-reception-form__grid">
-            <label class="items-be-reception-form__field" for="${ITEMS_BE_RECEPTION_FIELDS.depot}">
-              <span>D&eacute;p&ocirc;t / Magasin</span>
-              <input
-                id="${ITEMS_BE_RECEPTION_FIELDS.depot}"
-                type="text"
-                placeholder="ex : Magasin Central"
-                autocomplete="off"
-              />
-            </label>
-            <label class="items-be-reception-form__field" for="${ITEMS_BE_RECEPTION_FIELDS.destination}">
-              <span>Emplacement de destination</span>
-              <input
-                id="${ITEMS_BE_RECEPTION_FIELDS.destination}"
-                type="text"
-                placeholder="ex : Rack A1"
-                autocomplete="off"
-              />
-            </label>
+            ${renderItemsModalBeReceptionSelectField({
+              fieldKey: "depot",
+              labelText: "D&eacute;p&ocirc;t / Magasin",
+              labelId: ITEMS_BE_RECEPTION_PICKERS.depotLabel,
+              menuId: ITEMS_BE_RECEPTION_PICKERS.depotMenu,
+              panelId: ITEMS_BE_RECEPTION_PICKERS.depotPanel,
+              displayId: ITEMS_BE_RECEPTION_PICKERS.depotDisplay,
+              placeholder: ITEMS_BE_RECEPTION_DEPOT_PLACEHOLDER
+            })}
+            ${renderItemsModalBeReceptionSelectField({
+              fieldKey: "destination",
+              labelText: "Emplacement de destination",
+              labelId: ITEMS_BE_RECEPTION_PICKERS.destinationLabel,
+              menuId: ITEMS_BE_RECEPTION_PICKERS.destinationMenu,
+              panelId: ITEMS_BE_RECEPTION_PICKERS.destinationPanel,
+              displayId: ITEMS_BE_RECEPTION_PICKERS.destinationDisplay,
+              placeholder: ITEMS_BE_RECEPTION_LOCATION_PLACEHOLDER,
+              useLocationStyle: true,
+              multiple: true
+            })}
             <label class="items-be-reception-form__field">
               <span>Date de r&eacute;ception</span>
               <div class="swb-date-picker" data-date-picker="">
@@ -1304,6 +1684,320 @@
       `.trim();
       return template.content.firstElementChild;
     };
+    const wireItemsModalBeReceptionPickerMenu = (menu, panel) => {
+      if (!(menu instanceof HTMLElement) || !(panel instanceof HTMLElement) || menu.dataset.beReceptionWired === "1") return;
+      const summary = menu.querySelector("summary.field-toggle-trigger");
+      if (!(summary instanceof HTMLElement)) return;
+      menu.dataset.beReceptionWired = "1";
+      summary.setAttribute("aria-expanded", menu.open ? "true" : "false");
+      summary.addEventListener("click", (event) => {
+        if (menu.dataset.disabled !== "true") return;
+        event.preventDefault();
+        event.stopPropagation();
+      });
+      menu.addEventListener("toggle", () => {
+        const isDisabled = menu.dataset.disabled === "true";
+        if (isDisabled && menu.open) {
+          closeItemsModalBeReceptionPickerMenu(menu);
+          return;
+        }
+        summary.setAttribute("aria-expanded", menu.open ? "true" : "false");
+        if (!menu.open) return;
+        menu
+          .closest?.(`#${ITEMS_BE_RECEPTION_BOX_ID}`)
+          ?.querySelectorAll?.(".field-toggle-menu[open]")
+          ?.forEach?.((otherMenu) => {
+            if (otherMenu === menu) return;
+            closeItemsModalBeReceptionPickerMenu(otherMenu);
+          });
+        panel.querySelector(".model-select-option:not([disabled])")?.focus?.();
+      });
+      panel.addEventListener("keydown", (event) => {
+        if (event.key !== "Escape") return;
+        event.preventDefault();
+        closeItemsModalBeReceptionPickerMenu(menu);
+        summary.focus?.();
+      });
+    };
+    const renderItemsModalBeReceptionDepotPanel = (section, records = [], selectedDepotId = "") => {
+      const refs = getItemsModalBeReceptionPickerRefs(section);
+      const select = refs.depotSelect;
+      const panel = refs.depotPanel;
+      const menu = refs.depotMenu;
+      const display = refs.depotDisplay;
+      if (!(select instanceof HTMLSelectElement) || !(panel instanceof HTMLElement) || !(menu instanceof HTMLElement)) {
+        return { selectedDepotId: "", selectedDepotLabel: "" };
+      }
+      const selectedValue = setItemsModalBeReceptionSelectOptions(select, records, {
+        placeholder: ITEMS_BE_RECEPTION_DEPOT_PLACEHOLDER,
+        selectedValue: selectedDepotId,
+        valueKey: "id",
+        labelKey: "name",
+        normalizeValue: normalizeItemsModalBeReceptionDepotId
+      });
+      const selectedOption = Array.from(select.options || []).find((option) => option.value === selectedValue) || null;
+      const selectedLabel = normalizeItemsModalBeReceptionText(selectedOption?.textContent || "");
+      if (display instanceof HTMLElement) {
+        display.textContent = selectedLabel || ITEMS_BE_RECEPTION_DEPOT_PLACEHOLDER;
+        display.dataset.selected = selectedValue ? "true" : "false";
+      }
+      menu.dataset.selected = selectedValue ? "true" : "false";
+      setItemsModalBeReceptionPickerDisabled(menu, select, !records.length);
+      panel.replaceChildren();
+      if (!records.length) {
+        const empty = document.createElement("p");
+        empty.className = "model-select-empty";
+        empty.textContent = "Aucun depot enregistre";
+        panel.appendChild(empty);
+      } else {
+        records.forEach((record) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "model-select-option";
+          button.dataset.value = record.id;
+          button.setAttribute("role", "option");
+          button.textContent = record.name;
+          const isActive = record.id === selectedValue;
+          button.classList.toggle("is-active", isActive);
+          button.setAttribute("aria-selected", isActive ? "true" : "false");
+          button.addEventListener("click", () => {
+            if (select.disabled) return;
+            const changed = select.value !== record.id;
+            select.value = record.id;
+            closeItemsModalBeReceptionPickerMenu(menu);
+            if (changed) {
+              try {
+                select.dispatchEvent(new Event("change", { bubbles: true }));
+              } catch {}
+            }
+          });
+          panel.appendChild(button);
+        });
+      }
+      wireItemsModalBeReceptionPickerMenu(menu, panel);
+      return {
+        selectedDepotId: selectedValue,
+        selectedDepotLabel: selectedLabel
+      };
+    };
+    const renderItemsModalBeReceptionLocationPanel = (
+      section,
+      locations = [],
+      { selectedLocationIds = [], depotSelected = false } = {}
+    ) => {
+      const refs = getItemsModalBeReceptionPickerRefs(section);
+      const select = refs.destinationSelect;
+      const panel = refs.destinationPanel;
+      const menu = refs.destinationMenu;
+      const display = refs.destinationDisplay;
+      if (!(select instanceof HTMLSelectElement) || !(panel instanceof HTMLElement) || !(menu instanceof HTMLElement)) {
+        return { selectedLocationIds: [], selectedLocationLabels: [], displayText: "" };
+      }
+      const stockUtils = getItemsModalBeReceptionStockUtils();
+      const normalizeSelectedIds = (value = []) => normalizeItemsModalBeReceptionDestinationIds(value);
+      const getSelectedIds =
+        typeof stockUtils.getSelectedLocationIds === "function"
+          ? stockUtils.getSelectedLocationIds
+          : (node) => normalizeSelectedIds(Array.from(node?.selectedOptions || []).map((option) => option.value));
+      const setSelectedIds =
+        typeof stockUtils.setSelectedLocationIds === "function"
+          ? stockUtils.setSelectedLocationIds
+          : (node, values = []) => {
+              const normalized = normalizeSelectedIds(values);
+              const selectedSet = new Set(normalized.map((entry) => entry.toLowerCase()));
+              Array.from(node?.options || []).forEach((option) => {
+                const optionValue = String(option.value || "").trim();
+                option.selected = !!optionValue && selectedSet.has(optionValue.toLowerCase());
+              });
+              return normalized;
+            };
+      const resolvedIds =
+        typeof stockUtils.setLocationSelectOptions === "function"
+          ? stockUtils.setLocationSelectOptions(select, locations, selectedLocationIds)
+          : (() => {
+              select.replaceChildren();
+              (Array.isArray(locations) ? locations : []).forEach((entry) => {
+                const option = document.createElement("option");
+                option.value = String(entry?.id || "").trim();
+                option.textContent = String(entry?.code || "").trim();
+                if (entry?.depotId) option.dataset.depotId = String(entry.depotId);
+                select.appendChild(option);
+              });
+              return setSelectedIds(select, selectedLocationIds);
+            })();
+      const selectedLabels = normalizeItemsModalBeReceptionDestinationLabels(
+        resolvedIds
+          .map((locationId) => {
+            const option = Array.from(select.options || []).find(
+              (entry) => String(entry.value || "").trim() === locationId
+            );
+            return normalizeItemsModalBeReceptionText(option?.textContent || "");
+          })
+          .filter(Boolean)
+      );
+      const displayText = depotSelected
+        ? (
+            (typeof stockUtils.getLocationDisplayLabel === "function"
+              ? stockUtils.getLocationDisplayLabel(select, resolvedIds)
+              : selectedLabels.length > 1
+                ? `${selectedLabels.length} emplacements`
+                : selectedLabels[0]) || ITEMS_BE_RECEPTION_LOCATION_PLACEHOLDER
+          )
+        : ITEMS_BE_RECEPTION_LOCATION_DEPOT_REQUIRED;
+      if (display instanceof HTMLElement) {
+        display.textContent = displayText;
+        display.dataset.selected = resolvedIds.length ? "true" : "false";
+      }
+      menu.dataset.selected = resolvedIds.length ? "true" : "false";
+      setItemsModalBeReceptionPickerDisabled(menu, select, !depotSelected || !locations.length);
+      panel.replaceChildren();
+      panel.setAttribute("aria-multiselectable", "true");
+      if (!depotSelected) {
+        const empty = document.createElement("p");
+        empty.className = "model-select-empty";
+        empty.textContent = ITEMS_BE_RECEPTION_LOCATION_DEPOT_REQUIRED;
+        panel.appendChild(empty);
+      } else if (!locations.length) {
+        const empty = document.createElement("p");
+        empty.className = "model-select-empty";
+        empty.textContent = ITEMS_BE_RECEPTION_LOCATION_PLACEHOLDER;
+        panel.appendChild(empty);
+      } else {
+        Array.from(select.options || []).forEach((option) => {
+          if (!option.value) return;
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "model-select-option model-select-option--multiselect stock-location-option";
+          button.dataset.value = option.value;
+          button.setAttribute("role", "option");
+          const checkbox = document.createElement("span");
+          checkbox.className = "stock-location-option__checkbox";
+          checkbox.setAttribute("aria-hidden", "true");
+          const checkIcon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+          checkIcon.classList.add("stock-location-option__check");
+          checkIcon.setAttribute("viewBox", "0 0 20 20");
+          checkIcon.setAttribute("fill", "none");
+          checkIcon.setAttribute("focusable", "false");
+          checkIcon.setAttribute("aria-hidden", "true");
+          const checkPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          checkPath.setAttribute("d", "M5 10.5L8.5 14L15 7.5");
+          checkPath.setAttribute("stroke", "currentColor");
+          checkPath.setAttribute("stroke-width", "2");
+          checkPath.setAttribute("stroke-linecap", "round");
+          checkPath.setAttribute("stroke-linejoin", "round");
+          checkIcon.appendChild(checkPath);
+          checkbox.appendChild(checkIcon);
+          const label = document.createElement("span");
+          label.className = "stock-location-option__label";
+          label.textContent = normalizeItemsModalBeReceptionText(option.textContent || "");
+          button.append(checkbox, label);
+          const isDisabled = !!option.disabled || !!select.disabled;
+          button.disabled = isDisabled;
+          button.classList.toggle("is-disabled", isDisabled);
+          button.setAttribute("aria-disabled", isDisabled ? "true" : "false");
+          const isActive = resolvedIds.some((entry) => entry === option.value);
+          button.classList.toggle("is-active", isActive);
+          button.setAttribute("aria-selected", isActive ? "true" : "false");
+          button.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (button.disabled || select.disabled) return;
+            const nextValue = String(option.value || "").trim();
+            const currentIds = getSelectedIds(select);
+            const hasValue = currentIds.some((entry) => entry === nextValue);
+            const nextIds = hasValue
+              ? currentIds.filter((entry) => entry !== nextValue)
+              : [...currentIds, nextValue];
+            const updatedIds = setSelectedIds(select, nextIds);
+            renderItemsModalBeReceptionLocationPanel(section, locations, {
+              selectedLocationIds: updatedIds,
+              depotSelected
+            });
+            try {
+              select.dispatchEvent(new Event("change", { bubbles: true }));
+            } catch {}
+          });
+          panel.appendChild(button);
+        });
+      }
+      wireItemsModalBeReceptionPickerMenu(menu, panel);
+      return {
+        selectedLocationIds: resolvedIds,
+        selectedLocationLabels: selectedLabels,
+        displayText
+      };
+    };
+    const syncItemsModalBeReceptionSelectors = async (section = getItemsModalBeReceptionBox()) => {
+      if (!section) return false;
+      const syncToken = String((Number(section.dataset.beReceptionSyncToken || "0") || 0) + 1);
+      section.dataset.beReceptionSyncToken = syncToken;
+      const meta = getInvoiceMeta() || {};
+      const reception = ensureItemsModalBeReceptionMeta(meta);
+      const depotRecords = await getItemsModalBeReceptionDepotRecords();
+      if (section.dataset.beReceptionSyncToken !== syncToken) return false;
+      const matchedDepot = findItemsModalBeReceptionDepotRecord(depotRecords, reception);
+      const depotPanelState = renderItemsModalBeReceptionDepotPanel(
+        section,
+        depotRecords,
+        matchedDepot?.id || reception.depotId || ""
+      );
+      const selectedDepotId = normalizeItemsModalBeReceptionDepotId(depotPanelState.selectedDepotId || "");
+      const selectedDepotLabel = normalizeItemsModalBeReceptionText(
+        depotPanelState.selectedDepotLabel || matchedDepot?.name || reception.depot || ""
+      );
+      let locations = [];
+      if (selectedDepotId) {
+        locations = await getItemsModalBeReceptionLocationsForDepot(selectedDepotId);
+      }
+      if (section.dataset.beReceptionSyncToken !== syncToken) return false;
+      const resolvedLocationIds = resolveItemsModalBeReceptionSelectedLocationIds(locations, reception);
+      const locationPanelState = renderItemsModalBeReceptionLocationPanel(section, locations, {
+        selectedLocationIds: resolvedLocationIds,
+        depotSelected: !!selectedDepotId
+      });
+      const selectedLocationIds = normalizeItemsModalBeReceptionDestinationIds(
+        locationPanelState.selectedLocationIds || []
+      );
+      const selectedLocationLabels = normalizeItemsModalBeReceptionDestinationLabels(
+        locationPanelState.selectedLocationLabels || []
+      );
+      let touched = false;
+      if (reception.depotId !== selectedDepotId) {
+        reception.depotId = selectedDepotId;
+        touched = true;
+      }
+      const nextDepotText = selectedDepotId ? selectedDepotLabel : "";
+      if (reception.depot !== nextDepotText) {
+        reception.depot = nextDepotText;
+        touched = true;
+      }
+      const nextPrimaryLocationId = selectedLocationIds[0] || "";
+      if (reception.destinationId !== nextPrimaryLocationId) {
+        reception.destinationId = nextPrimaryLocationId;
+        touched = true;
+      }
+      const currentDestinationIds = normalizeItemsModalBeReceptionDestinationIds(reception.destinationIds || []);
+      if (JSON.stringify(currentDestinationIds) !== JSON.stringify(selectedLocationIds)) {
+        reception.destinationIds = selectedLocationIds;
+        touched = true;
+      }
+      if (JSON.stringify(normalizeItemsModalBeReceptionDestinationLabels(reception.destinationLabels || [])) !== JSON.stringify(selectedLocationLabels)) {
+        reception.destinationLabels = selectedLocationLabels;
+        touched = true;
+      }
+      const nextLocationText = selectedLocationLabels.length
+        ? formatItemsModalBeReceptionDestinationText(selectedLocationLabels)
+        : "";
+      if (reception.destination !== nextLocationText) {
+        reception.destination = nextLocationText;
+        touched = true;
+      }
+      meta.beReception = reception;
+      if (touched && typeof SEM.refreshInvoiceSummary === "function") {
+        SEM.refreshInvoiceSummary();
+      }
+      return true;
+    };
     const applyItemsModalBeReceptionSourceSelection = (section, selection) => {
       const meta = getInvoiceMeta() || {};
       const reception = ensureItemsModalBeReceptionMeta(meta);
@@ -1357,6 +2051,7 @@
       Object.entries(ITEMS_BE_RECEPTION_FIELDS).forEach(([key, id]) => {
         const input = section.querySelector(`#${id}`);
         if (!input) return;
+        if (key === "depot" || key === "destination") return;
         const nextValue = String(reception?.[key] || "");
         if (key === "time" && timePicker) {
           timePicker.setValue(nextValue, { silent: true });
@@ -1377,6 +2072,11 @@
         try {
           timePicker?.close?.();
         } catch {}
+        const refs = getItemsModalBeReceptionPickerRefs(section);
+        closeItemsModalBeReceptionPickerMenu(refs.depotMenu);
+        closeItemsModalBeReceptionPickerMenu(refs.destinationMenu);
+      } else {
+        void syncItemsModalBeReceptionSelectors(section);
       }
       if (typeof SEM.refreshInvoiceSummary === "function") {
         SEM.refreshInvoiceSummary();
@@ -1388,9 +2088,88 @@
       section.dataset.wired = "1";
       ensureItemsModalBeReceptionDatePicker(section);
       ensureItemsModalBeReceptionTimePicker(section);
+      const pickerRefs = getItemsModalBeReceptionPickerRefs(section);
+      wireItemsModalBeReceptionPickerMenu(pickerRefs.depotMenu, pickerRefs.depotPanel);
+      wireItemsModalBeReceptionPickerMenu(pickerRefs.destinationMenu, pickerRefs.destinationPanel);
+      if (!SEM.__itemsBeReceptionPickerDocBound) {
+        SEM.__itemsBeReceptionPickerDocBound = true;
+        document.addEventListener(
+          "click",
+          (event) => {
+            if (!(event.target instanceof Element)) return;
+            document
+              .querySelectorAll?.(
+                `#${ITEMS_BE_RECEPTION_BOX_ID} .field-toggle-menu[open]`
+              )
+              ?.forEach?.((menu) => {
+              if (!(menu instanceof HTMLElement)) return;
+              if (menu.contains(event.target)) return;
+              closeItemsModalBeReceptionPickerMenu(menu);
+            });
+          },
+          true
+        );
+      }
+      pickerRefs.depotSelect?.addEventListener("change", () => {
+        const meta = getInvoiceMeta() || {};
+        const reception = ensureItemsModalBeReceptionMeta(meta);
+        const selectedOption =
+          (pickerRefs.depotSelect.selectedOptions && pickerRefs.depotSelect.selectedOptions.length
+            ? pickerRefs.depotSelect.selectedOptions[0]
+            : null) ||
+          Array.from(pickerRefs.depotSelect.options || []).find(
+            (option) => option.value === pickerRefs.depotSelect.value
+          ) ||
+          null;
+        reception.depotId = normalizeItemsModalBeReceptionDepotId(pickerRefs.depotSelect.value || "");
+        reception.depot = reception.depotId
+          ? normalizeItemsModalBeReceptionText(selectedOption?.textContent || "")
+          : "";
+        reception.destinationId = "";
+        reception.destinationIds = [];
+        reception.destinationLabels = [];
+        reception.destination = "";
+        meta.beReception = reception;
+        if (typeof SEM.refreshInvoiceSummary === "function") {
+          SEM.refreshInvoiceSummary();
+        }
+        void syncItemsModalBeReceptionSelectors(section);
+      });
+      pickerRefs.destinationSelect?.addEventListener("change", () => {
+        const meta = getInvoiceMeta() || {};
+        const reception = ensureItemsModalBeReceptionMeta(meta);
+        const stockUtils = getItemsModalBeReceptionStockUtils();
+        const selectedIds = normalizeItemsModalBeReceptionDestinationIds(
+          typeof stockUtils.getSelectedLocationIds === "function"
+            ? stockUtils.getSelectedLocationIds(pickerRefs.destinationSelect)
+            : Array.from(pickerRefs.destinationSelect.selectedOptions || []).map((option) => option.value)
+        );
+        const selectedLabels = normalizeItemsModalBeReceptionDestinationLabels(
+          selectedIds
+            .map((locationId) => {
+              const option = Array.from(pickerRefs.destinationSelect.options || []).find(
+                (entry) => String(entry.value || "").trim() === locationId
+              );
+              return normalizeItemsModalBeReceptionText(option?.textContent || "");
+            })
+            .filter(Boolean)
+        );
+        reception.destinationId = selectedIds[0] || "";
+        reception.destinationIds = selectedIds;
+        reception.destinationLabels = selectedLabels;
+        reception.destination = selectedLabels.length
+          ? formatItemsModalBeReceptionDestinationText(selectedLabels)
+          : "";
+        meta.beReception = reception;
+        if (typeof SEM.refreshInvoiceSummary === "function") {
+          SEM.refreshInvoiceSummary();
+        }
+        void syncItemsModalBeReceptionSelectors(section);
+      });
       Object.entries(ITEMS_BE_RECEPTION_FIELDS).forEach(([key, id]) => {
         const input = section.querySelector(`#${id}`);
         if (!input) return;
+        if (key === "depot" || key === "destination") return;
         const syncValue = () => {
           const meta = getInvoiceMeta() || {};
           const reception = ensureItemsModalBeReceptionMeta(meta);
