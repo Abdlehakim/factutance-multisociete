@@ -806,6 +806,26 @@ export const ModelStepper = `
                             </label>
                             <label
                               class="toggle-option"
+                              data-fees-option="acompte"
+                              data-fees-target="#acompteFieldsModal"
+                              data-fees-source="#acompteEnabledModal"
+                              aria-selected="true"
+                            >
+                              <input id="acompteOptToggleModal" type="checkbox" class="col-toggle" checked aria-checked="true" />
+                              <span class="model-save-dot">Ajouter un acompte</span>
+                            </label>
+                            <label
+                              class="toggle-option"
+                              data-fees-option="reglement"
+                              data-fees-target="#reglementFieldsModal"
+                              data-fees-source="#reglementEnabledModal"
+                              aria-selected="true"
+                            >
+                              <input id="reglementOptToggleModal" type="checkbox" class="col-toggle" checked aria-checked="true" />
+                              <span class="model-save-dot">Ajouter des conditions de r&egrave;glement</span>
+                            </label>
+                            <label
+                              class="toggle-option"
                               data-fees-option="dossier"
                               data-fees-target="#dossierFieldsModal"
                               data-fees-source="#dossierEnabledModal"
@@ -939,6 +959,68 @@ export const ModelStepper = `
                           <div class="full shipping-flex-group__footer">
                             <label class="shipping-flex-group__toggle-control" for="deplacementEnabledModal">
                               <input id="deplacementEnabledModal" type="checkbox" class="col-toggle" aria-label="Ajouter les frais de deplacement" />
+                              <span class="shipping-flex-group__toggle-help">
+                                Cochez cette case pour ajouter cette valeur automatiquement lors de la création d’un document.
+                              </span>
+                            </label>
+                          </div>
+                        </div>
+
+                        <div class="shipping-flex-group">
+                          <div class="full shipping-flex-group__header">
+                            <span class="label-text">Ajouter un acompte</span>
+                          </div>
+
+                          <div id="acompteFieldsModal" class="full shipping-flex-group__fields">
+                            <label>Pay&eacute;
+                              <input id="acomptePaidModal" type="number" min="0" step="0.01" value="0" />
+                            </label>
+                          </div>
+
+                          <div class="full shipping-flex-group__footer">
+                            <label class="shipping-flex-group__toggle-control" for="acompteEnabledModal">
+                              <input id="acompteEnabledModal" type="checkbox" class="col-toggle" aria-label="Ajouter un acompte" />
+                              <span class="shipping-flex-group__toggle-help">
+                                Cochez cette case pour ajouter cette valeur automatiquement lors de la création d’un document.
+                              </span>
+                            </label>
+                          </div>
+                        </div>
+
+                        <div class="shipping-flex-group">
+                          <div class="full shipping-flex-group__header">
+                            <span class="label-text">Ajouter des conditions de r&egrave;glement</span>
+                          </div>
+
+                          <div id="reglementFieldsModal" class="full shipping-flex-group__fields shipping-flex-group__fields--single">
+                            <label class="reglement-option">
+                              <input id="reglementTypeReceptionModal" type="radio" name="reglementTypeModal" value="reception" checked />
+                              <span>A r&eacute;ception</span>
+                            </label>
+                            <label class="reglement-option reglement-option--days">
+                              <input id="reglementTypeDaysModal" type="radio" name="reglementTypeModal" value="days" />
+                              <span>Nombre de jours</span>
+                              <input
+                                id="reglementDaysModal"
+                                class="reglement-days-input"
+                                type="number"
+                                min="0"
+                                step="1"
+                                value="30"
+                                placeholder="30"
+                                disabled
+                              />
+                            </label>
+                          </div>
+
+                          <div class="full shipping-flex-group__footer">
+                            <label class="shipping-flex-group__toggle-control" for="reglementEnabledModal">
+                              <input
+                                id="reglementEnabledModal"
+                                type="checkbox"
+                                class="col-toggle"
+                                aria-label="Ajouter des conditions de reglement"
+                              />
                               <span class="shipping-flex-group__toggle-help">
                                 Cochez cette case pour ajouter cette valeur automatiquement lors de la création d’un document.
                               </span>

@@ -256,6 +256,9 @@
     if (config.acompte && typeof config.acompte === "object") {
       meta.acompte = cloneValue(config.acompte, config.acompte);
     }
+    if (config.reglement && typeof config.reglement === "object") {
+      meta.reglement = cloneValue(config.reglement, config.reglement);
+    }
     if (config.financing && typeof config.financing === "object") {
       meta.financing = cloneValue(config.financing, config.financing);
     }

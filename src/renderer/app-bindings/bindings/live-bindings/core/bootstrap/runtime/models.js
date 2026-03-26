@@ -1794,6 +1794,10 @@
             setChecked("dossierEnabledModal", false);
             setChecked("deplacementEnabledModal", false);
             setChecked("stampEnabledModal", false);
+            setChecked("acompteEnabledModal", false);
+            setChecked("reglementEnabledModal", false);
+            setChecked("reglementTypeReceptionModal", true);
+            setChecked("reglementTypeDaysModal", false);
             setChecked("whEnabledModal", false);
             setChecked("pdfShowBeReceivedByModal", true);
             setChecked("pdfShowBeControlledByModal", true);
@@ -1817,6 +1821,8 @@
               { optionId: "stampOptToggleModal", enabledModalId: "stampEnabledModal", checked: true },
               { optionId: "dossierOptToggleModal", enabledModalId: "dossierEnabledModal", checked: false },
               { optionId: "deplacementOptToggleModal", enabledModalId: "deplacementEnabledModal", checked: false },
+              { optionId: "acompteOptToggleModal", enabledModalId: "acompteEnabledModal", checked: true },
+              { optionId: "reglementOptToggleModal", enabledModalId: "reglementEnabledModal", checked: true },
               { optionId: "financingOptToggleModal", targetId: "financingBox", checked: false }
             ];
             const feesOptionInputs = feesOptions
@@ -1848,6 +1854,10 @@
             setValPlain("deplacementTvaModal", "0");
             setValPlain("stampLabelModal");
             setValPlain("stampAmountModal", "1");
+            setValPlain("acomptePaidModal", "0");
+            setValPlain("reglementDaysModal", "30");
+            const reglementDaysModal = getEl("reglementDaysModal");
+            if (reglementDaysModal) reglementDaysModal.disabled = true;
             setValPlain("whRateModal", "1.5");
             setValPlain("whThresholdModal", "1000");
             setValPlain("whLabelModal");
@@ -2439,6 +2449,28 @@
             setChecked("stampEnabledModal", stamp.enabled);
             setValPlain("stampLabelModal", stamp.label ?? "");
             setValPlain("stampAmountModal", stamp.amount ?? 1);
+            const acompte = config.acompte && typeof config.acompte === "object" ? config.acompte : {};
+            setChecked("acompteEnabledModal", acompte.enabled);
+            setValPlain("acomptePaidModal", acompte.paid ?? 0);
+
+            const reglementRaw =
+              config.reglement && typeof config.reglement === "object"
+                ? config.reglement
+                : (config.conditions && typeof config.conditions === "object" ? config.conditions : {});
+            const reglementType = String(reglementRaw.type || "").trim().toLowerCase() === "days" ? "days" : "reception";
+            const reglementDaysParsed = Number(reglementRaw.days);
+            const reglementDaysValue = Number.isFinite(reglementDaysParsed)
+              ? Math.max(0, Math.trunc(reglementDaysParsed))
+              : 30;
+            const reglementEnabled = !!reglementRaw.enabled;
+            setChecked("reglementEnabledModal", reglementEnabled);
+            setChecked("reglementTypeReceptionModal", reglementType !== "days");
+            setChecked("reglementTypeDaysModal", reglementType === "days");
+            setValPlain("reglementDaysModal", reglementDaysValue);
+            const reglementDaysModal = getEl("reglementDaysModal");
+            if (reglementDaysModal) {
+              reglementDaysModal.disabled = !(reglementEnabled && reglementType === "days");
+            }
 
             const financing = config.financing && typeof config.financing === "object" ? config.financing : {};
             const subvention =
@@ -2483,6 +2515,16 @@
                 optionId: "deplacementOptToggleModal",
                 enabledModalId: "deplacementEnabledModal",
                 checked: resolveFeeOptionUsed(deplacement, false)
+              },
+              {
+                optionId: "acompteOptToggleModal",
+                enabledModalId: "acompteEnabledModal",
+                checked: resolveFeeOptionUsed(acompte, true)
+              },
+              {
+                optionId: "reglementOptToggleModal",
+                enabledModalId: "reglementEnabledModal",
+                checked: resolveFeeOptionUsed(reglementRaw, true)
               },
               {
                 optionId: "financingOptToggleModal",

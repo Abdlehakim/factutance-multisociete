@@ -2070,6 +2070,34 @@ border-collapse: separate;
   box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.08);
 }
 
+#modelActionsModal #reglementFieldsModal {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+#modelActionsModal #reglementFieldsModal .reglement-option {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #0f172a;
+}
+
+#modelActionsModal #reglementFieldsModal .reglement-option--days {
+  flex-wrap: wrap;
+}
+
+#modelActionsModal #reglementFieldsModal .reglement-option input[type="radio"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+
+#modelActionsModal #reglementFieldsModal .reglement-days-input {
+  max-width: 110px;
+}
+
 
 #modelActionsModal .shipping-flex-group .full {
   width: 100%;

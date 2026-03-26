@@ -79,7 +79,9 @@
     stamp: true,
     dossier: false,
     deplacement: false,
-    financing: false
+    financing: false,
+    acompte: true,
+    reglement: true
   });
   const MODEL_DOC_TYPE_ALL = "all";
   const MODEL_DOC_TYPE_LEGACY_NONE = "aucun";
@@ -1421,9 +1423,44 @@
       note: typeof wh.note === "string" ? sanitizeRichNote(wh.note) : ""
     };
     const acompte = src.acompte && typeof src.acompte === "object" ? src.acompte : {};
+    const acompteEnabled =
+      hasOwn(acompte, "enabled") ? !!acompte.enabled : !!src.acompteEnabled;
+    const acomptePaidRaw = hasOwn(acompte, "paid") ? acompte.paid : src.acomptePaid;
     cleaned.acompte = {
-      enabled: !!acompte.enabled,
-      paid: toNumber(acompte.paid, 0)
+      enabled: acompteEnabled,
+      used: resolveModelFeeUsed({
+        used: acompte.used,
+        enabled: acompteEnabled,
+        fallback: MODEL_FEES_USED_DEFAULTS.acompte
+      }),
+      paid: toNumber(acomptePaidRaw, 0)
+    };
+    const reglementRaw =
+      src.reglement && typeof src.reglement === "object"
+        ? src.reglement
+        : (src.conditions && typeof src.conditions === "object" ? src.conditions : {});
+    const reglementTypeValue = reglementRaw.type ?? src.reglementType;
+    const reglementType = String(reglementTypeValue || "").trim().toLowerCase() === "days" ? "days" : "reception";
+    const reglementDaysRaw = toNumber(reglementRaw.days ?? src.reglementDays, 30);
+    const reglementDays = Math.max(0, Math.trunc(reglementDaysRaw));
+    const reglementEnabled =
+      hasOwn(reglementRaw, "enabled") ? !!reglementRaw.enabled : !!src.reglementEnabled;
+    const reglementValueTextRaw =
+      typeof reglementRaw.valueText === "string"
+        ? reglementRaw.valueText
+        : (typeof reglementRaw.text === "string" ? reglementRaw.text : "");
+    const reglementValueTextDefault = reglementType === "days" ? `${reglementDays} jours` : "A reception";
+    const reglementValueText = String(reglementValueTextRaw || reglementValueTextDefault).trim() || reglementValueTextDefault;
+    cleaned.reglement = {
+      enabled: reglementEnabled,
+      used: resolveModelFeeUsed({
+        used: reglementRaw.used,
+        enabled: reglementEnabled,
+        fallback: MODEL_FEES_USED_DEFAULTS.reglement
+      }),
+      type: reglementType,
+      days: reglementDays,
+      valueText: reglementValueText
     };
     const financing = src.financing && typeof src.financing === "object" ? src.financing : {};
     const subvention = financing.subvention && typeof financing.subvention === "object" ? financing.subvention : {};
@@ -1999,7 +2036,42 @@
         ? whInputs.note
         : (typeof getStr === "function" ? getStr(whInputs.note?.id, meta.withholding?.note) : meta.withholding?.note)
     };
-    const acompte = meta.acompte || {};
+    const acompteMeta = meta.acompte && typeof meta.acompte === "object" ? meta.acompte : {};
+    const acompteInputs = {
+      enabled: getEl("acompteEnabledModal") ?? getEl("acompteEnabled"),
+      paid: getEl("acomptePaidModal") ?? getEl("acomptePaid")
+    };
+    const acompteEnabled = acompteInputs.enabled?.checked ?? acompteMeta.enabled;
+    const acompte = {
+      enabled: !!acompteEnabled,
+      used: readModelFeeOptionChecked("acompteOptToggleModal", "acompte", acompteEnabled),
+      paid: readInputNumber(acompteInputs.paid, acompteMeta.paid ?? 0)
+    };
+    const reglementMeta = meta.reglement && typeof meta.reglement === "object" ? meta.reglement : {};
+    const reglementInputs = {
+      enabled: getEl("reglementEnabledModal") ?? getEl("reglementEnabled"),
+      typeReception: getEl("reglementTypeReceptionModal") ?? getEl("reglementTypeReception"),
+      typeDays: getEl("reglementTypeDaysModal") ?? getEl("reglementTypeDays"),
+      days: getEl("reglementDaysModal") ?? getEl("reglementDays")
+    };
+    const reglementEnabled = reglementInputs.enabled?.checked ?? reglementMeta.enabled;
+    let reglementType = String(reglementMeta.type || "reception").trim().toLowerCase() === "days"
+      ? "days"
+      : "reception";
+    if (reglementInputs.typeDays?.checked) reglementType = "days";
+    else if (reglementInputs.typeReception?.checked) reglementType = "reception";
+    const reglementDays = Math.max(
+      0,
+      Math.trunc(readInputNumber(reglementInputs.days, reglementMeta.days ?? 30))
+    );
+    const reglementValueText = reglementType === "days" ? `${reglementDays} jours` : "A reception";
+    const reglement = {
+      enabled: !!reglementEnabled,
+      used: readModelFeeOptionChecked("reglementOptToggleModal", "reglement", reglementEnabled),
+      type: reglementType,
+      days: reglementDays,
+      valueText: reglementValueText
+    };
     const financing = meta.financing || {};
     const modelFinancingBox = getModelScopedEl("financingBox");
     const modelFinancingAutoApplyInput = getModelScopedEl("financingAutoApplyModal");
@@ -2209,7 +2281,15 @@
       },
       acompte: {
         enabled: !!acompte.enabled,
+        used: !!acompte.used,
         paid: toNumber(acompte.paid, 0)
+      },
+      reglement: {
+        enabled: !!reglement.enabled,
+        used: !!reglement.used,
+        type: reglement.type === "days" ? "days" : "reception",
+        days: Math.max(0, Math.trunc(toNumber(reglement.days, 30))),
+        valueText: String(reglement.valueText || "").trim()
       },
       financing: {
         used: !!financingUsed,
@@ -2561,8 +2641,49 @@
 
     if (!itemsSectionOnly && safeConfig.acompte && typeof safeConfig.acompte === "object") {
       setCheckboxValue("acompteEnabled", safeConfig.acompte.enabled);
+      setCheckboxValue("acompteEnabledModal", safeConfig.acompte.enabled);
       setFieldValue("acomptePaid", safeConfig.acompte.paid ?? undefined);
+      setFieldValue("acomptePaidModal", safeConfig.acompte.paid ?? undefined);
+      if (st?.meta) {
+        if (!st.meta.acompte || typeof st.meta.acompte !== "object") st.meta.acompte = {};
+        st.meta.acompte.enabled = !!safeConfig.acompte.enabled;
+        st.meta.acompte.paid = toNumber(safeConfig.acompte.paid, 0);
+        st.meta.acompte.used = safeConfig.acompte.used !== false;
+      }
       SEM.toggleAcompteFields?.(!!safeConfig.acompte.enabled);
+    }
+    if (!itemsSectionOnly && safeConfig.reglement && typeof safeConfig.reglement === "object") {
+      const reglementType = safeConfig.reglement.type === "days" ? "days" : "reception";
+      const reglementEnabled = !!safeConfig.reglement.enabled;
+      const reglementDays = Math.max(0, Math.trunc(toNumber(safeConfig.reglement.days, 30)));
+      const reglementDaysActive = reglementEnabled && reglementType === "days";
+      const setReglementDaysDisabled = (id, disabled) => {
+        const el = getEl(id);
+        if (el) el.disabled = !!disabled;
+      };
+      setCheckboxValue("reglementEnabled", reglementEnabled);
+      setCheckboxValue("reglementEnabledModal", reglementEnabled);
+      setCheckboxValue("reglementTypeReception", reglementType !== "days");
+      setCheckboxValue("reglementTypeReceptionModal", reglementType !== "days");
+      setCheckboxValue("reglementTypeDays", reglementType === "days");
+      setCheckboxValue("reglementTypeDaysModal", reglementType === "days");
+      setFieldValue("reglementDays", reglementDays);
+      setFieldValue("reglementDaysModal", reglementDays);
+      setReglementDaysDisabled("reglementDays", !reglementDaysActive);
+      setReglementDaysDisabled("reglementDaysModal", !reglementDaysActive);
+      SEM.updateReglementMiniRow?.();
+      if (st?.meta) {
+        if (!st.meta.reglement || typeof st.meta.reglement !== "object") st.meta.reglement = {};
+        st.meta.reglement.enabled = reglementEnabled;
+        st.meta.reglement.type = reglementType;
+        st.meta.reglement.days = reglementDays;
+        st.meta.reglement.used = safeConfig.reglement.used !== false;
+        st.meta.reglement.valueText =
+          reglementType === "days" ? `${reglementDays} jours` : "A reception";
+        st.meta.reglementEnabled = reglementEnabled;
+        st.meta.reglementType = reglementType;
+        st.meta.reglementDays = reglementDays;
+      }
     }
     const modelActionsRoot = getEl("modelActionsModal");
     const getModelScopedEl = (id) => modelActionsRoot?.querySelector?.(`#${id}`) || null;
@@ -2743,6 +2864,18 @@
           used: safeConfig.deplacement?.used
         },
         {
+          feeKey: "acompte",
+          optionId: "acompteOptToggleModal",
+          enabledModalId: "acompteEnabledModal",
+          used: safeConfig.acompte?.used
+        },
+        {
+          feeKey: "reglement",
+          optionId: "reglementOptToggleModal",
+          enabledModalId: "reglementEnabledModal",
+          used: safeConfig.reglement?.used
+        },
+        {
           feeKey: "financing",
           optionId: "financingOptToggleModal",
           targetId: "financingBox",
@@ -2755,6 +2888,16 @@
           if (entry.feeKey === "financing") {
             if (!st.meta.financing || typeof st.meta.financing !== "object") st.meta.financing = {};
             st.meta.financing.used = entry.used !== false;
+            return;
+          }
+          if (entry.feeKey === "acompte") {
+            if (!st.meta.acompte || typeof st.meta.acompte !== "object") st.meta.acompte = {};
+            st.meta.acompte.used = entry.used !== false;
+            return;
+          }
+          if (entry.feeKey === "reglement") {
+            if (!st.meta.reglement || typeof st.meta.reglement !== "object") st.meta.reglement = {};
+            st.meta.reglement.used = entry.used !== false;
             return;
           }
           if (!st.meta.extras[entry.feeKey] || typeof st.meta.extras[entry.feeKey] !== "object") {

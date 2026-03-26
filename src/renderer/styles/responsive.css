@@ -194,10 +194,10 @@
   }
 
   /* Extras stacking to single column */
-  #extrasBox #shipFields,
-  #extrasBox #dossierFields,
-  #extrasBox #deplacementFields,
-  #extrasBox #stampFields,
+  #shippingBox #shipFields,
+  #dossierBox #dossierFields,
+  #deplacementBox #deplacementFields,
+  #stampBox #stampFields,
   #extrasBoxModal #shipFieldsModal,
   #extrasBoxModal #dossierFieldsModal,
   #extrasBoxModal #deplacementFieldsModal {

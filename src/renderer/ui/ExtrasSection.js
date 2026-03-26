@@ -3,82 +3,84 @@ import { html } from "./utils.js";
 
 export function renderExtrasSection() {
   return html(`
-    <fieldset class="section-box" id="extrasBox">
-      <legend><span class="model-save-dot">Frais & options</span></legend>
-
-      <div class="grid two">
-        <div class="full">
-          <div class="label-inline">
-            <span class="label-text">Ajouter les frais de livraison</span>
-            <input id="shipEnabled" type="checkbox" class="col-toggle" aria-label="Ajouter les frais de livraison" />
-          </div>
+    <fieldset class="section-box" id="shippingBox">
+      <legend><span class="model-save-dot">Frais de livraison</span></legend>
+      <div class="full" style="margin-top:0.5rem">
+        <div class="label-inline">
+          <span class="label-text">Ajouter les frais de livraison</span>
+          <input id="shipEnabled" type="checkbox" class="col-toggle" aria-label="Ajouter les frais de livraison" />
         </div>
+      </div>
+      <div id="shipFields" class="full">
+        <label>Montant HT
+          <input id="shipAmount" type="number" min="0" step="0.01" value="7" />
+        </label>
+        <label>TVA %
+          <input id="shipTva" type="number" min="0" step="0.01" value="7" />
+        </label>
+        <label>Libelle
+          <input id="shipLabel" placeholder="Frais de livraison" />
+        </label>
+      </div>
+    </fieldset>
 
-        <div id="shipFields" class="full">
-          <label>Montant HT
-            <input id="shipAmount" type="number" min="0" step="0.01" value="7" />
-          </label>
-          <label>TVA %
-            <input id="shipTva" type="number" min="0" step="0.01" value="7" />
-          </label>
-          <label>Libelle
-            <input id="shipLabel" placeholder="Frais de livraison" />
-          </label>
+    <fieldset class="section-box" id="stampBox">
+      <legend><span class="model-save-dot">Timbre fiscal</span></legend>
+      <div class="full" style="margin-top:0.5rem">
+        <div class="label-inline">
+          <span class="label-text">Ajouter timbre fiscal</span>
+          <input id="stampEnabled" type="checkbox" class="col-toggle" aria-label="Ajouter timbre fiscal" />
         </div>
+      </div>
+      <div id="stampFields" class="full">
+        <label>Libelle
+          <input id="stampLabel" placeholder="Timbre fiscal" />
+        </label>
+        <label>Montant HT
+          <input id="stampAmount" type="number" min="0" step="0.001" value="1" />
+        </label>
+      </div>
+    </fieldset>
 
-        <div class="full" style="margin-top:0.5rem">
-          <div class="label-inline">
-            <span class="label-text">Ajouter timbre fiscal</span>
-            <input id="stampEnabled" type="checkbox" class="col-toggle" aria-label="Ajouter timbre fiscal" />
-          </div>
+    <fieldset class="section-box" id="dossierBox">
+      <legend><span class="model-save-dot">Frais du dossier</span></legend>
+      <div class="full" style="margin-top:0.5rem">
+        <div class="label-inline">
+          <span class="label-text">Ajouter les frais du dossier</span>
+          <input id="dossierEnabled" type="checkbox" class="col-toggle" aria-label="Ajouter les frais du dossier" />
         </div>
+      </div>
+      <div id="dossierFields" class="full">
+        <label>Montant HT
+          <input id="dossierAmount" type="number" min="0" step="0.01" value="0" />
+        </label>
+        <label>TVA %
+          <input id="dossierTva" type="number" min="0" step="0.01" value="0" />
+        </label>
+        <label>Libelle
+          <input id="dossierLabel" placeholder="Frais du dossier" />
+        </label>
+      </div>
+    </fieldset>
 
-        <div id="stampFields" class="full">
-          <label>Libelle
-            <input id="stampLabel" placeholder="Timbre fiscal" />
-          </label>
-          <label>Montant HT
-            <input id="stampAmount" type="number" min="0" step="0.001" value="1" />
-          </label>
+    <fieldset class="section-box" id="deplacementBox">
+      <legend><span class="model-save-dot">Frais de d&eacute;placement</span></legend>
+      <div class="full" style="margin-top:0.5rem">
+        <div class="label-inline">
+          <span class="label-text">Ajouter les frais de d&eacute;placement</span>
+          <input id="deplacementEnabled" type="checkbox" class="col-toggle" aria-label="Ajouter les frais de deplacement" />
         </div>
-
-        <div class="full" style="margin-top:0.5rem">
-          <div class="label-inline">
-            <span class="label-text">Ajouter les frais du dossier</span>
-            <input id="dossierEnabled" type="checkbox" class="col-toggle" aria-label="Ajouter les frais du dossier" />
-          </div>
-        </div>
-
-        <div id="dossierFields" class="full">
-          <label>Montant HT
-            <input id="dossierAmount" type="number" min="0" step="0.01" value="0" />
-          </label>
-          <label>TVA %
-            <input id="dossierTva" type="number" min="0" step="0.01" value="0" />
-          </label>
-          <label>Libelle
-            <input id="dossierLabel" placeholder="Frais du dossier" />
-          </label>
-        </div>
-
-        <div class="full" style="margin-top:0.5rem">
-          <div class="label-inline">
-            <span class="label-text">Ajouter les frais de deplacement</span>
-            <input id="deplacementEnabled" type="checkbox" class="col-toggle" aria-label="Ajouter les frais de deplacement" />
-          </div>
-        </div>
-
-        <div id="deplacementFields" class="full">
-          <label>Montant HT
-            <input id="deplacementAmount" type="number" min="0" step="0.01" value="0" />
-          </label>
-          <label>TVA %
-            <input id="deplacementTva" type="number" min="0" step="0.01" value="0" />
-          </label>
-          <label>Libelle
-            <input id="deplacementLabel" placeholder="Frais de deplacement" />
-          </label>
-        </div>
+      </div>
+      <div id="deplacementFields" class="full">
+        <label>Montant HT
+          <input id="deplacementAmount" type="number" min="0" step="0.01" value="0" />
+        </label>
+        <label>TVA %
+          <input id="deplacementTva" type="number" min="0" step="0.01" value="0" />
+        </label>
+        <label>Libelle
+          <input id="deplacementLabel" placeholder="Frais de deplacement" />
+        </label>
       </div>
     </fieldset>
   `);

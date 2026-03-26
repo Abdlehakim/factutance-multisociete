@@ -3502,19 +3502,31 @@
       const sections = [
         {
           used: readUsedFlag(sourceConfig?.shipping?.used),
-          containers: resolveItemsModalFeeOptionContainers(docOptionsRoot, "shipEnabled", "shipFields")
+          containers: [
+            docOptionsRoot.querySelector("#shippingBox"),
+            ...resolveItemsModalFeeOptionContainers(docOptionsRoot, "shipEnabled", "shipFields")
+          ].filter((node, index, list) => !!node && list.indexOf(node) === index)
         },
         {
           used: readUsedFlag(sourceConfig?.stamp?.used),
-          containers: resolveItemsModalFeeOptionContainers(docOptionsRoot, "stampEnabled", "stampFields")
+          containers: [
+            docOptionsRoot.querySelector("#stampBox"),
+            ...resolveItemsModalFeeOptionContainers(docOptionsRoot, "stampEnabled", "stampFields")
+          ].filter((node, index, list) => !!node && list.indexOf(node) === index)
         },
         {
           used: readUsedFlag(sourceConfig?.dossier?.used),
-          containers: resolveItemsModalFeeOptionContainers(docOptionsRoot, "dossierEnabled", "dossierFields")
+          containers: [
+            docOptionsRoot.querySelector("#dossierBox"),
+            ...resolveItemsModalFeeOptionContainers(docOptionsRoot, "dossierEnabled", "dossierFields")
+          ].filter((node, index, list) => !!node && list.indexOf(node) === index)
         },
         {
           used: readUsedFlag(sourceConfig?.deplacement?.used),
-          containers: resolveItemsModalFeeOptionContainers(docOptionsRoot, "deplacementEnabled", "deplacementFields")
+          containers: [
+            docOptionsRoot.querySelector("#deplacementBox"),
+            ...resolveItemsModalFeeOptionContainers(docOptionsRoot, "deplacementEnabled", "deplacementFields")
+          ].filter((node, index, list) => !!node && list.indexOf(node) === index)
         },
         {
           used: readUsedFlag(sourceConfig?.financing?.used),

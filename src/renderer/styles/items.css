@@ -762,27 +762,27 @@
 .hide-col-ttc #items tbody td.cell-ttc { display: none; }
 
 /* Extras + WH visibility (no JS needed for layout) */
-#extrasBox #shipFields,
-#extrasBox #dossierFields,
-#extrasBox #deplacementFields,
-#extrasBox #stampFields,
+#shippingBox #shipFields,
+#dossierBox #dossierFields,
+#deplacementBox #deplacementFields,
+#stampBox #stampFields,
 #whBox #whFields,
 #acompteBox #acompteFields,
 #reglementBox #reglementFields { display: none; }
 
-#extrasBox .grid.two:has(#shipEnabled:checked) #shipFields { display: grid; }
-#extrasBox .grid.two:has(#dossierEnabled:checked) #dossierFields { display: grid; }
-#extrasBox .grid.two:has(#deplacementEnabled:checked) #deplacementFields { display: grid; }
-#extrasBox .grid.two:has(#stampEnabled:checked) #stampFields { display: grid; }
+#shippingBox:has(#shipEnabled:checked) #shipFields { display: grid; }
+#dossierBox:has(#dossierEnabled:checked) #dossierFields { display: grid; }
+#deplacementBox:has(#deplacementEnabled:checked) #deplacementFields { display: grid; }
+#stampBox:has(#stampEnabled:checked) #stampFields { display: grid; }
 #whBox:has(#whEnabled:checked) #whFields { display: grid; }
 #acompteBox:has(#acompteEnabled:checked) #acompteFields { display: grid; }
 #reglementBox:has(#reglementEnabled:checked) #reglementFields { display: grid; }
 
 /* Make the extras toggles easier to see and hit */
-#extrasBox #shipEnabled,
-#extrasBox #dossierEnabled,
-#extrasBox #deplacementEnabled,
-#extrasBox #stampEnabled,
+#shippingBox #shipEnabled,
+#dossierBox #dossierEnabled,
+#deplacementBox #deplacementEnabled,
+#stampBox #stampEnabled,
 #extrasBoxModal #shipEnabledModal,
 #extrasBoxModal #dossierEnabledModal,
 #extrasBoxModal #deplacementEnabledModal,
@@ -803,10 +803,10 @@
 }
 
 /* Extras layout */
-#extrasBox #shipFields,
-#extrasBox #dossierFields,
-#extrasBox #deplacementFields,
-#extrasBox #stampFields,
+#shippingBox #shipFields,
+#dossierBox #dossierFields,
+#deplacementBox #deplacementFields,
+#stampBox #stampFields,
 #extrasBoxModal #shipFieldsModal,
 #extrasBoxModal #dossierFieldsModal,
 #extrasBoxModal #deplacementFieldsModal {
@@ -816,15 +816,15 @@
   width: 100%;
 }
 
-#extrasBox #shipFields {
+#shippingBox #shipFields {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-#extrasBox #dossierFields {
+#dossierBox #dossierFields {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-#extrasBox #deplacementFields {
+#deplacementBox #deplacementFields {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 

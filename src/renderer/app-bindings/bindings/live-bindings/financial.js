@@ -81,6 +81,20 @@
         }
         return meta.acompte;
       };
+      const ensureReglementState = () => {
+        const meta = state().meta || (state().meta = {});
+        if (!meta.reglement || typeof meta.reglement !== "object") {
+          meta.reglement = { enabled: false, type: "reception", days: 30, valueText: "A reception" };
+        }
+        const reglement = meta.reglement;
+        reglement.enabled = !!reglement.enabled;
+        reglement.type = String(reglement.type || "").trim().toLowerCase() === "days" ? "days" : "reception";
+        const normalizedDays = Number(reglement.days);
+        reglement.days = Number.isFinite(normalizedDays) ? Math.max(0, Math.trunc(normalizedDays)) : 30;
+        reglement.valueText =
+          reglement.type === "days" ? `${reglement.days} jours` : "A reception";
+        return reglement;
+      };
       const ensureFinancingState = () => {
         const meta = state().meta || (state().meta = {});
         if (!meta.financing || typeof meta.financing !== "object") {
@@ -261,6 +275,17 @@
         if (daysInput) {
           daysInput.disabled = !(enabled && daysSelected);
         }
+        const reglement = ensureReglementState();
+        reglement.enabled = enabled;
+        reglement.type = daysSelected ? "days" : "reception";
+        const parsedDays = Number(daysInput?.value ?? reglement.days ?? 30);
+        reglement.days = Number.isFinite(parsedDays) ? Math.max(0, Math.trunc(parsedDays)) : 30;
+        reglement.valueText =
+          reglement.type === "days" ? `${reglement.days} jours` : "A reception";
+        const meta = state().meta || (state().meta = {});
+        meta.reglementEnabled = reglement.enabled;
+        meta.reglementType = reglement.type;
+        meta.reglementDays = reglement.days;
         if (typeof SEM.updateReglementMiniRow === "function") {
           SEM.updateReglementMiniRow();
         }
@@ -270,6 +295,26 @@
       });
       getEl("reglementDays")?.addEventListener("input", syncReglementDays);
       syncReglementDays();
+      const syncModelReglementFields = () => {
+        const enabled = !!getEl("reglementEnabledModal")?.checked;
+        const daysSelected = !!getEl("reglementTypeDaysModal")?.checked;
+        const daysInput = getEl("reglementDaysModal");
+        if (daysInput) {
+          daysInput.disabled = !(enabled && daysSelected);
+        }
+        scheduleModelPreviewUpdate();
+      };
+      ["reglementEnabledModal", "reglementTypeReceptionModal", "reglementTypeDaysModal"].forEach((id) => {
+        getEl(id)?.addEventListener("change", syncModelReglementFields);
+      });
+      getEl("reglementDaysModal")?.addEventListener("input", syncModelReglementFields);
+      syncModelReglementFields();
+      getEl("acompteEnabledModal")?.addEventListener("change", () => {
+        scheduleModelPreviewUpdate();
+      });
+      getEl("acomptePaidModal")?.addEventListener("input", () => {
+        scheduleModelPreviewUpdate();
+      });
       if (typeof whPdfNoteComponent.wireAll === "function") {
         whPdfNoteComponent.wireAll("main", {
           state,
@@ -369,7 +414,9 @@
         stamp: true,
         dossier: false,
         deplacement: false,
-        financing: false
+        financing: false,
+        acompte: true,
+        reglement: true
       });
       const normalizeOptionalBool = (value) => {
         if (value === true || value === false) return value;
@@ -722,6 +769,8 @@
         { feeKey: "stamp", optionId: "stampOptToggleModal", enabledModalId: "stampEnabledModal" },
         { feeKey: "dossier", optionId: "dossierOptToggleModal", enabledModalId: "dossierEnabledModal" },
         { feeKey: "deplacement", optionId: "deplacementOptToggleModal", enabledModalId: "deplacementEnabledModal" },
+        { feeKey: "acompte", optionId: "acompteOptToggleModal", enabledModalId: "acompteEnabledModal" },
+        { feeKey: "reglement", optionId: "reglementOptToggleModal", enabledModalId: "reglementEnabledModal" },
         { feeKey: "financing", optionId: "financingOptToggleModal", targetId: "financingBox" }
       ];
 
@@ -760,6 +809,12 @@
         if (config.feeKey === "financing") {
           const financing = ensureFinancingState();
           financing.used = isChecked;
+        } else if (config.feeKey === "acompte") {
+          const acompte = ensureAcompteState();
+          acompte.used = isChecked;
+        } else if (config.feeKey === "reglement") {
+          const reglement = ensureReglementState();
+          reglement.used = isChecked;
         } else {
           const extras = ensureExtrasState();
           if (config.feeKey && extras[config.feeKey] && typeof extras[config.feeKey] === "object") {
@@ -784,6 +839,8 @@
       };
       const initializeFeesTaxesOptionsFromState = () => {
         const extras = ensureExtrasState();
+        const acompte = ensureAcompteState();
+        const reglement = ensureReglementState();
         const financing = ensureFinancingState();
         feesTaxesOptions.forEach((config) => {
           const optionInput = getModelStep3El(config.optionId) || getEl(config.optionId);
@@ -797,6 +854,16 @@
                     !!financing.subvention?.enabled ||
                     !!financing.bank?.enabled
                 }
+              : config.feeKey === "acompte"
+                ? {
+                    used: acompte.used,
+                    enabled: !!acompte.enabled
+                  }
+                : config.feeKey === "reglement"
+                  ? {
+                      used: reglement.used,
+                      enabled: !!reglement.enabled
+                    }
               : extras?.[config.feeKey];
           const checked = resolveFeesOptionUsed(
             feeState,

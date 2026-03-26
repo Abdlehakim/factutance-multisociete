@@ -306,6 +306,9 @@
     if (config.acompte && typeof config.acompte === "object") {
       meta.acompte = clonePlain(config.acompte, { ...config.acompte });
     }
+    if (config.reglement && typeof config.reglement === "object") {
+      meta.reglement = clonePlain(config.reglement, { ...config.reglement });
+    }
     if (config.financing && typeof config.financing === "object") {
       meta.financing = clonePlain(config.financing, { ...config.financing });
     }
