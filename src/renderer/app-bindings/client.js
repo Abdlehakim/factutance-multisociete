@@ -256,11 +256,15 @@
               : typeof document !== "undefined"
                 ? document.getElementById(id)
                 : null;
-          if (btn) btn.disabled = !!disabled;
+          if (btn) {
+            btn.disabled = !!disabled;
+            btn.setAttribute("aria-disabled", disabled ? "true" : "false");
+          }
         });
         return;
       }
       target.disabled = !!disabled;
+      target.setAttribute("aria-disabled", disabled ? "true" : "false");
     };
 
     const scopeNodes =
@@ -391,10 +395,11 @@
     const previous = envelope[normalizedType] && typeof envelope[normalizedType] === "object"
       ? envelope[normalizedType]
       : {};
+    const forceClearPath = snapshot?.__clearPath === true;
     const sanitized = sanitizeClientSnapshot({
       ...previous,
       ...snapshot,
-      __path: snapshot.__path || previous.__path || ""
+      __path: forceClearPath ? "" : snapshot.__path || previous.__path || ""
     });
     envelope[normalizedType] = {
       ...previous,

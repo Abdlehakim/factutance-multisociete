@@ -620,9 +620,14 @@
                 options.entityType ||
                 snapshot?.__entityType ||
                 resolveScopedClientEntityType(scopeNode);
+              const clearPath = options.clearPath === true;
               const setEntityState = getClientBindingHelpers().setEntityClientFormState;
               if (typeof setEntityState === "function") {
-                setEntityState(entityType, { ...snapshot, __entityType: entityType });
+                setEntityState(entityType, {
+                  ...snapshot,
+                  __entityType: entityType,
+                  __clearPath: clearPath
+                });
               }
               const resolveDocumentScope =
                 getClientBindingHelpers().resolveEntityDocumentPartyStateScope;
@@ -637,7 +642,7 @@
                 st.client = {
                   ...(st.client || {}),
                   ...snapshot,
-                  __path: snapshot.__path || st.client?.__path || "",
+                  __path: clearPath ? "" : snapshot.__path || st.client?.__path || "",
                   __entityType: entityType
                 };
                 refreshClientSummary();
@@ -1115,16 +1120,7 @@
                     ctx = getClientFormPopoverContext(fallbackScope);
                   }
                   if (!ctx) return;
-                  const isOpen = !ctx.popover.hidden;
-                  if (!isOpen) {
-                    resetClientFormToNew(ctx.scope);
-                  }
-                  const mode = toggleBtn.closest("#clientBoxMainscreen") ? "create" : "default";
-                  setClientFormPopoverMode(ctx, mode);
-                  setClientFormPopoverOpen(ctx, !isOpen);
-                  if (typeof SEM?.refreshClientActionButtons === "function") {
-                    SEM.refreshClientActionButtons();
-                  }
+                  resetClientFormToNew(ctx.scope, { confirmDiscard: false });
                   return;
                 }
                 const closeBtn = evt.target?.closest?.("[data-client-form-close]");
@@ -1912,35 +1908,114 @@
                   formScope?.id === "transporteurFormPopover"
                     ? formScope
                     : null;
+                const targetScope = useScope || formScope || null;
                 const performReset = () => {
-                  const entityType = resolveScopedClientEntityType(useScope || formScope);
-                  const blankClient = { type: "societe", name: "", vat: "", phone: "", email: "", address: "", __path: "" };
+                  const clearValidationState = (container) => {
+                    if (!container?.querySelectorAll) return;
+                    container
+                      .querySelectorAll("input, textarea, select")
+                      .forEach((field) => {
+                        if (typeof field.setCustomValidity === "function") {
+                          field.setCustomValidity("");
+                        }
+                        field.removeAttribute("aria-invalid");
+                        field.classList?.remove("is-invalid", "has-error", "input-error");
+                      });
+                  };
+                  const hardResetScopedInputs = (container, blankType = "societe") => {
+                    if (!container?.querySelectorAll) return;
+                    container.querySelectorAll("input, textarea, select").forEach((field) => {
+                      if (!(field instanceof HTMLElement)) return;
+                      if (field instanceof HTMLSelectElement) {
+                        if (field.id === "clientType" || field.id === "fournisseurType") {
+                          field.value = blankType;
+                        } else if (field.options.length > 0) {
+                          field.selectedIndex = 0;
+                        } else {
+                          field.value = "";
+                        }
+                        return;
+                      }
+                      if (!(field instanceof HTMLInputElement) && !(field instanceof HTMLTextAreaElement)) return;
+                      const inputType = String(field.getAttribute("type") || "").toLowerCase();
+                      if (inputType === "checkbox" || inputType === "radio") {
+                        field.checked = false;
+                        return;
+                      }
+                      field.value = "";
+                    });
+                  };
+                  const entityType = resolveScopedClientEntityType(targetScope);
+                  const blankClient = {
+                    type: "societe",
+                    name: "",
+                    benefit: "",
+                    account: "",
+                    soldClient: "",
+                    vat: "",
+                    stegRef: "",
+                    phone: "",
+                    email: "",
+                    address: "",
+                    __path: "",
+                    __entityType: entityType
+                  };
+                  hardResetScopedInputs(targetScope, blankClient.type);
                   if (SEM.forms?.fillClientToForm && !useScope) {
                     SEM.forms.fillClientToForm(blankClient);
                   } else {
-                    syncClientFormFields(blankClient, useScope);
+                    syncClientFormFields(blankClient, targetScope);
                   }
-                  resetClientSearchScope(formScope);
-                  persistClientEntityDraft(blankClient, useScope || formScope, {
+                  resetClientSearchScope(targetScope || formScope);
+                  const shouldMirror = shouldMirrorEntityStateToDocument(targetScope);
+                  persistClientEntityDraft(blankClient, targetScope, {
                     entityType,
-                    mirrorToDocumentState: shouldMirrorEntityStateToDocument(useScope || formScope)
+                    mirrorToDocumentState: shouldMirror,
+                    clearPath: true
                   });
-                  if (!shouldMirrorEntityStateToDocument(useScope || formScope)) {
-                    const st = SEM.state || (SEM.state = {});
-                    st.client = st.client || {};
+                  const st = SEM.state || (SEM.state = {});
+                  const currentStateEntityType =
+                    st.client?.__entityType === "vendor"
+                      ? "vendor"
+                      : st.client?.__entityType === "transporter"
+                        ? "transporter"
+                        : "client";
+                  if (st.client && currentStateEntityType === entityType) {
+                    st.client = {
+                      ...st.client,
+                      ...blankClient,
+                      __path: "",
+                      __dirty: false,
+                      __entityType: entityType
+                    };
                   }
                   SEM.clientFormDirty = false;
                   SEM.clientFormAllowUpdate = false;
                   setClientEntityDirty(entityType, false);
-                  if (SEM.setClientFormBaseline) SEM.setClientFormBaseline(null);
+                  if (SEM.setClientFormBaseline) SEM.setClientFormBaseline(null, entityType);
                   else SEM.refreshUpdateClientButton?.();
-                  if (SEM.evaluateClientDirtyState) SEM.evaluateClientDirtyState();
+                  if (SEM.evaluateClientDirtyState) SEM.evaluateClientDirtyState(targetScope);
+                  const popoverCtx = getClientFormPopoverContext(targetScope);
+                  if (popoverCtx) {
+                    hardResetScopedInputs(popoverCtx.popover, blankClient.type);
+                    syncClientFormFields(blankClient, popoverCtx.popover);
+                    clearValidationState(popoverCtx.popover);
+                    setClientFormPopoverMode(popoverCtx, "create");
+                    setClientFormPopoverOpen(popoverCtx, true);
+                  }
+                  SEM.refreshClientActionButtons?.();
+                  SEM.refreshFournisseurActionButtons?.();
+                  SEM.refreshTransporteurActionButtons?.();
                   if (!useScope && SEM.readInputs) SEM.readInputs();
                 };
-                const hasBaseline = !!SEM.clientFormBaseline?.__path;
+                const baselineEntityType = SEM.clientFormBaselineEntityType || "client";
+                const currentEntityType = resolveScopedClientEntityType(targetScope);
+                const hasBaseline =
+                  !!SEM.clientFormBaseline?.__path &&
+                  baselineEntityType === currentEntityType;
                 const hasContent =
                   typeof SEM.clientFormHasContent === "function"
-                    ? SEM.clientFormHasContent(formScope)
+                    ? SEM.clientFormHasContent(targetScope)
                     : true;
                 const unsavedChanges = hasBaseline ? !!SEM.clientFormDirty : hasContent;
                 if (options.confirmDiscard && unsavedChanges && typeof SEM.confirmDiscardClientChanges === "function") {
@@ -1949,12 +2024,16 @@
                   performReset();
                 }
               };
+              SEM.resetClientFormToNew = resetClientFormToNew;
 
               const handleNewClientClick = (evt) => {
                 const trigger = evt.target?.closest?.("#btnNewClient, #btnNewFournisseur, #btnNewTransporteur");
                 if (!trigger) return;
-                const formScope = trigger.closest(CLIENT_SCOPE_WITH_ROOT_SELECTOR);
-                resetClientFormToNew(formScope, { confirmDiscard: true });
+                evt.preventDefault();
+                const popoverCtx = getClientFormPopoverContext(trigger);
+                const fallbackScope = trigger.closest(CLIENT_SCOPE_WITH_ROOT_SELECTOR);
+                const resetScope = popoverCtx?.popover || popoverCtx?.scope || fallbackScope;
+                resetClientFormToNew(resetScope, { confirmDiscard: true });
               };
             document.addEventListener("click", handleNewClientClick);
 
