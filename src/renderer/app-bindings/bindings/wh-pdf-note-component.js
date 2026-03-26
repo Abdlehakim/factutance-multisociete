@@ -22,6 +22,24 @@
       boldId: "whNoteBoldModal",
       italicId: "whNoteItalicModal",
       listId: "whNoteListModal"
+    },
+    beRemarks: {
+      boxId: "beRemarksNoteBoxModal",
+      hiddenId: "beRemarksModal",
+      editorId: "beRemarksEditorModal",
+      sizeId: "beRemarksFontSizeModal",
+      boldId: "beRemarksBoldModal",
+      italicId: "beRemarksItalicModal",
+      listId: "beRemarksListModal"
+    },
+    beRemarksMain: {
+      boxId: "beRemarksNoteBox",
+      hiddenId: "beRemarks",
+      editorId: "beRemarksEditor",
+      sizeId: "beRemarksFontSize",
+      boldId: "beRemarksBold",
+      italicId: "beRemarksItalic",
+      listId: "beRemarksList"
     }
   };
 

@@ -618,6 +618,56 @@
       if (acompteDue) acompteDue.disabled = disabled;
     };
 
+    const setItemsModalSectionInteractiveState = (section, enabled) => {
+      if (!section || typeof section.querySelectorAll !== "function") return;
+      const interactive = !!enabled;
+      section.setAttribute("aria-disabled", interactive ? "false" : "true");
+      section.querySelectorAll("input, select, textarea, button").forEach((field) => {
+        if ("disabled" in field) {
+          field.disabled = !interactive;
+        }
+      });
+      section.querySelectorAll("[contenteditable]").forEach((node) => {
+        node.setAttribute("contenteditable", interactive ? "true" : "false");
+        node.setAttribute("aria-disabled", interactive ? "false" : "true");
+        if (!interactive) {
+          node.setAttribute("tabindex", "-1");
+        } else if (node.getAttribute("tabindex") === "-1") {
+          node.removeAttribute("tabindex");
+        }
+      });
+    };
+
+    const syncItemsModalDocOptionsNotesForDocType = (docTypeValue) => {
+      const docOptionsRoot =
+        itemsDocOptionsModalContent?.querySelector?.("#DocOptions") || getEl("DocOptions") || null;
+      if (!docOptionsRoot) return false;
+      const normalizedDocType = String(docTypeValue || "").trim().toLowerCase();
+      const isBonEntree = normalizedDocType === "be";
+
+      ["#whNoteBox", "#NoteBasDePage"].forEach((selector) => {
+        const section = docOptionsRoot.querySelector(selector);
+        if (!section) return;
+        const visible = !isBonEntree;
+        section.hidden = !visible;
+        section.setAttribute("aria-hidden", visible ? "false" : "true");
+        section.style.display = visible ? "" : "none";
+        setItemsModalSectionInteractiveState(section, visible);
+      });
+
+      const beRemarksSection =
+        docOptionsRoot.querySelector("#beRemarksNoteBox") ||
+        docOptionsRoot.querySelector("#beRemarksNoteBoxModal") ||
+        null;
+      if (beRemarksSection) {
+        beRemarksSection.hidden = !isBonEntree;
+        beRemarksSection.setAttribute("aria-hidden", isBonEntree ? "false" : "true");
+        beRemarksSection.style.display = isBonEntree ? "" : "none";
+        setItemsModalSectionInteractiveState(beRemarksSection, isBonEntree);
+      }
+      return true;
+    };
+
     const ITEMS_BE_RECEPTION_BOX_ID = "beReceptionBoxNewDoc";
     const ITEMS_BE_RECEPTION_FIELDS = {
       depot: "beReceptionDepotInput",
@@ -2877,6 +2927,7 @@
       if (!section) return false;
       const meta = getInvoiceMeta() || {};
       const isBonEntree = String(meta.docType || "facture").trim().toLowerCase() === "be";
+      syncItemsModalDocOptionsNotesForDocType(meta.docType || "");
       const reception = ensureItemsModalBeReceptionMeta(meta);
       ensureItemsModalBeReceptionDatePicker(section);
       const timePicker = ensureItemsModalBeReceptionTimePicker(section);
@@ -2919,6 +2970,9 @@
       }
       if (typeof SEM.refreshInvoiceSummary === "function") {
         SEM.refreshInvoiceSummary();
+      }
+      if (typeof SEM.updateAmountWordsBlock === "function") {
+        SEM.updateAmountWordsBlock();
       }
       return true;
     };

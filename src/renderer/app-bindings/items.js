@@ -1851,10 +1851,11 @@
     const totals = totalsInput || SEM.computeTotalsReturn?.();
     const currency = totals?.currency || meta?.currency || "DT";
     const docType = normalizeDocType(meta?.docType || getStr("docType", "facture"));
+    const isBonEntreeDocType = docType === "be";
 
     const showWordsByType =
       docType === "facture" || docType === "fa" || docType === "devis" || docType === "bl";
-    const showWords = showWordsByType && showAmountWords && docType !== "bc";
+    const showWords = !isBonEntreeDocType && showWordsByType && showAmountWords && docType !== "bc";
     const wordsHeader =
       docType === "devis"   ? "Arr&ecirc;t&eacute; le pr&eacute;sent devis &agrave; la somme de&nbsp;:"
     : docType === "facture" ? "Arr&ecirc;t&eacute;e la pr&eacute;sente facture &agrave; la somme de&nbsp;:"
@@ -1878,14 +1879,14 @@
 
     const formattedNotes = formatNoteHTML(st?.notes);
     const notesHTML =
-      formattedNotes
+      !isBonEntreeDocType && formattedNotes
         ? `<div class="pdf-notes">
              <div class="pdf-notes-title"><span style="font-weight:600">Notes&nbsp;:</span>${formattedNotes}</div>
            </div>`
         : "";
 
     const amountWordsBlock =
-      (showWords || notesHTML)
+      !isBonEntreeDocType && (showWords || notesHTML)
         ? `<div class="pdf-amount-words">
              ${showWords ? `${wordsHeaderFinal}<br/><strong>${escapeHTML(wordsTgtText)}</strong>` : ""}
              ${notesHTML}
@@ -1900,7 +1901,8 @@
 
     const whNoteValue = meta?.withholding?.note;
     const safeWhNote = formatNoteHTML(whNoteValue);
-    const summaryNoteContent = hasTextContent(safeWhNote) ? safeWhNote : "";
+    const summaryNoteContent =
+      !isBonEntreeDocType && hasTextContent(safeWhNote) ? safeWhNote : "";
     if (summaryNoteHost) {
       summaryNoteHost.innerHTML = summaryNoteContent;
       summaryNoteHost.hidden = !summaryNoteContent;
@@ -1918,7 +1920,8 @@
       meta?.footerNoteSize;
     const footerNoteSize = normalizeFooterNoteFontSize(footerNoteSizeRaw);
     const footerNoteHTML = hasVal(footerNoteRaw) ? formatFooterNoteHTML(footerNoteRaw) : "";
-    const footerNoteContent = hasTextContent(footerNoteHTML) ? footerNoteHTML : "";
+    const footerNoteContent =
+      !isBonEntreeDocType && hasTextContent(footerNoteHTML) ? footerNoteHTML : "";
     if (footerNoteHost) {
       footerNoteHost.innerHTML = footerNoteContent;
       footerNoteHost.style.fontSize = `${footerNoteSize}px`;

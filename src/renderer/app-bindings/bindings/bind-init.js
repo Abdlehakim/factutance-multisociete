@@ -10,6 +10,7 @@
   const bindingShared = SEM.__bindingShared || {};
   const sharedConstants = bindingShared.constants || {};
   const FOOTER_NOTE_DEFAULT_FONT_SIZE = sharedConstants.FOOTER_NOTE_DEFAULT_FONT_SIZE || 8;
+  const WH_NOTE_DEFAULT_FONT_SIZE = sharedConstants.WH_NOTE_DEFAULT_FONT_SIZE || 12;
   const formatSoldClientValue =
     bindingShared.formatSoldClientValue ||
     ((value) => {
@@ -37,6 +38,12 @@
   const setWhNoteEditorContent = bindingShared.setWhNoteEditorContent || (() => {});
   const normalizeFooterNoteFontSize =
     bindingShared.normalizeFooterNoteFontSize ||
+    ((value) => {
+      const parsed = Number.parseInt(value, 10);
+      return Number.isFinite(parsed) ? parsed : null;
+    });
+  const normalizeWhNoteFontSize =
+    bindingShared.normalizeWhNoteFontSize ||
     ((value) => {
       const parsed = Number.parseInt(value, 10);
       return Number.isFinite(parsed) ? parsed : null;
@@ -247,6 +254,24 @@
         SEM.updateFooterNoteEditor(footerNoteValue, { size: footerNoteSize });
       } else {
         setFooterNoteEditorContent(footerNoteValue, { size: footerNoteSize });
+      }
+      const beRemarksValue = String(pdfOptions.beRemarks ?? "");
+      const beRemarksSize =
+        normalizeWhNoteFontSize(pdfOptions.beRemarksSize) ?? WH_NOTE_DEFAULT_FONT_SIZE;
+      const beRemarksTouched = pdfOptions.beRemarksTouched === true;
+      setVal("beRemarks", beRemarksValue);
+      setVal("beRemarksFontSize", String(beRemarksSize));
+      setWhNoteEditorContent(beRemarksValue, { group: "beRemarksMain" });
+      if (st.meta?.extras?.pdf && typeof st.meta.extras.pdf === "object") {
+        st.meta.extras.pdf.beRemarks = beRemarksValue;
+        st.meta.extras.pdf.beRemarksSize = beRemarksSize;
+        st.meta.extras.pdf.beRemarksTouched =
+          typeof pdfOptions.beRemarksTouched === "boolean"
+            ? beRemarksTouched
+            : !!String(beRemarksValue || "")
+                .replace(/<br\s*\/?>/gi, " ")
+                .replace(/<[^>]*>/g, "")
+                .trim();
       }
 
       if (getEl("shipEnabled")) getEl("shipEnabled").checked = !!s.enabled;

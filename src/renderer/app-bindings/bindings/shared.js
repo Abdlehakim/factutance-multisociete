@@ -54,6 +54,15 @@
       italicId: "beRemarksItalicModal",
       listId: "beRemarksListModal"
     },
+    beRemarksMain: {
+      boxId: "beRemarksNoteBox",
+      hiddenId: "beRemarks",
+      editorId: "beRemarksEditor",
+      sizeId: "beRemarksFontSize",
+      boldId: "beRemarksBold",
+      italicId: "beRemarksItalic",
+      listId: "beRemarksList"
+    },
     bsRemarks: {
       boxId: "bsRemarksNoteBoxModal",
       hiddenId: "bsRemarksModal",

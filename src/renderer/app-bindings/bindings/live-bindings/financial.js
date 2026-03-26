@@ -12,6 +12,14 @@
   const footerNoteComponent = SEM.__footerNoteComponent || {};
   const sharedConstants = bindingShared.constants || {};
   const MAX_COMPANY_PHONE_COUNT = sharedConstants.MAX_COMPANY_PHONE_COUNT || 3;
+  const WH_NOTE_DEFAULT_FONT_SIZE = sharedConstants.WH_NOTE_DEFAULT_FONT_SIZE || 12;
+  const normalizeWhNoteFontSize =
+    bindingShared.normalizeWhNoteFontSize ||
+    ((value) => {
+      const parsed = Number.parseInt(value, 10);
+      return Number.isFinite(parsed) ? parsed : null;
+    });
+  const setWhNoteEditorContent = bindingShared.setWhNoteEditorContent || (() => {});
   const formatSoldClientValue =
     bindingShared.formatSoldClientValue ||
     ((value) => {
@@ -396,6 +404,52 @@
         return ex.pdf;
       };
       ensureExtrasState();
+      const ensureBonEntreeRemarksState = () => {
+        const pdfState = ensurePdfOptionsState();
+        if (typeof pdfState.beRemarks !== "string") {
+          pdfState.beRemarks = "";
+        }
+        const resolvedSize = normalizeWhNoteFontSize(pdfState.beRemarksSize) ?? WH_NOTE_DEFAULT_FONT_SIZE;
+        pdfState.beRemarksSize = resolvedSize;
+        if (typeof pdfState.beRemarksTouched !== "boolean") {
+          const textValue = String(pdfState.beRemarks || "")
+            .replace(/<br\s*\/?>/gi, " ")
+            .replace(/<[^>]*>/g, "")
+            .trim();
+          pdfState.beRemarksTouched = !!textValue;
+        }
+        return pdfState;
+      };
+      const wireBonEntreeRemarksEditor = () => {
+        if (typeof whPdfNoteComponent.wireGroup !== "function") return;
+        const editor = getEl("beRemarksEditor");
+        const hidden = getEl("beRemarks");
+        const sizeSelect = getEl("beRemarksFontSize");
+        if (!editor && !hidden && !sizeSelect) return;
+
+        const pdfState = ensureBonEntreeRemarksState();
+        const initialValue = String(pdfState.beRemarks || "");
+        const initialSize = normalizeWhNoteFontSize(pdfState.beRemarksSize) ?? WH_NOTE_DEFAULT_FONT_SIZE;
+        if (hidden && hidden.value !== initialValue) hidden.value = initialValue;
+        if (sizeSelect && sizeSelect.value !== String(initialSize)) sizeSelect.value = String(initialSize);
+        setWhNoteEditorContent(initialValue, { group: "beRemarksMain" });
+
+        whPdfNoteComponent.wireGroup("beRemarksMain", {
+          state,
+          onChange: () => {
+            const nextPdfState = ensureBonEntreeRemarksState();
+            const value = String(hidden?.value || nextPdfState.beRemarks || "");
+            const size =
+              normalizeWhNoteFontSize(sizeSelect?.value ?? nextPdfState.beRemarksSize) ??
+              WH_NOTE_DEFAULT_FONT_SIZE;
+            nextPdfState.beRemarks = value;
+            nextPdfState.beRemarksSize = size;
+            nextPdfState.beRemarksTouched = true;
+            SEM.updateAmountWordsBlock?.();
+          }
+        });
+      };
+      wireBonEntreeRemarksEditor();
 
       const shipEnabledInput = getEl("shipEnabled");
       const shipLabelInput = getEl("shipLabel");

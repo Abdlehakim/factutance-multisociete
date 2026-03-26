@@ -2,6 +2,7 @@ export function renderBeRemarksNoteSection(options = {}) {
   const isModal = options.modal === true || options.scope === "modal";
   const suffix = isModal ? "Modal" : "";
   const fieldsetId = isModal ? "beRemarksNoteBoxModal" : "beRemarksNoteBox";
+  const groupName = isModal ? "beRemarks" : "beRemarksMain";
 
   return `
     <fieldset
@@ -12,7 +13,7 @@ export function renderBeRemarksNoteSection(options = {}) {
       aria-hidden="true"
     >
       <legend><span class="model-save-dot">Observation / Remarques</span></legend>
-      <div class="full note-field" data-wh-note-group="beRemarks">
+      <div class="full note-field" data-wh-note-group="${groupName}">
         <div class="note-field-label" id="beRemarksLabel${suffix}">Texte affich&eacute; dans le bloc Observation / Remarques du Bon d'entr&eacute;e</div>
         <div class="note-toolbar" aria-label="Mise en forme de l'observation / remarques">
           <label class="note-size-control" for="beRemarksFontSize${suffix}">

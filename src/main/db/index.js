@@ -1643,6 +1643,276 @@ const normalizeDocumentColumnState = (
   return normalized;
 };
 
+const BE_RECEPTION_SOURCE_DOC_TYPE_LABELS = {
+  fa: "Facture d'achat",
+  bc: "Bon de commande"
+};
+
+const normalizeBeReceptionSourceDocType = (value) => {
+  const raw = String(value || "").trim().toLowerCase();
+  if (!raw) return "";
+  const aliases = {
+    fa: "fa",
+    factureachat: "fa",
+    "facture d'achat": "fa",
+    facture_achat: "fa",
+    "facture-achat": "fa",
+    bc: "bc",
+    bondecommande: "bc",
+    "bon de commande": "bc",
+    bon_de_commande: "bc",
+    "bon-de-commande": "bc"
+  };
+  if (aliases[raw]) return aliases[raw];
+  return normalizeDocType(raw);
+};
+
+const normalizeBeReceptionDepotId = (value = "") =>
+  String(value || "")
+    .trim()
+    .replace(/^sqlite:\/\/depots\//i, "");
+
+const normalizeBeReceptionLocationId = (value = "") =>
+  String(value || "")
+    .trim()
+    .replace(/^sqlite:\/\/emplacements\//i, "");
+
+const normalizeBeReceptionDestinationIds = (value = []) => {
+  const source = Array.isArray(value)
+    ? value
+    : typeof value === "string"
+      ? value.split(",")
+      : [value];
+  const seen = new Set();
+  return source
+    .map((entry) => normalizeBeReceptionLocationId(entry))
+    .filter((entry) => {
+      if (!entry) return false;
+      const key = entry.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+};
+
+const normalizeBeReceptionDestinationLabels = (value = []) => {
+  const source = Array.isArray(value)
+    ? value
+    : typeof value === "string"
+      ? value.split(",")
+      : [value];
+  return source
+    .map((entry) =>
+      String(entry || "")
+        .replace(/\s+/g, " ")
+        .trim()
+    )
+    .filter(Boolean);
+};
+
+const formatBeReceptionDestinationText = (labels = []) =>
+  normalizeBeReceptionDestinationLabels(labels).join(", ");
+
+const normalizeBeReceptionSourceSelection = (value) => {
+  const raw = value && typeof value === "object" ? value : {};
+  const rawSupplier = raw.supplier && typeof raw.supplier === "object" ? raw.supplier : {};
+  const rawItems = Array.isArray(raw.items)
+    ? raw.items
+    : Array.isArray(raw.documents)
+      ? raw.documents
+      : [];
+  const normalizedItems = rawItems
+    .map((entry, index) => {
+      const item = entry && typeof entry === "object" ? entry : {};
+      const id = String(item.id || "").trim();
+      const path = String(item.path || "").trim();
+      const number = String(item.number || "").trim();
+      const date = String(item.date || "").trim();
+      const clientName = String(item.clientName || "").trim();
+      const clientPath = String(item.clientPath || "").trim();
+      const displayName =
+        String(item.displayName || item.name || number || "").trim() || `Document ${index + 1}`;
+      const docType = normalizeBeReceptionSourceDocType(
+        item.docType || item.type || raw.docType || raw.type || ""
+      );
+      const key =
+        String(item.key || "").trim() ||
+        (id ? `id:${id}` : path ? `path:${path}` : number ? `number:${number}:${index}` : `idx:${index}`);
+      if (!id && !path && !number && !displayName) return null;
+      return { key, id, path, number, date, displayName, docType, clientName, clientPath };
+    })
+    .filter(Boolean);
+  const docType = normalizeBeReceptionSourceDocType(
+    raw.docType || raw.type || normalizedItems[0]?.docType || ""
+  );
+  if (!normalizedItems.length || !docType) return null;
+  const supplierPath = String(rawSupplier.path || normalizedItems[0]?.clientPath || "").trim();
+  const supplierName = String(rawSupplier.name || normalizedItems[0]?.clientName || "").trim();
+  const supplierLabel = String(rawSupplier.label || supplierName || "").trim();
+  const supplierIdentifier = String(rawSupplier.identifier || "").trim();
+  return {
+    docType,
+    supplier:
+      supplierPath || supplierName || supplierLabel || supplierIdentifier
+        ? {
+            path: supplierPath,
+            name: supplierName,
+            label: supplierLabel || supplierName,
+            identifier: supplierIdentifier
+          }
+        : null,
+    items: normalizedItems.map((item) => ({
+      ...item,
+      docType: item.docType || docType
+    }))
+  };
+};
+
+const normalizeBeReceptionImportedSourceKeys = (value = [], fallbackSelection = null) => {
+  const fallbackItems = normalizeBeReceptionSourceSelection(fallbackSelection)?.items || [];
+  const hasExplicitValue =
+    value !== undefined &&
+    value !== null &&
+    !(typeof value === "string" && !String(value).trim());
+  const source = Array.isArray(value)
+    ? value
+    : typeof value === "string"
+      ? value.split(",")
+      : [];
+  const seen = new Set();
+  return [...source, ...(!hasExplicitValue ? fallbackItems.map((entry) => entry?.key || "") : [])]
+    .map((entry) => String(entry || "").trim())
+    .filter((entry) => {
+      if (!entry) return false;
+      const key = entry.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+};
+
+const formatBeReceptionSourceSelectionText = (selection) => {
+  const normalized = normalizeBeReceptionSourceSelection(selection);
+  if (!normalized) return "";
+  const label = BE_RECEPTION_SOURCE_DOC_TYPE_LABELS[normalized.docType] || "Document";
+  const refs = normalized.items
+    .map((item) => String(item.number || item.displayName || "").trim())
+    .filter(Boolean);
+  if (!refs.length) return label;
+  return `${label} : ${refs.join(", ")}`;
+};
+
+const normalizeBonEntreeReceptionMetaForStorage = (meta = {}, normalizedDocType = "") => {
+  const safeMeta = meta && typeof meta === "object" ? meta : {};
+  const raw = safeMeta.beReception && typeof safeMeta.beReception === "object" ? safeMeta.beReception : {};
+  const normalizedSourceSelection = normalizeBeReceptionSourceSelection(
+    raw.sourceSelection ?? raw.sourceDocuments ?? raw.sourceDocs ?? safeMeta.beSourceSelection ?? null
+  );
+  const destinationIds = normalizeBeReceptionDestinationIds(
+    raw.destinationIds ??
+      raw.destinationIdList ??
+      raw.destinationSelection?.ids ??
+      raw.destinationSelection ??
+      raw.destinationId ??
+      raw.destinationLocationId ??
+      raw.locationId ??
+      raw.emplacementId ??
+      raw.emplacement_id ??
+      safeMeta.beReceptionDestinationIds ??
+      safeMeta.beReceptionDestinationId ??
+      []
+  );
+  const destinationLabels = normalizeBeReceptionDestinationLabels(
+    raw.destinationLabels ??
+      raw.destinationLabelList ??
+      raw.destinationSelection?.labels ??
+      []
+  );
+  const normalized = {
+    depot: String(raw.depot ?? raw.depotName ?? safeMeta.beReceptionDepot ?? safeMeta.beDepot ?? "").trim(),
+    depotId: normalizeBeReceptionDepotId(
+      raw.depotId ?? raw.depotDbId ?? raw.magasinId ?? raw.magasin_id ?? safeMeta.beReceptionDepotId ?? ""
+    ),
+    destination: String(
+      raw.destination ??
+        raw.destinationLocation ??
+        raw.location ??
+        safeMeta.beReceptionDestination ??
+        safeMeta.beDestination ??
+        ""
+    ).trim(),
+    destinationId: normalizeBeReceptionLocationId(
+      destinationIds[0] ??
+        raw.destinationId ??
+        raw.destinationLocationId ??
+        raw.locationId ??
+        raw.emplacementId ??
+        raw.emplacement_id ??
+        safeMeta.beReceptionDestinationId ??
+        ""
+    ),
+    destinationIds,
+    destinationLabels,
+    date: String(raw.date ?? raw.receptionDate ?? safeMeta.beReceptionDate ?? "").trim(),
+    time: String(raw.time ?? raw.receptionTime ?? safeMeta.beReceptionTime ?? "").trim(),
+    sourceRef: String(
+      raw.sourceRef ??
+        raw.referenceSource ??
+        raw.source ??
+        safeMeta.beSourceRef ??
+        ""
+    ).trim(),
+    sourceSelection: normalizedSourceSelection,
+    importedSourceKeys: normalizeBeReceptionImportedSourceKeys(
+      raw.importedSourceKeys ??
+        raw.sourceImportedKeys ??
+        raw.importedSources ??
+        safeMeta.beSourceImportedKeys,
+      normalizedSourceSelection
+    )
+  };
+  if (!normalized.sourceRef && normalized.sourceSelection) {
+    normalized.sourceRef = formatBeReceptionSourceSelectionText(normalized.sourceSelection);
+  }
+  if (normalized.destinationLabels.length && !normalized.destination) {
+    normalized.destination = formatBeReceptionDestinationText(normalized.destinationLabels);
+  }
+  if (normalized.destination && !normalized.destinationLabels.length) {
+    normalized.destinationLabels = normalizeBeReceptionDestinationLabels(normalized.destination);
+  }
+  if (String(normalizedDocType || "").trim().toLowerCase() === "be" && !normalized.date) {
+    normalized.date = String(safeMeta.date || "").trim();
+  }
+  return normalized;
+};
+
+const serializeOptionalJsonValue = (value) => {
+  if (value === undefined || value === null) return null;
+  if (Array.isArray(value) && !value.length) return null;
+  if (value && typeof value === "object" && !Array.isArray(value) && !Object.keys(value).length) {
+    return null;
+  }
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return null;
+  }
+};
+
+const parseOptionalJsonValue = (value, { expect = "" } = {}) => {
+  if (value === null || value === undefined) return null;
+  const text = String(value).trim();
+  if (!text) return null;
+  try {
+    const parsed = JSON.parse(text);
+    if (expect === "array") return Array.isArray(parsed) ? parsed : null;
+    if (expect === "object") return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
+    return parsed;
+  } catch {
+    return null;
+  }
+};
+
 const normalizeDocumentPayload = (payload = {}, { docType = "" } = {}) => {
   const data = payload && typeof payload === "object" ? payload : {};
   const company = data.company && typeof data.company === "object" ? data.company : {};
@@ -1670,6 +1940,15 @@ const normalizeDocumentPayload = (payload = {}, { docType = "" } = {}) => {
   const pdf = extras.pdf && typeof extras.pdf === "object" ? extras.pdf : {};
   const addForm = meta.addForm && typeof meta.addForm === "object" ? meta.addForm : {};
   const addFormFodec = addForm.fodec && typeof addForm.fodec === "object" ? addForm.fodec : {};
+  const beReception = normalizeBonEntreeReceptionMetaForStorage(meta, normalizedDocType);
+  const beSourceSelection =
+    beReception.sourceSelection && typeof beReception.sourceSelection === "object"
+      ? beReception.sourceSelection
+      : null;
+  const beSourcePrimary = Array.isArray(beSourceSelection?.items) ? beSourceSelection.items[0] || null : null;
+  const beSourceDocType = normalizeBeReceptionSourceDocType(
+    beSourceSelection?.docType || beSourcePrimary?.docType || ""
+  );
   const columns = meta.columns && typeof meta.columns === "object" ? meta.columns : {};
   const modelColumns =
     meta.modelColumns && typeof meta.modelColumns === "object" ? meta.modelColumns : {};
@@ -1760,6 +2039,9 @@ const normalizeDocumentPayload = (payload = {}, { docType = "" } = {}) => {
     meta_pdf_show_amount_words: normalizeOptionalBool(pdf.showAmountWords),
     meta_pdf_footer_note: normalizeOptionalText(pdf.footerNote),
     meta_pdf_footer_note_size: normalizeOptionalNumber(pdf.footerNoteSize),
+    meta_pdf_be_remarks: normalizeOptionalText(pdf.beRemarks),
+    meta_pdf_be_remarks_size: normalizeOptionalNumber(pdf.beRemarksSize),
+    meta_pdf_be_remarks_touched: normalizeOptionalBool(pdf.beRemarksTouched),
     meta_taxes_enabled: normalizeOptionalBool(meta.taxesEnabled),
     meta_note_interne: normalizeOptionalText(meta.noteInterne),
     meta_reglement_enabled: normalizeOptionalBool(meta.reglementEnabled ?? reglement.enabled),
@@ -1806,6 +2088,25 @@ const normalizeDocumentPayload = (payload = {}, { docType = "" } = {}) => {
     meta_add_form_fodec_tva: normalizeOptionalNumber(addFormFodec.tva),
     meta_add_form_purchase_tva: normalizeOptionalNumber(addForm.purchaseTva),
     meta_add_form_tva: normalizeOptionalNumber(addForm.tva),
+    meta_be_reception_depot: normalizeOptionalText(beReception.depot),
+    meta_be_reception_depot_id: normalizeOptionalText(beReception.depotId),
+    meta_be_reception_destination: normalizeOptionalText(beReception.destination),
+    meta_be_reception_destination_id: normalizeOptionalText(beReception.destinationId),
+    meta_be_reception_destination_ids_json: serializeOptionalJsonValue(beReception.destinationIds),
+    meta_be_reception_destination_labels_json: serializeOptionalJsonValue(beReception.destinationLabels),
+    meta_be_reception_date: normalizeOptionalText(beReception.date),
+    meta_be_reception_time: normalizeOptionalText(beReception.time),
+    meta_be_reception_source_ref: normalizeOptionalText(beReception.sourceRef),
+    meta_be_reception_source_doc_type: normalizeOptionalText(beSourceDocType),
+    meta_be_reception_source_doc_id: normalizeOptionalText(beSourcePrimary?.id),
+    meta_be_reception_source_doc_key: normalizeOptionalText(beSourcePrimary?.key),
+    meta_be_reception_source_doc_number: normalizeOptionalText(beSourcePrimary?.number),
+    meta_be_reception_source_doc_label: normalizeOptionalText(beSourcePrimary?.displayName),
+    meta_be_reception_source_doc_path: normalizeOptionalText(beSourcePrimary?.path),
+    meta_be_reception_source_selection_json: serializeOptionalJsonValue(beSourceSelection),
+    meta_be_reception_source_imported_keys_json: serializeOptionalJsonValue(
+      normalizeBeReceptionImportedSourceKeys(beReception.importedSourceKeys, beSourceSelection)
+    ),
     meta_col_ref: normalizeOptionalBool(normalizedColumns.ref),
     meta_col_product: normalizeOptionalBool(normalizedColumns.product),
     meta_col_desc: normalizeOptionalBool(normalizedColumns.desc),
@@ -1966,6 +2267,52 @@ const buildDocumentPayloadFromRow = (row = {}, items = [], taxRows = []) => {
     address: readTextValue(row.client_address),
   };
   const normalizedDocType = normalizeDocType(readTextValue(row.meta_doc_type || row.doc_type));
+  const beSourceSelectionJson = parseOptionalJsonValue(row.meta_be_reception_source_selection_json, {
+    expect: "object"
+  });
+  const beSourceSelectionFromJson = normalizeBeReceptionSourceSelection(beSourceSelectionJson);
+  const beSourceDocType = normalizeBeReceptionSourceDocType(readTextValue(row.meta_be_reception_source_doc_type));
+  const beSourceDocId = readTextValue(row.meta_be_reception_source_doc_id);
+  const beSourceDocKey = readTextValue(row.meta_be_reception_source_doc_key);
+  const beSourceDocNumber = readTextValue(row.meta_be_reception_source_doc_number);
+  const beSourceDocLabel = readTextValue(row.meta_be_reception_source_doc_label);
+  const beSourceDocPath = readTextValue(row.meta_be_reception_source_doc_path);
+  const hasBeSourceMetadata = !!(
+    beSourceDocType ||
+    beSourceDocId ||
+    beSourceDocKey ||
+    beSourceDocNumber ||
+    beSourceDocLabel ||
+    beSourceDocPath
+  );
+  const beSourceSelectionFromColumns = hasBeSourceMetadata
+    ? normalizeBeReceptionSourceSelection({
+        docType: beSourceDocType || "",
+        items: [
+          {
+            key: beSourceDocKey,
+            id: beSourceDocId,
+            number: beSourceDocNumber,
+            displayName: beSourceDocLabel,
+            path: beSourceDocPath,
+            docType: beSourceDocType || ""
+          }
+        ]
+      })
+    : null;
+  const beSourceSelection = beSourceSelectionFromJson || beSourceSelectionFromColumns || null;
+  const beDestinationIds = normalizeBeReceptionDestinationIds(
+    parseOptionalJsonValue(row.meta_be_reception_destination_ids_json, { expect: "array" }) ??
+      readTextValue(row.meta_be_reception_destination_id) ??
+      []
+  );
+  const beDestinationLabels = normalizeBeReceptionDestinationLabels(
+    parseOptionalJsonValue(row.meta_be_reception_destination_labels_json, { expect: "array" }) || []
+  );
+  const beImportedSourceKeys = normalizeBeReceptionImportedSourceKeys(
+    parseOptionalJsonValue(row.meta_be_reception_source_imported_keys_json, { expect: "array" }),
+    beSourceSelection
+  );
   const rawColumns = {
     ref: readBoolValue(row.meta_col_ref),
     product: readBoolValue(row.meta_col_product),
@@ -2106,7 +2453,10 @@ const buildDocumentPayloadFromRow = (row = {}, items = [], taxRows = []) => {
         showSignature: readBoolValue(row.meta_pdf_show_signature),
         showAmountWords: readBoolValue(row.meta_pdf_show_amount_words),
         footerNote: readTextValue(row.meta_pdf_footer_note),
-        footerNoteSize: readNumberValue(row.meta_pdf_footer_note_size)
+        footerNoteSize: readNumberValue(row.meta_pdf_footer_note_size),
+        beRemarks: readTextValue(row.meta_pdf_be_remarks),
+        beRemarksSize: readNumberValue(row.meta_pdf_be_remarks_size),
+        beRemarksTouched: readBoolValue(row.meta_pdf_be_remarks_touched)
       }
     },
     addForm: {
@@ -2120,6 +2470,59 @@ const buildDocumentPayloadFromRow = (row = {}, items = [], taxRows = []) => {
       }
     }
   };
+  const beReception = {
+    depot: readTextValue(row.meta_be_reception_depot),
+    depotId: normalizeBeReceptionDepotId(readTextValue(row.meta_be_reception_depot_id)),
+    destination: readTextValue(row.meta_be_reception_destination),
+    destinationId: normalizeBeReceptionLocationId(
+      readTextValue(row.meta_be_reception_destination_id) || beDestinationIds[0] || ""
+    ),
+    destinationIds: beDestinationIds,
+    destinationLabels: beDestinationLabels,
+    date: readTextValue(row.meta_be_reception_date),
+    time: readTextValue(row.meta_be_reception_time),
+    sourceRef: readTextValue(row.meta_be_reception_source_ref),
+    sourceSelection: beSourceSelection,
+    importedSourceKeys: beImportedSourceKeys
+  };
+  if (!beReception.sourceRef && beReception.sourceSelection) {
+    beReception.sourceRef = formatBeReceptionSourceSelectionText(beReception.sourceSelection);
+  }
+  if (beReception.destinationLabels.length && !beReception.destination) {
+    beReception.destination = formatBeReceptionDestinationText(beReception.destinationLabels);
+  }
+  if (beReception.destination && !beReception.destinationLabels.length) {
+    beReception.destinationLabels = normalizeBeReceptionDestinationLabels(beReception.destination);
+  }
+  if (normalizedDocType === "be" && !beReception.date) {
+    beReception.date = readTextValue(row.meta_date);
+  }
+  const hasBeReceptionData = !!(
+    beReception.depot ||
+    beReception.depotId ||
+    beReception.destination ||
+    beReception.destinationId ||
+    beReception.destinationIds.length ||
+    beReception.destinationLabels.length ||
+    beReception.date ||
+    beReception.time ||
+    beReception.sourceRef ||
+    beReception.sourceSelection ||
+    beReception.importedSourceKeys.length
+  );
+  if (normalizedDocType === "be" || hasBeReceptionData) {
+    meta.beReception = beReception;
+    meta.beReceptionDepot = beReception.depot;
+    meta.beReceptionDepotId = beReception.depotId;
+    meta.beReceptionDestination = beReception.destination;
+    meta.beReceptionDestinationId = beReception.destinationId;
+    meta.beReceptionDestinationIds = [...beReception.destinationIds];
+    meta.beReceptionDate = beReception.date;
+    meta.beReceptionTime = beReception.time;
+    meta.beSourceRef = beReception.sourceRef;
+    meta.beSourceSelection = beReception.sourceSelection;
+    meta.beSourceImportedKeys = [...beReception.importedSourceKeys];
+  }
   if (hasAnyValue(rawColumns)) {
     meta.columns = columns;
     meta.modelColumns = { ...columns };

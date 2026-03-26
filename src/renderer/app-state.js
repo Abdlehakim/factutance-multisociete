@@ -1156,9 +1156,31 @@
     const t  = ex.stamp    || (ex.stamp    = {});
     const d  = ex.dossier  || (ex.dossier  = {});
     const p  = ex.deplacement || (ex.deplacement = {});
+    const pdf = ex.pdf && typeof ex.pdf === "object" ? ex.pdf : (ex.pdf = {});
     const addForm = st.meta.addForm || (st.meta.addForm = {});
     const f  = addForm.fodec || (addForm.fodec = { enabled:false, label:"FODEC", rate:1, tva:19 });
     const pf = addForm.purchaseFodec || (addForm.purchaseFodec = { enabled:false, label:"FODEC ACHAT", rate:1, tva:19 });
+
+    const beRemarksCandidates = [];
+    if (typeof document !== "undefined" && document.querySelectorAll) {
+      document.querySelectorAll("#beRemarks").forEach((el) => {
+        const val = (el && typeof el.value === "string") ? el.value.trim() : "";
+        if (val) beRemarksCandidates.push(val);
+      });
+    }
+    const beRemarksValue = beRemarksCandidates[0] || getStr("beRemarks", pdf.beRemarks ?? "");
+    const beRemarksSizeRaw = getStr("beRemarksFontSize", pdf.beRemarksSize ?? 12);
+    const beRemarksSizeNum = Number.parseInt(beRemarksSizeRaw, 10);
+    const beRemarksSize = Number.isFinite(beRemarksSizeNum) ? beRemarksSizeNum : 12;
+    pdf.beRemarks = beRemarksValue;
+    pdf.beRemarksSize = beRemarksSize;
+    if (typeof pdf.beRemarksTouched !== "boolean") {
+      const remarksText = String(beRemarksValue || "")
+        .replace(/<br\s*\/?>/gi, " ")
+        .replace(/<[^>]*>/g, "")
+        .trim();
+      pdf.beRemarksTouched = !!remarksText;
+    }
 
     s.enabled = !!getEl("shipEnabled")?.checked;
     s.label   = getStr("shipLabel", s.label || "Frais de livraison");
