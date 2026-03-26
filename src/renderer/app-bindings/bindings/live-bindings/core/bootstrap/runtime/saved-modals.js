@@ -238,6 +238,20 @@
             if (clientSavedModal.id !== nextId) {
               clientSavedModal.id = nextId;
             }
+            clientSavedModal.dataset.clientEntityType = entityType;
+          };
+          buildClientSavedModalPopoverContext = (entityType = clientSavedModalEntityType) => {
+            if (!clientSavedModal) return null;
+            const popoverSelector =
+              entityType === "transporter"
+                ? "#transporteurFormPopover"
+                : entityType === "vendor"
+                  ? "#fournisseurFormPopover"
+                  : "#clientFormPopover";
+            const popover = clientSavedModal.querySelector(popoverSelector);
+            if (!popover) return null;
+            const toggle = clientSavedModal.querySelector("#clientFormToggleBtn");
+            return { scope: clientSavedModal, popover, toggle };
           };
           setClientSavedModalPopoverIds = (entityType) => {
             if (!clientSavedModal) return;
@@ -2945,7 +2959,7 @@
                 const modalScope = clientSavedModal?.querySelector?.(modalPopoverSelector) ? clientSavedModal : null;
                 if (modalScope) {
                   loadClientRecordIntoForm(selected, { formScope: modalScope });
-                  const ctx = SEM.getClientFormPopoverContext?.(modalScope);
+                  const ctx = buildClientSavedModalPopoverContext(modalEntityType);
                   if (ctx) {
                     SEM.setClientFormPopoverMode?.(ctx, "view");
                     setTimeout(() => SEM.setClientFormPopoverOpen?.(ctx, true), 0);
@@ -2970,7 +2984,7 @@
                 const modalScope = clientSavedModal?.querySelector?.(modalPopoverSelector) ? clientSavedModal : null;
                 if (modalScope) {
                   loadClientRecordIntoForm(selected, { formScope: modalScope });
-                  const ctx = SEM.getClientFormPopoverContext?.(modalScope);
+                  const ctx = buildClientSavedModalPopoverContext(modalEntityType);
                   if (ctx) {
                     SEM.setClientFormPopoverMode?.(ctx, "edit");
                     setTimeout(() => SEM.setClientFormPopoverOpen?.(ctx, true), 0);
