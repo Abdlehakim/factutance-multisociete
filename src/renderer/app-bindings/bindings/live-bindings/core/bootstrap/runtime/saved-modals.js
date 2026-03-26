@@ -3047,6 +3047,137 @@
               }
             });
           }
+          const normalizeSavedModalEntityType = (value) => {
+            const raw = String(value || "").trim().toLowerCase();
+            if (raw === "vendor" || raw === "fournisseur") return "vendor";
+            if (raw === "transporter" || raw === "transporteur") return "transporter";
+            return "client";
+          };
+          const normalizeSavedModalMatchValue = (value) =>
+            String(value || "")
+              .trim()
+              .toLowerCase()
+              .replace(/\s+/g, " ");
+          const resolveSavedModalEntryPath = (entry = {}) =>
+            String(
+              entry.path ||
+                entry.clientPath ||
+                entry.__path ||
+                entry?.client?.__path ||
+                entry?.client?.path ||
+                ""
+            ).trim();
+          const patchClientSavedModalEntryFromMutation = (detail = {}) => {
+            if (!Array.isArray(clientSavedModalState?.items) || !clientSavedModalState.items.length) return false;
+            const snapshot = detail?.snapshot && typeof detail.snapshot === "object" ? detail.snapshot : {};
+            const expectedEntityType = normalizeSavedModalEntityType(
+              detail?.entityType || clientSavedModalEntityType
+            );
+            const nextPath = String(detail?.path || snapshot.__path || "").trim();
+            const normalizedName = normalizeSavedModalMatchValue(snapshot?.name);
+            const normalizedVat = normalizeSavedModalMatchValue(
+              snapshot?.vat ||
+                snapshot?.mf ||
+                snapshot?.identifiantFiscal ||
+                snapshot?.identifiant ||
+                snapshot?.tva ||
+                snapshot?.nif
+            );
+            const targetIndex = clientSavedModalState.items.findIndex((entry) => {
+              const entryEntityType = normalizeSavedModalEntityType(
+                entry?.entityType || clientSavedModalEntityType
+              );
+              if (entryEntityType !== expectedEntityType) return false;
+              if (nextPath) {
+                const entryPath = resolveSavedModalEntryPath(entry);
+                if (entryPath && entryPath === nextPath) return true;
+              }
+              const entryName = normalizeSavedModalMatchValue(entry?.name || entry?.client?.name);
+              if (!entryName || !normalizedName || entryName !== normalizedName) return false;
+              if (!normalizedVat) return true;
+              const entryVat = normalizeSavedModalMatchValue(
+                entry?.vat ||
+                  entry?.mf ||
+                  entry?.client?.vat ||
+                  entry?.client?.mf ||
+                  entry?.identifiantFiscal ||
+                  entry?.identifiant ||
+                  entry?.tva ||
+                  entry?.nif
+              );
+              return !entryVat || entryVat === normalizedVat;
+            });
+            if (targetIndex < 0) return false;
+            const current = clientSavedModalState.items[targetIndex] || {};
+            const currentClient = current.client && typeof current.client === "object" ? current.client : {};
+            const mergedClient = { ...currentClient, ...snapshot };
+            if (nextPath) mergedClient.__path = nextPath;
+            const mergedEntry = {
+              ...current,
+              ...snapshot,
+              entityType: expectedEntityType,
+              client: mergedClient
+            };
+            if (nextPath) {
+              mergedEntry.path = nextPath;
+              mergedEntry.clientPath = nextPath;
+              mergedEntry.__path = nextPath;
+            }
+            clientSavedModalState.items[targetIndex] = mergedEntry;
+            return true;
+          };
+          const refreshClientSavedModalAfterExternalMutation = async (detail = {}) => {
+            if (!isClientSavedModalOpen()) return;
+            const modalEntityType = normalizeSavedModalEntityType(
+              resolveClientEntityType(clientSavedModal) || clientSavedModalEntityType
+            );
+            const eventEntityType = normalizeSavedModalEntityType(
+              detail?.entityType || modalEntityType
+            );
+            if (eventEntityType !== modalEntityType) return;
+            if (clientSavedModalState?.loading) {
+              const retryCount = Number(detail?.__refreshRetry || 0);
+              if (retryCount < 3) {
+                setTimeout(() => {
+                  refreshClientSavedModalAfterExternalMutation({
+                    ...detail,
+                    __refreshRetry: retryCount + 1
+                  }).catch((err) => {
+                    console.error("client saved modal external refresh retry", err);
+                  });
+                }, 120);
+              }
+              return;
+            }
+            const listEl =
+              clientSavedModal?.querySelector?.("#clientSavedModalList") ||
+              document.getElementById("clientSavedModalList");
+            const previousScrollTop = listEl && Number.isFinite(listEl.scrollTop) ? listEl.scrollTop : 0;
+            const patched = patchClientSavedModalEntryFromMutation(detail);
+            if (patched) {
+              renderClientSavedModal();
+              if (listEl && Number.isFinite(previousScrollTop)) {
+                listEl.scrollTop = previousScrollTop;
+              }
+            }
+            clientSavedModalState.query = (clientSavedSearchInput?.value || "").trim();
+            const targetPage = Math.max(1, Number(clientSavedModalState.page) || 1);
+            await fetchSavedClientsPage(targetPage);
+            if (listEl && Number.isFinite(previousScrollTop)) {
+              listEl.scrollTop = previousScrollTop;
+            }
+          };
+          if (!SEM._clientSavedModalEntityUpdatedHandler) {
+            SEM._clientSavedModalEntityUpdatedHandler = (evt) => {
+              refreshClientSavedModalAfterExternalMutation(evt?.detail || {}).catch((err) => {
+                console.error("client saved modal external refresh", err);
+              });
+            };
+            w.addEventListener(
+              "client-saved-modal-entity-updated",
+              SEM._clientSavedModalEntityUpdatedHandler
+            );
+          }
 
           renderArticleSavedModal = () => {
             if (!articleSavedModalList) return;

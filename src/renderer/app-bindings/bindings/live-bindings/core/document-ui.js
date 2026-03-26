@@ -1976,6 +1976,19 @@
                 scopeHint || button.closest(CLIENT_SCOPE_WITH_ROOT_SELECTOR) || null
               );
             };
+            const emitSavedClientModalRefreshEvent = ({ entityType = "client", snapshot = {}, path = "" } = {}) => {
+              try {
+                w.dispatchEvent(
+                  new CustomEvent("client-saved-modal-entity-updated", {
+                    detail: {
+                      entityType,
+                      path: String(path || snapshot?.__path || "").trim(),
+                      snapshot: snapshot && typeof snapshot === "object" ? { ...snapshot } : {}
+                    }
+                  })
+                );
+              } catch {}
+            };
 
             const handleSaveClientClick = async (evt) => {
               const trigger = evt.target?.closest?.("#btnSaveClient, #btnSaveFournisseur, #btnSaveTransporteur");
@@ -2097,11 +2110,11 @@
                     formScope.setAttribute("aria-hidden", "true");
                     resetClientFormPopoverFields(formScope);
                   }
-                  if (clientSavedModal?.classList.contains("is-open")) {
-                    clientSavedModalState.query = (clientSavedSearchInput?.value || "").trim();
-                    const targetPage = Math.max(1, clientSavedModalState.page || 1);
-                    fetchSavedClientsPage(targetPage);
-                  }
+                  emitSavedClientModalRefreshEvent({
+                    entityType,
+                    snapshot: client,
+                    path: client.__path || resolvedPath
+                  });
                   const successMessage = getEntitySaveSuccessMessage(entityType);
                   if (typeof w.showToast === "function") {
                     w.showToast(successMessage.text);
@@ -2212,11 +2225,11 @@
                   }
                   const formCtx = getClientFormPopoverContext(formScope);
                   if (formCtx) setClientFormPopoverOpen(formCtx, false);
-                  if (clientSavedModal?.classList.contains("is-open")) {
-                    clientSavedModalState.query = (clientSavedSearchInput?.value || "").trim();
-                    const targetPage = Math.max(1, clientSavedModalState.page || 1);
-                    fetchSavedClientsPage(targetPage);
-                  }
+                  emitSavedClientModalRefreshEvent({
+                    entityType,
+                    snapshot: client,
+                    path: resolvedPath
+                  });
                   const updateSuccess = getEntityUpdateSuccessMessage(entityType);
                   await showDialog?.(updateSuccess.text, { title: updateSuccess.title });
                 } else if (!res?.canceled) {
