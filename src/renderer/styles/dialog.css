@@ -227,9 +227,22 @@
   margin-bottom: 0;
 }
 
+.be-reception-source-type-dialog__options {
+  width: min(480px, 97%);
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
+}
+
+.be-reception-source-type-dialog__message {
+  margin: 0;
+}
+
 @media (max-width: 720px) {
   .swbDialog__options {
     grid-template-columns: repeat(2, minmax(120px, 1fr));
+  }
+
+  .be-reception-source-type-dialog__options {
+    grid-template-columns: 1fr;
   }
 }
 

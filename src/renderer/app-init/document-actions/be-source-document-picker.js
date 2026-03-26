@@ -2,6 +2,12 @@
   const AppInit = (w.AppInit = w.AppInit || {});
   const getEl = w.getEl || ((id) => document.getElementById(id));
 
+  const SOURCE_TYPE_DIALOG_ID = "beReceptionSourcePickerDialog";
+  const SOURCE_TYPE_DIALOG_TITLE_ID = "beReceptionSourcePickerDialogTitle";
+  const SOURCE_TYPE_DIALOG_MESSAGE_ID = "beReceptionSourcePickerDialogMessage";
+  const SOURCE_TYPE_DIALOG_OPTIONS_ID = "beReceptionSourcePickerDialogOptions";
+  const SOURCE_TYPE_DIALOG_CLOSE_ID = "beReceptionSourcePickerDialogClose";
+  const SOURCE_TYPE_DIALOG_CANCEL_ID = "beReceptionSourcePickerDialogCancel";
   const MODAL_ID = "beSourceDocumentPickerModal";
   const TITLE_ID = "beSourceDocumentPickerTitle";
   const GRID_ID = "beSourceDocumentPickerGrid";
@@ -33,11 +39,6 @@
   const DEFAULT_DOC_TYPE_CHOICES = [
     { docType: "fa", label: DOC_TYPE_LABELS.fa },
     { docType: "bc", label: DOC_TYPE_LABELS.bc }
-  ];
-  const SOURCE_DOC_TYPE_CHOICE_ROW_VALUES = [
-    ["devis", "facture", "bl", "bc"],
-    ["fa", "bc", "be", "bs"],
-    ["avoir"]
   ];
 
   const CLOSE_ICON_SVG = `
@@ -96,48 +97,6 @@
       out.push({ docType, label });
     });
     return out.length ? out : DEFAULT_DOC_TYPE_CHOICES.slice();
-  };
-
-  const buildDialogDocTypeChoiceLayout = (choices) => {
-    const choiceList = Array.isArray(choices) ? choices.filter(Boolean) : [];
-    if (!choiceList.length) {
-      return {
-        orderedChoices: DEFAULT_DOC_TYPE_CHOICES.slice(),
-        choiceRows: [DEFAULT_DOC_TYPE_CHOICES.slice()]
-      };
-    }
-    const choiceByDocType = new Map();
-    choiceList.forEach((entry) => {
-      const docType = normalizeDocType(entry?.docType || entry?.value || entry, "");
-      if (!docType || choiceByDocType.has(docType)) return;
-      choiceByDocType.set(docType, entry);
-    });
-    const orderedChoices = [];
-    const choiceRows = [];
-    SOURCE_DOC_TYPE_CHOICE_ROW_VALUES.forEach((rowValues) => {
-      const rowChoices = rowValues
-        .map((docType) => choiceByDocType.get(normalizeDocType(docType, "")))
-        .filter(Boolean);
-      if (!rowChoices.length) return;
-      orderedChoices.push(...rowChoices);
-      choiceRows.push(rowChoices.map((entry) => entry.docType));
-    });
-    const remainingChoices = choiceList.filter((entry) => {
-      const docType = normalizeDocType(entry?.docType || entry?.value || entry, "");
-      if (!docType) return false;
-      return !SOURCE_DOC_TYPE_CHOICE_ROW_VALUES.some((rowValues) => rowValues.includes(docType));
-    });
-    if (remainingChoices.length) {
-      orderedChoices.push(...remainingChoices);
-      choiceRows.push(remainingChoices.map((entry) => entry.docType));
-    }
-    if (!orderedChoices.length) {
-      return {
-        orderedChoices: choiceList.slice(),
-        choiceRows: [choiceList.map((entry) => entry.docType)]
-      };
-    }
-    return { orderedChoices, choiceRows };
   };
 
   const extractDocumentLabel = (value) => {
@@ -263,6 +222,150 @@
       if (batch.length < FETCH_LIMIT) break;
     }
     return { ok: true, items };
+  };
+
+  const buildSourceTypeDialogMarkup = () => `
+    <div id="${SOURCE_TYPE_DIALOG_ID}" class="swbDialog be-reception-source-type-dialog" hidden aria-hidden="true">
+      <div class="swbDialog__panel be-reception-source-type-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="${SOURCE_TYPE_DIALOG_TITLE_ID}" aria-describedby="${SOURCE_TYPE_DIALOG_MESSAGE_ID}">
+        <div class="swbDialog__header">
+          <div id="${SOURCE_TYPE_DIALOG_TITLE_ID}" class="swbDialog__title">Selectionner un document</div>
+          <button id="${SOURCE_TYPE_DIALOG_CLOSE_ID}" type="button" class="swbDialog__close" aria-label="Fermer">
+            ${CLOSE_ICON_SVG}
+          </button>
+        </div>
+        <div class="swbDialog__msg be-reception-source-type-dialog__body">
+          <p id="${SOURCE_TYPE_DIALOG_MESSAGE_ID}" class="be-reception-source-type-dialog__message">
+            Choisissez le type de document source :
+          </p>
+          <div id="${SOURCE_TYPE_DIALOG_OPTIONS_ID}" class="swbDialog__options be-reception-source-type-dialog__options" role="group" aria-labelledby="${SOURCE_TYPE_DIALOG_TITLE_ID}"></div>
+        </div>
+        <div class="swbDialog__actions">
+          <div class="swbDialog__group swbDialog__group--left">
+            <button id="${SOURCE_TYPE_DIALOG_CANCEL_ID}" type="button" class="swbDialog__cancel">Annuler</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const ensureSourceTypeDialog = () => {
+    let modal = getEl(SOURCE_TYPE_DIALOG_ID);
+    if (modal) return modal;
+    const template = document.createElement("template");
+    template.innerHTML = buildSourceTypeDialogMarkup().trim();
+    modal = template.content.firstElementChild;
+    document.body.appendChild(modal);
+    return modal;
+  };
+
+  let sourceTypeDialogController = null;
+
+  const createSourceTypeDialogController = () => {
+    if (sourceTypeDialogController) return sourceTypeDialogController;
+    const modal = ensureSourceTypeDialog();
+    if (!modal) return null;
+
+    const titleEl = modal.querySelector(`#${SOURCE_TYPE_DIALOG_TITLE_ID}`);
+    const messageEl = modal.querySelector(`#${SOURCE_TYPE_DIALOG_MESSAGE_ID}`);
+    const optionsEl = modal.querySelector(`#${SOURCE_TYPE_DIALOG_OPTIONS_ID}`);
+    const closeBtn = modal.querySelector(`#${SOURCE_TYPE_DIALOG_CLOSE_ID}`);
+    const cancelBtn = modal.querySelector(`#${SOURCE_TYPE_DIALOG_CANCEL_ID}`);
+
+    let resolveSelection = null;
+    let restoreFocusTarget = null;
+
+    const closeDialog = (value = "") => {
+      if (typeof resolveSelection !== "function") return;
+      const resolve = resolveSelection;
+      resolveSelection = null;
+      modal.classList.remove("is-open");
+      modal.hidden = true;
+      modal.setAttribute("hidden", "");
+      modal.setAttribute("aria-hidden", "true");
+      optionsEl?.replaceChildren();
+      if (restoreFocusTarget && typeof restoreFocusTarget.focus === "function") {
+        try {
+          restoreFocusTarget.focus();
+        } catch {}
+      }
+      restoreFocusTarget = null;
+      resolve(value);
+    };
+
+    const renderChoices = (choices, fallbackDocType) => {
+      if (!optionsEl) return;
+      optionsEl.replaceChildren();
+      const choiceList = Array.isArray(choices) && choices.length ? choices : DEFAULT_DOC_TYPE_CHOICES;
+      const preferredDocType = normalizeDocType(fallbackDocType || choiceList[0]?.docType || "fa", "fa");
+      let preferredButton = null;
+      choiceList.forEach((entry) => {
+        const docType = normalizeDocType(entry?.docType || entry?.value || entry, "");
+        if (!docType) return;
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "btn better-style-v2";
+        button.dataset.docType = docType;
+        button.textContent = String(entry?.label || DOC_TYPE_LABELS[docType] || docType).trim() || DOC_TYPE_LABELS[docType];
+        if (docType === preferredDocType && !preferredButton) {
+          preferredButton = button;
+        }
+        button.addEventListener("click", () => {
+          closeDialog(docType);
+        });
+        optionsEl.appendChild(button);
+      });
+      const focusTarget = preferredButton || optionsEl.querySelector("button");
+      if (focusTarget && typeof focusTarget.focus === "function") {
+        setTimeout(() => {
+          try {
+            focusTarget.focus({ preventScroll: true });
+          } catch {
+            focusTarget.focus();
+          }
+        }, 0);
+      }
+    };
+
+    closeBtn?.addEventListener("click", () => closeDialog(""));
+    cancelBtn?.addEventListener("click", () => closeDialog(""));
+    modal.addEventListener("click", (evt) => {
+      if (evt.target === modal) evt.stopPropagation();
+    });
+    document.addEventListener("keydown", (evt) => {
+      if (modal.hidden || modal.getAttribute("aria-hidden") === "true") return;
+      if (evt.key !== "Escape") return;
+      evt.preventDefault();
+      evt.stopPropagation();
+      closeDialog("");
+    });
+
+    sourceTypeDialogController = {
+      open: ({ choices, fallbackDocType, title, message, trigger } = {}) =>
+        new Promise((resolve) => {
+          if (typeof resolveSelection === "function") {
+            const previousResolve = resolveSelection;
+            resolveSelection = null;
+            previousResolve("");
+          }
+          resolveSelection = resolve;
+          restoreFocusTarget = trigger || document.activeElement;
+          if (titleEl) {
+            titleEl.textContent = String(title || "Selectionner un document").trim() || "Selectionner un document";
+          }
+          if (messageEl) {
+            messageEl.textContent =
+              String(message || "Choisissez le type de document source :").trim() ||
+              "Choisissez le type de document source :";
+          }
+          renderChoices(toDocTypeChoices(choices), fallbackDocType);
+          modal.hidden = false;
+          modal.removeAttribute("hidden");
+          modal.setAttribute("aria-hidden", "false");
+          modal.classList.add("is-open");
+        })
+    };
+
+    return sourceTypeDialogController;
   };
 
   const buildModalMarkup = () => `
@@ -1031,34 +1134,29 @@
     choices,
     fallbackDocType,
     title = "Selectionner un document",
-    message = "Choisissez le type de document source :"
+    message = "Choisissez le type de document source :",
+    trigger = null
   }) => {
     const normalizedChoices = toDocTypeChoices(choices);
-    const { orderedChoices, choiceRows } = buildDialogDocTypeChoiceLayout(normalizedChoices);
     const fallback = normalizeDocType(fallbackDocType || normalizedChoices[0]?.docType || "fa", "fa");
-    if (typeof w.showOptionsDialog !== "function") {
+    const controller = createSourceTypeDialogController();
+    if (!controller || typeof controller.open !== "function") {
       return fallback;
     }
-    const initialChoice = orderedChoices.findIndex((entry) => entry.docType === fallback);
-    let pickedIndex = null;
+    let pickedDocType = "";
     try {
-      pickedIndex = await w.showOptionsDialog({
+      pickedDocType = await controller.open({
+        choices: normalizedChoices,
+        fallbackDocType: fallback,
         title,
-        message,
-        options: orderedChoices.map((entry) => ({
-          label: entry.label,
-          value: entry.docType
-        })),
-        choiceRows,
-        initialChoice: initialChoice >= 0 ? initialChoice : 0
+        message
       });
     } catch (err) {
       console.warn("be source document chooser failed", err);
       return fallback;
     }
-    if (pickedIndex === null || pickedIndex === undefined) return "";
-    const picked = orderedChoices[Number(pickedIndex)] || orderedChoices[0] || normalizedChoices[0];
-    return normalizeDocType(picked?.docType || fallback, fallback);
+    if (!pickedDocType) return "";
+    return normalizeDocType(pickedDocType || fallback, fallback);
   };
 
   const openSourceDocumentPicker = async (trigger = null, options = {}) => {
@@ -1077,7 +1175,8 @@
           choices,
           fallbackDocType,
           title: options.sourceChooserTitle || "Selectionner un document",
-          message: options.sourceChooserMessage || "Choisissez le type de document source :"
+          message: options.sourceChooserMessage || "Choisissez le type de document source :",
+          trigger
         });
     if (!pickedDocType) return { ok: false, canceled: true };
     const controller = createModalController();
