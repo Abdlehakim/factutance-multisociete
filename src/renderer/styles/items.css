@@ -995,6 +995,62 @@
   justify-content: center;
 }
 
+#itemsDocOptionsModal #items tbody td.add-actions {
+  min-width: 236px;
+  max-width: 236px;
+}
+
+#itemsDocOptionsModal #items tbody td.add-actions .actions-stack {
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  max-width: none;
+  width: 100%;
+}
+
+#itemsDocOptionsModal #items tbody td.add-actions .qty-controls {
+  flex: 0 0 auto;
+  width: auto;
+  justify-content: flex-start;
+}
+
+#itemsDocOptionsModal #items tbody td.add-actions .action-buttons {
+  flex: 0 0 auto;
+  width: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#itemsDocOptionsModal #items tbody td.add-actions .action-buttons > * {
+  flex: 0 0 auto;
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  padding: 0;
+  gap: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#itemsDocOptionsModal #items tbody td.add-actions .action-buttons .sel svg,
+#itemsDocOptionsModal #items tbody td.add-actions .action-buttons .del svg {
+  width: 14px;
+  height: 14px;
+  display: block;
+  pointer-events: none;
+}
+
+@media (max-width: 1200px) {
+  #itemsDocOptionsModal #items tbody td.add-actions {
+    min-width: 210px;
+    max-width: 210px;
+  }
+}
+
 #items tbody .cell-unit {
   text-align: center;
   white-space: nowrap;

@@ -1813,36 +1813,71 @@
     const amountWordsHost = getItemsScopedEl("itemsAmountWordsBlock");
     const summaryNoteHost = getItemsScopedEl("itemsSummaryNoteBlock");
     const footerNoteHost = getItemsScopedEl("itemsFooterNote");
+    const footerHost = getItemsScopedEl("itemsFooter");
     const sealOverlay = getItemsScopedEl("itemsSealOverlay");
     const sealImg = getItemsScopedEl("itemsSealImg");
     const signatureOverlay = getItemsScopedEl("itemsSignatureOverlay");
     const signatureImg = getItemsScopedEl("itemsSignatureImg");
-    if (!amountWordsHost && !summaryNoteHost && !footerNoteHost && !sealOverlay && !signatureOverlay) return;
+    const beBottomHost = getItemsScopedEl("itemsBeBottomBlock");
+    const beRemarksSection = getItemsScopedEl("itemsBeRemarksBlock");
+    const beRemarksHost = getItemsScopedEl("itemsBeRemarks");
+    const beApprovalsHost = getItemsScopedEl("itemsBeApprovals");
+    if (
+      !amountWordsHost &&
+      !summaryNoteHost &&
+      !footerNoteHost &&
+      !footerHost &&
+      !sealOverlay &&
+      !signatureOverlay &&
+      !beBottomHost &&
+      !beRemarksHost &&
+      !beApprovalsHost
+    ) {
+      return;
+    }
 
     const st = state();
     const meta = st?.meta || {};
     const ex = meta?.extras && typeof meta.extras === "object" ? meta.extras : {};
     const pdfOptions = ex?.pdf && typeof ex.pdf === "object" ? ex.pdf : {};
-    const resolveModelPdfOption = (key) => {
+    const setNodeVisibility = (node, visible) => {
+      if (!node) return;
+      const show = visible !== false;
+      node.hidden = !show;
+      node.style.display = show ? "" : "none";
+    };
+    const resolveSelectedModelPdfOptions = () => {
       const sanitize =
         (helpers && typeof helpers.sanitizeModelName === "function" && helpers.sanitizeModelName) ||
         ((value) => String(value ?? "").trim());
       const selected =
         sanitize(meta?.documentModelName || meta?.docDialogModelName || "") ||
         sanitize(meta?.modelName || meta?.modelKey || "");
-      if (!selected || typeof SEM.getModelEntries !== "function") return undefined;
+      if (!selected || typeof SEM.getModelEntries !== "function") return {};
       const entries = SEM.getModelEntries();
       const match = Array.isArray(entries)
         ? entries.find((entry) => sanitize(entry?.name) === selected)
         : null;
       const pdf = match?.config?.pdf;
-      return (pdf && typeof pdf[key] === "boolean") ? pdf[key] : undefined;
+      return pdf && typeof pdf === "object" ? pdf : {};
+    };
+    const modelPdfOptions = resolveSelectedModelPdfOptions();
+    const resolveModelPdfOption = (key) => {
+      const value = modelPdfOptions?.[key];
+      return typeof value === "boolean" ? value : undefined;
     };
     const resolvePdfOption = (key, fallback) => {
       if (typeof pdfOptions[key] === "boolean") return pdfOptions[key];
       const modelValue = resolveModelPdfOption(key);
       if (typeof modelValue === "boolean") return modelValue;
       return fallback;
+    };
+    const resolveTextValue = (...candidates) => {
+      for (const candidate of candidates) {
+        if (!hasVal(candidate)) continue;
+        return String(candidate).trim();
+      }
+      return "";
     };
     const showAmountWords = resolvePdfOption("showAmountWords", true);
     const showSeal = resolvePdfOption("showSeal", true);
@@ -1929,13 +1964,92 @@
       footerNoteHost.style.display = footerNoteContent ? "" : "none";
     }
 
+    if (isBonEntreeDocType) {
+      const remarksRaw =
+        pdfOptions.beRemarks ??
+        meta?.pdf?.beRemarks ??
+        meta?.beRemarks ??
+        "";
+      const remarksSource = resolveTextValue(remarksRaw);
+      const remarksBaseHtml = hasVal(remarksSource) ? formatFooterNoteHTML(remarksSource) : "";
+      const remarksSize =
+        normalizeWhNoteFontSize(
+          pdfOptions.beRemarksSize ??
+            meta?.pdf?.beRemarksSize ??
+            meta?.beRemarksSize
+        ) ?? WH_NOTE_DEFAULT_FONT_SIZE;
+      const remarksHtml = hasTextContent(remarksBaseHtml)
+        ? ensureWhNoteSizeWrapper(remarksBaseHtml, remarksSize)
+        : "";
+      if (beRemarksHost) {
+        beRemarksHost.innerHTML = remarksHtml;
+      }
+      setNodeVisibility(beRemarksSection, hasTextContent(remarksHtml));
+
+      const approvalConfig = [
+        {
+          showKey: "showBeReceivedBy",
+          blockId: "itemsBeReceivedByBlock",
+          nameId: "itemsBeReceivedBy",
+          keys: ["beReceivedByName", "receivedByName", "beReceivedBy", "receivedBy"],
+          metaKeys: ["beReceivedByName", "receivedByName", "beReceivedBy", "receivedBy"]
+        },
+        {
+          showKey: "showBeControlledBy",
+          blockId: "itemsBeControlledByBlock",
+          nameId: "itemsBeControlledBy",
+          keys: ["beControlledByName", "controlledByName", "beControlledBy", "controlledBy"],
+          metaKeys: ["beControlledByName", "controlledByName", "beControlledBy", "controlledBy"]
+        },
+        {
+          showKey: "showBeValidatedBy",
+          blockId: "itemsBeValidatedByBlock",
+          nameId: "itemsBeValidatedBy",
+          keys: ["beValidatedByName", "validatedByName", "beValidatedBy", "validatedBy"],
+          metaKeys: ["beValidatedByName", "validatedByName", "beValidatedBy", "validatedBy"]
+        }
+      ];
+      let visibleApprovalCount = 0;
+      approvalConfig.forEach((entry) => {
+        const block = getItemsScopedEl(entry.blockId);
+        const nameNode = getItemsScopedEl(entry.nameId);
+        const resolvedName = resolveTextValue(
+          ...entry.keys.map((key) => pdfOptions?.[key]),
+          ...entry.keys.map((key) => modelPdfOptions?.[key]),
+          ...entry.metaKeys.map((key) => meta?.[key])
+        );
+        if (nameNode) {
+          const fallbackName = String(nameNode.dataset?.default || nameNode.textContent || "").trim();
+          nameNode.textContent = resolvedName || fallbackName || "-";
+          nameNode.classList.toggle("is-empty", !(resolvedName || fallbackName));
+        }
+        const show = resolvePdfOption(entry.showKey, true) !== false;
+        setNodeVisibility(block, show);
+        if (show) visibleApprovalCount += 1;
+      });
+      if (beApprovalsHost) {
+        if (visibleApprovalCount > 0) {
+          beApprovalsHost.dataset.visibleCount = String(visibleApprovalCount);
+        } else {
+          delete beApprovalsHost.dataset.visibleCount;
+        }
+      }
+      setNodeVisibility(beApprovalsHost, visibleApprovalCount > 0);
+      setNodeVisibility(beBottomHost, hasTextContent(remarksHtml) || visibleApprovalCount > 0);
+    } else {
+      if (beApprovalsHost) delete beApprovalsHost.dataset.visibleCount;
+      setNodeVisibility(beRemarksSection, false);
+      setNodeVisibility(beApprovalsHost, false);
+      setNodeVisibility(beBottomHost, false);
+    }
+
     const company = st?.company || {};
     const seal = company?.seal && typeof company.seal === "object" ? company.seal : {};
     const signature = company?.signature && typeof company.signature === "object" ? company.signature : {};
 
     if (sealOverlay && sealImg) {
       const sealSrc = seal?.enabled && typeof seal?.image === "string" ? seal.image : "";
-      if (showSeal && sealSrc) {
+      if (!isBonEntreeDocType && showSeal && sealSrc) {
         if (sealImg.getAttribute("src") !== sealSrc) sealImg.setAttribute("src", sealSrc);
         const rotation = Number(seal?.rotateDeg);
         sealImg.style.transform = Number.isFinite(rotation) ? `rotate(${rotation}deg)` : "";
@@ -1958,7 +2072,7 @@
 
     if (signatureOverlay && signatureImg) {
       const signatureSrc = signature?.enabled && typeof signature?.image === "string" ? signature.image : "";
-      if (showSignature && signatureSrc) {
+      if (!isBonEntreeDocType && showSignature && signatureSrc) {
         if (signatureImg.getAttribute("src") !== signatureSrc) signatureImg.setAttribute("src", signatureSrc);
         const rotation = Number(signature?.rotateDeg);
         signatureImg.style.transform = Number.isFinite(rotation) ? `rotate(${rotation}deg)` : "";
@@ -1978,6 +2092,8 @@
         signatureOverlay.hidden = true;
       }
     }
+
+    setNodeVisibility(footerHost, !isBonEntreeDocType);
   };
 
   const shouldSkipMainscreenAddFormUpdate = () => {
@@ -2739,8 +2855,16 @@
               <button class="btn tiny qty-btn inc" data-qty-inc="${i}" title="Augmenter la quantité" aria-label="Augmenter la quantité">+</button>
             </div>
             <div class="action-buttons">
-              <button class="btn tiny sel" data-sel="${i}">Editer</button>
-              <button class="del" data-del="${i}">Supprimer</button>
+              <button type="button" class="btn tiny sel" data-sel="${i}" title="&#201;diter la ligne" aria-label="&#201;diter la ligne">
+                <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 576 512" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+                  <path d="M402.3 344.9l32-32c5-5 13.7-1.5 13.7 5.7V464c0 26.5-21.5 48-48 48H48c-26.5 0-48-21.5-48-48V112c0-26.5 21.5-48 48-48h273.5c7.1 0 10.7 8.6 5.7 13.7l-32 32c-1.5 1.5-3.5 2.3-5.7 2.3H48v352h352V350.5c0-2.1.8-4.1 2.3-5.6zm156.6-201.8L296.3 405.7l-90.4 10c-26.2 2.9-48.5-19.2-45.6-45.6l10-90.4L432.9 17.1c22.9-22.9 59.9-22.9 82.7 0l43.2 43.2c22.9 22.9 22.9 60 .1 82.8zM460.1 174L402 115.9 216.2 301.8l-7.3 65.3 65.3-7.3L460.1 174zm64.8-79.7l-43.2-43.2c-4.1-4.1-10.8-4.1-14.8 0L436 82l58.1 58.1 30.9-30.9c4-4.2 4-10.8-.1-14.9z"></path>
+                </svg>
+              </button>
+              <button type="button" class="del" data-del="${i}" title="Supprimer la ligne" aria-label="Supprimer la ligne">
+                <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+                  <path d="M360 184h-8c4.4 0 8-3.6 8-8v8h304v-8c0 4.4 3.6 8 8 8h-8v72h72v-80c0-35.3-28.7-64-64-64H352c-35.3 0-64 28.7-64 64v80h72v-72zm504 72H160c-17.7 0-32 14.3-32 32v32c0 4.4 3.6 8 8 8h60.4l24.7 523c1.6 34.1 29.8 61 63.9 61h454c34.2 0 62.3-26.8 63.9-61l24.7-523H888c4.4 0 8-3.6 8-8v-32c0-17.7-14.3-32-32-32zM731.3 840H292.7l-24.2-512h487l-24.2 512z"></path>
+                </svg>
+              </button>
             </div>
           </div>
         </td>`;

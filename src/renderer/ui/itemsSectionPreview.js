@@ -313,6 +313,46 @@ export function renderItemsSectionPreview() {
         </div>
       </div>
 
+      <div id="itemsBeBottomBlock" class="items-be-bottom" hidden>
+        <fieldset id="itemsBeRemarksBlock" class="section-box-pdf items-be-remarks-block" hidden>
+          <legend>Observation / Remarques</legend>
+          <div
+            id="itemsBeRemarks"
+            class="pdf-small items-be-remarks"
+            data-default=""
+          ></div>
+        </fieldset>
+        <div class="items-be-approvals" id="itemsBeApprovals" hidden>
+          <div class="items-be-approval" id="itemsBeReceivedByBlock">
+            <span class="items-be-approval__label">R&Eacute;CEPTIONN&Eacute; PAR</span>
+            <strong
+              class="items-be-approval__name"
+              id="itemsBeReceivedBy"
+              data-default="Magasinier principal"
+            >Magasinier principal</strong>
+            <span class="items-be-approval__line"></span>
+          </div>
+          <div class="items-be-approval" id="itemsBeControlledByBlock">
+            <span class="items-be-approval__label">CONTR&Ocirc;L&Eacute; PAR</span>
+            <strong
+              class="items-be-approval__name"
+              id="itemsBeControlledBy"
+              data-default="Responsable qualit&eacute;"
+            >Responsable qualit&eacute;</strong>
+            <span class="items-be-approval__line"></span>
+          </div>
+          <div class="items-be-approval" id="itemsBeValidatedByBlock">
+            <span class="items-be-approval__label">VALID&Eacute; PAR</span>
+            <strong
+              class="items-be-approval__name"
+              id="itemsBeValidatedBy"
+              data-default="Responsable stock"
+            >Responsable stock</strong>
+            <span class="items-be-approval__line"></span>
+          </div>
+        </div>
+      </div>
+
       <div class="pdf-footer" id="itemsFooter">
         <div class="pdf-footer-note-left" id="itemsFooterNote" hidden></div>
         <div class="pdf-sign">

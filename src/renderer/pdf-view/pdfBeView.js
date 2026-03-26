@@ -694,11 +694,9 @@
     const beRemarksNode = page.querySelector("#modelPreviewBeRemarks");
     const remarksRaw =
       pdfOptions.beRemarks ?? meta?.pdf?.beRemarks ?? meta?.beRemarks ?? "";
-    const remarksTouched = pdfOptions.beRemarksTouched === true;
-    const fallbackRemarks = String(beRemarksNode?.dataset?.default || "").trim();
     const remarksSource = hasText(stripHtmlText(remarksRaw))
       ? String(remarksRaw)
-      : (!remarksTouched ? fallbackRemarks : "");
+      : "";
     const remarksSize = normalizeNoteSize(
       pdfOptions.beRemarksSize ?? meta?.pdf?.beRemarksSize ?? meta?.beRemarksSize
     );

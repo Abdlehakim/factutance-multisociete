@@ -2928,6 +2928,7 @@
       const meta = getInvoiceMeta() || {};
       const isBonEntree = String(meta.docType || "facture").trim().toLowerCase() === "be";
       syncItemsModalDocOptionsNotesForDocType(meta.docType || "");
+      syncItemsModalBeRemarksFromState({ hydrateFromModel: isBonEntree });
       const reception = ensureItemsModalBeReceptionMeta(meta);
       ensureItemsModalBeReceptionDatePicker(section);
       const timePicker = ensureItemsModalBeReceptionTimePicker(section);
@@ -3345,6 +3346,104 @@
       } catch {
         return null;
       }
+    };
+
+    const normalizeItemsModalBeRemarksFontSize = (value, fallback = 12) => {
+      const parsed = Number.parseInt(value, 10);
+      if ([10, 12, 14].includes(parsed)) return parsed;
+      const fallbackParsed = Number.parseInt(fallback, 10);
+      return [10, 12, 14].includes(fallbackParsed) ? fallbackParsed : 12;
+    };
+
+    const hasItemsModalBeRemarksText = (value) =>
+      String(value || "")
+        .replace(/<br\s*\/?>/gi, " ")
+        .replace(/<[^>]*>/g, " ")
+        .replace(/&nbsp;|\u00a0/gi, " ")
+        .trim().length > 0;
+
+    const hydrateItemsModalBeRemarksFromModelIfNeeded = (metaInput = null) => {
+      const meta =
+        metaInput && typeof metaInput === "object"
+          ? metaInput
+          : (getInvoiceMeta() || {});
+      if (!meta || typeof meta !== "object") return false;
+
+      const docTypeValue = String(meta.docType || "").trim().toLowerCase();
+      if (docTypeValue !== "be") return false;
+      if (isItemsModalEditMode()) return false;
+      if (String(meta.historyPath || meta.historyDocType || "").trim()) return false;
+
+      if (!meta.extras || typeof meta.extras !== "object") meta.extras = {};
+      if (!meta.extras.pdf || typeof meta.extras.pdf !== "object") meta.extras.pdf = {};
+      const pdfState = meta.extras.pdf;
+
+      const existingValue = String(pdfState.beRemarks ?? "");
+      const touched = pdfState.beRemarksTouched === true;
+      if (hasItemsModalBeRemarksText(existingValue) || touched) return false;
+
+      const modelName = sanitizeModelSeed(
+        meta.documentModelName ||
+          meta.docDialogModelName ||
+          meta.modelName ||
+          meta.modelKey ||
+          ""
+      );
+      if (!modelName) return false;
+      const modelConfig = resolveItemsModalModelConfigByName(modelName);
+      const modelPdf = modelConfig?.pdf && typeof modelConfig.pdf === "object" ? modelConfig.pdf : null;
+      const seededValue = typeof modelPdf?.beRemarks === "string" ? modelPdf.beRemarks : "";
+      if (!hasItemsModalBeRemarksText(seededValue)) return false;
+
+      pdfState.beRemarks = seededValue;
+      pdfState.beRemarksSize = normalizeItemsModalBeRemarksFontSize(
+        modelPdf?.beRemarksSize,
+        pdfState.beRemarksSize ?? 12
+      );
+      pdfState.beRemarksTouched = false;
+      return true;
+    };
+
+    const syncItemsModalBeRemarksFromState = ({ hydrateFromModel = false } = {}) => {
+      const meta = getInvoiceMeta() || {};
+      if (!meta || typeof meta !== "object") return false;
+      if (hydrateFromModel) {
+        hydrateItemsModalBeRemarksFromModelIfNeeded(meta);
+      }
+      if (!meta.extras || typeof meta.extras !== "object") return false;
+      if (!meta.extras.pdf || typeof meta.extras.pdf !== "object") meta.extras.pdf = {};
+      const pdfState = meta.extras.pdf;
+
+      const value = String(pdfState.beRemarks ?? "");
+      const size = normalizeItemsModalBeRemarksFontSize(pdfState.beRemarksSize, 12);
+      pdfState.beRemarksSize = size;
+
+      const hiddenInput = itemsDocOptionsModalContent?.querySelector?.("#beRemarks") || getEl("beRemarks");
+      if (hiddenInput && hiddenInput.value !== value) {
+        hiddenInput.value = value;
+      }
+
+      const sizeInput =
+        itemsDocOptionsModalContent?.querySelector?.("#beRemarksFontSize") || getEl("beRemarksFontSize");
+      if (sizeInput && sizeInput.value !== String(size)) {
+        sizeInput.value = String(size);
+      }
+
+      const setEditorContent = SEM?.__bindingHelpers?.setWhNoteEditorContent;
+      if (typeof setEditorContent === "function") {
+        setEditorContent(value, { group: "beRemarksMain" });
+      } else {
+        const editor =
+          itemsDocOptionsModalContent?.querySelector?.("#beRemarksEditor") || getEl("beRemarksEditor");
+        if (editor) {
+          if (editor.innerHTML !== value) editor.innerHTML = value;
+          editor.dataset.empty = hasItemsModalBeRemarksText(value) ? "false" : "true";
+        }
+      }
+      if (typeof SEM.updateAmountWordsBlock === "function") {
+        SEM.updateAmountWordsBlock();
+      }
+      return true;
     };
 
     const resolveItemsModalDocOptionsRoot = () =>
@@ -4973,6 +5072,7 @@
         modelName: activeModelName || eventModelName,
         config: detail.config && typeof detail.config === "object" ? detail.config : null
       });
+      syncItemsModalBeRemarksFromState({ hydrateFromModel: true });
       syncDocMetaBoxFromState();
     });
 
