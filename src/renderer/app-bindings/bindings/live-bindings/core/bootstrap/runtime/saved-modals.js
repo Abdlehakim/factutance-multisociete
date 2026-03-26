@@ -85,6 +85,24 @@
               clientSavedSearchInput.value = clientSavedModalState.query;
             }
           };
+          resetClientSavedModalEntityState = (entityType = "client") => {
+            const targetState = readClientSavedModalEntityState(entityType);
+            targetState.page = 1;
+            targetState.total = 0;
+            targetState.query = "";
+            targetState.items = [];
+            targetState.loading = false;
+            targetState.message = "";
+            clientSavedModalState.page = 1;
+            clientSavedModalState.total = 0;
+            clientSavedModalState.query = "";
+            clientSavedModalState.items = [];
+            clientSavedModalState.loading = false;
+            clientSavedModalState.message = "";
+            if (clientSavedSearchInput) {
+              clientSavedSearchInput.value = "";
+            }
+          };
           clientSavedModalRefresh =
             clientSavedModal?.querySelector("#clientSavedModalRefresh") || getEl("clientSavedModalRefresh");
           getClientSavedModalLabels = (entityType = clientSavedModalEntityType) => {
@@ -766,6 +784,28 @@
           clearClientSearchInputValue = (inputEl = getDefaultClientSearchInput()) => {
             if (!inputEl) return;
             inputEl.value = "";
+          };
+          resetClientSearchSession = ({ scopeNode = null, inputEl = null, resultsEl = null } = {}) => {
+            const resolvedScope =
+              scopeNode ||
+              resolveClientSearchScope(inputEl, resultsEl) ||
+              resolveClientScopeFromNode(resultsEl);
+            const resolvedInput = inputEl || resolveClientSearchInputElement(resolvedScope);
+            const resolvedResults = resultsEl || resolveClientSearchResultsElement(resolvedScope);
+            const searchState = getClientSearchStateHandle({
+              scopeNode: resolvedScope,
+              inputEl: resolvedInput,
+              resultsEl: resolvedResults
+            });
+            const activeTimer = searchState?.getTimer?.();
+            if (activeTimer) {
+              clearTimeout(activeTimer);
+            }
+            searchState?.setTimer?.(null);
+            searchState?.setData?.([]);
+            searchState?.setPage?.(1);
+            clearClientSearchInputValue(resolvedInput);
+            hideClientSearchResults(resolvedResults);
           };
 
           clearArticleSearchInputValue = (inputEl = articleSearchInput) => {
@@ -2822,7 +2862,10 @@
 
           closeClientSavedModal = function closeClientSavedModal() {
             if (!clientSavedModal) return;
-            storeClientSavedModalEntityState(clientSavedModalEntityType);
+            clearTimeout(clientSavedSearchTimer);
+            clientSavedSearchTimer = null;
+            clientSavedModalRequestId += 1;
+            resetClientSavedModalEntityState(clientSavedModalEntityType);
             clientSavedModal.classList.remove("is-open");
             clientSavedModal.hidden = true;
             clientSavedModal.setAttribute("hidden", "");
@@ -4238,7 +4281,14 @@
           };
 
           handleClientSearchKeydown = (evt, inputEl, resultsEl) => {
-            if (!inputEl || evt.key !== "Enter") return;
+            if (!inputEl) return;
+            if (evt.key === "Escape") {
+              evt.preventDefault();
+              const scopeNode = resolveClientSearchScope(inputEl, resultsEl);
+              resetClientSearchSession({ scopeNode, inputEl, resultsEl });
+              return;
+            }
+            if (evt.key !== "Enter") return;
             evt.preventDefault();
             const trimmed = (inputEl.value || "").trim();
             if (trimmed.length >= MIN_CLIENT_SEARCH_LENGTH) {
@@ -4286,8 +4336,11 @@
 
             const closeBtn = evt.target.closest("[data-article-close]");
             if (closeBtn) {
-              searchState?.setPage?.(1);
-              hideClientSearchResults(resultsEl);
+              resetClientSearchSession({
+                scopeNode: resolvedScopeNode,
+                inputEl,
+                resultsEl
+              });
               return;
             }
 
@@ -4296,8 +4349,11 @@
               const idx = Number(editBtn.dataset.clientEdit);
               const selected = getCurrentItems()[idx];
               if (!selected) return;
-              hideClientSearchResults(resultsEl);
-              clearClientSearchInputValue(inputEl);
+              resetClientSearchSession({
+                scopeNode: resolvedScopeNode,
+                inputEl,
+                resultsEl
+              });
               const loadOptions = { skipReadInputs: true, skipDirtyEval: true };
               if (resolvedScopeNode) loadOptions.formScope = resolvedScopeNode;
               loadClientRecordIntoForm(selected, loadOptions);
@@ -4310,8 +4366,11 @@
               const idx = Number(updateBtn.dataset.clientSavedUpdate);
               const selected = getCurrentItems()[idx];
               if (!selected) return;
-              hideClientSearchResults(resultsEl);
-              clearClientSearchInputValue(inputEl);
+              resetClientSearchSession({
+                scopeNode: resolvedScopeNode,
+                inputEl,
+                resultsEl
+              });
               const loadOptions = { skipReadInputs: true, skipDirtyEval: true };
               if (resolvedScopeNode) loadOptions.formScope = resolvedScopeNode;
               loadClientRecordIntoForm(selected, loadOptions);
@@ -4392,8 +4451,11 @@
             const idx = Number(selectBtn.dataset.clientSelect);
             const selected = getCurrentItems()[idx];
             if (!selected) return;
-            hideClientSearchResults(resultsEl);
-            clearClientSearchInputValue(inputEl);
+            resetClientSearchSession({
+              scopeNode: resolvedScopeNode,
+              inputEl,
+              resultsEl
+            });
             loadClientRecordIntoForm(
               selected,
               resolvedScopeNode ? { formScope: resolvedScopeNode } : undefined
@@ -4582,7 +4644,11 @@
                 if (!inputEl || !resultsEl) return;
                 if (target === inputEl) return;
                 if (resultsEl.contains(target)) return;
-                hideClientSearchResults(resultsEl);
+                resetClientSearchSession({
+                  scopeNode: scope,
+                  inputEl,
+                  resultsEl
+                });
               });
             };
             document.addEventListener("click", SEM._clientSearchDocumentHandler, { capture: true });

@@ -4,6 +4,55 @@ export function renderDocMetaBoxMainscreen() {
         <legend id="docTypeLegend">Document</legend>
 
         <div class="doc-meta-grid">
+          <div id="docMetaSearchBoxMainscreen" class="doc-meta-search client-search">
+            <div class="client-search__controls">
+              <label class="client-search__field">
+                <input
+                  id="docMetaSearch"
+                  type="search"
+                  placeholder="Numero, type, client/fournisseur, date..."
+                  autocomplete="off"
+                />
+                <button id="docMetaSearchBtn" type="button" class="client-search__action" aria-label="Rechercher un document">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="6" />
+                    <line x1="16.5" y1="16.5" x2="21" y2="21" stroke-linecap="round" />
+                  </svg>
+                </button>
+              </label>
+              <div class="doc-history-row">
+                <button
+                  id="docHistoryImportBtn"
+                  type="button"
+                  class="client-search__saved client-search__saved--import"
+                  aria-label="Importer une facture d'achat"
+                  aria-haspopup="dialog"
+                  aria-controls="docHistoryPurchaseImportModal"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 3v12" stroke-linecap="round" />
+                    <path d="M8 7l4-4 4 4" stroke-linecap="round" stroke-linejoin="round" />
+                    <path d="M5 14v4a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3v-4" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </button>
+                <button
+                  id="docHistoryExportBtn"
+                  type="button"
+                  class="client-search__saved client-search__saved--export"
+                  aria-label="Exporter des documents"
+                  aria-haspopup="dialog"
+                  aria-controls="docHistoryExportModal"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 21V9" stroke-linecap="round" />
+                    <path d="M8 17l4 4 4-4" stroke-linecap="round" stroke-linejoin="round" />
+                    <path d="M5 10V6a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v4" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div id="docMetaSearchResults" class="client-search__results" hidden></div>
+          </div>
           <div class="doc-type-action-row" role="group" aria-label="Actions du type de document">
             <button
               id="docTypeActionNew"
@@ -61,36 +110,6 @@ export function renderDocMetaBoxMainscreen() {
               </span>
               <span class="doc-type-action-label">Supprimer documents</span>
             </button>
-            <div class="doc-history-row">
-              <button
-                id="docHistoryImportBtn"
-                type="button"
-                class="client-search__saved client-search__saved--import"
-                aria-label="Importer une facture d'achat"
-                aria-haspopup="dialog"
-                aria-controls="docHistoryPurchaseImportModal"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M12 3v12" stroke-linecap="round" />
-                  <path d="M8 7l4-4 4 4" stroke-linecap="round" stroke-linejoin="round" />
-                  <path d="M5 14v4a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3v-4" stroke-linecap="round" stroke-linejoin="round" />
-                </svg>
-              </button>
-              <button
-                id="docHistoryExportBtn"
-                type="button"
-                class="client-search__saved client-search__saved--export"
-                aria-label="Exporter des documents"
-                aria-haspopup="dialog"
-                aria-controls="docHistoryExportModal"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M12 21V9" stroke-linecap="round" />
-                  <path d="M8 17l4 4 4-4" stroke-linecap="round" stroke-linejoin="round" />
-                  <path d="M5 10V6a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v4" stroke-linecap="round" stroke-linejoin="round" />
-                </svg>
-              </button>
-            </div>
           </div>
         </div>
       </fieldset>
@@ -98,6 +117,55 @@ export function renderDocMetaBoxMainscreen() {
       <fieldset class="section-box" id="docModeleBoxMainscreen">
         <legend>Mod&egrave;le</legend>
         <div class="doc-meta-grid">
+          <div id="docModeleSearchBoxMainscreen" class="doc-meta-search client-search">
+            <div class="client-search__controls">
+              <label class="client-search__field">
+                <input
+                  id="docModeleSearch"
+                  type="search"
+                  placeholder="Nom du modele, template, type, numerotation..."
+                  autocomplete="off"
+                />
+                <button id="docModeleSearchBtn" type="button" class="client-search__action" aria-label="Rechercher un modele">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="6" />
+                    <line x1="16.5" y1="16.5" x2="21" y2="21" stroke-linecap="round" />
+                  </svg>
+                </button>
+              </label>
+              <div class="doc-history-row">
+                <button
+                  id="docModeleImportBtn"
+                  type="button"
+                  class="client-search__saved client-search__saved--import"
+                  aria-label="Importer des modeles"
+                  aria-haspopup="dialog"
+                  aria-controls="modelImportModal"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 3v12" stroke-linecap="round" />
+                    <path d="M8 7l4-4 4 4" stroke-linecap="round" stroke-linejoin="round" />
+                    <path d="M5 14v4a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3v-4" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </button>
+                <button
+                  id="docModeleExportBtn"
+                  type="button"
+                  class="client-search__saved client-search__saved--export"
+                  aria-label="Exporter des modeles"
+                  aria-haspopup="dialog"
+                  aria-controls="modelExportModal"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 21V9" stroke-linecap="round" />
+                    <path d="M8 17l4 4 4-4" stroke-linecap="round" stroke-linejoin="round" />
+                    <path d="M5 10V6a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v4" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div id="docModeleSearchResults" class="client-search__results" hidden></div>
+          </div>
           <div class="doc-type-action-row" role="group" aria-label="Actions du modèle">
             <button
               id="modelActionNew"
@@ -148,36 +216,6 @@ export function renderDocMetaBoxMainscreen() {
               </span>
               <span class="doc-type-action-label">Option Mod&egrave;le</span>
             </button>
-            <div class="doc-history-row">
-              <button
-                id="docModeleImportBtn"
-                type="button"
-                class="client-search__saved client-search__saved--import"
-                aria-label="Importer des modeles"
-                aria-haspopup="dialog"
-                aria-controls="modelImportModal"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M12 3v12" stroke-linecap="round" />
-                  <path d="M8 7l4-4 4 4" stroke-linecap="round" stroke-linejoin="round" />
-                  <path d="M5 14v4a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3v-4" stroke-linecap="round" stroke-linejoin="round" />
-                </svg>
-              </button>
-              <button
-                id="docModeleExportBtn"
-                type="button"
-                class="client-search__saved client-search__saved--export"
-                aria-label="Exporter des modeles"
-                aria-haspopup="dialog"
-                aria-controls="modelExportModal"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M12 21V9" stroke-linecap="round" />
-                  <path d="M8 17l4 4 4-4" stroke-linecap="round" stroke-linejoin="round" />
-                  <path d="M5 10V6a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v4" stroke-linecap="round" stroke-linejoin="round" />
-                </svg>
-              </button>
-            </div>
           </div>
         </div>
       </fieldset>

@@ -75,6 +75,12 @@
     const docTypeSelect = getEl("docType");
     const docTypeDisplay = getEl("docTypeDisplay");
     const docTypeActionOpen = getEl("docTypeActionOpen");
+    const docMetaSearchInput = getEl("docMetaSearch");
+    const docMetaSearchBtn = getEl("docMetaSearchBtn");
+    const docMetaSearchResults = getEl("docMetaSearchResults");
+    const docModeleSearchInput = getEl("docModeleSearch");
+    const docModeleSearchBtn = getEl("docModeleSearchBtn");
+    const docModeleSearchResults = getEl("docModeleSearchResults");
     const createDatePicker =
       w.AppDatePicker && typeof w.AppDatePicker.create === "function"
         ? w.AppDatePicker.create.bind(w.AppDatePicker)
@@ -168,6 +174,70 @@
   { value: "card", label: "Carte bancaire" },
   { value: "withholding_tax", label: "Retenue \u00E0 la source" }
     ];
+    const DOC_META_SEARCH_PAGE_SIZE = 3;
+    const DOC_META_SEARCH_MIN_QUERY_LENGTH = 2;
+    const DOC_META_SEARCH_DEBOUNCE_MS = 180;
+    const DOC_META_SEARCH_CACHE_TTL_MS = 60000;
+    const DOC_META_SEARCH_FETCH_LIMIT = 200;
+    const DOC_META_SEARCH_TYPE_VALUES = Array.from(
+      new Set(
+        DOC_HISTORY_DIALOG_TYPE_ROW_VALUES.flat().filter((value) =>
+          DOC_HISTORY_SELECTABLE_TYPES.has(String(value || "").toLowerCase())
+        )
+      )
+    );
+    const docMetaSearchState = {
+      query: "",
+      page: 1,
+      data: [],
+      filtered: [],
+      loading: false,
+      requestToken: 0,
+      lastLoadedAt: 0,
+      dirty: true,
+      timer: null
+    };
+    const DOC_MODELE_SEARCH_PAGE_SIZE = 3;
+    const DOC_MODELE_SEARCH_MIN_QUERY_LENGTH = 2;
+    const DOC_MODELE_SEARCH_DEBOUNCE_MS = 180;
+    const DOC_MODELE_SEARCH_TEMPLATE_LABELS = {
+      template1: "Template 1",
+      template2: "Template 2"
+    };
+    const DOC_MODELE_SEARCH_NUMBER_FORMAT_LABELS = {
+      prefix_date_counter: "PREFIXE_Annee-Mois-Numero",
+      prefix_counter: "PREFIXE_Numero",
+      counter: "Numero"
+    };
+    const DOC_MODELE_SEARCH_ALLOWED_DOC_TYPES = new Set(
+      Array.from(new Set(DOC_HISTORY_DIALOG_TYPE_ROW_VALUES.flat()))
+    );
+    const DOC_MODELE_SEARCH_DOC_TYPE_ALIASES = {
+      factureavoir: "avoir",
+      facture_avoir: "avoir",
+      "facture-avoir": "avoir",
+      "facture avoir": "avoir",
+      "facture d'avoir": "avoir",
+      "facture davoir": "avoir",
+      bonentree: "be",
+      bon_entree: "be",
+      "bon-entree": "be",
+      "bon entree": "be",
+      "bon d'entree": "be",
+      "bon d'entrée": "be",
+      bonsortie: "bs",
+      bon_sortie: "bs",
+      "bon-sortie": "bs",
+      "bon sortie": "bs",
+      "bon de sortie": "bs"
+    };
+    const docModeleSearchState = {
+      query: "",
+      page: 1,
+      data: [],
+      filtered: [],
+      timer: null
+    };
     const truncateClientName = (value, maxLength = 30) => {
       const normalized = value == null ? "" : String(value);
       if (!maxLength || normalized.length <= maxLength) return normalized;
@@ -349,6 +419,632 @@
     const isHistoryYearDefault = (value) =>
       normalizeHistoryYearValue(value) === getCurrentHistoryYearValue();
     const normalizeFilterText = (value) => String(value || "").trim().toLowerCase();
+    const clearDocMetaSearchTimer = () => {
+      if (!docMetaSearchState.timer) return;
+      clearTimeout(docMetaSearchState.timer);
+      docMetaSearchState.timer = null;
+    };
+    const isDocMetaSearchResultsOpen = () =>
+      !!(docMetaSearchResults && !docMetaSearchResults.hidden);
+    const setDocMetaSearchResultsOpen = (isOpen) => {
+      if (!docMetaSearchResults) return;
+      const open = !!isOpen;
+      docMetaSearchResults.hidden = !open;
+      if (open) {
+        docMetaSearchResults.classList.add("client-search--paged");
+      } else {
+        docMetaSearchResults.classList.remove("client-search--paged");
+      }
+      if (docMetaSearchInput) {
+        docMetaSearchInput.setAttribute("aria-expanded", open ? "true" : "false");
+      }
+    };
+    const resetDocMetaSearchState = () => {
+      clearDocMetaSearchTimer();
+      docMetaSearchState.query = "";
+      docMetaSearchState.page = 1;
+      docMetaSearchState.filtered = [];
+      docMetaSearchState.loading = false;
+      docMetaSearchState.requestToken += 1;
+      if (docMetaSearchInput) {
+        docMetaSearchInput.value = "";
+      }
+    };
+    const hideDocMetaSearchResults = ({ keepMarkup = false, resetSearch = false } = {}) => {
+      setDocMetaSearchResultsOpen(false);
+      if (!keepMarkup && docMetaSearchResults) {
+        docMetaSearchResults.innerHTML = "";
+      }
+      if (resetSearch) {
+        resetDocMetaSearchState();
+      }
+    };
+    const markDocMetaSearchDirty = () => {
+      docMetaSearchState.dirty = true;
+    };
+    const ensureDocMetaSearchPageBounds = () => {
+      const total = Array.isArray(docMetaSearchState.filtered)
+        ? docMetaSearchState.filtered.length
+        : 0;
+      const totalPages = Math.max(1, Math.ceil(total / DOC_META_SEARCH_PAGE_SIZE));
+      if (docMetaSearchState.page > totalPages) {
+        docMetaSearchState.page = totalPages;
+      }
+      if (docMetaSearchState.page < 1) {
+        docMetaSearchState.page = 1;
+      }
+      return totalPages;
+    };
+    const resolveDocMetaSearchDateMs = (entry) => {
+      const timestamp = Date.parse(
+        entry?.savedAt || entry?.createdAt || entry?.modifiedAt || entry?.date || ""
+      );
+      return Number.isFinite(timestamp) ? timestamp : 0;
+    };
+    const sortDocMetaSearchEntries = (entries) =>
+      [...(Array.isArray(entries) ? entries : [])].sort((a, b) => {
+        const aTs = resolveDocMetaSearchDateMs(a);
+        const bTs = resolveDocMetaSearchDateMs(b);
+        if (aTs !== bTs) return bTs - aTs;
+        const aNumber = String(a?.number || "").trim().toLowerCase();
+        const bNumber = String(b?.number || "").trim().toLowerCase();
+        return bNumber.localeCompare(aNumber, "fr", { sensitivity: "base", numeric: true });
+      });
+    const formatDocMetaSearchMoney = (value, currency = "") => {
+      const num = Number(value);
+      if (!Number.isFinite(num)) return "N.R.";
+      if (typeof formatMoney === "function") return formatMoney(num, currency);
+      const formatted = num.toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+      return currency ? `${formatted} ${currency}` : formatted;
+    };
+    const normalizeDocMetaSearchEntry = (entry, docTypeHint = "facture") => {
+      const normalizedEntry =
+        entry && typeof entry === "object" ? { ...entry } : {};
+      const docTypeRaw = String(
+        normalizedEntry.docType || docTypeHint || "facture"
+      )
+        .trim()
+        .toLowerCase();
+      const docType = DOC_HISTORY_TYPE_LABELS[docTypeRaw] ? docTypeRaw : docTypeHint;
+      normalizedEntry.docType = docType;
+      normalizedEntry.number =
+        String(
+          normalizedEntry.number ||
+            normalizedEntry.invNumber ||
+            extractDocNumberFromPath(normalizedEntry.path)
+        ).trim() || "";
+      normalizedEntry.clientName = String(normalizedEntry.clientName || "").trim();
+      normalizedEntry.clientAccount = String(normalizedEntry.clientAccount || "").trim();
+      normalizedEntry.name = String(normalizedEntry.name || "").trim();
+      normalizedEntry.status = String(normalizedEntry.status || "").trim().toLowerCase();
+      normalizedEntry.currency = String(normalizedEntry.currency || "").trim();
+      return normalizedEntry;
+    };
+    const fetchDocMetaSearchEntriesByType = async (docType) => {
+      if (!w.electronAPI?.listInvoiceFiles) return [];
+      const normalizedDocType = String(docType || "").trim().toLowerCase();
+      if (!normalizedDocType) return [];
+      const allEntries = [];
+      let offset = 0;
+      while (true) {
+        const res = await w.electronAPI.listInvoiceFiles({
+          docType: normalizedDocType,
+          limit: DOC_META_SEARCH_FETCH_LIMIT,
+          offset
+        });
+        if (!res?.ok) break;
+        const chunk = Array.isArray(res.items) ? res.items : [];
+        if (!chunk.length) break;
+        chunk.forEach((item) => {
+          allEntries.push(normalizeDocMetaSearchEntry(item, normalizedDocType));
+        });
+        if (chunk.length < DOC_META_SEARCH_FETCH_LIMIT) break;
+        offset += chunk.length;
+      }
+      return allEntries;
+    };
+    const ensureDocMetaSearchDataLoaded = async ({ force = false } = {}) => {
+      const now = Date.now();
+      const cacheIsFresh =
+        !docMetaSearchState.dirty &&
+        docMetaSearchState.lastLoadedAt > 0 &&
+        now - docMetaSearchState.lastLoadedAt <= DOC_META_SEARCH_CACHE_TTL_MS;
+      if (!force && cacheIsFresh && docMetaSearchState.data.length > 0) {
+        return docMetaSearchState.data;
+      }
+      if (!w.electronAPI?.listInvoiceFiles) {
+        docMetaSearchState.data = [];
+        docMetaSearchState.lastLoadedAt = now;
+        docMetaSearchState.dirty = false;
+        return [];
+      }
+      const token = ++docMetaSearchState.requestToken;
+      docMetaSearchState.loading = true;
+      try {
+        const settled = await Promise.allSettled(
+          DOC_META_SEARCH_TYPE_VALUES.map((docType) => fetchDocMetaSearchEntriesByType(docType))
+        );
+        if (token !== docMetaSearchState.requestToken) {
+          return docMetaSearchState.data;
+        }
+        const merged = settled.flatMap((result) =>
+          result.status === "fulfilled" && Array.isArray(result.value) ? result.value : []
+        );
+        docMetaSearchState.data = sortDocMetaSearchEntries(merged);
+        docMetaSearchState.lastLoadedAt = Date.now();
+        docMetaSearchState.dirty = false;
+        return docMetaSearchState.data;
+      } catch (err) {
+        console.error("doc meta search load failed", err);
+        return docMetaSearchState.data;
+      } finally {
+        if (token === docMetaSearchState.requestToken) {
+          docMetaSearchState.loading = false;
+        }
+      }
+    };
+    const filterDocMetaSearchEntries = (query) => {
+      const normalizedQuery = normalizeFilterText(query);
+      if (!normalizedQuery || normalizedQuery.length < DOC_META_SEARCH_MIN_QUERY_LENGTH) return [];
+      return (Array.isArray(docMetaSearchState.data) ? docMetaSearchState.data : []).filter((entry) => {
+        const formattedDate = formatDocHistoryDate(entry);
+        const normalizedDocType = String(entry?.docType || "").trim().toLowerCase();
+        const docTypeLabel =
+          DOC_HISTORY_TYPE_LABELS[normalizedDocType] || docHistoryDisplayLabel(normalizedDocType);
+        const haystack = [
+          entry?.number,
+          docTypeLabel,
+          normalizedDocType,
+          entry?.clientName,
+          entry?.clientAccount,
+          entry?.name,
+          formattedDate,
+          entry?.date,
+          entry?.status,
+          entry?.path
+        ];
+        return haystack.some((value) => normalizeFilterText(value).includes(normalizedQuery));
+      });
+    };
+    const renderDocMetaSearchStatus = (message) => {
+      if (!docMetaSearchResults) return;
+      docMetaSearchResults.innerHTML = `<div class="client-search__status">${safeHtml(message)}</div>`;
+      setDocMetaSearchResultsOpen(true);
+    };
+    const renderDocMetaSearchResults = () => {
+      if (!docMetaSearchResults) return;
+      const query = String(docMetaSearchState.query || "").trim();
+      const normalizedQuery = normalizeFilterText(query);
+      if (!normalizedQuery || normalizedQuery.length < DOC_META_SEARCH_MIN_QUERY_LENGTH) {
+        hideDocMetaSearchResults();
+        return;
+      }
+      if (docMetaSearchState.loading) {
+        renderDocMetaSearchStatus("Chargement des documents...");
+        return;
+      }
+      const filtered = Array.isArray(docMetaSearchState.filtered) ? docMetaSearchState.filtered : [];
+      if (!filtered.length) {
+        renderDocMetaSearchStatus("Aucun document trouve.");
+        return;
+      }
+      const totalPages = ensureDocMetaSearchPageBounds();
+      const startIdx = (docMetaSearchState.page - 1) * DOC_META_SEARCH_PAGE_SIZE;
+      const pageSlice = filtered.slice(startIdx, startIdx + DOC_META_SEARCH_PAGE_SIZE);
+      const list = document.createElement("div");
+      list.className = "article-search__list";
+      pageSlice.forEach((entry, offset) => {
+        const index = startIdx + offset;
+        const typeValue = String(entry?.docType || "").toLowerCase();
+        const partyLabels = getHistoryPartyLabels(typeValue);
+        const partyValue = String(entry?.clientName || entry?.clientAccount || "").trim();
+        const dateText = formatDocHistoryDate(entry) || "N.R.";
+        const totalValue = resolveHistoryEntryTotal(entry);
+        const totalText = formatDocMetaSearchMoney(totalValue, entry?.currency || "");
+        const numberValue = String(entry?.number || "").trim() || "N.R.";
+        const typeLabel = docHistoryDisplayLabel(typeValue) || typeValue || "Document";
+        const option = document.createElement("div");
+        option.className = "client-search__option doc-meta-search__option";
+        option.dataset.docMetaSearchIndex = String(index);
+        option.innerHTML = `
+          <button type="button" class="client-search__select client-search__select--detailed" data-doc-meta-search-open="${index}">
+            <div class="client-search__details-grid">
+              <div class="client-search__details-row">
+                <div class="client-search__detail client-search__detail--inline client-search__detail--name">
+                  <span class="client-search__detail-label">Numero</span>
+                  <span class="client-search__detail-value">${safeHtml(numberValue)}</span>
+                </div>
+                <div class="client-search__detail client-search__detail--inline">
+                  <span class="client-search__detail-label">Type</span>
+                  <span class="client-search__detail-value">${safeHtml(typeLabel)}</span>
+                </div>
+              </div>
+              <div class="client-search__details-row">
+                <div class="client-search__detail client-search__detail--inline">
+                  <span class="client-search__detail-label">${safeHtml(partyLabels.label)}</span>
+                  <span class="client-search__detail-value">${safeHtml(partyValue || "N.R.")}</span>
+                </div>
+                <div class="client-search__detail client-search__detail--inline">
+                  <span class="client-search__detail-label">Date</span>
+                  <span class="client-search__detail-value">${safeHtml(dateText)}</span>
+                </div>
+                <div class="client-search__detail client-search__detail--inline">
+                  <span class="client-search__detail-label">Total</span>
+                  <span class="client-search__detail-value">${safeHtml(totalText)}</span>
+                </div>
+              </div>
+            </div>
+          </button>
+          <div class="client-search__actions">
+            <button type="button" class="client-search__edit" data-doc-meta-search-open="${index}">Ouvrir</button>
+            <button type="button" class="client-search__delete" data-doc-meta-search-delete="${index}">Supprimer</button>
+          </div>`;
+        list.appendChild(option);
+      });
+      const pager = document.createElement("div");
+      const disablePrev = docMetaSearchState.page <= 1;
+      const disableNext = docMetaSearchState.page >= totalPages;
+      pager.className = "article-search__pager";
+      pager.innerHTML = `
+        <div class="article-search__pager-left">
+          <button type="button" class="client-search__edit article-search__close" data-doc-meta-search-close="true">Fermer</button>
+        </div>
+        <div class="article-search__pager-controls">
+          <button type="button" class="client-search__edit" data-doc-meta-search-page="prev" ${disablePrev ? "disabled" : ""}>Precedent</button>
+          <span class="article-search__page">Page ${docMetaSearchState.page} / ${totalPages}</span>
+          <button type="button" class="client-search__addSTK" data-doc-meta-search-page="next" ${disableNext ? "disabled" : ""}>Suivant</button>
+        </div>`;
+      docMetaSearchResults.innerHTML = "";
+      docMetaSearchResults.appendChild(list);
+      docMetaSearchResults.appendChild(pager);
+      setDocMetaSearchResultsOpen(true);
+    };
+    const runDocMetaSearch = async ({ forceReload = false, resetPage = false } = {}) => {
+      if (!docMetaSearchResults) return;
+      const query = String(docMetaSearchInput?.value || docMetaSearchState.query || "").trim();
+      docMetaSearchState.query = query;
+      if (resetPage) docMetaSearchState.page = 1;
+      if (!query || query.length < DOC_META_SEARCH_MIN_QUERY_LENGTH) {
+        hideDocMetaSearchResults();
+        return;
+      }
+      renderDocMetaSearchStatus("Chargement des documents...");
+      await ensureDocMetaSearchDataLoaded({ force: forceReload });
+      docMetaSearchState.filtered = filterDocMetaSearchEntries(query);
+      renderDocMetaSearchResults();
+    };
+    const scheduleDocMetaSearch = ({ forceReload = false, resetPage = false } = {}) => {
+      clearDocMetaSearchTimer();
+      docMetaSearchState.timer = setTimeout(() => {
+        docMetaSearchState.timer = null;
+        runDocMetaSearch({ forceReload, resetPage });
+      }, DOC_META_SEARCH_DEBOUNCE_MS);
+    };
+    const clearDocModeleSearchTimer = () => {
+      if (!docModeleSearchState.timer) return;
+      clearTimeout(docModeleSearchState.timer);
+      docModeleSearchState.timer = null;
+    };
+    const isDocModeleSearchResultsOpen = () =>
+      !!(docModeleSearchResults && !docModeleSearchResults.hidden);
+    const setDocModeleSearchResultsOpen = (isOpen) => {
+      if (!docModeleSearchResults) return;
+      const open = !!isOpen;
+      docModeleSearchResults.hidden = !open;
+      if (open) {
+        docModeleSearchResults.classList.add("client-search--paged");
+      } else {
+        docModeleSearchResults.classList.remove("client-search--paged");
+      }
+      if (docModeleSearchInput) {
+        docModeleSearchInput.setAttribute("aria-expanded", open ? "true" : "false");
+      }
+    };
+    const resetDocModeleSearchState = () => {
+      clearDocModeleSearchTimer();
+      docModeleSearchState.query = "";
+      docModeleSearchState.page = 1;
+      docModeleSearchState.filtered = [];
+      if (docModeleSearchInput) {
+        docModeleSearchInput.value = "";
+      }
+    };
+    const hideDocModeleSearchResults = ({ keepMarkup = false, resetSearch = false } = {}) => {
+      setDocModeleSearchResultsOpen(false);
+      if (!keepMarkup && docModeleSearchResults) {
+        docModeleSearchResults.innerHTML = "";
+      }
+      if (resetSearch) {
+        resetDocModeleSearchState();
+      }
+    };
+    const ensureDocModeleSearchPageBounds = () => {
+      const total = Array.isArray(docModeleSearchState.filtered)
+        ? docModeleSearchState.filtered.length
+        : 0;
+      const totalPages = Math.max(1, Math.ceil(total / DOC_MODELE_SEARCH_PAGE_SIZE));
+      if (docModeleSearchState.page > totalPages) {
+        docModeleSearchState.page = totalPages;
+      }
+      if (docModeleSearchState.page < 1) {
+        docModeleSearchState.page = 1;
+      }
+      return totalPages;
+    };
+    const normalizeDocModeleSearchDocTypeValue = (value) => {
+      const raw = String(value || "").trim().toLowerCase();
+      if (!raw || raw === "aucun") return "";
+      if (raw === "all") return "all";
+      const mapped = DOC_MODELE_SEARCH_DOC_TYPE_ALIASES[raw] || raw;
+      return DOC_MODELE_SEARCH_ALLOWED_DOC_TYPES.has(mapped) ? mapped : "";
+    };
+    const expandDocModeleSearchDocTypes = (value) => {
+      const rawList = Array.isArray(value)
+        ? value
+        : typeof value === "string"
+          ? value.split(",")
+          : [];
+      const normalized = rawList
+        .map((entry) => normalizeDocModeleSearchDocTypeValue(entry))
+        .filter((entry) => entry && entry !== "all")
+        .filter((entry, index, list) => list.indexOf(entry) === index);
+      if (normalized.length) return normalized;
+      const single = normalizeDocModeleSearchDocTypeValue(value);
+      if (single === "all") {
+        return Array.from(DOC_MODELE_SEARCH_ALLOWED_DOC_TYPES);
+      }
+      if (single) return [single];
+      return ["facture"];
+    };
+    const formatDocModeleSearchDocTypes = (docTypes) => {
+      const list = Array.isArray(docTypes) ? docTypes : [];
+      if (!list.length) return "N.R.";
+      return list
+        .map((docType) => DOC_HISTORY_TYPE_LABELS[docType] || docHistoryDisplayLabel(docType) || docType)
+        .join(" / ");
+    };
+    const formatDocModeleSearchTemplate = (templateValue) => {
+      const normalized = String(templateValue || "").trim().toLowerCase();
+      if (!normalized) return "N.R.";
+      return DOC_MODELE_SEARCH_TEMPLATE_LABELS[normalized] || normalized;
+    };
+    const formatDocModeleSearchNumbering = (numberFormat, numberLength) => {
+      const normalized = String(numberFormat || "").trim().toLowerCase();
+      const baseLabel = DOC_MODELE_SEARCH_NUMBER_FORMAT_LABELS[normalized] || normalized || "N.R.";
+      const parsedLength = Number.parseInt(numberLength, 10);
+      if (!Number.isFinite(parsedLength) || parsedLength <= 0) return baseLabel;
+      return `${baseLabel} (${parsedLength})`;
+    };
+    const normalizeDocModeleSearchEntry = (entry) => {
+      const sourceEntry = entry && typeof entry === "object" ? entry : {};
+      const config = sourceEntry?.config && typeof sourceEntry.config === "object" ? sourceEntry.config : {};
+      const name = String(sourceEntry?.name || "").trim();
+      const template = String(config.template || "").trim() || "template1";
+      const docTypes = expandDocModeleSearchDocTypes(
+        config.docTypes !== undefined ? config.docTypes : config.docType
+      );
+      const numberFormat = String(config.numberFormat || config?.numbering?.format || "").trim();
+      const numberLength = config.numberLength;
+      return {
+        name,
+        template,
+        docTypes,
+        numberFormat,
+        numberLength,
+        templateLabel: formatDocModeleSearchTemplate(template),
+        docTypesLabel: formatDocModeleSearchDocTypes(docTypes),
+        numberingLabel: formatDocModeleSearchNumbering(numberFormat, numberLength),
+        config
+      };
+    };
+    const loadDocModeleSearchEntries = () => {
+      if (typeof SEM?.getModelEntries !== "function") {
+        docModeleSearchState.data = [];
+        return [];
+      }
+      let entries = [];
+      try {
+        entries = SEM.getModelEntries();
+      } catch (err) {
+        console.error("doc modele search load failed", err);
+        entries = [];
+      }
+      const normalized = (Array.isArray(entries) ? entries : [])
+        .map((entry) => normalizeDocModeleSearchEntry(entry))
+        .filter((entry) => !!entry.name)
+        .sort((left, right) =>
+          String(left?.name || "").localeCompare(String(right?.name || ""), "fr", {
+            sensitivity: "base"
+          })
+        );
+      docModeleSearchState.data = normalized;
+      return normalized;
+    };
+    const filterDocModeleSearchEntries = (query) => {
+      const normalizedQuery = normalizeFilterText(query);
+      if (!normalizedQuery || normalizedQuery.length < DOC_MODELE_SEARCH_MIN_QUERY_LENGTH) {
+        return [];
+      }
+      const list = Array.isArray(docModeleSearchState.data) ? docModeleSearchState.data : [];
+      return list.filter((entry) => {
+        const haystack = [
+          entry?.name,
+          entry?.template,
+          entry?.templateLabel,
+          entry?.docTypesLabel,
+          entry?.numberingLabel,
+          entry?.numberFormat,
+          entry?.docTypes?.join(",")
+        ];
+        return haystack.some((value) => normalizeFilterText(value).includes(normalizedQuery));
+      });
+    };
+    const renderDocModeleSearchStatus = (message) => {
+      if (!docModeleSearchResults) return;
+      docModeleSearchResults.innerHTML = `<div class="client-search__status">${safeHtml(message)}</div>`;
+      setDocModeleSearchResultsOpen(true);
+    };
+    const renderDocModeleSearchResults = () => {
+      if (!docModeleSearchResults) return;
+      const query = String(docModeleSearchState.query || "").trim();
+      const normalizedQuery = normalizeFilterText(query);
+      if (!normalizedQuery || normalizedQuery.length < DOC_MODELE_SEARCH_MIN_QUERY_LENGTH) {
+        hideDocModeleSearchResults();
+        return;
+      }
+      const filtered = Array.isArray(docModeleSearchState.filtered) ? docModeleSearchState.filtered : [];
+      if (!filtered.length) {
+        renderDocModeleSearchStatus("Aucun modele trouve.");
+        return;
+      }
+      const totalPages = ensureDocModeleSearchPageBounds();
+      const startIdx = (docModeleSearchState.page - 1) * DOC_MODELE_SEARCH_PAGE_SIZE;
+      const pageSlice = filtered.slice(startIdx, startIdx + DOC_MODELE_SEARCH_PAGE_SIZE);
+      const list = document.createElement("div");
+      list.className = "article-search__list";
+      pageSlice.forEach((entry, offset) => {
+        const index = startIdx + offset;
+        const option = document.createElement("div");
+        option.className = "client-search__option doc-modele-search__option";
+        option.dataset.docModeleSearchIndex = String(index);
+        option.innerHTML = `
+          <button type="button" class="client-search__select client-search__select--detailed" data-doc-modele-search-select="${index}">
+            <div class="client-search__details-grid">
+              <div class="client-search__details-row">
+                <div class="client-search__detail client-search__detail--inline client-search__detail--name">
+                  <span class="client-search__detail-label">Modele</span>
+                  <span class="client-search__detail-value">${safeHtml(entry.name || "N.R.")}</span>
+                </div>
+                <div class="client-search__detail client-search__detail--inline">
+                  <span class="client-search__detail-label">Template</span>
+                  <span class="client-search__detail-value">${safeHtml(entry.templateLabel || "N.R.")}</span>
+                </div>
+              </div>
+              <div class="client-search__details-row">
+                <div class="client-search__detail client-search__detail--inline">
+                  <span class="client-search__detail-label">Type</span>
+                  <span class="client-search__detail-value">${safeHtml(entry.docTypesLabel || "N.R.")}</span>
+                </div>
+                <div class="client-search__detail client-search__detail--inline">
+                  <span class="client-search__detail-label">Numerotation</span>
+                  <span class="client-search__detail-value">${safeHtml(entry.numberingLabel || "N.R.")}</span>
+                </div>
+              </div>
+            </div>
+          </button>
+          <div class="client-search__actions">
+            <button type="button" class="client-search__addSTK" data-doc-modele-search-edit="${index}">Modifier</button>
+            <button type="button" class="client-search__delete" data-doc-modele-search-delete="${index}">Supprimer</button>
+          </div>`;
+        list.appendChild(option);
+      });
+      const pager = document.createElement("div");
+      const disablePrev = docModeleSearchState.page <= 1;
+      const disableNext = docModeleSearchState.page >= totalPages;
+      pager.className = "article-search__pager";
+      pager.innerHTML = `
+        <div class="article-search__pager-left">
+          <button type="button" class="client-search__edit article-search__close" data-doc-modele-search-close="true">Fermer</button>
+        </div>
+        <div class="article-search__pager-controls">
+          <button type="button" class="client-search__edit" data-doc-modele-search-page="prev" ${disablePrev ? "disabled" : ""}>Precedent</button>
+          <span class="article-search__page">Page ${docModeleSearchState.page} / ${totalPages}</span>
+          <button type="button" class="client-search__addSTK" data-doc-modele-search-page="next" ${disableNext ? "disabled" : ""}>Suivant</button>
+        </div>`;
+      docModeleSearchResults.innerHTML = "";
+      docModeleSearchResults.appendChild(list);
+      docModeleSearchResults.appendChild(pager);
+      setDocModeleSearchResultsOpen(true);
+    };
+    const runDocModeleSearch = ({ resetPage = false } = {}) => {
+      if (!docModeleSearchResults) return;
+      const query = String(docModeleSearchInput?.value || docModeleSearchState.query || "").trim();
+      docModeleSearchState.query = query;
+      if (resetPage) docModeleSearchState.page = 1;
+      if (!query || query.length < DOC_MODELE_SEARCH_MIN_QUERY_LENGTH) {
+        hideDocModeleSearchResults();
+        return;
+      }
+      loadDocModeleSearchEntries();
+      docModeleSearchState.filtered = filterDocModeleSearchEntries(query);
+      renderDocModeleSearchResults();
+    };
+    const scheduleDocModeleSearch = ({ resetPage = false } = {}) => {
+      clearDocModeleSearchTimer();
+      docModeleSearchState.timer = setTimeout(() => {
+        docModeleSearchState.timer = null;
+        runDocModeleSearch({ resetPage });
+      }, DOC_MODELE_SEARCH_DEBOUNCE_MS);
+    };
+    const openDocModeleSearchEditor = async (modelName) => {
+      const selectedName = String(modelName || "").trim();
+      if (!selectedName) return false;
+      if (typeof SEM?.__bindingHelpers?.setModelActionsOpen === "function") {
+        SEM.__bindingHelpers.setModelActionsOpen(true);
+      } else {
+        const toggleBtn = getEl("modelActionsToggle");
+        const modal = getEl("modelActionsModal");
+        const isOpen = !!modal && modal.getAttribute("aria-hidden") === "false";
+        if (toggleBtn && !isOpen) {
+          toggleBtn.click();
+        }
+      }
+      const modelActionsSelect = getEl("modelActionsSelect");
+      if (modelActionsSelect) {
+        modelActionsSelect.value = selectedName;
+        try {
+          modelActionsSelect.dispatchEvent(new Event("change", { bubbles: true }));
+        } catch {}
+      }
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      const updateBtn = getEl("btnModelUpdate");
+      if (updateBtn && !updateBtn.disabled) {
+        updateBtn.click();
+        return true;
+      }
+      return !!getEl("modelActionsModal");
+    };
+    const openDocModeleSearchEntry = async (entry) => {
+      if (!entry?.name) return false;
+      const modelName = String(entry.name || "").trim();
+      if (!modelName) return false;
+      if (typeof SEM?.applyModelByName === "function") {
+        const applied = await SEM.applyModelByName(modelName);
+        if (applied && typeof w.showToast === "function") {
+          w.showToast(`Modele charge: ${modelName}`);
+        }
+        return !!applied;
+      }
+      const modelSelect = getEl("modelSelect");
+      if (!modelSelect) return false;
+      modelSelect.value = modelName;
+      try {
+        modelSelect.dispatchEvent(new Event("change", { bubbles: true }));
+      } catch {}
+      return true;
+    };
+    const deleteDocModeleSearchEntry = async (entry) => {
+      if (!entry?.name || typeof SEM?.deleteModel !== "function") return false;
+      const modelName = String(entry.name || "").trim();
+      if (!modelName) return false;
+      let confirmed = true;
+      if (typeof w.showConfirm === "function") {
+        confirmed = await w.showConfirm(`Supprimer le modele "${modelName}" ?`, {
+          title: "Supprimer le modele",
+          okText: "Supprimer",
+          cancelText: "Annuler"
+        });
+      }
+      if (!confirmed) return false;
+      const deleted = await SEM.deleteModel(modelName);
+      if (deleted && typeof w.showToast === "function") {
+        w.showToast(`Modele supprime: ${modelName}`);
+      }
+      return !!deleted;
+    };
     const extractDocNumberFromPath = (value) => {
       const raw = String(value || "").trim();
       if (!raw) return "";
@@ -2442,13 +3138,20 @@
       }
     }
 
-    async function deleteHistoryEntry(entry, docTypeHint) {
+    async function deleteHistoryEntry(entry, docTypeHint, options = {}) {
       if (!entry || !entry.path) return false;
+      const { forceFactureCodeConfirm = false } = options || {};
       const docKey = String(entry.docType || docTypeHint || historyModalState.docType || "facture").toLowerCase();
       const labelBase = typeof w.docTypeLabel === "function" ? w.docTypeLabel(docKey) : "Document";
       const docLabel = entry.number ? `${labelBase} ${entry.number}` : labelBase;
       const deleteWarning = getMessage("HISTORY_FILE_DELETE_WARNING");
       const displayName = getDisplayFilename(entry.path) || stripJsonExtension(entry.path) || entry.path || "";
+      const deleteNumber = String(
+        entry.number || entry.name || extractDocumentLabel(entry.path) || ""
+      ).trim();
+      const protectedDisplayName = deleteNumber
+        ? `${labelBase} ${deleteNumber}`
+        : displayName;
       const confirmMessage = `${displayName} - ${deleteWarning.text}`;
       const confirmRenderer =
         typeof document !== "undefined"
@@ -2465,12 +3168,16 @@
           : null;
       let confirmed = true;
       const isFacture = docKey === "facture";
-      if (isFacture && typeof w.confirmFactureDeleteWithCode === "function" && isHistoryModalOpen()) {
+      const useFactureCodeConfirm =
+        isFacture &&
+        typeof w.confirmFactureDeleteWithCode === "function" &&
+        (isHistoryModalOpen() || forceFactureCodeConfirm);
+      if (useFactureCodeConfirm) {
         confirmed = await w.confirmFactureDeleteWithCode(confirmMessage, {
           title: deleteWarning.title || docLabel || "Supprimer",
           okText: "Supprimer",
           cancelText: "Annuler",
-          displayName,
+          displayName: protectedDisplayName,
           warningText: deleteWarning.text
         });
       } else if (typeof w.showConfirm === "function") {
@@ -2485,9 +3192,6 @@
       }
       if (!confirmed) return false;
       try {
-        const deleteNumber = String(
-          entry.number || entry.name || extractDocumentLabel(entry.path) || ""
-        ).trim();
         if (w.electronAPI?.deleteInvoiceFile) {
           const res = await w.electronAPI.deleteInvoiceFile({
             id: entry.id,
@@ -2540,6 +3244,7 @@
 
     function syncHistoryAfterChange(docKey) {
       const normalized = String(docKey || "facture").toLowerCase();
+      markDocMetaSearchDirty();
       renderHistoryList(normalized);
       const metaAfter = getInvoiceMeta();
       if (metaAfter.docType === normalized) {
@@ -2583,6 +3288,9 @@
       if (isHistoryModalOpen()) {
         updateHistoryModalData(historyModalState.docType);
         renderHistoryModal();
+      }
+      if (isDocMetaSearchResultsOpen() && (docMetaSearchState.query || "").trim().length >= DOC_META_SEARCH_MIN_QUERY_LENGTH) {
+        runDocMetaSearch({ forceReload: true, resetPage: false });
       }
     }
 
@@ -4917,6 +5625,129 @@
       }
     }
 
+    async function handleDocMetaSearchResultsClick(evt) {
+      if (!docMetaSearchResults) return;
+      const closeBtn = evt.target.closest("[data-doc-meta-search-close]");
+      if (closeBtn) {
+        hideDocMetaSearchResults({ keepMarkup: true, resetSearch: true });
+        return;
+      }
+      const pagerBtn = evt.target.closest("[data-doc-meta-search-page]");
+      if (pagerBtn) {
+        evt.preventDefault();
+        const direction = String(pagerBtn.dataset.docMetaSearchPage || "").trim().toLowerCase();
+        const totalPages = ensureDocMetaSearchPageBounds();
+        const previousListScrollTop =
+          docMetaSearchResults?.querySelector?.(".article-search__list")?.scrollTop || 0;
+        if (direction === "prev" && docMetaSearchState.page > 1) {
+          docMetaSearchState.page -= 1;
+          renderDocMetaSearchResults();
+        } else if (direction === "next" && docMetaSearchState.page < totalPages) {
+          docMetaSearchState.page += 1;
+          renderDocMetaSearchResults();
+        }
+        const nextList = docMetaSearchResults?.querySelector?.(".article-search__list");
+        if (nextList) {
+          nextList.scrollTop = previousListScrollTop;
+        }
+        return;
+      }
+      const openBtn = evt.target.closest("[data-doc-meta-search-open]");
+      if (openBtn) {
+        const idx = Number(openBtn.dataset.docMetaSearchOpen);
+        if (Number.isNaN(idx)) return;
+        const entry = Array.isArray(docMetaSearchState.filtered) ? docMetaSearchState.filtered[idx] : null;
+        if (!entry) return;
+        const opened = await openHistoryEntryInItemsModal(entry, entry.docType);
+        if (opened) {
+          hideDocMetaSearchResults({ keepMarkup: true, resetSearch: true });
+        }
+        return;
+      }
+      const deleteBtn = evt.target.closest("[data-doc-meta-search-delete]");
+      if (deleteBtn) {
+        const idx = Number(deleteBtn.dataset.docMetaSearchDelete);
+        if (Number.isNaN(idx)) return;
+        const entry = Array.isArray(docMetaSearchState.filtered) ? docMetaSearchState.filtered[idx] : null;
+        if (!entry) return;
+        const deleted = await deleteHistoryEntry(entry, entry.docType, {
+          forceFactureCodeConfirm: true
+        });
+        if (!deleted) return;
+        markDocMetaSearchDirty();
+        await runDocMetaSearch({ forceReload: true, resetPage: false });
+      }
+    }
+
+    async function handleDocModeleSearchResultsClick(evt) {
+      if (!docModeleSearchResults) return;
+      const closeBtn = evt.target.closest("[data-doc-modele-search-close]");
+      if (closeBtn) {
+        hideDocModeleSearchResults({ keepMarkup: true, resetSearch: true });
+        return;
+      }
+      const pagerBtn = evt.target.closest("[data-doc-modele-search-page]");
+      if (pagerBtn) {
+        evt.preventDefault();
+        const direction = String(pagerBtn.dataset.docModeleSearchPage || "").trim().toLowerCase();
+        const totalPages = ensureDocModeleSearchPageBounds();
+        const previousListScrollTop =
+          docModeleSearchResults?.querySelector?.(".article-search__list")?.scrollTop || 0;
+        if (direction === "prev" && docModeleSearchState.page > 1) {
+          docModeleSearchState.page -= 1;
+          renderDocModeleSearchResults();
+        } else if (direction === "next" && docModeleSearchState.page < totalPages) {
+          docModeleSearchState.page += 1;
+          renderDocModeleSearchResults();
+        }
+        const nextList = docModeleSearchResults?.querySelector?.(".article-search__list");
+        if (nextList) {
+          nextList.scrollTop = previousListScrollTop;
+        }
+        return;
+      }
+      const selectBtn = evt.target.closest("[data-doc-modele-search-select]");
+      if (selectBtn) {
+        const idx = Number(selectBtn.dataset.docModeleSearchSelect);
+        if (Number.isNaN(idx)) return;
+        const entry = Array.isArray(docModeleSearchState.filtered)
+          ? docModeleSearchState.filtered[idx]
+          : null;
+        if (!entry) return;
+        const opened = await openDocModeleSearchEntry(entry);
+        if (opened) {
+          hideDocModeleSearchResults({ keepMarkup: true, resetSearch: true });
+        }
+        return;
+      }
+      const editBtn = evt.target.closest("[data-doc-modele-search-edit]");
+      if (editBtn) {
+        const idx = Number(editBtn.dataset.docModeleSearchEdit);
+        if (Number.isNaN(idx)) return;
+        const entry = Array.isArray(docModeleSearchState.filtered)
+          ? docModeleSearchState.filtered[idx]
+          : null;
+        if (!entry) return;
+        const opened = await openDocModeleSearchEditor(entry.name);
+        if (opened) {
+          hideDocModeleSearchResults({ keepMarkup: true, resetSearch: true });
+        }
+        return;
+      }
+      const deleteBtn = evt.target.closest("[data-doc-modele-search-delete]");
+      if (deleteBtn) {
+        const idx = Number(deleteBtn.dataset.docModeleSearchDelete);
+        if (Number.isNaN(idx)) return;
+        const entry = Array.isArray(docModeleSearchState.filtered)
+          ? docModeleSearchState.filtered[idx]
+          : null;
+        if (!entry) return;
+        const deleted = await deleteDocModeleSearchEntry(entry);
+        if (!deleted) return;
+        runDocModeleSearch({ resetPage: false });
+      }
+    }
+
     if (docHistoryFilterStart) {
       if (createDatePicker) {
         docHistoryStartDatePickerController = createDatePicker(docHistoryFilterStart, {
@@ -5149,6 +5980,124 @@
         docHistoryFilterYear.value = historyModalState.filters.year;
       }
       handleHistoryFilterChange();
+    });
+
+    if (docMetaSearchInput) {
+      docMetaSearchInput.value = docMetaSearchState.query || "";
+      docMetaSearchInput.setAttribute("aria-expanded", "false");
+      docMetaSearchInput.addEventListener("input", (evt) => {
+        const nextQuery = String(evt?.target?.value || "").trim();
+        docMetaSearchState.query = nextQuery;
+        docMetaSearchState.page = 1;
+        if (!nextQuery || nextQuery.length < DOC_META_SEARCH_MIN_QUERY_LENGTH) {
+          hideDocMetaSearchResults({ keepMarkup: true });
+          return;
+        }
+        scheduleDocMetaSearch({ forceReload: false, resetPage: true });
+      });
+      docMetaSearchInput.addEventListener("focus", () => {
+        const query = String(docMetaSearchInput.value || "").trim();
+        if (!query || query.length < DOC_META_SEARCH_MIN_QUERY_LENGTH) return;
+        if (docMetaSearchState.filtered.length && !docMetaSearchState.dirty) {
+          renderDocMetaSearchResults();
+          return;
+        }
+        scheduleDocMetaSearch({ forceReload: false, resetPage: false });
+      });
+      docMetaSearchInput.addEventListener("keydown", (evt) => {
+        if (evt.key === "Enter") {
+          evt.preventDefault();
+          clearDocMetaSearchTimer();
+          docMetaSearchState.page = 1;
+          runDocMetaSearch({ forceReload: false, resetPage: true });
+        } else if (evt.key === "Escape") {
+          evt.preventDefault();
+          hideDocMetaSearchResults({ keepMarkup: true, resetSearch: true });
+        }
+      });
+    }
+
+    docMetaSearchBtn?.addEventListener("click", (evt) => {
+      evt.preventDefault();
+      clearDocMetaSearchTimer();
+      docMetaSearchState.page = 1;
+      runDocMetaSearch({ forceReload: false, resetPage: true });
+    });
+
+    docMetaSearchResults?.addEventListener("click", (evt) => {
+      evt.stopPropagation();
+      handleDocMetaSearchResultsClick(evt);
+    });
+
+    if (docModeleSearchInput) {
+      docModeleSearchInput.value = docModeleSearchState.query || "";
+      docModeleSearchInput.setAttribute("aria-expanded", "false");
+      docModeleSearchInput.addEventListener("input", (evt) => {
+        const nextQuery = String(evt?.target?.value || "").trim();
+        docModeleSearchState.query = nextQuery;
+        docModeleSearchState.page = 1;
+        if (!nextQuery || nextQuery.length < DOC_MODELE_SEARCH_MIN_QUERY_LENGTH) {
+          hideDocModeleSearchResults({ keepMarkup: true });
+          return;
+        }
+        scheduleDocModeleSearch({ resetPage: true });
+      });
+      docModeleSearchInput.addEventListener("focus", () => {
+        const query = String(docModeleSearchInput.value || "").trim();
+        if (!query || query.length < DOC_MODELE_SEARCH_MIN_QUERY_LENGTH) return;
+        if (docModeleSearchState.filtered.length) {
+          renderDocModeleSearchResults();
+          return;
+        }
+        scheduleDocModeleSearch({ resetPage: false });
+      });
+      docModeleSearchInput.addEventListener("keydown", (evt) => {
+        if (evt.key === "Enter") {
+          evt.preventDefault();
+          clearDocModeleSearchTimer();
+          docModeleSearchState.page = 1;
+          runDocModeleSearch({ resetPage: true });
+        } else if (evt.key === "Escape") {
+          evt.preventDefault();
+          hideDocModeleSearchResults({ keepMarkup: true, resetSearch: true });
+        }
+      });
+    }
+
+    docModeleSearchBtn?.addEventListener("click", (evt) => {
+      evt.preventDefault();
+      clearDocModeleSearchTimer();
+      docModeleSearchState.page = 1;
+      runDocModeleSearch({ resetPage: true });
+    });
+
+    docModeleSearchResults?.addEventListener("click", (evt) => {
+      evt.stopPropagation();
+      handleDocModeleSearchResultsClick(evt);
+    });
+
+    const refreshDocModeleSearchIfOpen = () => {
+      if (!isDocModeleSearchResultsOpen()) return;
+      if ((docModeleSearchState.query || "").trim().length < DOC_MODELE_SEARCH_MIN_QUERY_LENGTH) return;
+      runDocModeleSearch({ resetPage: false });
+    };
+    getEl("modelSelect")?.addEventListener("change", refreshDocModeleSearchIfOpen);
+    getEl("modelActionsSelect")?.addEventListener("change", refreshDocModeleSearchIfOpen);
+    window.addEventListener("sem:model-applied", refreshDocModeleSearchIfOpen);
+
+    document.addEventListener("click", (evt) => {
+      if (isDocMetaSearchResultsOpen()) {
+        const docSearchBox = evt.target?.closest?.("#docMetaSearchBoxMainscreen");
+        if (!docSearchBox) {
+          hideDocMetaSearchResults({ keepMarkup: true, resetSearch: true });
+        }
+      }
+      if (isDocModeleSearchResultsOpen()) {
+        const modelSearchBox = evt.target?.closest?.("#docModeleSearchBoxMainscreen");
+        if (!modelSearchBox) {
+          hideDocModeleSearchResults({ keepMarkup: true, resetSearch: true });
+        }
+      }
     });
 
     async function previewHistoryEntry(entry) {
@@ -6793,6 +7742,7 @@
     }
 
     window.addEventListener("document-history-updated", (event) => {
+      markDocMetaSearchDirty();
       const updatedType = event?.detail?.docType;
       const updatedEntry = event?.detail?.entry;
       const normalizedUpdatedType =
@@ -6836,6 +7786,12 @@
           updateHistoryModalData(historyModalState.docType);
           renderHistoryModal();
         }
+      }
+      if (
+        isDocMetaSearchResultsOpen() &&
+        (docMetaSearchState.query || "").trim().length >= DOC_META_SEARCH_MIN_QUERY_LENGTH
+      ) {
+        runDocMetaSearch({ forceReload: true, resetPage: false });
       }
     });
 

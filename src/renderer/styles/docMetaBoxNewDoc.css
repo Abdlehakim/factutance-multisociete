@@ -107,6 +107,7 @@
   display: grid;
   gap: 12px;
   align-items: flex-start;
+      margin-top: 10px;
 }
 #docMetaBoxNewDoc .doc-meta-grid__item {
   min-width: 0;
@@ -821,6 +822,7 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   align-items: start;
+      margin-top: 10px;
 }
 
 .items-be-reception-form__field {

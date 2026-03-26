@@ -116,7 +116,9 @@
 #clientSearchResults,
 #fournisseurSearchResults,
 #transporteurSearchResults,
-#depotMagasinSearchResults {
+#depotMagasinSearchResults,
+#docMetaSearchResults,
+#docModeleSearchResults {
   max-width: none;
   --article-search-row-height: 75px;
   --article-search-row-gap: 12px;
@@ -134,7 +136,9 @@
 #clientSearchResults,
 #fournisseurSearchResults,
 #transporteurSearchResults,
-#depotMagasinSearchResults {
+#depotMagasinSearchResults,
+#docMetaSearchResults,
+#docModeleSearchResults {
   --article-search-row-height: 90px;
   --article-search-row-gap: 10px;
   --article-search-list-padding: 8px;
@@ -169,6 +173,34 @@
     var(--article-search-list-height, 178px) + var(--article-search-pager-height, 74px)
   );
 }
+#docMetaSearchResults {
+  --article-search-row-height: 84px;
+  --article-search-row-gap: 8px;
+  --article-search-list-padding: 6px;
+  --article-search-pager-height: 74px;
+  --article-search-list-height: calc(
+    3 * var(--article-search-row-height, 84px) +
+      2 * var(--article-search-row-gap, 8px) +
+      var(--article-search-list-padding, 6px)
+  );
+  --article-search-total-height: calc(
+    var(--article-search-list-height, 274px) + var(--article-search-pager-height, 74px)
+  );
+}
+#docModeleSearchResults {
+  --article-search-row-height: 84px;
+  --article-search-row-gap: 8px;
+  --article-search-list-padding: 6px;
+  --article-search-pager-height: 74px;
+  --article-search-list-height: calc(
+    3 * var(--article-search-row-height, 84px) +
+      2 * var(--article-search-row-gap, 8px) +
+      var(--article-search-list-padding, 6px)
+  );
+  --article-search-total-height: calc(
+    var(--article-search-list-height, 274px) + var(--article-search-pager-height, 74px)
+  );
+}
 #articleSearchResults {
   --article-search-row-height: 90px;
   --article-search-row-gap: 10px;
@@ -182,7 +214,9 @@
 #clientSearchResults.client-search--paged,
 #fournisseurSearchResults.client-search--paged,
 #transporteurSearchResults.client-search--paged,
-#depotMagasinSearchResults.client-search--paged {
+#depotMagasinSearchResults.client-search--paged,
+#docMetaSearchResults.client-search--paged,
+#docModeleSearchResults.client-search--paged {
   display: flex;
   flex-direction: column;
   max-height: var(--article-search-total-height, 576px);
@@ -915,6 +949,8 @@
 .client-search__results#clientSearchResults .client-search__actions,
 .client-search__results#fournisseurSearchResults .client-search__actions,
 .client-search__results#transporteurSearchResults .client-search__actions,
+.client-search__results#docMetaSearchResults .client-search__actions,
+.client-search__results#docModeleSearchResults .client-search__actions,
 .client-search__results#depotMagasinSearchResults .client-search__actions {
   display: flex;
   flex-direction: column;
@@ -928,6 +964,8 @@
 .client-search__results#clientSearchResults .client-search__actions > *,
 .client-search__results#fournisseurSearchResults .client-search__actions > *,
 .client-search__results#transporteurSearchResults .client-search__actions > *,
+.client-search__results#docMetaSearchResults .client-search__actions > *,
+.client-search__results#docModeleSearchResults .client-search__actions > *,
 .client-search__results#depotMagasinSearchResults .client-search__actions > * {
   width: 100%;
   min-width: 0;
@@ -2263,6 +2301,8 @@ color: #000;
 .client-search__results#clientSearchResults .client-search__actions,
 .client-search__results#fournisseurSearchResults .client-search__actions,
 .client-search__results#transporteurSearchResults .client-search__actions,
+.client-search__results#docMetaSearchResults .client-search__actions,
+.client-search__results#docModeleSearchResults .client-search__actions,
 .swbDialog__panel.client-saved-modal__panel .client-search__actions,
 .swbDialog__panel.article-saved-modal__panel .client-search__actions,
 .swbDialog__panel.doc-history-modal__panel .client-search__actions {

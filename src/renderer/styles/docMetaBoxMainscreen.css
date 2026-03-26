@@ -141,6 +141,35 @@
 .section-box#docMetaBoxMainscreen .doc-type-field {
   width: 100%;
 }
+.section-box#docMetaBoxMainscreen .doc-meta-search {
+  width: 100%;
+  margin-top: 10px;
+}
+.section-box#docModeleBoxMainscreen .doc-meta-search {
+  width: 100%;
+  margin-top: 10px;
+}
+.section-box#docMetaBoxMainscreen .doc-meta-search .client-search__controls {
+  width: 100%;
+}
+.section-box#docModeleBoxMainscreen .doc-meta-search .client-search__controls {
+  width: 100%;
+}
+.section-box#docMetaBoxMainscreen .doc-meta-search .doc-history-row,
+.section-box#docModeleBoxMainscreen .doc-meta-search .doc-history-row {
+  margin-left: auto;
+  justify-content: flex-start;
+  align-items: center;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+.section-box#docMetaBoxMainscreen #docMetaSearchResults {
+  z-index: 520;
+}
+.section-box#docModeleBoxMainscreen #docModeleSearchResults {
+  z-index: 520;
+}
 .doc-type-action-row {
   grid-column: 1 / -1;
   display: flex;
@@ -151,6 +180,12 @@
 .section-box#docMetaBoxMainscreen .doc-type-action-row,
 .section-box#docModeleBoxMainscreen .doc-type-action-row {
   margin-top: 20px;
+}
+.section-box#docMetaBoxMainscreen .doc-type-action-row {
+  margin-top: 12px;
+}
+.section-box#docModeleBoxMainscreen .doc-type-action-row {
+  margin-top: 12px;
 }
 .section-box#docMetaBoxMainscreen .doc-type-action-row .doc-history-row,
 .section-box#docModeleBoxMainscreen .doc-type-action-row .doc-history-row {
