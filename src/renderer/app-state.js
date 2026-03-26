@@ -290,6 +290,28 @@
       }))
     };
   };
+  const normalizeBonEntreeImportedSourceKeys = (value = [], fallbackSelection = null) => {
+    const fallbackItems = normalizeBonEntreeSourceSelection(fallbackSelection)?.items || [];
+    const hasExplicitValue =
+      value !== undefined &&
+      value !== null &&
+      !(typeof value === "string" && !String(value).trim());
+    const source = Array.isArray(value)
+      ? value
+      : typeof value === "string"
+        ? value.split(",")
+        : [];
+    const seen = new Set();
+    return [...source, ...(!hasExplicitValue ? fallbackItems.map((entry) => entry?.key || "") : [])]
+      .map((entry) => String(entry || "").trim())
+      .filter((entry) => {
+        if (!entry) return false;
+        const key = entry.toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+  };
   const formatBonEntreeSourceSelectionText = (selection) => {
     const normalized = normalizeBonEntreeSourceSelection(selection);
     if (!normalized) return "";
@@ -332,6 +354,9 @@
   const normalizeBonEntreeReceptionMeta = (rawValue = {}, meta = {}) => {
     const raw = rawValue && typeof rawValue === "object" ? rawValue : {};
     const docType = String(meta?.docType || "").trim().toLowerCase();
+    const normalizedSourceSelection = normalizeBonEntreeSourceSelection(
+      raw.sourceSelection ?? raw.sourceDocuments ?? raw.sourceDocs ?? meta?.beSourceSelection ?? null
+    );
     const destinationIds = normalizeBonEntreeDestinationIds(
       raw.destinationIds ??
         raw.destinationIdList ??
@@ -390,8 +415,13 @@
           meta?.beSourceRef ??
           ""
       ).trim(),
-      sourceSelection: normalizeBonEntreeSourceSelection(
-        raw.sourceSelection ?? raw.sourceDocuments ?? raw.sourceDocs ?? meta?.beSourceSelection ?? null
+      sourceSelection: normalizedSourceSelection,
+      importedSourceKeys: normalizeBonEntreeImportedSourceKeys(
+        raw.importedSourceKeys ??
+          raw.sourceImportedKeys ??
+          raw.importedSources ??
+          meta?.beSourceImportedKeys,
+        normalizedSourceSelection
       )
     };
     if (!normalized.sourceRef && normalized.sourceSelection) {

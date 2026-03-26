@@ -702,6 +702,28 @@
         }))
       };
     };
+    const normalizeItemsModalBeReceptionImportedSourceKeys = (value = [], fallbackSelection = null) => {
+      const fallbackItems = normalizeItemsModalBeReceptionSourceSelection(fallbackSelection)?.items || [];
+      const hasExplicitValue =
+        value !== undefined &&
+        value !== null &&
+        !(typeof value === "string" && !String(value).trim());
+      const source = Array.isArray(value)
+        ? value
+        : typeof value === "string"
+          ? value.split(",")
+          : [];
+      const seen = new Set();
+      return [...source, ...(!hasExplicitValue ? fallbackItems.map((entry) => entry?.key || "") : [])]
+        .map((entry) => String(entry || "").trim())
+        .filter((entry) => {
+          if (!entry) return false;
+          const key = entry.toLowerCase();
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+    };
     const formatItemsModalBeReceptionSourceSelectionText = (selection) => {
       const normalized = normalizeItemsModalBeReceptionSourceSelection(selection);
       if (!normalized) return "";
@@ -945,6 +967,323 @@
       }
       return locations;
     };
+    const getItemsModalDocumentState = () => {
+      const st =
+        SEM?.state && typeof SEM.state === "object"
+          ? SEM.state
+          : w.state && typeof w.state === "object"
+            ? w.state
+            : null;
+      if (st && !Array.isArray(st.items)) st.items = [];
+      return st;
+    };
+    const pickItemsModalBeSourceDocumentData = (raw) => {
+      let resolved = raw && typeof raw === "object" ? raw : {};
+      for (let depth = 0; depth < 3; depth += 1) {
+        if (!(resolved && typeof resolved === "object")) break;
+        if (resolved.data && typeof resolved.data === "object") {
+          resolved = resolved.data;
+          continue;
+        }
+        break;
+      }
+      return resolved && typeof resolved === "object" ? resolved : {};
+    };
+    const hasItemsModalBeSourceValue = (value) =>
+      value !== undefined && value !== null && String(value).trim() !== "";
+    const parseItemsModalBeSourceNumber = (value, fallback = 0) => {
+      if (typeof value === "number") return Number.isFinite(value) ? value : fallback;
+      const raw = String(value ?? "").replace(/\u00A0/g, " ").trim();
+      if (!raw) return fallback;
+      const wrappedNegative = /^\(.*\)$/.test(raw);
+      const unsignedRaw = wrappedNegative ? raw.slice(1, -1) : raw;
+      const cleaned = unsignedRaw.replace(/[^0-9,.\-+]/g, "");
+      if (!cleaned || !/[0-9]/.test(cleaned)) return fallback;
+      const sign = wrappedNegative || cleaned.trim().startsWith("-") ? -1 : 1;
+      const digitsOnly = cleaned.replace(/[+\-]/g, "");
+      if (!digitsOnly || !/[0-9]/.test(digitsOnly)) return fallback;
+      const commaCount = (digitsOnly.match(/,/g) || []).length;
+      const dotCount = (digitsOnly.match(/\./g) || []).length;
+      const lastComma = digitsOnly.lastIndexOf(",");
+      const lastDot = digitsOnly.lastIndexOf(".");
+      let decimalSep = "";
+      if (commaCount > 0 && dotCount > 0) decimalSep = lastComma > lastDot ? "," : ".";
+      else if (commaCount === 1 && dotCount === 0) decimalSep = ",";
+      else if (dotCount === 1 && commaCount === 0) decimalSep = ".";
+      let normalized = "";
+      if (decimalSep) {
+        const sepIndex = digitsOnly.lastIndexOf(decimalSep);
+        const intPart = digitsOnly.slice(0, sepIndex).replace(/[.,]/g, "");
+        const fracPart = digitsOnly.slice(sepIndex + 1).replace(/[.,]/g, "");
+        normalized = fracPart ? `${intPart || "0"}.${fracPart}` : intPart || "0";
+      } else {
+        normalized = digitsOnly.replace(/[.,]/g, "");
+      }
+      const parsed = Number(normalized);
+      return Number.isFinite(parsed) ? sign * parsed : fallback;
+    };
+    const pickItemsModalBeSourceField = (source, keys = []) => {
+      const record = source && typeof source === "object" ? source : {};
+      for (const key of keys) {
+        if (hasItemsModalBeSourceValue(record?.[key])) return record[key];
+      }
+      return undefined;
+    };
+    const normalizeItemsModalBeSourceFodec = (value, fallbackLabel) => {
+      const raw = value && typeof value === "object" ? value : {};
+      const rate = parseItemsModalBeSourceNumber(raw.rate, 0);
+      const tva = parseItemsModalBeSourceNumber(raw.tva, 0);
+      return {
+        enabled:
+          typeof raw.enabled === "boolean"
+            ? raw.enabled
+            : rate > 0,
+        label: String(raw.label || fallbackLabel || "").trim() || fallbackLabel,
+        rate,
+        tva
+      };
+    };
+    const normalizeItemsModalBeImportedItem = (entry, sourceMeta = {}) => {
+      const source = entry && typeof entry === "object" ? entry : {};
+      const sourceDocType = normalizeItemsModalBeReceptionSourceDocType(sourceMeta.docType || "");
+      const isPurchaseLike = sourceDocType === "fa" || sourceDocType === "bc";
+      const refValue = pickItemsModalBeSourceField(source, ["ref", "reference", "code", "sku"]);
+      const productValue = pickItemsModalBeSourceField(source, [
+        "product",
+        "designation",
+        "designationName",
+        "name",
+        "article",
+        "itemName"
+      ]);
+      const descValue = pickItemsModalBeSourceField(source, ["desc", "description", "detail", "details"]);
+      const unitValue = pickItemsModalBeSourceField(source, ["unit", "unite", "unitLabel"]);
+      const qtyValue = pickItemsModalBeSourceField(source, ["qty", "quantity", "qte", "quantite"]);
+      const stockQtyValue = pickItemsModalBeSourceField(source, ["stockQty", "stockQuantity", "stock"]);
+      const priceSource = pickItemsModalBeSourceField(source, [
+        "price",
+        "unitPrice",
+        "unit_price",
+        "pu",
+        "puHt",
+        "pu_ht",
+        "prixUnitaire",
+        "prix_unitaire"
+      ]);
+      const tvaSource = pickItemsModalBeSourceField(source, [
+        "tva",
+        "vat",
+        "tax",
+        "taxRate",
+        "tax_rate",
+        "tvaRate",
+        "tva_rate"
+      ]);
+      const purchasePriceSource = pickItemsModalBeSourceField(source, [
+        "purchasePrice",
+        "purchase_price",
+        "buyPrice",
+        "buy_price",
+        "prixAchat",
+        "prix_achat",
+        "purchaseHt",
+        "purchase_ht",
+        "puAchat",
+        "pu_achat",
+        "puAchatHt",
+        "pu_achat_ht",
+        "puAHt",
+        "pu_a_ht"
+      ]);
+      const purchaseTvaSource = pickItemsModalBeSourceField(source, [
+        "purchaseTva",
+        "purchase_tva",
+        "purchaseVat",
+        "purchase_vat",
+        "buyTva",
+        "buy_tva",
+        "tvaAchat",
+        "tva_achat",
+        "purchaseTax",
+        "purchase_tax"
+      ]);
+      const discountSource = pickItemsModalBeSourceField(source, [
+        "discount",
+        "discountPct",
+        "discount_pct",
+        "discountRate",
+        "discount_rate",
+        "remise"
+      ]);
+      const purchaseDiscountSource = pickItemsModalBeSourceField(source, [
+        "purchaseDiscount",
+        "purchase_discount",
+        "purchaseDiscountPct",
+        "purchase_discount_pct",
+        "purchaseDiscountPercent",
+        "purchase_discount_percent",
+        "purchaseDiscountRate",
+        "purchase_discount_rate",
+        "purchaseRemise",
+        "purchase_remise",
+        "remiseAchat",
+        "remise_achat"
+      ]);
+      let price = hasItemsModalBeSourceValue(priceSource)
+        ? parseItemsModalBeSourceNumber(priceSource, 0)
+        : 0;
+      let tva = hasItemsModalBeSourceValue(tvaSource)
+        ? parseItemsModalBeSourceNumber(tvaSource, 0)
+        : 0;
+      let discount = hasItemsModalBeSourceValue(discountSource)
+        ? parseItemsModalBeSourceNumber(discountSource, 0)
+        : 0;
+      let purchasePrice = hasItemsModalBeSourceValue(purchasePriceSource)
+        ? parseItemsModalBeSourceNumber(purchasePriceSource, 0)
+        : 0;
+      let purchaseTva = hasItemsModalBeSourceValue(purchaseTvaSource)
+        ? parseItemsModalBeSourceNumber(purchaseTvaSource, 0)
+        : 0;
+      let purchaseDiscount = hasItemsModalBeSourceValue(purchaseDiscountSource)
+        ? parseItemsModalBeSourceNumber(purchaseDiscountSource, 0)
+        : 0;
+      if (isPurchaseLike) {
+        if (!hasItemsModalBeSourceValue(purchasePriceSource) && price !== 0) purchasePrice = price;
+        if (!hasItemsModalBeSourceValue(purchaseTvaSource) && tva !== 0) purchaseTva = tva;
+        if (!hasItemsModalBeSourceValue(purchaseDiscountSource) && discount !== 0) {
+          purchaseDiscount = discount;
+        }
+        if (!hasItemsModalBeSourceValue(priceSource) && purchasePrice !== 0) price = purchasePrice;
+        if (!hasItemsModalBeSourceValue(tvaSource) && purchaseTva !== 0) tva = purchaseTva;
+        if (!hasItemsModalBeSourceValue(discountSource) && purchaseDiscount !== 0) {
+          discount = purchaseDiscount;
+        }
+      }
+      const normalizedItem = {
+        ...source,
+        ref: String(refValue ?? source.ref ?? "").trim(),
+        product: String(productValue ?? source.product ?? "").trim(),
+        desc: String(descValue ?? source.desc ?? "").trim(),
+        qty: hasItemsModalBeSourceValue(qtyValue)
+          ? parseItemsModalBeSourceNumber(qtyValue, 1)
+          : 1,
+        stockQty: hasItemsModalBeSourceValue(stockQtyValue)
+          ? parseItemsModalBeSourceNumber(stockQtyValue, 0)
+          : parseItemsModalBeSourceNumber(source.stockQty, 0),
+        unit: String(unitValue ?? source.unit ?? "").trim(),
+        price,
+        tva,
+        discount,
+        purchasePrice,
+        purchaseTva,
+        purchaseDiscount,
+        fodec: normalizeItemsModalBeSourceFodec(source.fodec, "FODEC"),
+        purchaseFodec: normalizeItemsModalBeSourceFodec(
+          source.purchaseFodec ?? source.fodec,
+          "FODEC ACHAT"
+        ),
+        __beSourceImported: true,
+        __beSourceDocKey: String(sourceMeta.key || "").trim(),
+        __beSourceDocType: sourceDocType,
+        __beSourceDocNumber: String(sourceMeta.number || "").trim()
+      };
+      if (!normalizedItem.ref && !normalizedItem.product && !normalizedItem.desc) return null;
+      return normalizedItem;
+    };
+    const loadItemsModalBeSourceDocumentItems = async (entry = {}) => {
+      const normalizedEntry =
+        normalizeItemsModalBeReceptionSourceSelection({
+          docType: entry?.docType,
+          items: [entry]
+        })?.items?.[0] || null;
+      if (!normalizedEntry) {
+        return { ok: false, error: "Document source invalide.", entry: null, items: [] };
+      }
+      const docType = normalizeItemsModalBeReceptionSourceDocType(normalizedEntry.docType || "");
+      if (!docType) {
+        return {
+          ok: false,
+          error: "Type de document source non pris en charge.",
+          entry: normalizedEntry,
+          items: []
+        };
+      }
+      if (
+        typeof w.openInvoiceFromFilePicker !== "function" &&
+        typeof w.electronAPI?.openInvoiceJSON !== "function"
+      ) {
+        return {
+          ok: false,
+          error: "Chargement du document source indisponible.",
+          entry: normalizedEntry,
+          items: []
+        };
+      }
+      try {
+        const raw =
+          typeof w.openInvoiceFromFilePicker === "function"
+            ? await w.openInvoiceFromFilePicker({
+                path: normalizedEntry.path,
+                number: normalizedEntry.number,
+                docType
+              })
+            : await w.electronAPI.openInvoiceJSON({
+                path: normalizedEntry.path,
+                number: normalizedEntry.number,
+                docType
+              });
+        if (!raw || (raw.ok === false && !(raw.data && typeof raw.data === "object"))) {
+          return {
+            ok: false,
+            error: String(raw?.error || "Chargement du document source impossible."),
+            entry: normalizedEntry,
+            items: []
+          };
+        }
+        const data = pickItemsModalBeSourceDocumentData(raw);
+        const sourceItems = Array.isArray(data.items) ? data.items : [];
+        const items = sourceItems
+          .map((item) => normalizeItemsModalBeImportedItem(item, normalizedEntry))
+          .filter(Boolean);
+        return {
+          ok: true,
+          entry: normalizedEntry,
+          items,
+          empty: !items.length
+        };
+      } catch (err) {
+        return {
+          ok: false,
+          error: String(err?.message || err || "Chargement du document source impossible."),
+          entry: normalizedEntry,
+          items: []
+        };
+      }
+    };
+    const appendItemsModalBeImportedItems = (items = []) => {
+      const st = getItemsModalDocumentState();
+      if (!st) return 0;
+      const mergeItemIntoState = SEM?.__bindingHelpers?.mergeItemIntoState;
+      const importedItems = Array.isArray(items) ? items.filter(Boolean) : [];
+      importedItems.forEach((item) => {
+        const candidate = item && typeof item === "object" ? { ...item } : null;
+        if (!candidate) return;
+        if (typeof mergeItemIntoState === "function") mergeItemIntoState(candidate);
+        else st.items.push(candidate);
+      });
+      if (importedItems.length) {
+        if (typeof SEM.renderItems === "function") SEM.renderItems();
+        else if (typeof SEM.computeTotals === "function") SEM.computeTotals();
+      }
+      return importedItems.length;
+    };
+    const formatItemsModalBeSourceEntryList = (entries = []) =>
+      (Array.isArray(entries) ? entries : [])
+        .map((entry) =>
+          String(entry?.displayName || entry?.number || entry?.name || "Document").trim()
+        )
+        .filter(Boolean)
+        .join(", ");
     const setItemsModalBeReceptionSelectOptions = (
       select,
       entries = [],
@@ -1019,6 +1358,9 @@
           : (getInvoiceMeta() || {});
       const raw = meta.beReception && typeof meta.beReception === "object" ? meta.beReception : {};
       const docType = String(meta.docType || "").trim().toLowerCase();
+      const normalizedSourceSelection = normalizeItemsModalBeReceptionSourceSelection(
+        raw.sourceSelection ?? raw.sourceDocuments ?? raw.sourceDocs ?? meta.beSourceSelection ?? null
+      );
       const normalizedDestinationIds = normalizeItemsModalBeReceptionDestinationIds(
         raw.destinationIds ??
           raw.destinationIdList ??
@@ -1073,8 +1415,13 @@
             meta.beSourceRef ??
             ""
         ).trim(),
-        sourceSelection: normalizeItemsModalBeReceptionSourceSelection(
-          raw.sourceSelection ?? raw.sourceDocuments ?? raw.sourceDocs ?? meta.beSourceSelection ?? null
+        sourceSelection: normalizedSourceSelection,
+        importedSourceKeys: normalizeItemsModalBeReceptionImportedSourceKeys(
+          raw.importedSourceKeys ??
+            raw.sourceImportedKeys ??
+            raw.importedSources ??
+            meta.beSourceImportedKeys,
+          normalizedSourceSelection
         )
       };
       if (!normalized.sourceRef && normalized.sourceSelection) {
@@ -1998,21 +2345,91 @@
       }
       return true;
     };
-    const applyItemsModalBeReceptionSourceSelection = (section, selection) => {
+    const applyItemsModalBeReceptionSourceSelection = async (section, selection) => {
       const meta = getInvoiceMeta() || {};
       const reception = ensureItemsModalBeReceptionMeta(meta);
+      const previousSelection = normalizeItemsModalBeReceptionSourceSelection(reception.sourceSelection);
+      const previousSelectionSignature = JSON.stringify(previousSelection || null);
+      const previousImportedSourceKeys = normalizeItemsModalBeReceptionImportedSourceKeys(
+        reception.importedSourceKeys || [],
+        previousSelection
+      );
       const normalizedSelection = normalizeItemsModalBeReceptionSourceSelection(selection);
       reception.sourceSelection = normalizedSelection;
       reception.sourceRef = normalizedSelection
         ? formatItemsModalBeReceptionSourceSelectionText(normalizedSelection)
         : "";
+      const importedKeysSet = new Set(previousImportedSourceKeys.map((entry) => entry.toLowerCase()));
+      const duplicateEntries = [];
+      const entriesToImport = [];
+      (normalizedSelection?.items || []).forEach((entry) => {
+        const key = String(entry?.key || "").trim();
+        if (!key) return;
+        if (importedKeysSet.has(key.toLowerCase())) duplicateEntries.push(entry);
+        else entriesToImport.push(entry);
+      });
+      const emptyEntries = [];
+      const failedEntries = [];
+      const successfullyImportedKeys = [];
+      const importedItems = [];
+      for (const entry of entriesToImport) {
+        const result = await loadItemsModalBeSourceDocumentItems(entry);
+        if (!result?.ok) {
+          failedEntries.push({
+            ...entry,
+            error: String(result?.error || "Chargement impossible.")
+          });
+          continue;
+        }
+        if (!Array.isArray(result.items) || !result.items.length) {
+          emptyEntries.push(entry);
+          continue;
+        }
+        importedItems.push(...result.items);
+        successfullyImportedKeys.push(String(entry.key || "").trim());
+      }
+      reception.importedSourceKeys = normalizeItemsModalBeReceptionImportedSourceKeys([
+        ...previousImportedSourceKeys,
+        ...successfullyImportedKeys
+      ]);
       meta.beReception = reception;
       const sourceInput = section?.querySelector?.(`#${ITEMS_BE_RECEPTION_FIELDS.sourceRef}`) || null;
       if (sourceInput && sourceInput.value !== reception.sourceRef) {
         sourceInput.value = reception.sourceRef;
       }
+      if (importedItems.length) {
+        appendItemsModalBeImportedItems(importedItems);
+      }
       if (typeof SEM.refreshInvoiceSummary === "function") {
         SEM.refreshInvoiceSummary();
+      }
+      const selectionChanged =
+        previousSelectionSignature !== JSON.stringify(normalizedSelection || null);
+      if ((selectionChanged || importedItems.length) && typeof SEM.markDocumentDirty === "function") {
+        SEM.markDocumentDirty(true);
+      }
+      const notices = [];
+      if (duplicateEntries.length) {
+        notices.push(
+          `Les articles des documents deja importes n'ont pas ete ajoutes de nouveau : ${formatItemsModalBeSourceEntryList(
+            duplicateEntries
+          )}.`
+        );
+      }
+      if (emptyEntries.length) {
+        notices.push(
+          `Aucun article n'a ete trouve dans : ${formatItemsModalBeSourceEntryList(emptyEntries)}.`
+        );
+      }
+      if (failedEntries.length) {
+        notices.push(
+          `Impossible de charger : ${failedEntries
+            .map((entry) => `${String(entry.displayName || entry.number || "Document").trim()} (${entry.error})`)
+            .join(", ")}.`
+        );
+      }
+      if (notices.length) {
+        await w.showDialog?.(notices.join("\n\n"), { title: "Import des articles" });
       }
     };
     const openItemsModalBeReceptionSourcePicker = async (trigger, section) => {
@@ -2035,7 +2452,7 @@
         searchPlaceholder: "Rechercher par numero"
       });
       if (!res?.ok || !Array.isArray(res.items) || !res.items.length) return;
-      applyItemsModalBeReceptionSourceSelection(section, {
+      await applyItemsModalBeReceptionSourceSelection(section, {
         docType: res.docType,
         items: res.items
       });
