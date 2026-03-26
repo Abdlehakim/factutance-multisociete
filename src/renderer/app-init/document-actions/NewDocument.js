@@ -638,6 +638,10 @@
     };
     const ITEMS_BE_RECEPTION_TIME_PANEL_ID = "beReceptionTimePanel";
     const ITEMS_BE_RECEPTION_SOURCE_PICKER_ID = "beReceptionSourcePickerBtn";
+    const ITEMS_BE_RECEPTION_SOURCE_REVIEW_ID = "beReceptionSourceReviewBtn";
+    const ITEMS_BE_RECEPTION_SOURCE_MANAGER_ID = "beReceptionSourceManager";
+    const ITEMS_BE_RECEPTION_SOURCE_MANAGER_COUNT_ID = "beReceptionSourceManagerCount";
+    const ITEMS_BE_RECEPTION_SOURCE_MANAGER_LIST_ID = "beReceptionSourceManagerList";
     const ITEMS_BE_RECEPTION_DEPOT_PLACEHOLDER = "Selectionner un depot";
     const ITEMS_BE_RECEPTION_LOCATION_PLACEHOLDER = "Aucun emplacement";
     const ITEMS_BE_RECEPTION_LOCATION_DEPOT_REQUIRED = "Selectionnez d'abord un depot";
@@ -667,6 +671,7 @@
     };
     const normalizeItemsModalBeReceptionSourceSelection = (value) => {
       const raw = value && typeof value === "object" ? value : {};
+      const rawSupplier = raw.supplier && typeof raw.supplier === "object" ? raw.supplier : {};
       const rawItems = Array.isArray(raw.items)
         ? raw.items
         : Array.isArray(raw.documents)
@@ -679,6 +684,8 @@
           const path = String(item.path || "").trim();
           const number = String(item.number || "").trim();
           const date = String(item.date || "").trim();
+          const clientName = String(item.clientName || "").trim();
+          const clientPath = String(item.clientPath || "").trim();
           const displayName = String(item.displayName || item.name || number || "").trim() || `Document ${index + 1}`;
           const docType = normalizeItemsModalBeReceptionSourceDocType(
             item.docType || item.type || raw.docType || raw.type || ""
@@ -687,15 +694,28 @@
             String(item.key || "").trim() ||
             (id ? `id:${id}` : path ? `path:${path}` : number ? `number:${number}:${index}` : `idx:${index}`);
           if (!id && !path && !number && !displayName) return null;
-          return { key, id, path, number, date, displayName, docType };
+          return { key, id, path, number, date, displayName, docType, clientName, clientPath };
         })
         .filter(Boolean);
       const docType = normalizeItemsModalBeReceptionSourceDocType(
         raw.docType || raw.type || normalizedItems[0]?.docType || ""
       );
       if (!normalizedItems.length || !docType) return null;
+      const supplierPath = String(rawSupplier.path || normalizedItems[0]?.clientPath || "").trim();
+      const supplierName = String(rawSupplier.name || normalizedItems[0]?.clientName || "").trim();
+      const supplierLabel = String(rawSupplier.label || supplierName || "").trim();
+      const supplierIdentifier = String(rawSupplier.identifier || "").trim();
       return {
         docType,
+        supplier:
+          supplierPath || supplierName || supplierLabel || supplierIdentifier
+            ? {
+                path: supplierPath,
+                name: supplierName,
+                label: supplierLabel || supplierName,
+                identifier: supplierIdentifier
+              }
+            : null,
         items: normalizedItems.map((item) => ({
           ...item,
           docType: item.docType || docType
@@ -1263,19 +1283,253 @@
     const appendItemsModalBeImportedItems = (items = []) => {
       const st = getItemsModalDocumentState();
       if (!st) return 0;
-      const mergeItemIntoState = SEM?.__bindingHelpers?.mergeItemIntoState;
       const importedItems = Array.isArray(items) ? items.filter(Boolean) : [];
       importedItems.forEach((item) => {
         const candidate = item && typeof item === "object" ? { ...item } : null;
         if (!candidate) return;
-        if (typeof mergeItemIntoState === "function") mergeItemIntoState(candidate);
-        else st.items.push(candidate);
+        st.items.push(candidate);
       });
       if (importedItems.length) {
         if (typeof SEM.renderItems === "function") SEM.renderItems();
         else if (typeof SEM.computeTotals === "function") SEM.computeTotals();
       }
       return importedItems.length;
+    };
+    const removeItemsModalBeImportedItemsBySourceKeys = (sourceKeys = []) => {
+      const st = getItemsModalDocumentState();
+      if (!st || !Array.isArray(st.items)) return 0;
+      const normalizedKeys = normalizeItemsModalBeReceptionImportedSourceKeys(sourceKeys);
+      if (!normalizedKeys.length) return 0;
+      const keySet = new Set(normalizedKeys.map((entry) => entry.toLowerCase()));
+      const currentItems = Array.isArray(st.items) ? st.items : [];
+      const nextItems = currentItems.filter((item) => {
+        const sourceKey = String(item?.__beSourceDocKey || "").trim().toLowerCase();
+        return !sourceKey || !keySet.has(sourceKey);
+      });
+      const removedCount = currentItems.length - nextItems.length;
+      if (removedCount > 0) {
+        st.items = nextItems;
+        if (typeof SEM.renderItems === "function") SEM.renderItems();
+        else if (typeof SEM.computeTotals === "function") SEM.computeTotals();
+      }
+      return removedCount;
+    };
+    const normalizeItemsModalBeReceptionSupplierInfo = (value = {}) => {
+      const raw = value && typeof value === "object" ? value : {};
+      const path = String(raw.path || raw.clientPath || raw.__path || "").trim();
+      const name = String(raw.name || raw.clientName || "").trim();
+      const label = String(raw.label || name || "").trim();
+      const identifier = String(raw.identifier || raw.vat || raw.identifiantFiscal || "").trim();
+      if (!path && !name && !label && !identifier) return null;
+      return {
+        path,
+        name,
+        label: label || name,
+        identifier
+      };
+    };
+    const resolveItemsModalBeReceptionSupplierFromSelection = (selection) => {
+      const normalized = normalizeItemsModalBeReceptionSourceSelection(selection);
+      if (!normalized) return null;
+      const directSupplier = normalizeItemsModalBeReceptionSupplierInfo(normalized.supplier || null);
+      if (directSupplier) return directSupplier;
+      const firstItem = Array.isArray(normalized.items) ? normalized.items[0] : null;
+      return normalizeItemsModalBeReceptionSupplierInfo({
+        path: firstItem?.clientPath || "",
+        name: firstItem?.clientName || ""
+      });
+    };
+    const normalizeItemsModalBeReceptionSupplierMatchToken = (value = "") =>
+      String(value || "")
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, " ");
+    const matchesItemsModalBeReceptionSupplierInfo = (supplierInfo, client = {}) => {
+      const normalizedSupplier = normalizeItemsModalBeReceptionSupplierInfo(supplierInfo);
+      if (!normalizedSupplier) return false;
+      const current = client && typeof client === "object" ? client : {};
+      const currentPath = String(current.__path || current.path || "").trim();
+      if (normalizedSupplier.path && currentPath) {
+        return currentPath === normalizedSupplier.path;
+      }
+      const supplierName = normalizeItemsModalBeReceptionSupplierMatchToken(
+        normalizedSupplier.name || normalizedSupplier.label || ""
+      );
+      const currentName = normalizeItemsModalBeReceptionSupplierMatchToken(current.name || "");
+      return !!supplierName && !!currentName && supplierName === currentName;
+    };
+    const getItemsModalBeReceptionSupplierScope = () =>
+      itemsDocOptionsModalContent?.querySelector?.("#FournisseurBoxNewDoc") || getEl("FournisseurBoxNewDoc") || null;
+    const syncItemsModalBeReceptionSupplierSearchUi = (scopeNode, label = "") => {
+      if (!scopeNode) return;
+      const searchInput = scopeNode.querySelector?.("#clientSearch") || null;
+      if (searchInput && "value" in searchInput) {
+        searchInput.value = String(label || "").trim();
+      }
+      const searchResults = scopeNode.querySelector?.("#clientSearchResults") || null;
+      if (searchResults) {
+        searchResults.innerHTML = "";
+        searchResults.hidden = true;
+        searchResults.classList.remove("client-search--paged");
+      }
+    };
+    const buildItemsModalBeReceptionSupplierRecord = (client, supplierInfo = null) => {
+      const payload = client && typeof client === "object" ? client : {};
+      const supplier = normalizeItemsModalBeReceptionSupplierInfo(supplierInfo || payload) || null;
+      const resolvedPath = String(payload.__path || payload.path || supplier?.path || "").trim();
+      return {
+        entityType: "vendor",
+        path: resolvedPath,
+        name: String(payload.name || supplier?.name || supplier?.label || "").trim(),
+        client: {
+          ...payload,
+          __entityType: "vendor",
+          __path: resolvedPath
+        }
+      };
+    };
+    const resolveItemsModalBeReceptionSupplierRecord = async (supplierInfo) => {
+      const supplier = normalizeItemsModalBeReceptionSupplierInfo(supplierInfo);
+      if (!supplier) return null;
+      if (supplier.path && typeof w.electronAPI?.openClient === "function") {
+        try {
+          const openRes = await w.electronAPI.openClient({
+            path: supplier.path,
+            entityType: "vendor"
+          });
+          if (openRes?.ok && openRes.client && typeof openRes.client === "object") {
+            return buildItemsModalBeReceptionSupplierRecord(
+              { ...openRes.client, __path: String(openRes.path || supplier.path || "").trim() },
+              supplier
+            );
+          }
+        } catch (err) {
+          console.warn("be reception supplier open failed", err);
+        }
+      }
+      if (typeof w.electronAPI?.searchClients === "function") {
+        const queries = [
+          supplier.name,
+          supplier.label,
+          supplier.identifier
+        ]
+          .map((value) => String(value || "").trim())
+          .filter(Boolean);
+        for (const query of queries) {
+          try {
+            const res = await w.electronAPI.searchClients({
+              query,
+              entityType: "vendor",
+              limit: 25,
+              offset: 0
+            });
+            const results = Array.isArray(res?.results) ? res.results : [];
+            const exactMatch =
+              results.find((entry) => matchesItemsModalBeReceptionSupplierInfo(supplier, entry?.client || entry)) ||
+              results[0] ||
+              null;
+            if (exactMatch) {
+              const payload =
+                exactMatch.client && typeof exactMatch.client === "object"
+                  ? exactMatch.client
+                  : exactMatch;
+              return buildItemsModalBeReceptionSupplierRecord(
+                { ...payload, __path: String(exactMatch.path || payload.__path || "").trim() },
+                supplier
+              );
+            }
+          } catch (err) {
+            console.warn("be reception supplier search failed", err);
+          }
+        }
+      }
+      const fallbackName = String(supplier.name || supplier.label || "").trim();
+      if (!fallbackName && !supplier.path) return null;
+      return buildItemsModalBeReceptionSupplierRecord(
+        {
+          type: "societe",
+          name: fallbackName,
+          vat: supplier.identifier || "",
+          phone: "",
+          email: "",
+          address: "",
+          __path: ""
+        },
+        supplier
+      );
+    };
+    const loadItemsModalBeReceptionSupplierIntoForm = (section, record, supplierInfo = null) => {
+      const scopeNode = getItemsModalBeReceptionSupplierScope();
+      if (!scopeNode || !record) return false;
+      const supplier = normalizeItemsModalBeReceptionSupplierInfo(
+        supplierInfo || record?.client || record
+      );
+      if (typeof SEM.loadClientRecordIntoForm === "function") {
+        SEM.loadClientRecordIntoForm(record, {
+          formScope: scopeNode,
+          skipReadInputs: true
+        });
+      } else {
+        const payload =
+          record?.client && typeof record.client === "object" ? record.client : record;
+        if (typeof SEM.syncClientFormFields === "function") {
+          SEM.syncClientFormFields(payload, scopeNode);
+        }
+        if (typeof SEM.applyClientToState === "function") {
+          SEM.applyClientToState(payload, {
+            formScope: scopeNode,
+            entityType: "vendor",
+            mirrorToDocumentState: true
+          });
+        } else {
+          const st = SEM.state || (SEM.state = {});
+          st.client = {
+            ...(st.client || {}),
+            ...(payload || {}),
+            __entityType: "vendor",
+            __path: String(record?.path || payload?.__path || "").trim()
+          };
+          SEM.refreshClientSummary?.();
+        }
+      }
+      syncItemsModalBeReceptionSupplierSearchUi(
+        scopeNode,
+        supplier?.label || record?.name || record?.client?.name || ""
+      );
+      return true;
+    };
+    const syncItemsModalBeReceptionSupplierFromSourceSelection = async (
+      section,
+      { previousSelection = null, nextSelection = null } = {}
+    ) => {
+      const scopeNode = getItemsModalBeReceptionSupplierScope();
+      if (!scopeNode) return false;
+      const nextSupplier = resolveItemsModalBeReceptionSupplierFromSelection(nextSelection);
+      const nextSelectionSignature = JSON.stringify(
+        normalizeItemsModalBeReceptionSourceSelection(nextSelection) || null
+      );
+      if (nextSupplier) {
+        const record = await resolveItemsModalBeReceptionSupplierRecord(nextSupplier);
+        const currentReception = ensureItemsModalBeReceptionMeta(getInvoiceMeta() || {});
+        const currentSelectionSignature = JSON.stringify(
+          normalizeItemsModalBeReceptionSourceSelection(currentReception.sourceSelection) || null
+        );
+        if (currentSelectionSignature !== nextSelectionSignature) {
+          return false;
+        }
+        if (record) {
+          return loadItemsModalBeReceptionSupplierIntoForm(section, record, nextSupplier);
+        }
+        return false;
+      }
+      const previousSupplier = resolveItemsModalBeReceptionSupplierFromSelection(previousSelection);
+      if (!previousSupplier) return false;
+      const currentClient = SEM?.state?.client && typeof SEM.state.client === "object" ? SEM.state.client : {};
+      if (!matchesItemsModalBeReceptionSupplierInfo(previousSupplier, currentClient)) {
+        return false;
+      }
+      resetItemsModalClientState(scopeNode);
+      return true;
     };
     const formatItemsModalBeSourceEntryList = (entries = []) =>
       (Array.isArray(entries) ? entries : [])
@@ -1284,6 +1538,83 @@
         )
         .filter(Boolean)
         .join(", ");
+    const setItemsModalBeReceptionSourceManagerOpen = (section, open) => {
+      const panel =
+        section?.querySelector?.(`#${ITEMS_BE_RECEPTION_SOURCE_MANAGER_ID}`) || null;
+      const reviewBtn =
+        section?.querySelector?.(`#${ITEMS_BE_RECEPTION_SOURCE_REVIEW_ID}`) || null;
+      const shouldOpen = !!open;
+      if (panel instanceof HTMLElement) {
+        panel.hidden = !shouldOpen;
+        panel.style.display = shouldOpen ? "" : "none";
+      }
+      if (reviewBtn instanceof HTMLElement) {
+        reviewBtn.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
+      }
+    };
+    const renderItemsModalBeReceptionSourceSelectionList = (section, selection = null) => {
+      const panel =
+        section?.querySelector?.(`#${ITEMS_BE_RECEPTION_SOURCE_MANAGER_ID}`) || null;
+      const list =
+        section?.querySelector?.(`#${ITEMS_BE_RECEPTION_SOURCE_MANAGER_LIST_ID}`) || null;
+      const count =
+        section?.querySelector?.(`#${ITEMS_BE_RECEPTION_SOURCE_MANAGER_COUNT_ID}`) || null;
+      const reviewBtn =
+        section?.querySelector?.(`#${ITEMS_BE_RECEPTION_SOURCE_REVIEW_ID}`) || null;
+      if (!(list instanceof HTMLElement)) return;
+      const normalizedSelection = normalizeItemsModalBeReceptionSourceSelection(selection);
+      const items = Array.isArray(normalizedSelection?.items) ? normalizedSelection.items : [];
+      list.innerHTML = "";
+      if (count instanceof HTMLElement) {
+        count.textContent = `${items.length} document${items.length > 1 ? "s" : ""}`;
+      }
+      if (reviewBtn instanceof HTMLButtonElement) {
+        reviewBtn.disabled = items.length < 1;
+        reviewBtn.title =
+          items.length > 0
+            ? "Voir ou gerer les documents source selectionnes"
+            : "Aucun document source selectionne";
+      }
+      if (!items.length) {
+        setItemsModalBeReceptionSourceManagerOpen(section, false);
+        return;
+      }
+      const fragment = document.createDocumentFragment();
+      items.forEach((entry) => {
+        const row = document.createElement("div");
+        row.className = "items-be-reception-form__source-manager-item";
+        row.dataset.sourceKey = String(entry?.key || "").trim();
+        const meta = document.createElement("div");
+        meta.className = "items-be-reception-form__source-manager-meta";
+        const type = document.createElement("span");
+        type.className = "items-be-reception-form__source-manager-type";
+        type.textContent =
+          ITEMS_BE_RECEPTION_SOURCE_DOC_TYPE_LABELS[
+            normalizeItemsModalBeReceptionSourceDocType(entry?.docType || normalizedSelection?.docType || "")
+          ] || "Document";
+        meta.appendChild(type);
+        const text = document.createElement("span");
+        text.className = "items-be-reception-form__source-manager-text";
+        text.textContent = String(entry?.number || entry?.displayName || "Document").trim();
+        meta.appendChild(text);
+        row.appendChild(meta);
+        const removeBtn = document.createElement("button");
+        removeBtn.type = "button";
+        removeBtn.className = "items-be-reception-form__source-manager-remove";
+        removeBtn.dataset.sourceRemoveKey = String(entry?.key || "").trim();
+        removeBtn.setAttribute(
+          "aria-label",
+          `Retirer ${String(entry?.displayName || entry?.number || "ce document").trim()}`
+        );
+        removeBtn.textContent = "Retirer";
+        row.appendChild(removeBtn);
+        fragment.appendChild(row);
+      });
+      list.appendChild(fragment);
+      if (panel instanceof HTMLElement && panel.hidden !== true) {
+        panel.style.display = "";
+      }
+    };
     const setItemsModalBeReceptionSelectOptions = (
       select,
       entries = [],
@@ -1998,9 +2329,9 @@
               </div>
             </label>
             ${renderItemsModalBeReceptionTimeField()}
-            <label class="items-be-reception-form__field items-be-reception-form__field--wide" for="${ITEMS_BE_RECEPTION_FIELDS.sourceRef}">
+            <label class="items-be-reception-form__field items-be-reception-form__field--wide items-be-reception-form__field--source" for="${ITEMS_BE_RECEPTION_FIELDS.sourceRef}">
               <span>R&eacute;f&eacute;rence source</span>
-              <div class="items-be-reception-form__input-group">
+              <div class="items-be-reception-form__input-group items-be-reception-form__input-group--source">
                 <input
                   id="${ITEMS_BE_RECEPTION_FIELDS.sourceRef}"
                   type="text"
@@ -2024,6 +2355,40 @@
                     <line x1="9" y1="18" x2="20" y2="18" stroke-linecap="round"></line>
                   </svg>
                 </button>
+                <button
+                  id="${ITEMS_BE_RECEPTION_SOURCE_REVIEW_ID}"
+                  type="button"
+                  class="client-search__saved items-be-reception-form__picker-btn"
+                  aria-label="Voir les documents source selectionnes"
+                  aria-haspopup="dialog"
+                  aria-expanded="false"
+                  aria-controls="${ITEMS_BE_RECEPTION_SOURCE_MANAGER_ID}"
+                  title="Voir les documents source selectionnes"
+                  disabled
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true" focusable="false">
+                    <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                </button>
+              </div>
+              <div
+                id="${ITEMS_BE_RECEPTION_SOURCE_MANAGER_ID}"
+                class="items-be-reception-form__source-manager"
+                hidden
+                aria-live="polite"
+                role="dialog"
+                aria-modal="false"
+                aria-label="Documents source selectionnes"
+              >
+                <div class="items-be-reception-form__source-manager-header">
+                  <strong>Documents source selectionnes</strong>
+                  <span id="${ITEMS_BE_RECEPTION_SOURCE_MANAGER_COUNT_ID}" class="items-be-reception-form__source-manager-count">0 document</span>
+                </div>
+                <div
+                  id="${ITEMS_BE_RECEPTION_SOURCE_MANAGER_LIST_ID}"
+                  class="items-be-reception-form__source-manager-list"
+                ></div>
               </div>
             </label>
           </div>
@@ -2397,9 +2762,14 @@
       if (sourceInput && sourceInput.value !== reception.sourceRef) {
         sourceInput.value = reception.sourceRef;
       }
+      renderItemsModalBeReceptionSourceSelectionList(section, normalizedSelection);
       if (importedItems.length) {
         appendItemsModalBeImportedItems(importedItems);
       }
+      await syncItemsModalBeReceptionSupplierFromSourceSelection(section, {
+        previousSelection,
+        nextSelection: normalizedSelection
+      });
       if (typeof SEM.refreshInvoiceSummary === "function") {
         SEM.refreshInvoiceSummary();
       }
@@ -2431,6 +2801,52 @@
       if (notices.length) {
         await w.showDialog?.(notices.join("\n\n"), { title: "Import des articles" });
       }
+    };
+    const removeItemsModalBeReceptionSourceEntries = (section, sourceKeys = []) => {
+      const meta = getInvoiceMeta() || {};
+      const reception = ensureItemsModalBeReceptionMeta(meta);
+      const normalizedKeys = normalizeItemsModalBeReceptionImportedSourceKeys(sourceKeys);
+      if (!normalizedKeys.length) return false;
+      const keySet = new Set(normalizedKeys.map((entry) => entry.toLowerCase()));
+      const previousSelection = normalizeItemsModalBeReceptionSourceSelection(reception.sourceSelection);
+      const nextSelectionItems = (previousSelection?.items || []).filter(
+        (entry) => !keySet.has(String(entry?.key || "").trim().toLowerCase())
+      );
+      const nextSelection =
+        nextSelectionItems.length && previousSelection?.docType
+          ? {
+              docType: previousSelection.docType,
+              items: nextSelectionItems
+            }
+          : null;
+      const removedRowCount = removeItemsModalBeImportedItemsBySourceKeys(normalizedKeys);
+      reception.sourceSelection = nextSelection;
+      reception.sourceRef = nextSelection
+        ? formatItemsModalBeReceptionSourceSelectionText(nextSelection)
+        : "";
+      reception.importedSourceKeys = normalizeItemsModalBeReceptionImportedSourceKeys(
+        (reception.importedSourceKeys || []).filter(
+          (entry) => !keySet.has(String(entry || "").trim().toLowerCase())
+        ),
+        null
+      );
+      meta.beReception = reception;
+      const sourceInput = section?.querySelector?.(`#${ITEMS_BE_RECEPTION_FIELDS.sourceRef}`) || null;
+      if (sourceInput && sourceInput.value !== reception.sourceRef) {
+        sourceInput.value = reception.sourceRef;
+      }
+      renderItemsModalBeReceptionSourceSelectionList(section, nextSelection);
+      void syncItemsModalBeReceptionSupplierFromSourceSelection(section, {
+        previousSelection,
+        nextSelection
+      });
+      if (typeof SEM.refreshInvoiceSummary === "function") {
+        SEM.refreshInvoiceSummary();
+      }
+      if ((removedRowCount > 0 || previousSelection) && typeof SEM.markDocumentDirty === "function") {
+        SEM.markDocumentDirty(true);
+      }
+      return true;
     };
     const openItemsModalBeReceptionSourcePicker = async (trigger, section) => {
       const pickerApi = w.AppInit?.BonEntreeSourceDocumentPicker?.open;
@@ -2465,6 +2881,7 @@
       ensureItemsModalBeReceptionDatePicker(section);
       const timePicker = ensureItemsModalBeReceptionTimePicker(section);
       const sourcePickerBtn = section.querySelector(`#${ITEMS_BE_RECEPTION_SOURCE_PICKER_ID}`);
+      const sourceReviewBtn = section.querySelector(`#${ITEMS_BE_RECEPTION_SOURCE_REVIEW_ID}`);
       Object.entries(ITEMS_BE_RECEPTION_FIELDS).forEach(([key, id]) => {
         const input = section.querySelector(`#${id}`);
         if (!input) return;
@@ -2482,10 +2899,15 @@
         sourcePickerBtn.disabled = !isBonEntree;
         sourcePickerBtn.setAttribute("aria-hidden", isBonEntree ? "false" : "true");
       }
+      if (sourceReviewBtn) {
+        sourceReviewBtn.disabled = !isBonEntree || !normalizeItemsModalBeReceptionSourceSelection(reception.sourceSelection)?.items?.length;
+      }
+      renderItemsModalBeReceptionSourceSelectionList(section, reception.sourceSelection);
       section.hidden = !isBonEntree;
       section.setAttribute("aria-hidden", isBonEntree ? "false" : "true");
       section.style.display = isBonEntree ? "" : "none";
       if (!isBonEntree) {
+        setItemsModalBeReceptionSourceManagerOpen(section, false);
         try {
           timePicker?.close?.();
         } catch {}
@@ -2523,6 +2945,13 @@
               if (menu.contains(event.target)) return;
               closeItemsModalBeReceptionPickerMenu(menu);
             });
+            document
+              .querySelectorAll?.(`#${ITEMS_BE_RECEPTION_BOX_ID}`)
+              ?.forEach?.((box) => {
+                if (!(box instanceof HTMLElement)) return;
+                if (box.contains(event.target)) return;
+                setItemsModalBeReceptionSourceManagerOpen(box, false);
+              });
           },
           true
         );
@@ -2596,6 +3025,7 @@
             if (!reception[key] || reception[key] !== selectedText) {
               reception.sourceSelection = null;
             }
+            renderItemsModalBeReceptionSourceSelectionList(section, reception.sourceSelection);
           }
           meta.beReception = reception;
           if (typeof SEM.refreshInvoiceSummary === "function") {
@@ -2606,8 +3036,38 @@
         input.addEventListener("change", syncValue);
       });
       const sourcePickerBtn = section.querySelector(`#${ITEMS_BE_RECEPTION_SOURCE_PICKER_ID}`);
+      const sourceReviewBtn = section.querySelector(`#${ITEMS_BE_RECEPTION_SOURCE_REVIEW_ID}`);
       sourcePickerBtn?.addEventListener("click", () => {
+        setItemsModalBeReceptionSourceManagerOpen(section, false);
         void openItemsModalBeReceptionSourcePicker(sourcePickerBtn, section);
+      });
+      sourceReviewBtn?.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (sourceReviewBtn.disabled) return;
+        const panel =
+          section.querySelector?.(`#${ITEMS_BE_RECEPTION_SOURCE_MANAGER_ID}`) || null;
+        const isOpen = panel instanceof HTMLElement && !panel.hidden;
+        setItemsModalBeReceptionSourceManagerOpen(section, !isOpen);
+      });
+      section.addEventListener("keydown", (event) => {
+        if (event.key !== "Escape") return;
+        const panel =
+          section.querySelector?.(`#${ITEMS_BE_RECEPTION_SOURCE_MANAGER_ID}`) || null;
+        if (!(panel instanceof HTMLElement) || panel.hidden) return;
+        event.preventDefault();
+        event.stopPropagation();
+        setItemsModalBeReceptionSourceManagerOpen(section, false);
+        sourceReviewBtn?.focus?.();
+      });
+      section.addEventListener("click", (event) => {
+        const removeBtn = event.target?.closest?.("[data-source-remove-key]");
+        if (!(removeBtn instanceof HTMLElement)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const sourceKey = String(removeBtn.dataset.sourceRemoveKey || "").trim();
+        if (!sourceKey) return;
+        removeItemsModalBeReceptionSourceEntries(section, [sourceKey]);
       });
     };
 

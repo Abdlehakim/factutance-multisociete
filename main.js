@@ -4203,6 +4203,7 @@ async function listInvoiceFiles(payload = {}) {
         number: meta?.number || "",
         date: meta?.date || "",
         clientName: client?.name || "",
+        clientPath: String(client?.__path || client?.path || "").trim(),
         clientAccount: client?.account || client?.accountOf || ""
       };
       if (clientType) item.clientType = clientType;

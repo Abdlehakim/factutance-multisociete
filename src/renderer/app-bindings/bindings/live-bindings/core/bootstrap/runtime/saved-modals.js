@@ -1469,6 +1469,10 @@
             }
           };
 
+          SEM.syncClientFormFields = syncClientFormFields;
+          SEM.applyClientToState = applyClientToState;
+          SEM.loadClientRecordIntoForm = loadClientRecordIntoForm;
+
           resolveArticleSalesTvaValue = (source = {}, fallback = 19) => {
             const record = source && typeof source === "object" ? source : {};
             const raw =

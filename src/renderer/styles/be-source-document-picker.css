@@ -12,6 +12,8 @@
 #beSourceDocumentPickerModal .be-source-document-picker-modal__body {
   display: flex;
   flex-direction: column;
+  justify-content: flex-start;
+  align-items: stretch;
   gap: 12px;
   flex: 1 1 auto;
   min-height: 560px;
@@ -21,19 +23,27 @@
 
 #beSourceDocumentPickerModal .be-source-document-picker-modal__toolbar {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  justify-content: flex-start;
   align-items: flex-start;
-  justify-content: space-between;
   gap: 10px;
+  width: 100%;
+  align-self: stretch;
+  box-sizing: border-box;
 }
 
 #beSourceDocumentPickerModal .be-source-document-picker-modal__filters {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
+  justify-content: flex-start;
+  align-items: flex-start;
+  align-content: flex-start;
   gap: 10px;
-  flex: 1 1 460px;
+  flex: 0 0 auto;
   min-width: 280px;
+  width: 100%;
+  align-self: stretch;
+  box-sizing: border-box;
 }
 
 #beSourceDocumentPickerModal .be-source-document-picker-modal__search {
@@ -43,6 +53,19 @@
   flex: 1 1 250px;
   min-width: 220px;
   max-width: 340px;
+}
+
+#beSourceDocumentPickerModal .be-source-document-picker-modal__supplier {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1 1 280px;
+  min-width: 240px;
+  max-width: 360px;
+}
+
+#beSourceDocumentPickerModal .be-source-document-picker-modal__supplier-field {
+  position: relative;
 }
 
 #beSourceDocumentPickerModal .be-source-document-picker-modal__year {
@@ -82,19 +105,50 @@
   box-shadow: 0 0 0 2px rgba(20, 70, 160, 0.12);
 }
 
+#beSourceDocumentPickerModal .be-source-document-picker-modal__supplier-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  max-height: 250px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border-radius: 8px;
+}
+
+#beSourceDocumentPickerModal .be-source-document-picker-modal__supplier-panel[hidden] {
+  display: none !important;
+}
+
+#beSourceDocumentPickerModal .be-source-document-picker-modal__supplier-panel .model-select-option {
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
+}
+
 #beSourceDocumentPickerModal .be-source-document-picker-modal__year .doc-history-model-menu .field-toggle-trigger {
   min-height: var(--be-source-picker-filter-height);
   box-sizing: border-box;
 }
 
 #beSourceDocumentPickerModal .be-source-document-picker-modal__selection-tools {
-  display: grid;
-  gap: 8px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  align-self: stretch;
+  flex: 0 0 auto;
+  margin-top: 2px;
+  box-sizing: border-box;
 }
 
 #beSourceDocumentPickerModal .be-source-document-picker-modal__selection-buttons {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   flex-wrap: wrap;
 }
@@ -182,6 +236,39 @@
 
 #beSourceDocumentPickerModal .be-source-document-picker-modal__status {
   min-height: 20px;
+  width: 100%;
+  align-self: stretch;
+  text-align: center;
+}
+
+#beSourceDocumentPickerModal .be-source-document-picker-modal__content-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  align-self: stretch;
+  width: 100%;
+  gap: 10px;
+  box-sizing: border-box;
+}
+
+#beSourceDocumentPickerModal .be-source-document-picker-modal__content-actions .doc-history-modal__pager {
+  grid-column: 2;
+  justify-self: center;
+  margin: 0;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+#beSourceDocumentPickerModal .be-source-document-picker-modal__content-confirm {
+  display: flex;
+  align-items: center;
+  grid-column: 3;
+  justify-self: end;
+  flex: 0 0 auto;
+}
+
+#beSourceDocumentPickerModal .be-source-document-picker-modal__content-confirm .client-search__add {
+  min-width: 126px;
 }
 
 #beSourceDocumentPickerModal .be-source-document-picker-modal__actions {
@@ -211,6 +298,20 @@
 @media (max-width: 720px) {
   #beSourceDocumentPickerModal .be-source-document-picker-modal__filters {
     min-width: 0;
+  }
+
+  #beSourceDocumentPickerModal .be-source-document-picker-modal__content-actions {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  #beSourceDocumentPickerModal .be-source-document-picker-modal__content-actions .doc-history-modal__pager {
+    justify-content: center;
+  }
+
+  #beSourceDocumentPickerModal .be-source-document-picker-modal__content-confirm {
+    justify-self: center;
   }
 
   #beSourceDocumentPickerModal .be-source-document-picker-modal__grid.doc-history-modal__list {

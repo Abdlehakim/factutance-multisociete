@@ -498,6 +498,7 @@
   };
   const normalizeItemsBeSourceSelection = (value) => {
     const raw = value && typeof value === "object" ? value : {};
+    const rawSupplier = raw.supplier && typeof raw.supplier === "object" ? raw.supplier : {};
     const rawItems = Array.isArray(raw.items)
       ? raw.items
       : Array.isArray(raw.documents)
@@ -510,6 +511,8 @@
         const path = String(item.path || "").trim();
         const number = String(item.number || "").trim();
         const date = String(item.date || "").trim();
+        const clientName = String(item.clientName || "").trim();
+        const clientPath = String(item.clientPath || "").trim();
         const displayName = String(item.displayName || item.name || number || "").trim() || `Document ${index + 1}`;
         const docType = normalizeItemsBeSourceDocType(
           item.docType || item.type || raw.docType || raw.type || ""
@@ -518,15 +521,28 @@
           String(item.key || "").trim() ||
           (id ? `id:${id}` : path ? `path:${path}` : number ? `number:${number}:${index}` : `idx:${index}`);
         if (!id && !path && !number && !displayName) return null;
-        return { key, id, path, number, date, displayName, docType };
+        return { key, id, path, number, date, displayName, docType, clientName, clientPath };
       })
       .filter(Boolean);
     const docType = normalizeItemsBeSourceDocType(
       raw.docType || raw.type || items[0]?.docType || ""
     );
     if (!items.length || !docType) return null;
+    const supplierPath = String(rawSupplier.path || items[0]?.clientPath || "").trim();
+    const supplierName = String(rawSupplier.name || items[0]?.clientName || "").trim();
+    const supplierLabel = String(rawSupplier.label || supplierName || "").trim();
+    const supplierIdentifier = String(rawSupplier.identifier || "").trim();
     return {
       docType,
+      supplier:
+        supplierPath || supplierName || supplierLabel || supplierIdentifier
+          ? {
+              path: supplierPath,
+              name: supplierName,
+              label: supplierLabel || supplierName,
+              identifier: supplierIdentifier
+            }
+          : null,
       items: items.map((item) => ({
         ...item,
         docType: item.docType || docType

@@ -24,12 +24,17 @@
   const PREV_ID = "beSourceDocumentPickerPrev";
   const NEXT_ID = "beSourceDocumentPickerNext";
   const SEARCH_INPUT_ID = "beSourceDocumentPickerSearchNumber";
+  const SUPPLIER_FIELD_ID = "beSourceDocumentPickerSupplierField";
+  const SUPPLIER_INPUT_ID = "beSourceDocumentPickerSupplier";
+  const SUPPLIER_PANEL_ID = "beSourceDocumentPickerSupplierPanel";
+  const SUPPLIER_LABEL_ID = "beSourceDocumentPickerSupplierLabel";
   const YEAR_SELECT_ID = "beSourceDocumentPickerYearFilter";
   const YEAR_MENU_ID = "beSourceDocumentPickerYearMenu";
   const YEAR_LABEL_ID = "beSourceDocumentPickerYearLabel";
   const YEAR_DISPLAY_ID = "beSourceDocumentPickerYearDisplay";
   const YEAR_PANEL_ID = "beSourceDocumentPickerYearPanel";
   const PAGE_SIZE = 20;
+  const SUPPLIER_FETCH_LIMIT = 200;
 
   const DOC_TYPE_LABELS = {
     fa: "Facture d'achat",
@@ -147,6 +152,48 @@
     extractYearValue(entry?.createdAt) ||
     "";
 
+  const normalizeSearchToken = (value) => {
+    const base = String(value || "").trim().toLowerCase();
+    if (!base) return "";
+    try {
+      return base.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    } catch {
+      return base;
+    }
+  };
+
+  const truncatePanelLabel = (value, maxChars = 40) => {
+    const text = String(value || "");
+    if (!text || text.length <= maxChars) return text;
+    return `${text.slice(0, maxChars)}...`;
+  };
+
+  const buildSupplierOptionLabel = (supplier = {}) => {
+    const name = String(supplier?.name || supplier?.client?.name || "").trim() || "Sans nom";
+    const identifier = String(supplier?.identifier || "").trim();
+    return identifier ? `${name} (${identifier})` : name;
+  };
+
+  const normalizeSupplierOption = (rawSupplier, index = 0) => {
+    const supplier = rawSupplier && typeof rawSupplier === "object" ? rawSupplier : {};
+    const path = String(supplier?.path || supplier?.client?.__path || "").trim();
+    const name = String(supplier?.name || supplier?.client?.name || "").trim();
+    const identifier = String(supplier?.identifier || "").trim();
+    const label = buildSupplierOptionLabel(supplier);
+    const key =
+      path ||
+      String(supplier?.id || "").trim() ||
+      `${normalizeSearchToken(label) || "supplier"}:${index}`;
+    return {
+      key,
+      path,
+      name,
+      identifier,
+      label,
+      searchToken: normalizeSearchToken(`${label} ${name} ${identifier}`)
+    };
+  };
+
   const getSortValue = (entry) => {
     const primary = String(entry?.number || "").trim();
     if (primary) return primary;
@@ -180,6 +227,10 @@
       path,
       number,
       date,
+      clientName: String(entry.clientName || "").trim(),
+      clientPath: String(entry.clientPath || "").trim(),
+      clientAccount: String(entry.clientAccount || "").trim(),
+      clientEntityType: String(entry.clientEntityType || "").trim(),
       modifiedAt: String(entry.modifiedAt || "").trim(),
       createdAt: String(entry.createdAt || "").trim(),
       year: computeEntryYear(entry),
@@ -385,6 +436,30 @@
         <div class="swbDialog__msg doc-history-modal__body be-source-document-picker-modal__body">
           <div class="be-source-document-picker-modal__toolbar">
             <div class="be-source-document-picker-modal__filters">
+              <label id="${SUPPLIER_FIELD_ID}" class="be-source-document-picker-modal__supplier" for="${SUPPLIER_INPUT_ID}">
+                <span id="${SUPPLIER_LABEL_ID}" class="be-source-document-picker-modal__search-label">Fournisseur</span>
+                <div class="be-source-document-picker-modal__supplier-field">
+                  <input
+                    id="${SUPPLIER_INPUT_ID}"
+                    class="be-source-document-picker-modal__search-input be-source-document-picker-modal__supplier-input"
+                    type="text"
+                    autocomplete="off"
+                    spellcheck="false"
+                    placeholder="Selectionner un fournisseur"
+                    aria-haspopup="listbox"
+                    aria-expanded="false"
+                    aria-controls="${SUPPLIER_PANEL_ID}"
+                    aria-labelledby="${SUPPLIER_LABEL_ID}"
+                  />
+                  <div
+                    id="${SUPPLIER_PANEL_ID}"
+                    class="field-toggle-panel model-select-panel be-source-document-picker-modal__supplier-panel"
+                    role="listbox"
+                    aria-labelledby="${SUPPLIER_LABEL_ID}"
+                    hidden
+                  ></div>
+                </div>
+              </label>
               <label class="be-source-document-picker-modal__search" for="${SEARCH_INPUT_ID}">
                 <span class="be-source-document-picker-modal__search-label">Numero</span>
                 <input id="${SEARCH_INPUT_ID}" class="be-source-document-picker-modal__search-input" type="text" autocomplete="off" spellcheck="false" placeholder="Rechercher par numero" aria-label="Rechercher un document par numero" />
@@ -409,31 +484,33 @@
                 </div>
               </label>
             </div>
-            <div class="be-source-document-picker-modal__selection-tools">
-              <div class="be-source-document-picker-modal__selection-buttons">
-                <button id="${SELECT_ALL_ID}" type="button" class="client-search__edit">Tout selectionner</button>
-                <button id="${UNSELECT_ALL_ID}" type="button" class="client-search__edit">Tout deselectionner</button>
-              </div>
+          </div>
+          <div class="be-source-document-picker-modal__selection-tools">
+            <div class="be-source-document-picker-modal__selection-buttons">
+              <button id="${SELECT_ALL_ID}" type="button" class="client-search__edit">Tout selectionner</button>
+              <button id="${UNSELECT_ALL_ID}" type="button" class="client-search__edit">Tout deselectionner</button>
             </div>
           </div>
           <div id="${GRID_ID}" class="doc-history-modal__list be-source-document-picker-modal__grid" role="list"></div>
+          <div class="be-source-document-picker-modal__content-actions">
+            <div class="client-search__actions client-saved-modal__pager doc-history-modal__pager">
+              <button id="${PREV_ID}" type="button" class="client-search__edit" disabled>Precedent</button>
+              <span id="${PAGE_ID}" class="client-saved-modal__page doc-history-modal__page" aria-live="polite" aria-label="Page 1 sur 1">
+                Page
+                <input id="${PAGE_INPUT_ID}" type="number" inputmode="numeric" min="1" step="1" size="3" aria-label="Aller a la page" class="client-saved-modal__page-input doc-history-modal__page-input" max="1" aria-valuemin="1" aria-valuemax="1" aria-valuenow="1" value="1" />
+                / <span id="${TOTAL_PAGES_ID}">1</span>
+              </span>
+              <button id="${NEXT_ID}" type="button" class="client-search__edit" disabled>Suivant</button>
+            </div>
+            <div class="client-search__actions be-source-document-picker-modal__content-confirm">
+              <button id="${CONFIRM_ID}" type="button" class="client-search__add" disabled>Ajouter</button>
+            </div>
+          </div>
           <p id="${STATUS_ID}" class="doc-history-modal__status be-source-document-picker-modal__status" aria-live="polite"></p>
         </div>
         <div class="client-saved-modal__actions be-source-document-picker-modal__actions">
           <div class="client-search__actions client-saved-modal__actions-left">
             <button id="${CLOSE_FOOTER_ID}" type="button" class="btn btn-close client-search__close">Fermer</button>
-          </div>
-          <div class="client-search__actions client-saved-modal__pager doc-history-modal__pager">
-            <button id="${PREV_ID}" type="button" class="client-search__edit" disabled>Precedent</button>
-            <span id="${PAGE_ID}" class="client-saved-modal__page doc-history-modal__page" aria-live="polite" aria-label="Page 1 sur 1">
-              Page
-              <input id="${PAGE_INPUT_ID}" type="number" inputmode="numeric" min="1" step="1" size="3" aria-label="Aller a la page" class="client-saved-modal__page-input doc-history-modal__page-input" max="1" aria-valuemin="1" aria-valuemax="1" aria-valuenow="1" value="1" />
-              / <span id="${TOTAL_PAGES_ID}">1</span>
-            </span>
-            <button id="${NEXT_ID}" type="button" class="client-search__edit" disabled>Suivant</button>
-          </div>
-          <div class="client-search__actions be-source-document-picker-modal__actions-right">
-            <button id="${CONFIRM_ID}" type="button" class="client-search__add" disabled>Ajouter</button>
           </div>
         </div>
       </div>
@@ -471,6 +548,9 @@
     const totalPagesEl = modal.querySelector(`#${TOTAL_PAGES_ID}`);
     const prevBtn = modal.querySelector(`#${PREV_ID}`);
     const nextBtn = modal.querySelector(`#${NEXT_ID}`);
+    const supplierField = modal.querySelector(`#${SUPPLIER_FIELD_ID}`);
+    const supplierInput = modal.querySelector(`#${SUPPLIER_INPUT_ID}`);
+    const supplierPanel = modal.querySelector(`#${SUPPLIER_PANEL_ID}`);
     const searchInput = modal.querySelector(`#${SEARCH_INPUT_ID}`);
     const yearSelect = modal.querySelector(`#${YEAR_SELECT_ID}`);
     const yearMenu = modal.querySelector(`#${YEAR_MENU_ID}`);
@@ -484,11 +564,19 @@
       loading: false,
       error: "",
       entries: [],
+      supplierOptions: [],
+      suppliersLoaded: false,
+      suppliersLoading: false,
+      supplierQuery: "",
+      selectedSupplier: null,
+      suppressSupplierOpenUntil: 0,
+      suppressNextSupplierFocusOpen: false,
       searchNumber: "",
       yearFilter: getCurrentYearValue(),
       page: 1,
       selectedKeys: new Set(),
       initialSelectedKeys: new Set(),
+      loadToken: 0,
       pendingPromise: null,
       resolvePending: null,
       restoreFocus: null
@@ -506,6 +594,184 @@
       if (searchTerm) parts.push(`numero "${searchTerm}"`);
       if (yearTerm) parts.push(`annee ${yearTerm}`);
       return parts.join(" et ");
+    };
+    const getSelectedSupplierLabel = () => String(state.selectedSupplier?.label || "").trim();
+    const hasSelectedSupplier = () => !!getSelectedSupplierLabel();
+    const getSelectedSupplierName = () =>
+      String(state.selectedSupplier?.name || state.selectedSupplier?.label || "").trim();
+    const setSupplierPanelOpen = (open) => {
+      if (!supplierPanel || !supplierInput) return;
+      const shouldOpen = !!open;
+      supplierPanel.hidden = !shouldOpen;
+      supplierPanel.style.display = shouldOpen ? "flex" : "none";
+      supplierPanel.classList.toggle("is-open", shouldOpen);
+      supplierInput.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
+    };
+    const resetSupplierPanel = () => {
+      if (!supplierPanel) return;
+      supplierPanel.innerHTML = "";
+      supplierPanel.hidden = true;
+      supplierPanel.style.display = "none";
+      supplierPanel.classList.remove("is-open");
+      supplierInput?.setAttribute("aria-expanded", "false");
+    };
+    const listSupplierOptions = () => state.supplierOptions.slice();
+    const filterSupplierOptions = (query) => {
+      const token = normalizeSearchToken(query);
+      const options = listSupplierOptions();
+      if (!token) return options;
+      return options.filter((item) => String(item?.searchToken || "").includes(token));
+    };
+    const rebuildSupplierPanel = (query) => {
+      if (!supplierPanel) return;
+      const panelDoc = supplierPanel.ownerDocument || document;
+      supplierPanel.innerHTML = "";
+      if (state.suppliersLoading) {
+        const loading = panelDoc.createElement("p");
+        loading.className = "model-select-empty";
+        loading.textContent = "Chargement...";
+        supplierPanel.appendChild(loading);
+        return;
+      }
+      const filtered = filterSupplierOptions(query);
+      if (!filtered.length) {
+        const empty = panelDoc.createElement("p");
+        empty.className = "model-select-empty";
+        empty.textContent = state.supplierOptions.length
+          ? "Aucun fournisseur."
+          : "Aucun fournisseur disponible.";
+        supplierPanel.appendChild(empty);
+        return;
+      }
+      const fragment = panelDoc.createDocumentFragment();
+      const activeKey = String(state.selectedSupplier?.key || "").trim();
+      filtered.forEach((item) => {
+        const btn = panelDoc.createElement("button");
+        btn.type = "button";
+        btn.className = "model-select-option";
+        btn.dataset.supplierKey = item.key;
+        btn.setAttribute("role", "option");
+        const isActive = !!activeKey && item.key === activeKey;
+        btn.classList.toggle("is-active", isActive);
+        btn.setAttribute("aria-selected", isActive ? "true" : "false");
+        btn.title = item.label;
+        btn.textContent = truncatePanelLabel(item.label, 42);
+        fragment.appendChild(btn);
+      });
+      supplierPanel.appendChild(fragment);
+    };
+    const syncSupplierInputValue = (value = "") => {
+      if (!supplierInput) return;
+      const nextValue = String(value || "");
+      if (supplierInput.value !== nextValue) {
+        supplierInput.value = nextValue;
+      }
+    };
+    const clearLoadedEntries = () => {
+      state.entries = [];
+      state.selectedKeys = new Set();
+      state.page = 1;
+      state.error = "";
+      syncYearOptions();
+    };
+    const clearSelectedSupplier = ({ keepInputValue = false } = {}) => {
+      state.loadToken += 1;
+      state.loading = false;
+      state.selectedSupplier = null;
+      clearLoadedEntries();
+      setBusy(false);
+      if (!keepInputValue) {
+        state.supplierQuery = "";
+        syncSupplierInputValue("");
+      }
+      renderEntries();
+    };
+    const resolveSupplierMatchesEntry = (entry, supplier) => {
+      if (!entry || !supplier) return false;
+      const entryPath = String(entry?.clientPath || "").trim();
+      const supplierPath = String(supplier?.path || "").trim();
+      if (supplierPath && entryPath) {
+        return entryPath === supplierPath;
+      }
+      const entryName = normalizeSearchToken(entry?.clientName || "");
+      const supplierName = normalizeSearchToken(supplier?.name || supplier?.label || "");
+      return !!entryName && !!supplierName && entryName === supplierName;
+    };
+    const filterEntriesBySupplier = (items, supplier) =>
+      (Array.isArray(items) ? items : []).filter((entry) =>
+        resolveSupplierMatchesEntry(entry, supplier)
+      );
+    const loadSupplierOptions = async () => {
+      if (state.suppliersLoading || state.suppliersLoaded) {
+        rebuildSupplierPanel(state.supplierQuery || supplierInput?.value || "");
+        return;
+      }
+      state.suppliersLoading = true;
+      rebuildSupplierPanel(state.supplierQuery || supplierInput?.value || "");
+      const suppliers = [];
+      if (w.electronAPI?.searchClients) {
+        let offset = 0;
+        let total = null;
+        try {
+          while (true) {
+            const res = await w.electronAPI.searchClients({
+              query: "",
+              limit: SUPPLIER_FETCH_LIMIT,
+              offset,
+              entityType: "vendor"
+            });
+            if (!res?.ok) break;
+            const results = Array.isArray(res.results) ? res.results : [];
+            suppliers.push(...results);
+            const nextTotal = Number(res.total);
+            if (Number.isFinite(nextTotal)) total = nextTotal;
+            offset += results.length;
+            if (!results.length) break;
+            if (total !== null && offset >= total) break;
+            if (results.length < SUPPLIER_FETCH_LIMIT) break;
+          }
+        } catch (err) {
+          console.warn("be source supplier list failed", err);
+        }
+      }
+      const deduped = new Map();
+      suppliers.forEach((item, index) => {
+        const normalized = normalizeSupplierOption(item, index);
+        const mapKey = normalized.path || normalized.key || normalized.label;
+        if (!normalized.label || deduped.has(mapKey)) return;
+        deduped.set(mapKey, normalized);
+      });
+      state.supplierOptions = Array.from(deduped.values()).sort((a, b) =>
+        String(a.label || "").localeCompare(String(b.label || ""), undefined, {
+          sensitivity: "base"
+        })
+      );
+      state.suppliersLoaded = true;
+      state.suppliersLoading = false;
+      rebuildSupplierPanel(state.supplierQuery || supplierInput?.value || "");
+    };
+    const focusFirstSupplierOption = () => {
+      const firstOption = supplierPanel?.querySelector?.(".model-select-option");
+      if (firstOption && typeof firstOption.focus === "function") {
+        try {
+          firstOption.focus({ preventScroll: true });
+        } catch {
+          firstOption.focus();
+        }
+      }
+    };
+    const applySupplierSelection = async (option, { closePanel = true } = {}) => {
+      if (!option || !option.label) return;
+      state.selectedSupplier = option;
+      state.supplierQuery = option.label;
+      syncSupplierInputValue(option.label);
+      rebuildSupplierPanel(option.label);
+      if (closePanel) {
+        state.suppressSupplierOpenUntil = Date.now() + 140;
+        setSupplierPanelOpen(false);
+      }
+      state.page = 1;
+      await loadEntries({ preserveSelection: false });
     };
 
     const createOptionNode = (value, label) => {
@@ -641,6 +907,7 @@
     };
 
     const getFilteredEntries = () => {
+      if (!hasSelectedSupplier()) return [];
       const term = normalizeSearchValue(state.searchNumber);
       const yearTerm = normalizeYearValue(state.yearFilter);
       if (!term && !yearTerm) return state.entries;
@@ -705,10 +972,12 @@
       if (refreshBtn) refreshBtn.disabled = state.busy;
       if (selectAllBtn) selectAllBtn.disabled = state.busy;
       if (unselectAllBtn) unselectAllBtn.disabled = state.busy;
+      if (supplierInput) supplierInput.disabled = state.busy;
       if (searchInput) searchInput.disabled = state.busy;
       if (yearSelect) yearSelect.disabled = state.busy;
       if (yearMenuToggle) yearMenuToggle.setAttribute("aria-disabled", state.busy ? "true" : "false");
       if (state.busy) setYearFilterMenuState(false);
+      if (state.busy) setSupplierPanelOpen(false);
       syncActionButtons();
       syncPagerControls();
     };
@@ -756,6 +1025,10 @@
     };
 
     const syncStatus = () => {
+      if (!hasSelectedSupplier()) {
+        setStatus("Selectionnez un fournisseur pour charger les documents.");
+        return;
+      }
       if (state.loading) {
         setStatus("Chargement des documents...");
         return;
@@ -767,20 +1040,21 @@
       const total = totalCount();
       if (!total) {
         if (hasActiveFilters()) {
-          setStatus(`Aucun document trouve pour ${buildFilterSummary()}.`);
+          setStatus(`Aucun document trouve pour ce fournisseur avec ${buildFilterSummary()}.`);
           return;
         }
-        setStatus(`Aucun document disponible pour ${sourceLabel()}.`);
+        setStatus(`Aucun document disponible pour ce fournisseur (${sourceLabel()}).`);
         return;
       }
       const selected = selectedCount();
+      const supplierLabel = getSelectedSupplierName();
       if (hasActiveFilters()) {
         setStatus(
-          `${selected} document(s) selectionne(s) sur ${total} resultat(s) (${totalEntriesCount()} total).`
+          `${selected} document(s) selectionne(s) sur ${total} resultat(s) pour ${supplierLabel} (${totalEntriesCount()} total).`
         );
         return;
       }
-      setStatus(`${selected} document(s) selectionne(s) sur ${total}.`);
+      setStatus(`${selected} document(s) selectionne(s) sur ${total} pour ${supplierLabel}.`);
     };
 
     const createEmptyStateNode = (text) => {
@@ -816,11 +1090,18 @@
         syncPagerControls();
         return;
       }
+      if (!hasSelectedSupplier()) {
+        gridEl.appendChild(createEmptyStateNode("Selectionnez un fournisseur pour afficher les documents."));
+        syncActionButtons();
+        syncStatus();
+        syncPagerControls();
+        return;
+      }
       const filteredEntries = getFilteredEntries();
       if (!filteredEntries.length) {
         const emptyText = hasActiveFilters()
-          ? `Aucun document trouve pour ${buildFilterSummary()}.`
-          : `Aucun document pour ${sourceLabel()}.`;
+          ? `Aucun document trouve pour ce fournisseur avec ${buildFilterSummary()}.`
+          : `Aucun document pour ce fournisseur (${sourceLabel()}).`;
         gridEl.appendChild(createEmptyStateNode(emptyText));
         syncActionButtons();
         syncStatus();
@@ -908,11 +1189,24 @@
     };
 
     const loadEntries = async ({ preserveSelection = false } = {}) => {
+      const requestToken = ++state.loadToken;
+      const selectedSupplier = state.selectedSupplier
+        ? { ...state.selectedSupplier }
+        : null;
+      if (!selectedSupplier) {
+        state.loading = false;
+        state.error = "";
+        clearLoadedEntries();
+        setBusy(false);
+        renderEntries();
+        return false;
+      }
       state.loading = true;
       state.error = "";
       setBusy(true);
       renderEntries();
       const res = await fetchAllInvoiceFiles(state.docType);
+      if (requestToken !== state.loadToken) return false;
       if (!res?.ok) {
         state.loading = false;
         state.error = String(res?.error || "Chargement des documents impossible.");
@@ -922,7 +1216,7 @@
         renderEntries();
         return false;
       }
-      applyEntries(res.items || [], { preserveSelection });
+      applyEntries(filterEntriesBySupplier(res.items || [], selectedSupplier), { preserveSelection });
       state.loading = false;
       state.error = "";
       setBusy(false);
@@ -938,6 +1232,7 @@
 
     const closeModal = (result = { ok: false, canceled: true }) => {
       if (state.busy) return;
+      setSupplierPanelOpen(false);
       setYearFilterMenuState(false);
       hideModal();
       document.removeEventListener("keydown", onKeydown, true);
@@ -973,6 +1268,14 @@
         ok: true,
         canceled: false,
         docType: state.docType,
+        supplier: state.selectedSupplier
+          ? {
+              path: state.selectedSupplier.path,
+              name: state.selectedSupplier.name,
+              label: state.selectedSupplier.label,
+              identifier: state.selectedSupplier.identifier
+            }
+          : null,
         items: selectedEntries.map((entry) => ({
           ...entry,
           docType: state.docType,
@@ -984,12 +1287,31 @@
     const onKeydown = (evt) => {
       if (evt.key !== "Escape") return;
       evt.preventDefault();
+      if (!supplierPanel?.hidden) {
+        setSupplierPanelOpen(false);
+        supplierInput?.focus?.();
+        return;
+      }
       if (yearMenu?.open) {
         setYearFilterMenuState(false);
         yearMenuToggle?.focus?.();
         return;
       }
       closeModal({ ok: false, canceled: true });
+    };
+
+    const onSupplierOptionSelect = async (optionKey) => {
+      const key = String(optionKey || "").trim();
+      if (!key || state.busy) return;
+      const option = state.supplierOptions.find((entry) => entry.key === key);
+      if (!option) return;
+      await applySupplierSelection(option, { closePanel: true });
+    };
+
+    const onSupplierFieldDocumentClick = (evt) => {
+      if (modal.hidden || supplierPanel?.hidden) return;
+      if (supplierField?.contains(evt.target)) return;
+      setSupplierPanelOpen(false);
     };
 
     const onGridChange = (evt) => {
@@ -1030,7 +1352,32 @@
       return keys;
     };
 
-    const openModal = async ({ docType, trigger, initialSelection } = {}) => {
+    const resolveInitialSupplier = (selection, explicitSupplier = null) => {
+      const rawSelection = selection && typeof selection === "object" ? selection : {};
+      const rawSupplier =
+        explicitSupplier && typeof explicitSupplier === "object"
+          ? explicitSupplier
+          : rawSelection?.supplier && typeof rawSelection.supplier === "object"
+            ? rawSelection.supplier
+            : null;
+      if (rawSupplier) {
+        const normalizedSupplier = normalizeSupplierOption(rawSupplier);
+        if (normalizedSupplier.label) return normalizedSupplier;
+      }
+      const firstItem = Array.isArray(rawSelection.items) ? rawSelection.items[0] : null;
+      if (firstItem && typeof firstItem === "object") {
+        const derivedSupplier = normalizeSupplierOption({
+          path: firstItem.clientPath,
+          name: firstItem.clientName
+        });
+        if (derivedSupplier.label && (derivedSupplier.path || derivedSupplier.name)) {
+          return derivedSupplier;
+        }
+      }
+      return null;
+    };
+
+    const openModal = async ({ docType, trigger, initialSelection, initialSupplier } = {}) => {
       if (state.pendingPromise) return state.pendingPromise;
       state.pendingPromise = new Promise((resolve) => {
         state.resolvePending = resolve;
@@ -1043,25 +1390,35 @@
             : null;
 
       state.entries = [];
+      state.selectedSupplier = resolveInitialSupplier(initialSelection, initialSupplier);
+      state.supplierQuery = state.selectedSupplier?.label || "";
+      syncSupplierInputValue(state.selectedSupplier?.label || "");
       state.searchNumber = "";
       state.yearFilter = getCurrentYearValue();
       state.error = "";
       state.loading = false;
       state.page = 1;
+      state.loadToken += 1;
       if (searchInput) searchInput.value = "";
       setDocType(docType || "fa");
       state.initialSelectedKeys = resolveInitialSelectedKeys(initialSelection, state.docType);
       state.selectedKeys = new Set(state.initialSelectedKeys);
       syncYearOptions();
+      resetSupplierPanel();
+      state.suppressNextSupplierFocusOpen = true;
 
       showModal();
       document.addEventListener("keydown", onKeydown, true);
       renderEntries();
 
-      await loadEntries({ preserveSelection: false });
+      if (state.selectedSupplier) {
+        await loadEntries({ preserveSelection: false });
+      }
 
       if (state.entries.length) {
         modal.querySelector(".be-source-document-picker-modal__checkbox")?.focus?.();
+      } else if (!state.selectedSupplier) {
+        supplierInput?.focus?.();
       } else {
         closeFooterBtn?.focus?.();
       }
@@ -1104,6 +1461,68 @@
       }
     });
     pageInput?.addEventListener("blur", applyPageInput);
+    supplierInput?.addEventListener("focus", () => {
+      if (state.busy) return;
+      if (state.suppressNextSupplierFocusOpen) {
+        state.suppressNextSupplierFocusOpen = false;
+        return;
+      }
+      if (Date.now() < state.suppressSupplierOpenUntil) return;
+      state.supplierQuery = String(supplierInput.value || "");
+      void loadSupplierOptions();
+      rebuildSupplierPanel(state.supplierQuery);
+      setSupplierPanelOpen(true);
+    });
+    supplierInput?.addEventListener("click", () => {
+      if (state.busy) return;
+      if (Date.now() < state.suppressSupplierOpenUntil) return;
+      state.supplierQuery = String(supplierInput.value || "");
+      void loadSupplierOptions();
+      rebuildSupplierPanel(state.supplierQuery);
+      setSupplierPanelOpen(true);
+    });
+    supplierInput?.addEventListener("input", (evt) => {
+      if (state.busy) return;
+      const query = String(evt?.target?.value || "");
+      state.supplierQuery = query;
+      const selectedLabelToken = normalizeSearchToken(getSelectedSupplierLabel());
+      if (state.selectedSupplier && normalizeSearchToken(query) !== selectedLabelToken) {
+        clearSelectedSupplier({ keepInputValue: true });
+      }
+      rebuildSupplierPanel(query);
+      setSupplierPanelOpen(true);
+    });
+    supplierInput?.addEventListener("keydown", (evt) => {
+      if (evt.key === "ArrowDown") {
+        evt.preventDefault();
+        if (state.busy) return;
+        state.supplierQuery = String(supplierInput.value || "");
+        void loadSupplierOptions();
+        rebuildSupplierPanel(state.supplierQuery);
+        setSupplierPanelOpen(true);
+        setTimeout(focusFirstSupplierOption, 0);
+        return;
+      }
+      if (evt.key === "Escape") {
+        if (supplierPanel?.hidden) return;
+        evt.preventDefault();
+        evt.stopPropagation();
+        setSupplierPanelOpen(false);
+        return;
+      }
+      if (evt.key === "Enter" && !supplierPanel?.hidden) {
+        const firstOption = supplierPanel.querySelector(".model-select-option");
+        if (!firstOption) return;
+        evt.preventDefault();
+        void onSupplierOptionSelect(firstOption.dataset.supplierKey || "");
+      }
+    });
+    supplierPanel?.addEventListener("click", (evt) => {
+      const btn = evt.target.closest(".model-select-option");
+      if (!btn) return;
+      evt.preventDefault();
+      void onSupplierOptionSelect(btn.dataset.supplierKey || "");
+    });
     searchInput?.addEventListener("input", (evt) => {
       if (state.busy) return;
       state.searchNumber = String(evt?.target?.value || "");
@@ -1119,6 +1538,7 @@
     });
     wireYearFilterMenu();
     gridEl?.addEventListener("change", onGridChange);
+    document.addEventListener("click", onSupplierFieldDocumentClick, true);
     modal.addEventListener("click", (evt) => {
       if (evt.target === modal) evt.stopPropagation();
     });
@@ -1187,7 +1607,8 @@
     return await controller.open({
       docType: pickedDocType,
       trigger,
-      initialSelection: selection
+      initialSelection: selection,
+      initialSupplier: options.initialSupplier || selection?.supplier || null
     });
   };
 
