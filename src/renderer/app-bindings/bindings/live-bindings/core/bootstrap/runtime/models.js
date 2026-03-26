@@ -2909,9 +2909,13 @@
           updateModelButtons();
 
           getDefaultClientSearchInput = () =>
-            getActiveMainClientScope()?.querySelector?.("#clientSearch") || clientSearchInput;
+            getActiveMainClientScope()?.querySelector?.("#fournisseurSearch, #clientSearch") ||
+            fournisseurSearchInput ||
+            clientSearchInput;
           getDefaultClientSearchResults = () =>
-            getActiveMainClientScope()?.querySelector?.("#clientSearchResults") || clientSearchResults;
+            getActiveMainClientScope()?.querySelector?.("#fournisseurSearchResults, #clientSearchResults") ||
+            fournisseurSearchResults ||
+            clientSearchResults;
 
   }, { order: 600 });
 })(window);

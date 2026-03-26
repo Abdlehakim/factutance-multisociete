@@ -91,7 +91,8 @@
       clientSearchPage = Number.isFinite(next) && next > 0 ? Math.trunc(next) : 1;
     });
     defineCtxAccessor("clientSavedModalEntityType", () => clientSavedModalEntityType, (value) => {
-      clientSavedModalEntityType = value === "vendor" ? "vendor" : "client";
+      clientSavedModalEntityType =
+        value === "vendor" ? "vendor" : value === "transporter" ? "transporter" : "client";
     });
   }, { order: 1100 });
 })(window);

@@ -61,11 +61,16 @@
           MAIN_SCOPE_SELECTOR = `${MAIN_CLIENT_SCOPE_SELECTOR}, ${MAIN_VENDOR_SCOPE_SELECTOR}, ${MAIN_TRANSPORTER_SCOPE_SELECTOR}`;
           clientSearchInput = getEl("clientSearch");
           clientSearchResults = getEl("clientSearchResults");
+          fournisseurSearchInput = getEl("fournisseurSearch");
+          fournisseurSearchResults = getEl("fournisseurSearchResults");
           CLIENT_SEARCH_PAGE_SIZE = 3;
           MIN_CLIENT_SEARCH_LENGTH = 2;
           clientSearchTimer = null;
           clientSearchData = [];
           clientSearchPage = 1;
+          fournisseurSearchTimer = null;
+          fournisseurSearchData = [];
+          fournisseurSearchPage = 1;
           CLIENT_SCOPE_SELECTOR = "#clientBoxNewDoc, #FournisseurBoxNewDoc, #clientSavedModal, #clientSavedModalNv, #fournisseurSavedModal, #fournisseurSavedModalNv, #transporteurSavedModal, #transporteurSavedModalNv, #clientBoxMainscreenClientsPanel, #clientBoxMainscreenFournisseursPanel, #clientBoxMainscreenTransporteursPanel, #clientFormPopover, #fournisseurFormPopover, #transporteurFormPopover";
           CLIENT_SCOPE_WITH_ROOT_SELECTOR = `${CLIENT_SCOPE_SELECTOR}, #clientBoxMainscreen`;
           resolveClientEntityType = (scopeNode) =>
@@ -177,8 +182,62 @@
           };
           resolveClientScopeFromNode = (node) =>
             node && typeof node.closest === "function" ? node.closest(CLIENT_SCOPE_SELECTOR) : null;
+          resolveScopedClientSearchInput = (scopeNode) =>
+            scopeNode?.querySelector?.("#fournisseurSearch, #clientSearch") || null;
+          resolveScopedClientSearchResults = (scopeNode) =>
+            scopeNode?.querySelector?.("#fournisseurSearchResults, #clientSearchResults") || null;
           resolveClientSearchScope = (inputEl, resultsEl) =>
             resolveClientScopeFromNode(inputEl) || resolveClientScopeFromNode(resultsEl);
+          isFournisseurSearchContext = ({ scopeNode = null, inputEl = null, resultsEl = null } = {}) => {
+            if (scopeNode?.id === MAIN_VENDOR_SCOPE_ID) return true;
+            if (inputEl?.id === "fournisseurSearch") return true;
+            if (resultsEl?.id === "fournisseurSearchResults") return true;
+            return false;
+          };
+          resolveClientSearchStateBucket = ({ scopeNode = null, inputEl = null, resultsEl = null } = {}) =>
+            isFournisseurSearchContext({ scopeNode, inputEl, resultsEl }) ? "vendor" : "client";
+          getClientSearchBucketData = (bucket) =>
+            bucket === "vendor" ? fournisseurSearchData : clientSearchData;
+          setClientSearchBucketData = (bucket, value) => {
+            const next = Array.isArray(value) ? value : [];
+            if (bucket === "vendor") {
+              fournisseurSearchData = next;
+              return;
+            }
+            clientSearchData = next;
+          };
+          getClientSearchBucketPage = (bucket) =>
+            bucket === "vendor" ? fournisseurSearchPage : clientSearchPage;
+          setClientSearchBucketPage = (bucket, value) => {
+            const parsed = Number(value);
+            const next = Number.isFinite(parsed) && parsed > 0 ? Math.trunc(parsed) : 1;
+            if (bucket === "vendor") {
+              fournisseurSearchPage = next;
+              return;
+            }
+            clientSearchPage = next;
+          };
+          getClientSearchBucketTimer = (bucket) =>
+            bucket === "vendor" ? fournisseurSearchTimer : clientSearchTimer;
+          setClientSearchBucketTimer = (bucket, value) => {
+            if (bucket === "vendor") {
+              fournisseurSearchTimer = value;
+              return;
+            }
+            clientSearchTimer = value;
+          };
+          getClientSearchBucketState = ({ scopeNode = null, inputEl = null, resultsEl = null } = {}) => {
+            const bucket = resolveClientSearchStateBucket({ scopeNode, inputEl, resultsEl });
+            return {
+              bucket,
+              getData: () => getClientSearchBucketData(bucket),
+              setData: (value) => setClientSearchBucketData(bucket, value),
+              getPage: () => getClientSearchBucketPage(bucket),
+              setPage: (value) => setClientSearchBucketPage(bucket, value),
+              getTimer: () => getClientSearchBucketTimer(bucket),
+              setTimer: (value) => setClientSearchBucketTimer(bucket, value)
+            };
+          };
           getActiveMainClientScope = () => {
             const mainScope = document.getElementById("clientBoxMainscreen");
             if (!mainScope) return null;

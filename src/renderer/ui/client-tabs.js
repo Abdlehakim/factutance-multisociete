@@ -136,12 +136,12 @@ const renderFournisseurPanel = () => `
       <div class="client-search__controls">
         <label class="client-search__field">
           <input
-            id="clientSearch"
+            id="fournisseurSearch"
             type="search"
             placeholder="Nom, identifiant fiscal ou CIN / passeport"
             autocomplete="off"
           />
-          <button id="clientSearchBtn" type="button" class="client-search__action" aria-label="Rechercher">
+          <button id="fournisseurSearchBtn" type="button" class="client-search__action" aria-label="Rechercher">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="11" cy="11" r="6" />
               <line x1="16.5" y1="16.5" x2="21" y2="21" stroke-linecap="round" />
@@ -206,7 +206,7 @@ const renderFournisseurPanel = () => `
           </svg>
         </button>
       </div>
-      <div id="clientSearchResults" class="client-search__results" hidden></div>
+      <div id="fournisseurSearchResults" class="client-search__results" hidden></div>
       ${renderFournisseurFieldsSettingsModal()}
       ${renderFournisseurFormPopover({ includeParticulier: false })}
     </div>

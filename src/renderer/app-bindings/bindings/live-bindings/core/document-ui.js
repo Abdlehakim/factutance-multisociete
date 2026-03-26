@@ -881,12 +881,19 @@
 
             const setClientFormPopoverMode = (ctx, mode = "default") => {
               if (!ctx?.popover) return;
-              ctx.popover.dataset.clientFormMode = mode;
+              const rawMode = String(mode || "default").trim().toLowerCase();
+              const normalizedMode =
+                rawMode === "load"
+                  ? "view"
+                  : ["default", "create", "edit", "view"].includes(rawMode)
+                    ? rawMode
+                    : "default";
+              ctx.popover.dataset.clientFormMode = normalizedMode;
               const isItemsDocOptionsContext =
                 !!ctx.scope?.closest?.("#itemsDocOptionsModal") || isItemsDocOptionsModalOpen();
               const entityType = resolveClientEntityType(ctx.popover);
-              const resolvedModeForVendor = mode === "default" ? "create" : mode;
-              const effectiveMode = entityType === "client" ? mode : resolvedModeForVendor;
+              const resolvedModeForVendor = normalizedMode === "default" ? "create" : normalizedMode;
+              const effectiveMode = entityType === "client" ? normalizedMode : resolvedModeForVendor;
               if (entityType === "vendor") {
                 ctx.popover.dataset.fournisseurFormMode = resolvedModeForVendor;
                 delete ctx.popover.dataset.transporteurFormMode;
@@ -1872,9 +1879,11 @@
                 hideClientSearchResults();
                 return;
               }
-              const scopedSearchInput = scopeNode.querySelector("#clientSearch");
+              const scopedSearchInput = scopeNode.querySelector("#fournisseurSearch, #clientSearch");
               if (scopedSearchInput) scopedSearchInput.value = "";
-              const scopedSearchResults = scopeNode.querySelector("#clientSearchResults");
+              const scopedSearchResults = scopeNode.querySelector(
+                "#fournisseurSearchResults, #clientSearchResults"
+              );
               if (scopedSearchResults) {
                 scopedSearchResults.innerHTML = "";
                 scopedSearchResults.hidden = true;

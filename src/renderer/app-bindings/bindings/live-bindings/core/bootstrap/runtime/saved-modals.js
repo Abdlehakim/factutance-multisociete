@@ -30,6 +30,19 @@
           clientSavedSearchButton = getEl("clientSavedSearchBtn");
           CLIENT_SAVED_PAGE_SIZE = 3;
           CLIENT_SAVED_MIN_SEARCH_LENGTH = 2;
+          createClientSavedModalEntityState = () => ({
+            page: 1,
+            total: 0,
+            query: "",
+            items: [],
+            loading: false,
+            message: ""
+          });
+          clientSavedModalStateByEntity = {
+            client: createClientSavedModalEntityState(),
+            vendor: createClientSavedModalEntityState(),
+            transporter: createClientSavedModalEntityState()
+          };
           clientSavedModalState = {
             page: 1,
             total: 0,
@@ -37,6 +50,40 @@
             items: [],
             loading: false,
             message: ""
+          };
+          resolveClientSavedModalEntityKey = (entityType = "client") =>
+            entityType === "vendor"
+              ? "vendor"
+              : entityType === "transporter"
+                ? "transporter"
+                : "client";
+          readClientSavedModalEntityState = (entityType = "client") =>
+            clientSavedModalStateByEntity[resolveClientSavedModalEntityKey(entityType)] ||
+            clientSavedModalStateByEntity.client;
+          storeClientSavedModalEntityState = (entityType = "client") => {
+            const targetState = readClientSavedModalEntityState(entityType);
+            targetState.page = Math.max(1, Number(clientSavedModalState.page) || 1);
+            targetState.total = Math.max(0, Number(clientSavedModalState.total) || 0);
+            targetState.query = String(clientSavedModalState.query || "").trim();
+            targetState.items = Array.isArray(clientSavedModalState.items)
+              ? [...clientSavedModalState.items]
+              : [];
+            targetState.loading = !!clientSavedModalState.loading;
+            targetState.message = String(clientSavedModalState.message || "");
+          };
+          applyClientSavedModalEntityState = (entityType = "client") => {
+            const targetState = readClientSavedModalEntityState(entityType);
+            clientSavedModalState.page = Math.max(1, Number(targetState.page) || 1);
+            clientSavedModalState.total = Math.max(0, Number(targetState.total) || 0);
+            clientSavedModalState.query = String(targetState.query || "").trim();
+            clientSavedModalState.items = Array.isArray(targetState.items)
+              ? [...targetState.items]
+              : [];
+            clientSavedModalState.loading = !!targetState.loading;
+            clientSavedModalState.message = String(targetState.message || "");
+            if (clientSavedSearchInput) {
+              clientSavedSearchInput.value = clientSavedModalState.query;
+            }
           };
           clientSavedModalRefresh =
             clientSavedModal?.querySelector("#clientSavedModalRefresh") || getEl("clientSavedModalRefresh");
@@ -669,6 +716,25 @@
   }, { order: 500 });
 
   registerCoreBootstrapRuntimeSource("saved-modals-utils", function (ctx) {
+          resolveClientSearchInputElement = (scopeNode = null) => {
+            if (scopeNode) {
+              return resolveScopedClientSearchInput(scopeNode);
+            }
+            return getDefaultClientSearchInput();
+          };
+          resolveClientSearchResultsElement = (scopeNode = null) => {
+            if (scopeNode) {
+              return resolveScopedClientSearchResults(scopeNode);
+            }
+            return getDefaultClientSearchResults();
+          };
+          getClientSearchStateHandle = ({ scopeNode = null, inputEl = null, resultsEl = null } = {}) =>
+            getClientSearchBucketState({
+              scopeNode: scopeNode || resolveClientSearchScope(inputEl, resultsEl),
+              inputEl: inputEl || null,
+              resultsEl: resultsEl || null
+            });
+
           hideClientSearchResults = (resultsEl = getDefaultClientSearchResults()) => {
             if (!resultsEl) return;
             resultsEl.innerHTML = "";
@@ -902,11 +968,18 @@
             });
           };
 
-          renderClientSearchResults = (items, queryText, resultsEl = clientSearchResults) => {
+          renderClientSearchResults = (items, queryText, resultsEl = clientSearchResults, options = {}) => {
             if (!resultsEl) return;
             resultsEl.innerHTML = "";
             resultsEl.classList.remove("client-search--paged");
             const scopeNode = resolveClientScopeFromNode(resultsEl);
+            const searchState =
+              options?.searchState ||
+              getClientSearchStateHandle({
+                scopeNode,
+                resultsEl
+              });
+            const currentPage = Math.max(1, Number(searchState?.getPage?.() || 1) || 1);
             const entityType = resolveClientEntityType(scopeNode);
             const labels = getClientSavedModalLabels(entityType);
             const scopedFieldLabels = getScopedClientFieldLabels(entityType);
@@ -927,9 +1000,11 @@
 
             const total = items.length;
             const totalPages = Math.max(1, Math.ceil(total / CLIENT_SEARCH_PAGE_SIZE));
-            if (clientSearchPage > totalPages) clientSearchPage = totalPages;
-            if (clientSearchPage < 1) clientSearchPage = 1;
-            const startIdx = (clientSearchPage - 1) * CLIENT_SEARCH_PAGE_SIZE;
+            let normalizedPage = currentPage;
+            if (normalizedPage > totalPages) normalizedPage = totalPages;
+            if (normalizedPage < 1) normalizedPage = 1;
+            searchState?.setPage?.(normalizedPage);
+            const startIdx = (normalizedPage - 1) * CLIENT_SEARCH_PAGE_SIZE;
             const slice = items.slice(startIdx, startIdx + CLIENT_SEARCH_PAGE_SIZE);
 
             const list = document.createElement("div");
@@ -1075,8 +1150,8 @@
 
             const pager = document.createElement("div");
             pager.className = "article-search__pager";
-            const disablePrev = clientSearchPage <= 1;
-            const disableNext = clientSearchPage >= totalPages;
+            const disablePrev = normalizedPage <= 1;
+            const disableNext = normalizedPage >= totalPages;
             pager.innerHTML = `
               <div class="article-search__pager-left">
                 <button type="button" class="client-search__edit article-search__close" data-article-close="true">
@@ -1087,7 +1162,7 @@
                 <button type="button" class="client-search__edit" data-article-page="prev" ${disablePrev ? "disabled" : ""}>
                   Precedent
                 </button>
-                <span class="article-search__page">Page ${clientSearchPage} / ${totalPages}</span>
+                <span class="article-search__page">Page ${normalizedPage} / ${totalPages}</span>
                 <button type="button" class="client-search__addSTK" data-article-page="next" ${disableNext ? "disabled" : ""}>
                   Suivant
                 </button>
@@ -2210,9 +2285,16 @@
             const resultsEl = options.resultsEl || clientSearchResults;
             if (!resultsEl) return;
             const query = String(rawValue || "").trim();
+            const scopeNode = options.scopeNode || resolveClientScopeFromNode(resultsEl);
+            const searchState =
+              options.searchState ||
+              getClientSearchStateHandle({
+                scopeNode,
+                resultsEl
+              });
             if (!query || query.length < MIN_CLIENT_SEARCH_LENGTH) {
-              clientSearchData = [];
-              clientSearchPage = 1;
+              searchState?.setData?.([]);
+              searchState?.setPage?.(1);
               hideClientSearchResults(resultsEl);
               return;
             }
@@ -2220,7 +2302,6 @@
             showClientSearchStatus('<div class="client-search__status">Recherche...</div>', resultsEl);
 
             try {
-              const scopeNode = options.scopeNode || resolveClientScopeFromNode(resultsEl);
               const entityType = resolveClientEntityType(scopeNode);
               const res = await window.electronAPI?.searchClients?.({ query, entityType });
               if (!res?.ok) {
@@ -2230,9 +2311,10 @@
                 );
                 return;
               }
-              clientSearchData = Array.isArray(res.results) ? res.results : [];
-              clientSearchPage = 1;
-              renderClientSearchResults(clientSearchData, query, resultsEl);
+              const nextItems = Array.isArray(res.results) ? res.results : [];
+              searchState?.setData?.(nextItems);
+              searchState?.setPage?.(1);
+              renderClientSearchResults(nextItems, query, resultsEl, { searchState });
             } catch (err) {
               console.error(err);
               showClientSearchStatus('<div class="client-search__status">Erreur de recherche</div>', resultsEl);
@@ -2620,6 +2702,7 @@
             clientSavedModalState.loading = true;
             clientSavedModalState.page = page;
             clientSavedModalState.message = "";
+            storeClientSavedModalEntityState(clientSavedModalEntityType);
             renderClientSavedModal();
 
             const trimmedQuery = (clientSavedModalState.query || "").trim();
@@ -2689,6 +2772,7 @@
               if (requestId !== clientSavedModalRequestId) return;
               clientSavedModalState.loading = false;
               renderClientSavedModal();
+              storeClientSavedModalEntityState(clientSavedModalEntityType);
               setClientSavedRefreshBusy(false);
             }
           };
@@ -2709,12 +2793,11 @@
             clientSavedModal.setAttribute("aria-hidden", "false");
             clientSavedModal.classList.add("is-open");
             document.addEventListener("keydown", onClientSavedModalKeyDown);
-            clientSavedModalState.query = (clientSavedSearchInput?.value || "").trim();
-            clientSavedModalState.page = 1;
-            clientSavedModalState.items = [];
-            clientSavedModalState.total = 0;
-            clientSavedModalState.message = "";
-            fetchSavedClientsPage(1);
+            applyClientSavedModalEntityState(clientSavedModalEntityType);
+            clientSavedModalState.query = (clientSavedSearchInput?.value || clientSavedModalState.query || "").trim();
+            clientSavedModalState.loading = false;
+            const targetPage = Math.max(1, Number(clientSavedModalState.page) || 1);
+            fetchSavedClientsPage(targetPage);
           };
 
           isClientSavedModalOpen = () =>
@@ -2726,6 +2809,7 @@
 
           closeClientSavedModal = function closeClientSavedModal() {
             if (!clientSavedModal) return;
+            storeClientSavedModalEntityState(clientSavedModalEntityType);
             clientSavedModal.classList.remove("is-open");
             clientSavedModal.hidden = true;
             clientSavedModal.setAttribute("hidden", "");
@@ -2741,6 +2825,7 @@
           handleClientSavedListClick = (evt) => {
             const trigger = evt.target?.closest?.(clientSavedListBtnSelector);
             if (!trigger || !clientSavedModal) return;
+            storeClientSavedModalEntityState(clientSavedModalEntityType);
             const isItemsDocOptionsContext =
               !!trigger.closest("#itemsDocOptionsModal") || isItemsDocOptionsModalOpen();
             const isMainscreenContext = !!trigger.closest("#clientBoxMainscreen");
@@ -2765,6 +2850,7 @@
             setClientSavedModalId(clientSavedModalEntityType, { fromItemsModal: isItemsDocOptionsContext });
             setClientSavedModalPopoverIds(clientSavedModalEntityType);
             applyClientSavedModalLabels(clientSavedModalEntityType);
+            applyClientSavedModalEntityState(clientSavedModalEntityType);
             if (!isClientSavedModalOpen()) {
               openClientSavedModal();
               return;
@@ -2793,6 +2879,7 @@
             if (clientSavedModalState.loading) return;
             const prevPage = Math.max(1, clientSavedModalState.page - 1);
             if (prevPage !== clientSavedModalState.page) {
+              storeClientSavedModalEntityState(clientSavedModalEntityType);
               fetchSavedClientsPage(prevPage);
             }
           });
@@ -2802,6 +2889,7 @@
             const totalPages = getClientSavedModalTotalPages();
             const nextPage = Math.min(totalPages, clientSavedModalState.page + 1);
             if (nextPage !== clientSavedModalState.page) {
+              storeClientSavedModalEntityState(clientSavedModalEntityType);
               fetchSavedClientsPage(nextPage);
             }
           });
@@ -2830,6 +2918,7 @@
               const value = evt.target.value || "";
               clientSavedModalState.query = value.trim();
               clientSavedModalState.page = 1;
+              storeClientSavedModalEntityState(clientSavedModalEntityType);
               clearTimeout(clientSavedSearchTimer);
               clientSavedSearchTimer = setTimeout(() => {
                 fetchSavedClientsPage(1);
@@ -2841,6 +2930,7 @@
                 clearTimeout(clientSavedSearchTimer);
                 clientSavedModalState.query = (clientSavedSearchInput.value || "").trim();
                 clientSavedModalState.page = 1;
+                storeClientSavedModalEntityState(clientSavedModalEntityType);
                 fetchSavedClientsPage(1);
               }
             });
@@ -2850,6 +2940,7 @@
               clearTimeout(clientSavedSearchTimer);
               clientSavedModalState.query = (clientSavedSearchInput?.value || "").trim();
               clientSavedModalState.page = 1;
+              storeClientSavedModalEntityState(clientSavedModalEntityType);
               fetchSavedClientsPage(1);
             });
           }
@@ -2906,6 +2997,77 @@
                 }
                 return targetScope;
               };
+              const applyClientPopoverModeFallback = (popoverNode, mode = "create") => {
+                if (!popoverNode) return;
+                const normalizedMode =
+                  mode === "load" ? "view" : ["create", "edit", "view"].includes(mode) ? mode : "create";
+                const rightActionsGroup = popoverNode.querySelector(".swbDialog__group.swbDialog__group--right");
+                const updateBtn = queryScopedClientFormElement(popoverNode, "btnUpdateClient");
+                const saveBtn = queryScopedClientFormElement(popoverNode, "btnSaveClient");
+                const newBtn = queryScopedClientFormElement(popoverNode, "btnNewClient");
+                const isView = normalizedMode === "view";
+                if (rightActionsGroup) {
+                  rightActionsGroup.hidden = isView;
+                  rightActionsGroup.setAttribute("aria-hidden", isView ? "true" : "false");
+                }
+                if (updateBtn) {
+                  const show = normalizedMode === "edit";
+                  updateBtn.hidden = !show;
+                  updateBtn.setAttribute("aria-hidden", show ? "false" : "true");
+                }
+                if (saveBtn) {
+                  const show = normalizedMode === "create";
+                  saveBtn.hidden = !show;
+                  saveBtn.setAttribute("aria-hidden", show ? "false" : "true");
+                }
+                if (newBtn) {
+                  const show = normalizedMode === "create";
+                  newBtn.hidden = !show;
+                  newBtn.setAttribute("aria-hidden", show ? "false" : "true");
+                }
+              };
+              const openClientRecordInSavedModalPopover = (selected, mode = "view", entityType = null) => {
+                if (!selected || !clientSavedModal) return false;
+                const modalEntityType =
+                  entityType || resolveClientEntityType(clientSavedModal) || clientSavedModalEntityType || "client";
+                const modalPopoverSelector =
+                  modalEntityType === "transporter"
+                    ? "#transporteurFormPopover"
+                    : modalEntityType === "vendor"
+                      ? "#fournisseurFormPopover"
+                      : "#clientFormPopover";
+                const popover = clientSavedModal.querySelector(modalPopoverSelector);
+                if (!popover) return false;
+                loadClientRecordIntoForm(selected, { formScope: clientSavedModal });
+                const ctx = buildClientSavedModalPopoverContext(modalEntityType) || {
+                  scope: clientSavedModal,
+                  popover,
+                  toggle: clientSavedModal.querySelector("#clientFormToggleBtn")
+                };
+                if (ctx) {
+                  if (typeof SEM.setClientFormPopoverMode === "function") {
+                    SEM.setClientFormPopoverMode(ctx, mode);
+                  }
+                  const openFn = typeof SEM.setClientFormPopoverOpen === "function"
+                    ? SEM.setClientFormPopoverOpen.bind(SEM)
+                    : null;
+                  if (openFn) {
+                    setTimeout(() => {
+                      openFn(ctx, true);
+                      applyClientPopoverModeFallback(popover, mode);
+                    }, 0);
+                  } else {
+                    popover.classList.add("is-open");
+                    popover.hidden = false;
+                    popover.removeAttribute("hidden");
+                    popover.setAttribute("aria-hidden", "false");
+                    applyClientPopoverModeFallback(popover, mode);
+                  }
+                  return true;
+                }
+                applyClientPopoverModeFallback(popover, mode);
+                return true;
+              };
 
               const loadBtn = evt.target.closest("[data-client-saved-load]");
               if (loadBtn) {
@@ -2954,20 +3116,7 @@
                   return;
                 }
                 const modalEntityType = resolveClientEntityType(clientSavedModal) || clientSavedModalEntityType;
-                const modalPopoverSelector =
-                  modalEntityType === "transporter"
-                    ? "#transporteurFormPopover"
-                    : modalEntityType === "vendor"
-                      ? "#fournisseurFormPopover"
-                      : "#clientFormPopover";
-                const modalScope = clientSavedModal?.querySelector?.(modalPopoverSelector) ? clientSavedModal : null;
-                if (modalScope) {
-                  loadClientRecordIntoForm(selected, { formScope: modalScope });
-                  const ctx = buildClientSavedModalPopoverContext(modalEntityType);
-                  if (ctx) {
-                    SEM.setClientFormPopoverMode?.(ctx, "view");
-                    setTimeout(() => SEM.setClientFormPopoverOpen?.(ctx, true), 0);
-                  }
+                if (openClientRecordInSavedModalPopover(selected, "view", modalEntityType)) {
                   return;
                 }
                 handleClientLoad(idx, { avoidMainscreen: true });
@@ -2979,20 +3128,7 @@
                 const selected = clientSavedModalState.items[idx];
                 if (!selected) return;
                 const modalEntityType = resolveClientEntityType(clientSavedModal) || clientSavedModalEntityType;
-                const modalPopoverSelector =
-                  modalEntityType === "transporter"
-                    ? "#transporteurFormPopover"
-                    : modalEntityType === "vendor"
-                      ? "#fournisseurFormPopover"
-                      : "#clientFormPopover";
-                const modalScope = clientSavedModal?.querySelector?.(modalPopoverSelector) ? clientSavedModal : null;
-                if (modalScope) {
-                  loadClientRecordIntoForm(selected, { formScope: modalScope });
-                  const ctx = buildClientSavedModalPopoverContext(modalEntityType);
-                  if (ctx) {
-                    SEM.setClientFormPopoverMode?.(ctx, "edit");
-                    setTimeout(() => SEM.setClientFormPopoverOpen?.(ctx, true), 0);
-                  }
+                if (openClientRecordInSavedModalPopover(selected, "edit", modalEntityType)) {
                   return;
                 }
                 const targetScope = handleClientLoad(idx, { avoidMainscreen: true });
@@ -4059,27 +4195,33 @@
             const value = inputEl.value || "";
             const trimmed = value.trim();
             const scopeNode = resolveClientSearchScope(inputEl, resultsEl);
-            clearTimeout(clientSearchTimer);
+            const searchState = getClientSearchStateHandle({ scopeNode, inputEl, resultsEl });
+            clearTimeout(searchState?.getTimer?.());
             if (trimmed.length < MIN_CLIENT_SEARCH_LENGTH) {
-              clientSearchData = [];
+              searchState?.setData?.([]);
+              searchState?.setPage?.(1);
               hideClientSearchResults(resultsEl);
               return;
             }
-            clientSearchTimer = setTimeout(() => performClientSearch(trimmed, { resultsEl, scopeNode }), 220);
+            searchState?.setTimer?.(
+              setTimeout(() => performClientSearch(trimmed, { resultsEl, scopeNode, searchState }), 220)
+            );
           };
 
           handleClientSearchFocus = (inputEl, resultsEl) => {
             if (!inputEl) return;
             const trimmed = (inputEl.value || "").trim();
             const scopeNode = resolveClientSearchScope(inputEl, resultsEl);
+            const searchState = getClientSearchStateHandle({ scopeNode, inputEl, resultsEl });
             if (trimmed.length < MIN_CLIENT_SEARCH_LENGTH) {
               hideClientSearchResults(resultsEl);
               return;
             }
-            if (clientSearchData.length) {
-              renderClientSearchResults(clientSearchData, trimmed, resultsEl);
+            const currentData = searchState?.getData?.() || [];
+            if (currentData.length) {
+              renderClientSearchResults(currentData, trimmed, resultsEl, { searchState });
             }
-            performClientSearch(trimmed, { resultsEl, scopeNode });
+            performClientSearch(trimmed, { resultsEl, scopeNode, searchState });
           };
 
           handleClientSearchKeydown = (evt, inputEl, resultsEl) => {
@@ -4088,7 +4230,8 @@
             const trimmed = (inputEl.value || "").trim();
             if (trimmed.length >= MIN_CLIENT_SEARCH_LENGTH) {
               const scopeNode = resolveClientSearchScope(inputEl, resultsEl);
-              performClientSearch(trimmed, { resultsEl, scopeNode });
+              const searchState = getClientSearchStateHandle({ scopeNode, inputEl, resultsEl });
+              performClientSearch(trimmed, { resultsEl, scopeNode, searchState });
             }
           };
 
@@ -4096,30 +4239,40 @@
             const trimmed = (inputEl?.value || "").trim();
             if (trimmed.length >= MIN_CLIENT_SEARCH_LENGTH) {
               const scopeNode = resolveClientSearchScope(inputEl, resultsEl);
-              performClientSearch(trimmed, { resultsEl, scopeNode });
+              const searchState = getClientSearchStateHandle({ scopeNode, inputEl, resultsEl });
+              performClientSearch(trimmed, { resultsEl, scopeNode, searchState });
             }
           };
 
           handleClientSearchResultsClick = async (evt, scopeNode, inputEl, resultsEl) => {
             if (!resultsEl) return;
             const queryValue = (inputEl?.value || "").trim();
+            const resolvedScopeNode = scopeNode || resolveClientSearchScope(inputEl, resultsEl);
+            const searchState = getClientSearchStateHandle({
+              scopeNode: resolvedScopeNode,
+              inputEl,
+              resultsEl
+            });
+            const getCurrentItems = () => searchState?.getData?.() || [];
             const pagerBtn = evt.target.closest("[data-article-page]");
             if (pagerBtn) {
               const direction = pagerBtn.getAttribute("data-article-page");
-              const totalPages = Math.max(1, Math.ceil(clientSearchData.length / CLIENT_SEARCH_PAGE_SIZE));
-              if (direction === "prev" && clientSearchPage > 1) {
-                clientSearchPage -= 1;
-                renderClientSearchResults(clientSearchData, queryValue, resultsEl);
-              } else if (direction === "next" && clientSearchPage < totalPages) {
-                clientSearchPage += 1;
-                renderClientSearchResults(clientSearchData, queryValue, resultsEl);
+              const currentItems = getCurrentItems();
+              const currentPage = Math.max(1, Number(searchState?.getPage?.() || 1) || 1);
+              const totalPages = Math.max(1, Math.ceil(currentItems.length / CLIENT_SEARCH_PAGE_SIZE));
+              if (direction === "prev" && currentPage > 1) {
+                searchState?.setPage?.(currentPage - 1);
+                renderClientSearchResults(currentItems, queryValue, resultsEl, { searchState });
+              } else if (direction === "next" && currentPage < totalPages) {
+                searchState?.setPage?.(currentPage + 1);
+                renderClientSearchResults(currentItems, queryValue, resultsEl, { searchState });
               }
               return;
             }
 
             const closeBtn = evt.target.closest("[data-article-close]");
             if (closeBtn) {
-              clientSearchPage = 1;
+              searchState?.setPage?.(1);
               hideClientSearchResults(resultsEl);
               return;
             }
@@ -4127,29 +4280,29 @@
             const editBtn = evt.target.closest("[data-client-edit]");
             if (editBtn) {
               const idx = Number(editBtn.dataset.clientEdit);
-              const selected = clientSearchData[idx];
+              const selected = getCurrentItems()[idx];
               if (!selected) return;
               hideClientSearchResults(resultsEl);
               clearClientSearchInputValue(inputEl);
               const loadOptions = { skipReadInputs: true, skipDirtyEval: true };
-              if (scopeNode) loadOptions.formScope = scopeNode;
+              if (resolvedScopeNode) loadOptions.formScope = resolvedScopeNode;
               loadClientRecordIntoForm(selected, loadOptions);
-              SEM.refreshUpdateClientButton?.(scopeNode);
+              SEM.refreshUpdateClientButton?.(resolvedScopeNode);
               return;
             }
 
             const updateBtn = evt.target.closest("[data-client-saved-update]");
             if (updateBtn) {
               const idx = Number(updateBtn.dataset.clientSavedUpdate);
-              const selected = clientSearchData[idx];
+              const selected = getCurrentItems()[idx];
               if (!selected) return;
               hideClientSearchResults(resultsEl);
               clearClientSearchInputValue(inputEl);
               const loadOptions = { skipReadInputs: true, skipDirtyEval: true };
-              if (scopeNode) loadOptions.formScope = scopeNode;
+              if (resolvedScopeNode) loadOptions.formScope = resolvedScopeNode;
               loadClientRecordIntoForm(selected, loadOptions);
-              SEM.refreshUpdateClientButton?.(scopeNode);
-              const ctx = scopeNode ? SEM.getClientFormPopoverContext?.(scopeNode) : null;
+              SEM.refreshUpdateClientButton?.(resolvedScopeNode);
+              const ctx = resolvedScopeNode ? SEM.getClientFormPopoverContext?.(resolvedScopeNode) : null;
               if (ctx) {
                 SEM.setClientFormPopoverMode?.(ctx, "edit");
                 setTimeout(() => SEM.setClientFormPopoverOpen?.(ctx, true), 0);
@@ -4160,10 +4313,13 @@
             const deleteBtn = evt.target.closest("[data-client-delete]");
             if (deleteBtn) {
               const idx = Number(deleteBtn.dataset.clientDelete);
-              const selected = clientSearchData[idx];
+              const currentItems = getCurrentItems();
+              const selected = currentItems[idx];
               if (!selected) return;
               const label = selected.name ? ` \"${selected.name}\"` : "";
-              const entityType = resolveClientEntityType(scopeNode || resolveClientScopeFromNode(resultsEl));
+              const entityType = resolveClientEntityType(
+                resolvedScopeNode || resolveClientScopeFromNode(resultsEl)
+              );
               const entityLabels = getClientSavedModalLabels(entityType);
               const confirmed = await showConfirm(`Supprimer le ${entityLabels.singular}${label} ?`, {
                 title: `Supprimer le ${entityLabels.singular}`,
@@ -4183,13 +4339,18 @@
                   await showDialog?.(res?.error || deleteError.text, { title: deleteError.title });
                   return;
                 }
-                clientSearchData.splice(idx, 1);
-                if (clientSearchData.length) {
-                  const totalPages = Math.max(1, Math.ceil(clientSearchData.length / CLIENT_SEARCH_PAGE_SIZE));
-                  if (clientSearchPage > totalPages) clientSearchPage = totalPages;
-                  renderClientSearchResults(clientSearchData, inputEl?.value || "", resultsEl);
+                const nextItems = [...currentItems];
+                nextItems.splice(idx, 1);
+                searchState?.setData?.(nextItems);
+                if (nextItems.length) {
+                  const totalPages = Math.max(1, Math.ceil(nextItems.length / CLIENT_SEARCH_PAGE_SIZE));
+                  const currentPage = Math.max(1, Number(searchState?.getPage?.() || 1) || 1);
+                  if (currentPage > totalPages) {
+                    searchState?.setPage?.(totalPages);
+                  }
+                  renderClientSearchResults(nextItems, inputEl?.value || "", resultsEl, { searchState });
                 } else {
-                  clientSearchPage = 1;
+                  searchState?.setPage?.(1);
                   hideClientSearchResults(resultsEl);
                 }
                 if (state().client && state().client.__path === (selected.path || "")) {
@@ -4207,11 +4368,14 @@
             const selectBtn = evt.target.closest("[data-client-select]");
             if (!selectBtn) return;
             const idx = Number(selectBtn.dataset.clientSelect);
-            const selected = clientSearchData[idx];
+            const selected = getCurrentItems()[idx];
             if (!selected) return;
             hideClientSearchResults(resultsEl);
             clearClientSearchInputValue(inputEl);
-            loadClientRecordIntoForm(selected, scopeNode ? { formScope: scopeNode } : undefined);
+            loadClientRecordIntoForm(
+              selected,
+              resolvedScopeNode ? { formScope: resolvedScopeNode } : undefined
+            );
           };
 
           if (articleSearchInput?.closest?.("#addItemBoxMainscreen")) {
@@ -4300,49 +4464,49 @@
           document.addEventListener("input", (evt) => {
             const target = evt.target;
             if (!(target instanceof HTMLElement)) return;
-            if (target.id !== "clientSearch") return;
+            if (target.id !== "clientSearch" && target.id !== "fournisseurSearch") return;
             const scopeNode = target.closest(`#clientBoxNewDoc, #FournisseurBoxNewDoc, ${MAIN_SCOPE_SELECTOR}`);
             if (!scopeNode) return;
-            const resultsEl = scopeNode.querySelector("#clientSearchResults");
+            const resultsEl = resolveClientSearchResultsElement(scopeNode);
             handleClientSearchInput(target, resultsEl);
           });
 
           document.addEventListener("focusin", (evt) => {
             const target = evt.target;
             if (!(target instanceof HTMLElement)) return;
-            if (target.id !== "clientSearch") return;
+            if (target.id !== "clientSearch" && target.id !== "fournisseurSearch") return;
             const scopeNode = target.closest(`#clientBoxNewDoc, #FournisseurBoxNewDoc, ${MAIN_SCOPE_SELECTOR}`);
             if (!scopeNode) return;
-            const resultsEl = scopeNode.querySelector("#clientSearchResults");
+            const resultsEl = resolveClientSearchResultsElement(scopeNode);
             handleClientSearchFocus(target, resultsEl);
           });
 
           document.addEventListener("keydown", (evt) => {
             const target = evt.target;
             if (!(target instanceof HTMLElement)) return;
-            if (target.id !== "clientSearch") return;
+            if (target.id !== "clientSearch" && target.id !== "fournisseurSearch") return;
             const scopeNode = target.closest(`#clientBoxNewDoc, #FournisseurBoxNewDoc, ${MAIN_SCOPE_SELECTOR}`);
             if (!scopeNode) return;
-            const resultsEl = scopeNode.querySelector("#clientSearchResults");
+            const resultsEl = resolveClientSearchResultsElement(scopeNode);
             handleClientSearchKeydown(evt, target, resultsEl);
           });
 
           document.addEventListener("click", (evt) => {
-            const actionBtn = evt.target?.closest?.("#clientSearchBtn");
+            const actionBtn = evt.target?.closest?.("#clientSearchBtn, #fournisseurSearchBtn");
             if (!actionBtn) return;
             const scopeNode = actionBtn.closest(`#clientBoxNewDoc, #FournisseurBoxNewDoc, ${MAIN_SCOPE_SELECTOR}`);
             if (!scopeNode) return;
-            const inputEl = scopeNode.querySelector("#clientSearch");
-            const resultsEl = scopeNode.querySelector("#clientSearchResults");
+            const inputEl = resolveClientSearchInputElement(scopeNode);
+            const resultsEl = resolveClientSearchResultsElement(scopeNode);
             handleClientSearchButtonClick(inputEl, resultsEl);
           });
 
           document.addEventListener("click", async (evt) => {
-            const resultsEl = evt.target?.closest?.("#clientSearchResults");
+            const resultsEl = evt.target?.closest?.("#clientSearchResults, #fournisseurSearchResults");
             if (!resultsEl) return;
             const scopeNode = resultsEl.closest(`#clientBoxNewDoc, #FournisseurBoxNewDoc, ${MAIN_SCOPE_SELECTOR}`);
             if (!scopeNode) return;
-            const inputEl = scopeNode.querySelector("#clientSearch");
+            const inputEl = resolveClientSearchInputElement(scopeNode);
             await handleClientSearchResultsClick(evt, scopeNode, inputEl, resultsEl);
           });
 
@@ -4369,8 +4533,8 @@
               const scopes = Array.from(document.querySelectorAll(CLIENT_SCOPE_SELECTOR));
               if (!scopes.length) return;
               scopes.forEach((scope) => {
-                const inputEl = scope.querySelector("#clientSearch");
-                const resultsEl = scope.querySelector("#clientSearchResults");
+                const inputEl = resolveClientSearchInputElement(scope);
+                const resultsEl = resolveClientSearchResultsElement(scope);
                 if (!inputEl || !resultsEl) return;
                 if (target === inputEl) return;
                 if (resultsEl.contains(target)) return;
