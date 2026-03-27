@@ -472,24 +472,41 @@ const renderDepotMagasinPanelTemplate = () => `
     </div>
 
     <div class="full client-type-field doc-type-field">
-      <button
-        id="depotMagasinFormToggleBtn"
-        type="button"
-        class="doc-type-action-btn"
-        aria-label="Nouveau depot"
-        aria-haspopup="dialog"
-        aria-expanded="false"
-        aria-controls="depotMagasinFormPopover"
-      >
-        <span class="doc-type-action-icon" aria-hidden="true">
-          <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 24 24" height="200px" width="200px" xmlns="http://www.w3.org/2000/svg">
-            <path fill="none" d="M0 0h24v24H0z"></path>
-            <path d="m12 5.5 6 4.5v1c.7 0 1.37.1 2 .29V9l-8-6-8 6v12h7.68c-.3-.62-.5-1.29-.6-2H6v-9l6-4.5z"></path>
-            <path d="M18 13c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zm3 5.5h-2.5V21h-1v-2.5H15v-1h2.5V15h1v2.5H21v1z"></path>
-          </svg>
-        </span>
-        <span class="doc-type-action-label">Nouveau depot</span>
-      </button>
+      <div class="doc-type-action-row client-type-action-row">
+        <button
+          id="depotMagasinFormToggleBtn"
+          type="button"
+          class="doc-type-action-btn"
+          aria-label="Nouveau depot"
+          aria-haspopup="dialog"
+          aria-expanded="false"
+          aria-controls="depotMagasinFormPopover"
+        >
+          <span class="doc-type-action-icon" aria-hidden="true">
+            <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 24 24" height="200px" width="200px" xmlns="http://www.w3.org/2000/svg">
+              <path fill="none" d="M0 0h24v24H0z"></path>
+              <path d="m12 5.5 6 4.5v1c.7 0 1.37.1 2 .29V9l-8-6-8 6v12h7.68c-.3-.62-.5-1.29-.6-2H6v-9l6-4.5z"></path>
+              <path d="M18 13c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zm3 5.5h-2.5V21h-1v-2.5H15v-1h2.5V15h1v2.5H21v1z"></path>
+            </svg>
+          </span>
+          <span class="doc-type-action-label">Nouveau depot</span>
+        </button>
+        <button
+          id="depotMagasinBulkDeleteOpenBtn"
+          type="button"
+          class="doc-type-action-btn"
+          aria-label="Supprimer des depots/magasins"
+          aria-haspopup="dialog"
+          aria-controls="depotMagasinBulkDeleteModal"
+        >
+          <span class="doc-type-action-icon" aria-hidden="true">
+            <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+              <path d="M360 184h-8c4.4 0 8-3.6 8-8v8h304v-8c0 4.4 3.6 8 8 8h-8v72h72v-80c0-35.3-28.7-64-64-64H352c-35.3 0-64 28.7-64 64v80h72v-72zm504 72H160c-17.7 0-32 14.3-32 32v32c0 4.4 3.6 8 8 8h60.4l24.7 523c1.6 34.1 29.8 61 63.9 61h454c34.2 0 62.3-26.8 63.9-61l24.7-523H888c4.4 0 8-3.6 8-8v-32c0-17.7-14.3-32-32-32zM731.3 840H292.7l-24.2-512h487l-24.2 512z"></path>
+            </svg>
+          </span>
+          <span class="doc-type-action-label">Supprimer depots</span>
+        </button>
+      </div>
     </div>
   </div>
 `;

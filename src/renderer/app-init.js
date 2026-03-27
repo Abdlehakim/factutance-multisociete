@@ -878,6 +878,7 @@
     });
     AppInit.registerClientBulkDeleteActions?.();
     AppInit.registerArticleBulkDeleteActions?.();
+    AppInit.registerDepotMagasinBulkDeleteActions?.();
     AppInit.registerFournisseurSavedModalActions?.();
     AppInit.registerFournisseurBulkDeleteActions?.();
     AppInit.registerTransporteurSavedModalActions?.();

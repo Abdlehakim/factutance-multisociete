@@ -1,0 +1,207 @@
+#depotMagasinBulkDeleteModal .depot-magasin-bulk-delete-modal__panel {
+  width: min(980px, calc(100vw - 32px));
+}
+
+#depotMagasinBulkDeleteModal .depot-magasin-bulk-delete-modal__body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
+#depotMagasinBulkDeleteModal .depot-magasin-bulk-delete-modal__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+#depotMagasinBulkDeleteModal .depot-magasin-bulk-delete-modal__search {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1 1 360px;
+  min-width: 240px;
+}
+
+#depotMagasinBulkDeleteModal .depot-magasin-bulk-delete-modal__search-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+#depotMagasinBulkDeleteModal .depot-magasin-bulk-delete-modal__search-input {
+  min-height: 42px;
+  border: 1px solid #caddff;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: #0f172a;
+  background: #ffffff;
+}
+
+#depotMagasinBulkDeleteModal .depot-magasin-bulk-delete-modal__search-input:focus {
+  outline: none;
+  border-color: #93b6ed;
+  box-shadow: 0 0 0 2px rgba(20, 70, 160, 0.12);
+}
+
+#depotMagasinBulkDeleteModal .depot-magasin-bulk-delete-modal__selection-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+#depotMagasinBulkDeleteModal .depot-magasin-bulk-delete-modal__selection-tools .client-search__edit,
+#depotMagasinBulkDeleteModal .depot-magasin-bulk-delete-modal__selection-tools .client-search__deleteDoc {
+  min-width: 140px;
+}
+
+#depotMagasinBulkDeleteModal .depot-magasin-bulk-delete-modal__list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  align-content: start;
+  margin: 0;
+  padding: 2px;
+  min-height: 333px;
+  max-height: min(58vh, 560px);
+  overflow: auto;
+}
+
+#depotMagasinBulkDeleteModal .depot-magasin-bulk-delete-modal__card {
+  border: 1px solid #cfe0ff;
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: fit-content;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+#depotMagasinBulkDeleteModal .depot-magasin-bulk-delete-modal__card:hover {
+  border-color: #9ab7eb;
+  box-shadow: 0 4px 14px rgba(21, 51, 94, 0.14);
+  background: #f9fcff;
+}
+
+#depotMagasinBulkDeleteModal .depot-magasin-bulk-delete-modal__card-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+#depotMagasinBulkDeleteModal .depot-magasin-bulk-delete-modal__checkbox {
+  margin: 0;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+#depotMagasinBulkDeleteModal .depot-magasin-bulk-delete-modal__card-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0b1220;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+#depotMagasinBulkDeleteModal .depot-magasin-bulk-delete-modal__card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+#depotMagasinBulkDeleteModal .depot-magasin-bulk-delete-modal__meta-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid #caddff;
+  background: #f3f8ff;
+  color: #15335e;
+  font-size: 10px;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#depotMagasinBulkDeleteModal .depot-magasin-bulk-delete-modal__empty {
+  grid-column: 1 / -1;
+  border: 1px dashed #caddff;
+  border-radius: 10px;
+  padding: 18px;
+  text-align: center;
+  color: #4b5565;
+  background: #f8fbff;
+  font-size: 13px;
+}
+
+#depotMagasinBulkDeleteModal .depot-magasin-bulk-delete-modal__actions-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+#depotMagasinBulkDeleteModal .depot-magasin-bulk-delete-modal__actions-row .doc-history-modal__pager {
+  margin: 0;
+}
+
+#depotMagasinBulkDeleteModal .depot-magasin-bulk-delete-modal__actions-row .client-search__deleteDoc {
+  margin-left: auto;
+}
+
+#depotMagasinBulkDeleteModal .depot-magasin-bulk-delete-modal__status {
+  margin-top: 0;
+}
+
+@media (max-width: 920px) {
+  #depotMagasinBulkDeleteModal .depot-magasin-bulk-delete-modal__list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 680px) {
+  #depotMagasinBulkDeleteModal .depot-magasin-bulk-delete-modal__panel {
+    width: min(96vw, 980px);
+  }
+
+  #depotMagasinBulkDeleteModal .depot-magasin-bulk-delete-modal__search {
+    min-width: 100%;
+  }
+
+  #depotMagasinBulkDeleteModal .depot-magasin-bulk-delete-modal__selection-tools {
+    width: 100%;
+  }
+
+  #depotMagasinBulkDeleteModal .depot-magasin-bulk-delete-modal__selection-tools .client-search__edit,
+  #depotMagasinBulkDeleteModal .depot-magasin-bulk-delete-modal__selection-tools .client-search__deleteDoc {
+    flex: 1 1 140px;
+  }
+
+  #depotMagasinBulkDeleteModal .depot-magasin-bulk-delete-modal__list {
+    grid-template-columns: 1fr;
+    min-height: 260px;
+  }
+
+  #depotMagasinBulkDeleteModal .depot-magasin-bulk-delete-modal__actions-row {
+    justify-content: stretch;
+  }
+
+  #depotMagasinBulkDeleteModal .depot-magasin-bulk-delete-modal__actions-row .client-search__deleteDoc {
+    margin-left: 0;
+    width: 100%;
+  }
+}
