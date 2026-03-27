@@ -315,65 +315,61 @@
               </label>
             </div>
             <div class="doc-bulk-export-modal__selection-tools">
-              <div class="doc-bulk-export-modal__selection-buttons">
-                <button id="${SELECT_ALL_ID}" type="button" class="client-search__edit">Tout selectionner</button>
-                <button id="${UNSELECT_ALL_ID}" type="button" class="client-search__edit">Tout deselectionner</button>
-              </div>
+              <button id="${SELECT_ALL_ID}" type="button" class="client-search__edit">Tout selectionner</button>
+              <button id="${UNSELECT_ALL_ID}" type="button" class="client-search__edit">Tout deselectionner</button>
             </div>
           </div>
           <div id="${GRID_ID}" class="doc-history-modal__list doc-bulk-export-modal__grid" role="list"></div>
-          <p id="${STATUS_ID}" class="doc-history-modal__status doc-bulk-export-modal__status" aria-live="polite"></p>
-        </div>
-        <div class="doc-bulk-export-modal__post-body-tools">
-          <div class="doc-bulk-export-modal__post-body-main-action">
-            <button id="${CONFIRM_EXPORT_ID}" type="button" class="client-search__add" disabled>Exporter PDF</button>
+          <div class="doc-bulk-export-modal__pager-row">
+            <div class="client-search__actions client-saved-modal__pager doc-history-modal__pager">
+              <button id="${PREV_ID}" type="button" class="client-search__edit" disabled>Precedent</button>
+              <span
+                id="${PAGE_ID}"
+                class="client-saved-modal__page doc-history-modal__page"
+                aria-live="polite"
+                aria-label="Page 1 sur 1"
+              >
+                Page
+                <input
+                  id="${PAGE_INPUT_ID}"
+                  type="number"
+                  inputmode="numeric"
+                  min="1"
+                  step="1"
+                  size="3"
+                  aria-label="Aller a la page"
+                  class="client-saved-modal__page-input doc-history-modal__page-input"
+                  max="1"
+                  aria-valuemin="1"
+                  aria-valuemax="1"
+                  aria-valuenow="1"
+                />
+                /
+                <span id="${TOTAL_PAGES_ID}">1</span>
+              </span>
+              <button id="${NEXT_ID}" type="button" class="client-search__add" disabled>Suivant</button>
+            </div>
+            <p id="${STATUS_ID}" class="doc-history-modal__status doc-bulk-export-modal__status" aria-live="polite"></p>
           </div>
-          <div class="doc-bulk-export-modal__post-body-secondary">
-            <div class="doc-bulk-export-modal__folder-tools">
+          <div class="doc-bulk-export-modal__export-row">
+            <div class="doc-bulk-export-modal__export-options">
               <label class="doc-bulk-export-modal__open-location">
                 <input id="${OPEN_LOCATION_ID}" type="checkbox" />
                 <span>Ouvrir l'emplacement apres export</span>
               </label>
-            </div>
-            <div class="doc-bulk-export-modal__email-tools">
               <label class="doc-bulk-export-modal__send-email-toggle">
                 <input id="${EMAIL_ENABLED_ID}" type="checkbox" />
                 <span>Envoyer les PDF exportes par e-mail</span>
               </label>
             </div>
+            <div class="doc-bulk-export-modal__export-action">
+              <button id="${CONFIRM_EXPORT_ID}" type="button" class="client-search__add" disabled>Exporter PDF</button>
+            </div>
           </div>
         </div>
-        <div class="client-saved-modal__actions doc-history-modal__actions">
-          <div class="client-search__actions client-saved-modal__actions-left doc-history-modal__actions-left">
+        <div class="swbDialog__actions">
+          <div class="swbDialog__group swbDialog__group--left">
             <button id="${CLOSE_FOOTER_ID}" type="button" class="btn btn-close client-search__close">Fermer</button>
-          </div>
-          <div class="client-search__actions client-saved-modal__pager doc-history-modal__pager">
-            <button id="${PREV_ID}" type="button" class="client-search__edit" disabled>Precedent</button>
-            <span
-              id="${PAGE_ID}"
-              class="client-saved-modal__page doc-history-modal__page"
-              aria-live="polite"
-              aria-label="Page 1 sur 1"
-            >
-              Page
-              <input
-                id="${PAGE_INPUT_ID}"
-                type="number"
-                inputmode="numeric"
-                min="1"
-                step="1"
-                size="3"
-                aria-label="Aller a la page"
-                class="client-saved-modal__page-input doc-history-modal__page-input"
-                max="1"
-                aria-valuemin="1"
-                aria-valuemax="1"
-                aria-valuenow="1"
-              />
-              /
-              <span id="${TOTAL_PAGES_ID}">1</span>
-            </span>
-            <button id="${NEXT_ID}" type="button" class="client-search__add" disabled>Suivant</button>
           </div>
         </div>
       </div>
@@ -535,8 +531,8 @@
     const selectAllBtn = modal.querySelector(`#${SELECT_ALL_ID}`);
     const unselectAllBtn = modal.querySelector(`#${UNSELECT_ALL_ID}`);
     const confirmExportBtn = modal.querySelector(`#${CONFIRM_EXPORT_ID}`);
-    const postBodyTools = modal.querySelector(".doc-bulk-export-modal__post-body-tools");
-    const postBodySecondary = modal.querySelector(".doc-bulk-export-modal__post-body-secondary");
+    const exportRow = modal.querySelector(".doc-bulk-export-modal__export-row");
+    const exportOptions = modal.querySelector(".doc-bulk-export-modal__export-options");
     const openLocationInput = modal.querySelector(`#${OPEN_LOCATION_ID}`);
     const sendEmailInput = modal.querySelector(`#${EMAIL_ENABLED_ID}`);
     const emailModal = ensureEmailModal();
@@ -602,12 +598,12 @@
     const syncModeUi = () => {
       const selectionMode = isSelectionMode();
       modal.classList.toggle("is-selection-mode", selectionMode);
-      if (postBodyTools) {
-        postBodyTools.dataset.mode = state.mode;
+      if (exportRow) {
+        exportRow.dataset.mode = state.mode;
       }
-      if (postBodySecondary) {
-        postBodySecondary.hidden = selectionMode;
-        postBodySecondary.setAttribute("aria-hidden", selectionMode ? "true" : "false");
+      if (exportOptions) {
+        exportOptions.hidden = selectionMode;
+        exportOptions.setAttribute("aria-hidden", selectionMode ? "true" : "false");
       }
       if (confirmExportBtn) {
         confirmExportBtn.textContent =
@@ -996,7 +992,7 @@
 
     const createEmptyStateNode = (text) => {
       const empty = document.createElement("div");
-      empty.className = "doc-history-modal__empty";
+      empty.className = "doc-bulk-export-modal__empty";
       empty.textContent = String(text || "").trim() || "Aucun resultat.";
       return empty;
     };

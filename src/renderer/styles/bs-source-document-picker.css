@@ -150,11 +150,13 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
-#bsSourceDocumentPickerModal .be-source-document-picker-modal__selection-buttons .client-search__edit {
+#bsSourceDocumentPickerModal .be-source-document-picker-modal__selection-buttons .client-search__edit,
+#bsSourceDocumentPickerModal .be-source-document-picker-modal__selection-buttons .client-search__add {
   min-width: 126px;
+  flex: 0 0 auto;
 }
 
 #bsSourceDocumentPickerModal .be-source-document-picker-modal__grid.doc-history-modal__list {
@@ -271,6 +273,11 @@
   min-width: 126px;
 }
 
+#bsSourceDocumentPickerModal #bsSourceDocumentPickerConfirm {
+  min-width: 96px;
+  width: auto;
+}
+
 #bsSourceDocumentPickerModal .be-source-document-picker-modal__actions {
   align-items: center;
 }
@@ -326,6 +333,10 @@
 @media (max-width: 560px) {
   #bsSourceDocumentPickerModal .be-source-document-picker-modal__panel {
     width: min(100vw - 12px, 980px);
+  }
+
+  #bsSourceDocumentPickerModal .be-source-document-picker-modal__selection-buttons {
+    flex-wrap: wrap;
   }
 
   #bsSourceDocumentPickerModal .be-source-document-picker-modal__grid.doc-history-modal__list {

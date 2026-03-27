@@ -16,7 +16,7 @@
 #docBulkDeleteModal .doc-bulk-delete-modal__toolbar {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 10px;
 }
@@ -26,7 +26,7 @@
   flex-wrap: wrap;
   align-items: flex-end;
   gap: 10px;
-  flex: 1 1 460px;
+  flex: 1 1 520px;
   min-width: 280px;
 }
 
@@ -34,17 +34,16 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  flex: 1 1 250px;
-  min-width: 220px;
-  max-width: 340px;
+  flex: 1 1 340px;
+  min-width: 240px;
 }
 
 #docBulkDeleteModal .doc-bulk-delete-modal__year {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  flex: 0 0 130px;
-  min-width: 120px;
+  flex: 0 0 140px;
+  min-width: 130px;
 }
 
 #docBulkDeleteModal .doc-bulk-delete-modal__year .doc-dialog-model-picker__field {
@@ -83,17 +82,14 @@
 
 #docBulkDeleteModal .doc-bulk-delete-modal__selection-tools {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
 }
 
-#docBulkDeleteModal .doc-bulk-delete-modal__selection-tools .client-search__edit {
-  min-width: 126px;
-}
-
+#docBulkDeleteModal .doc-bulk-delete-modal__selection-tools .client-search__edit,
 #docBulkDeleteModal .doc-bulk-delete-modal__selection-tools .client-search__deleteDoc {
-  min-width: 126px;
+  min-width: 140px;
 }
 
 #docBulkDeleteModal .doc-bulk-delete-modal__grid.doc-history-modal__list {
@@ -103,7 +99,7 @@
   align-content: start;
   margin: 0;
   padding: 2px;
-  min-height: 320px;
+  min-height: 333px;
   max-height: min(58vh, 560px);
   overflow: auto;
 }
@@ -178,21 +174,49 @@
   white-space: nowrap;
 }
 
+#docBulkDeleteModal .doc-bulk-delete-modal__empty {
+  grid-column: 1 / -1;
+  border: 1px dashed #caddff;
+  border-radius: 10px;
+  padding: 18px;
+  text-align: center;
+  color: #4b5565;
+  background: #f8fbff;
+  font-size: 13px;
+}
+
+#docBulkDeleteModal .doc-bulk-delete-modal__actions-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+#docBulkDeleteModal .doc-bulk-delete-modal__actions-row .doc-history-modal__pager {
+  margin: 0;
+}
+
+#docBulkDeleteModal .doc-bulk-delete-modal__actions-row .client-search__deleteDoc {
+  margin-left: auto;
+}
+
 #docBulkDeleteModal .doc-bulk-delete-modal__status {
   margin-top: 0;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 920px) {
+  #docBulkDeleteModal .doc-bulk-delete-modal__grid.doc-history-modal__list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 680px) {
   #docBulkDeleteModal .doc-bulk-delete-modal__panel {
     width: min(96vw, 980px);
   }
 
-  #docBulkDeleteModal .doc-bulk-delete-modal__selection-tools {
-    width: 100%;
-  }
-
   #docBulkDeleteModal .doc-bulk-delete-modal__search {
-    max-width: none;
     min-width: 100%;
   }
 
@@ -204,10 +228,11 @@
     flex: 1 1 130px;
   }
 
-  #docBulkDeleteModal .doc-bulk-delete-modal__selection-tools .client-search__edit {
-    flex: 1 1 140px;
+  #docBulkDeleteModal .doc-bulk-delete-modal__selection-tools {
+    width: 100%;
   }
 
+  #docBulkDeleteModal .doc-bulk-delete-modal__selection-tools .client-search__edit,
   #docBulkDeleteModal .doc-bulk-delete-modal__selection-tools .client-search__deleteDoc {
     flex: 1 1 140px;
   }
@@ -215,5 +240,14 @@
   #docBulkDeleteModal .doc-bulk-delete-modal__grid.doc-history-modal__list {
     grid-template-columns: 1fr;
     min-height: 260px;
+  }
+
+  #docBulkDeleteModal .doc-bulk-delete-modal__actions-row {
+    justify-content: stretch;
+  }
+
+  #docBulkDeleteModal .doc-bulk-delete-modal__actions-row .client-search__deleteDoc {
+    margin-left: 0;
+    width: 100%;
   }
 }

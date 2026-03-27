@@ -301,43 +301,47 @@
             <div class="doc-bulk-delete-modal__selection-tools">
               <button id="${SELECT_ALL_ID}" type="button" class="client-search__edit">Tout selectionner</button>
               <button id="${UNSELECT_ALL_ID}" type="button" class="client-search__edit">Tout deselectionner</button>
-              <button id="${CONFIRM_DELETE_ID}" type="button" class="client-search__deleteDoc" disabled>Supprimer</button>
             </div>
           </div>
           <div id="${GRID_ID}" class="doc-history-modal__list doc-bulk-delete-modal__grid" role="list"></div>
+          <div class="doc-bulk-delete-modal__actions-row">
+            <div class="client-search__actions client-saved-modal__pager doc-history-modal__pager">
+              <button id="${PREV_ID}" type="button" class="client-search__edit" disabled>Precedent</button>
+              <span
+                id="${PAGE_ID}"
+                class="client-saved-modal__page doc-history-modal__page"
+                aria-live="polite"
+                aria-label="Page 1 sur 1"
+              >
+                Page
+                <input
+                  id="${PAGE_INPUT_ID}"
+                  type="number"
+                  inputmode="numeric"
+                  min="1"
+                  step="1"
+                  size="3"
+                  aria-label="Aller a la page"
+                  class="client-saved-modal__page-input doc-history-modal__page-input"
+                  max="1"
+                  aria-valuemin="1"
+                  aria-valuemax="1"
+                  aria-valuenow="1"
+                />
+                /
+                <span id="${TOTAL_PAGES_ID}">1</span>
+              </span>
+              <button id="${NEXT_ID}" type="button" class="client-search__add" disabled>Suivant</button>
+            </div>
+            <button id="${CONFIRM_DELETE_ID}" type="button" class="client-search__deleteDoc" disabled>
+              Supprimer la selection
+            </button>
+          </div>
           <p id="${STATUS_ID}" class="doc-history-modal__status doc-bulk-delete-modal__status" aria-live="polite"></p>
         </div>
-        <div class="client-saved-modal__actions doc-history-modal__actions">
-          <div class="client-search__actions client-saved-modal__actions-left doc-history-modal__actions-left">
+        <div class="swbDialog__actions">
+          <div class="swbDialog__group swbDialog__group--left">
             <button id="${CLOSE_FOOTER_ID}" type="button" class="btn btn-close client-search__close">Fermer</button>
-          </div>
-          <div class="client-search__actions client-saved-modal__pager doc-history-modal__pager">
-            <button id="${PREV_ID}" type="button" class="client-search__edit" disabled>Precedent</button>
-            <span
-              id="${PAGE_ID}"
-              class="client-saved-modal__page doc-history-modal__page"
-              aria-live="polite"
-              aria-label="Page 1 sur 1"
-            >
-              Page
-              <input
-                id="${PAGE_INPUT_ID}"
-                type="number"
-                inputmode="numeric"
-                min="1"
-                step="1"
-                size="3"
-                aria-label="Aller a la page"
-                class="client-saved-modal__page-input doc-history-modal__page-input"
-                max="1"
-                aria-valuemin="1"
-                aria-valuemax="1"
-                aria-valuenow="1"
-              />
-              /
-              <span id="${TOTAL_PAGES_ID}">1</span>
-            </span>
-            <button id="${NEXT_ID}" type="button" class="client-search__add" disabled>Suivant</button>
           </div>
         </div>
       </div>
@@ -713,6 +717,8 @@
       const hasEntries = total > 0;
       if (confirmDeleteBtn) {
         confirmDeleteBtn.disabled = state.busy || !hasEntries || selected < 1;
+        confirmDeleteBtn.textContent =
+          selected > 0 ? `Supprimer la selection (${selected})` : "Supprimer la selection";
       }
       if (selectAllBtn) {
         selectAllBtn.disabled = state.busy || !hasEntries || selected >= total;
@@ -779,7 +785,7 @@
 
     const createEmptyStateNode = (text) => {
       const empty = document.createElement("div");
-      empty.className = "doc-history-modal__empty";
+      empty.className = "doc-bulk-delete-modal__empty";
       empty.textContent = String(text || "").trim() || "Aucun resultat.";
       return empty;
     };

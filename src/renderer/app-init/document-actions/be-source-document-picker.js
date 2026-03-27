@@ -489,6 +489,7 @@
             <div class="be-source-document-picker-modal__selection-buttons">
               <button id="${SELECT_ALL_ID}" type="button" class="client-search__edit">Tout selectionner</button>
               <button id="${UNSELECT_ALL_ID}" type="button" class="client-search__edit">Tout deselectionner</button>
+              <button id="${CONFIRM_ID}" type="button" class="client-search__add" disabled>Ajouter</button>
             </div>
           </div>
           <div id="${GRID_ID}" class="doc-history-modal__list be-source-document-picker-modal__grid" role="list"></div>
@@ -501,9 +502,6 @@
                 / <span id="${TOTAL_PAGES_ID}">1</span>
               </span>
               <button id="${NEXT_ID}" type="button" class="client-search__edit" disabled>Suivant</button>
-            </div>
-            <div class="client-search__actions be-source-document-picker-modal__content-confirm">
-              <button id="${CONFIRM_ID}" type="button" class="client-search__add" disabled>Ajouter</button>
             </div>
           </div>
           <p id="${STATUS_ID}" class="doc-history-modal__status be-source-document-picker-modal__status" aria-live="polite"></p>
