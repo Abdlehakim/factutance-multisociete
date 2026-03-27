@@ -1,4 +1,4 @@
-﻿const MODEL_PREVIEW_HEADER_HTML = [
+const MODEL_PREVIEW_HEADER_HTML = [
   { key: "ref", label: "R&eacute;f." },
   { key: "product", label: "D&eacute;signation(s)" },
   { key: "desc", label: "Description(s)" },
@@ -299,7 +299,7 @@ export const template1 = `
                   <fieldset class="doc-design1__section">
                     <legend class="doc-design1__section-title" data-model-preview-party-legend>Client</legend>
                     <p class="doc-design1__client-name">${DOC_DESIGN1_DATA.client.name}</p>
-                    <p class="doc-design1__meta-line" data-party-field="code"><span class="doc-design1__meta-label">Code client&nbsp;:</span><span class="doc-design1__meta-value">${DOC_DESIGN1_DATA.client.codeClient}</span></p>
+                    <p class="doc-design1__meta-line" data-party-field="code"><span class="doc-design1__meta-label" data-party-field-label="code">Code client&nbsp;:</span><span class="doc-design1__meta-value">${DOC_DESIGN1_DATA.client.codeClient}</span></p>
                     <p class="doc-design1__meta-line" data-party-field="vat"><span class="doc-design1__meta-label">MF&nbsp;:</span><span class="doc-design1__meta-value">${DOC_DESIGN1_DATA.client.mf}</span></p>
                     <p class="doc-design1__meta-line" data-party-field="phone"><span class="doc-design1__meta-label">T&eacute;l&eacute;phone&nbsp;:</span><span class="doc-design1__meta-value">${DOC_DESIGN1_DATA.client.phone}</span></p>
                     <p class="doc-design1__meta-line" data-party-field="email"><span class="doc-design1__meta-label">Email&nbsp;:</span><span class="doc-design1__meta-value">${DOC_DESIGN1_DATA.client.email}</span></p>

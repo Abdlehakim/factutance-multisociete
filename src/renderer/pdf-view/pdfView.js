@@ -1709,10 +1709,12 @@
     const clientTypeRaw = String(state?.clientType || state?.client?.type || "").toLowerCase();
     const isParticulier = clientTypeRaw === "particulier";
     const idLabel = isParticulier ? "CIN / Passeport" : "MF";
-    const isClientPartyType = !["fa", "bc", "be"].includes(type);
-    const clientCodeHTML = isClientPartyType
-      ? buildMetaLine("Code client", client.codeClient || client.code || "")
-      : "";
+    const isSupplierPartyType = ["fa", "bc", "be"].includes(type);
+    const partyCodeLabel = isSupplierPartyType ? "Code fournisseur" : "Code client";
+    const partyCodeValue = isSupplierPartyType
+      ? (client.codeFournisseur || client.codeClient || client.code || "")
+      : (client.codeClient || client.code || "");
+    const clientCodeHTML = buildMetaLine(partyCodeLabel, partyCodeValue);
 
     const clientBenefitHTML = buildClientMetaLine(
       "benefit",

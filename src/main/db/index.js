@@ -2306,6 +2306,7 @@ const normalizeDocumentPayload = (payload = {}, { docType = "" } = {}) => {
   const meta = data.meta && typeof data.meta === "object" ? data.meta : {};
   const normalizedDocType = normalizeDocType(meta.docType || docType || "facture");
   const isBonEntreeDoc = normalizedDocType === "be";
+  const isSupplierDoc = normalizedDocType === "fa" || normalizedDocType === "bc" || normalizedDocType === "be";
   const totals = data.totals && typeof data.totals === "object" ? data.totals : {};
   const itemsRaw = Array.isArray(data.items) ? data.items : [];
   const notes = typeof data.notes === "string" ? data.notes : "";
@@ -2314,6 +2315,18 @@ const normalizeDocumentPayload = (payload = {}, { docType = "" } = {}) => {
   const signature = company.signature && typeof company.signature === "object" ? company.signature : {};
   const clientPath = typeof client.__path === "string" ? client.__path.trim() : "";
   const clientId = parseClientIdFromPath(clientPath) || "";
+  const clientCodeSnapshot = normalizeOptionalText(
+    client.codeClient ||
+      client.code_client ||
+      (!isSupplierDoc ? client.code : "")
+  );
+  const supplierCodeSnapshot = normalizeOptionalText(
+    client.codeFournisseur ||
+      client.code_fournisseur ||
+      (isSupplierDoc
+        ? (client.codeClient || client.code_client || client.code)
+        : "")
+  );
   const reglement = meta.reglement && typeof meta.reglement === "object" ? meta.reglement : {};
   const wh = meta.withholding && typeof meta.withholding === "object" ? meta.withholding : {};
   const financing = meta.financing && typeof meta.financing === "object" ? meta.financing : {};
@@ -2398,15 +2411,8 @@ const normalizeDocumentPayload = (payload = {}, { docType = "" } = {}) => {
     client_id: normalizeOptionalText(clientId),
     client_type: normalizeOptionalText(client.type),
     client_name: normalizeOptionalText(client.name),
-    client_code: normalizeOptionalText(
-      client.codeClient ||
-        client.code_client ||
-        client.codeFournisseur ||
-        client.code_fournisseur ||
-        client.codeTransporteur ||
-        client.code_transporteur ||
-        client.code
-    ),
+    client_code: isSupplierDoc ? null : clientCodeSnapshot,
+    client_code_fournisseur: isSupplierDoc ? supplierCodeSnapshot : null,
     client_benefit: normalizeOptionalText(client.benefit),
     client_account: normalizeOptionalText(client.account || client.accountOf),
     client_vat: normalizeOptionalText(client.vat),
@@ -2648,7 +2654,16 @@ const readNumberValue = (value) => {
 };
 
 const buildDocumentPayloadFromRow = (row = {}, items = [], taxRows = []) => {
+  const normalizedDocType = normalizeDocType(readTextValue(row.meta_doc_type || row.doc_type));
+  const isSupplierDoc = normalizedDocType === "fa" || normalizedDocType === "bc" || normalizedDocType === "be";
   const persistedClientCode = readTextValue(row.client_code);
+  const persistedSupplierCode = readTextValue(row.client_code_fournisseur);
+  const resolvedSupplierCode = isSupplierDoc
+    ? (persistedSupplierCode || persistedClientCode)
+    : persistedSupplierCode;
+  const resolvedClientCode = isSupplierDoc
+    ? (persistedClientCode || resolvedSupplierCode)
+    : persistedClientCode;
   const company = {
     name: readTextValue(row.company_name),
     type: readTextValue(row.company_type),
@@ -2682,8 +2697,9 @@ const buildDocumentPayloadFromRow = (row = {}, items = [], taxRows = []) => {
     __path: readTextValue(row.client_path),
     type: readTextValue(row.client_type),
     name: readTextValue(row.client_name),
-    codeClient: persistedClientCode,
-    code: persistedClientCode,
+    codeClient: resolvedClientCode,
+    codeFournisseur: resolvedSupplierCode,
+    code: isSupplierDoc ? (resolvedSupplierCode || resolvedClientCode) : resolvedClientCode,
     benefit: readTextValue(row.client_benefit),
     account: readTextValue(row.client_account),
     vat: readTextValue(row.client_vat),
@@ -2695,7 +2711,6 @@ const buildDocumentPayloadFromRow = (row = {}, items = [], taxRows = []) => {
     email: readTextValue(row.client_email),
     address: readTextValue(row.client_address),
   };
-  const normalizedDocType = normalizeDocType(readTextValue(row.meta_doc_type || row.doc_type));
   const beSourceSelectionJson = parseOptionalJsonValue(row.meta_be_reception_source_selection_json, {
     expect: "object"
   });

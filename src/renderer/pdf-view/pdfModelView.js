@@ -709,12 +709,33 @@
     if (partyName) partyName.textContent = hasText(party.name) ? String(party.name).trim() : "-";
     const lines = partySection ? Array.from(partySection.querySelectorAll(".doc-design1__meta-line")) : [];
     const legacyValues = [party.vat || party.mf || "-", party.phone || "-", party.email || "-", party.address || "-"];
-    const partyCode =
-      party.codeClient ||
-      party.codeFournisseur ||
-      party.codeTransporteur ||
-      party.code ||
-      "-";
+    const codeLabelText = isPurchaseDocType ? "Code fournisseur :" : "Code client :";
+    const codeLine = lines.find((line) => {
+      const valueNode = line.querySelector(".doc-design1__meta-value");
+      const field = String(line.dataset?.partyField || valueNode?.dataset?.partyField || "")
+        .trim()
+        .toLowerCase();
+      return field === "code";
+    });
+    const codeLabelNode = codeLine?.querySelector(".doc-design1__meta-label");
+    if (codeLabelNode) codeLabelNode.textContent = codeLabelText;
+    const partyCode = isPurchaseDocType
+      ? (
+          party.codeFournisseur ||
+          party.code_fournisseur ||
+          party.codeClient ||
+          party.code_client ||
+          party.codeTransporteur ||
+          party.code_transporteur ||
+          party.code ||
+          "-"
+        )
+      : (
+          party.codeClient ||
+          party.code_client ||
+          party.code ||
+          "-"
+        );
     lines.forEach((line, index) => {
       const valueNode = line.querySelector(".doc-design1__meta-value");
       if (!valueNode) return;

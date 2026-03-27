@@ -499,10 +499,22 @@
 
     const lines = partySection ? Array.from(partySection.querySelectorAll(".doc-design1__meta-line")) : [];
     const legacySupplierValues = [supplier.vat || supplier.mf || "-", supplier.phone || "-", supplier.email || "-", supplier.address || "-"];
+    const codeLine = lines.find((line) => {
+      const valueNode = line.querySelector(".doc-design1__meta-value");
+      const field = String(line.dataset?.partyField || valueNode?.dataset?.partyField || "")
+        .trim()
+        .toLowerCase();
+      return field === "code";
+    });
+    const codeLabelNode = codeLine?.querySelector(".doc-design1__meta-label");
+    if (codeLabelNode) codeLabelNode.textContent = "Code fournisseur :";
     const supplierCode =
       supplier.codeFournisseur ||
+      supplier.code_fournisseur ||
       supplier.codeClient ||
+      supplier.code_client ||
       supplier.codeTransporteur ||
+      supplier.code_transporteur ||
       supplier.code ||
       "-";
     lines.forEach((line, index) => {

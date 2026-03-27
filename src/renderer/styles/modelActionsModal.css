@@ -194,6 +194,10 @@ background: #f3f8ff;
   bottom: 12px;
   transform: translateX(-50%);
   z-index: 6;
+  pointer-events: none;
+}
+
+#modelActionsModal.is-open .model-actions-layout__preview-toolbar > * {
   pointer-events: auto;
 }
 

@@ -443,6 +443,35 @@
     email: "itemsClientEmail",
     address: "itemsClientAddress"
   };
+  const SUPPLIER_PARTY_DOC_TYPES = new Set(["fa", "bc", "be"]);
+  const isSupplierPartyDocType = (docType = state().meta?.docType) =>
+    SUPPLIER_PARTY_DOC_TYPES.has(String(docType || "").trim().toLowerCase());
+  const resolveItemsPartyCodeLabel = (docType = state().meta?.docType) =>
+    isSupplierPartyDocType(docType) ? "Code fournisseur" : "Code client";
+  const updateItemsPartyCodeLabel = (docType = state().meta?.docType) => {
+    const labelText = resolveItemsPartyCodeLabel(docType);
+    document.querySelectorAll("#itemsSection [data-client-field-label=\"codeClient\"]").forEach((node) => {
+      node.textContent = labelText;
+    });
+  };
+  const resolveItemsPartyCodeValue = (client = {}, docType = state().meta?.docType) => {
+    if (isSupplierPartyDocType(docType)) {
+      return (
+        client.codeFournisseur ||
+        client.code_fournisseur ||
+        client.codeClient ||
+        client.code_client ||
+        client.code ||
+        ""
+      );
+    }
+    return (
+      client.codeClient ||
+      client.code_client ||
+      client.code ||
+      ""
+    );
+  };
 
   const CLIENT_TAX_LABEL_FALLBACK = "Matricule fiscal";
   const CLIENT_TAX_LABEL_PARTICULIER = "CIN / passeport";
@@ -469,12 +498,7 @@
       const ids = Array.isArray(displayIds) ? displayIds : [displayIds];
       let value = client[key];
       if (key === "codeClient") {
-        value =
-          client.codeClient ||
-          client.codeFournisseur ||
-          client.codeTransporteur ||
-          client.code ||
-          "";
+        value = resolveItemsPartyCodeValue(client);
       }
       ids.forEach((displayId) => {
         const el = getEl(displayId);
@@ -484,6 +508,7 @@
         el.classList.toggle("is-empty", !text);
       });
     });
+    updateItemsPartyCodeLabel(state().meta?.docType);
     updateItemsClientTaxLabel(client);
   }
   SEM.refreshClientSummary = refreshClientSummary;
@@ -822,6 +847,7 @@
     if (partyLegendEl) {
       partyLegendEl.textContent = ["fa", "bc", "be"].includes(normalized) ? "Fournisseur" : "Client";
     }
+    updateItemsPartyCodeLabel(normalized);
   }
   SEM.updateItemsMetaSummaryLabels = updateItemsMetaSummaryLabels;
 
