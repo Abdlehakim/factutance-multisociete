@@ -28,7 +28,7 @@
           clientSavedModalCloseFooter = clientSavedModal?.querySelector("#clientSavedModalCloseFooter");
           clientSavedSearchInput = getEl("clientSavedSearch");
           clientSavedSearchButton = getEl("clientSavedSearchBtn");
-          CLIENT_SAVED_PAGE_SIZE = 3;
+          CLIENT_SAVED_PAGE_SIZE = 5;
           CLIENT_SAVED_MIN_SEARCH_LENGTH = 2;
           createClientSavedModalEntityState = () => ({
             page: 1,
@@ -2507,40 +2507,31 @@
                 const hasClientData = Object.keys(safeClient).length > 0;
                 const fallbackName = !hasClientData ? String(item.name || "").trim() : "";
                 const name = clientName || (fallbackName.toLowerCase() === "client" ? "" : fallbackName);
-                const identifier =
-                  item.identifier ||
+                const codeClient =
+                  item.codeClient ||
+                  item.code_client ||
+                  item.code ||
+                  safeClient.codeClient ||
+                  safeClient.code_client ||
+                  safeClient.code ||
+                  "";
+                const taxIdValue =
                   item.vat ||
                   item.identifiantFiscal ||
                   item.identifiant ||
                   item.tva ||
                   item.nif ||
+                  item.cin ||
+                  item.passport ||
+                  item.passeport ||
                   safeClient.vat ||
                   safeClient.identifiantFiscal ||
                   safeClient.identifiant ||
                   safeClient.tva ||
                   safeClient.nif ||
-                  "";
-                const benefit = item.benefit || safeClient.benefit || "";
-                const account = item.account || safeClient.account || "";
-                const soldClient = item.soldClient ?? safeClient.soldClient ?? "";
-                const stegRef =
-                  item.stegRef || item.refSteg || item.steg || safeClient.stegRef || safeClient.refSteg || safeClient.steg || "";
-                const phone =
-                  item.phone ||
-                  item.telephone ||
-                  item.tel ||
-                  safeClient.phone ||
-                  safeClient.telephone ||
-                  safeClient.tel ||
-                  "";
-                const email = item.email || safeClient.email || "";
-                const address =
-                  item.address ||
-                  item.adresse ||
-                  item.addressLine ||
-                  safeClient.address ||
-                  safeClient.adresse ||
-                  safeClient.addressLine ||
+                  safeClient.cin ||
+                  safeClient.passport ||
+                  safeClient.passeport ||
                   "";
                 const formatValue = (value) => {
                   if (value === null || value === undefined || value === "") {
@@ -2573,50 +2564,21 @@
                   : clientType === "particulier"
                     ? "CIN / passeport"
                     : resolveFieldLabel("taxId");
-                const benefitLabel = resolveFieldLabel("benefit");
-                const accountLabel = resolveFieldLabel("account");
-                const soldClientLabel = resolveFieldLabel("soldClient");
-                const stegRefLabel = resolveFieldLabel("stegRef");
+                const codeClientLabel = "Code Client";
                 const nameLabel = resolveFieldLabel("name");
-                const phoneLabel = resolveFieldLabel("phone");
-                const emailLabel = resolveFieldLabel("email");
-                const addressLabel = resolveFieldLabel("address");
                 const typeRowHtml = `
                         <div class="client-search__details-row">
                         <div class="client-search__detail client-search__detail--inline">
                           <span class="client-search__detail-label">${typeLabel} :</span>
                           <span class="client-search__detail-value">${formatValue(typeDisplay)}</span>
                         </div>
+                        </div>
+                      `;
+                const taxIdRowHtml = `
+                        <div class="client-search__details-row">
                         <div class="client-search__detail client-search__detail--inline" data-client-field="taxId">
                           <span class="client-search__detail-label">${escapeHTML(taxIdLabel)} :</span>
-                          <span class="client-search__detail-value">${formatValue(identifier)}</span>
-                          </div>
-                        </div>
-                      `;
-                  const clientExtrasHtml =
-                    clientSavedModalEntityType === "vendor" || clientSavedModalEntityType === "transporter"
-                      ? ""
-                      : `
-                        <div class="client-search__detail client-search__detail--inline" data-client-field="benefit">
-                          <span class="client-search__detail-label">${escapeHTML(benefitLabel)} :</span>
-                          <span class="client-search__detail-value">${formatValue(benefit)}</span>
-                        </div>
-                        <div class="client-search__detail client-search__detail--inline" data-client-field="account">
-                          <span class="client-search__detail-label">${escapeHTML(accountLabel)} :</span>
-                          <span class="client-search__detail-value">${formatValue(account)}</span>
-                        </div>
-                        <div class="client-search__detail client-search__detail--inline" data-client-field="stegRef">
-                          <span class="client-search__detail-label">${escapeHTML(stegRefLabel)} :</span>
-                          <span class="client-search__detail-value">${formatValue(stegRef)}</span>
-                        </div>
-                      `;
-                  const contactRowHtml = `
-                        <div class="client-search__details-row">
-                          ${clientExtrasHtml}
-                          <div class="client-search__detail client-search__detail--inline client-search__detail--phone" data-client-field="phone">
-                            <span class="client-search__detail-label">${escapeHTML(phoneLabel)} :</span>
-                            <span class="client-search__detail-value">${formatValue(phone)}</span>
-                          </div>
+                          <span class="client-search__detail-value">${formatValue(taxIdValue)}</span>
                         </div>
                       `;
                   const actionButtons = [];
@@ -2635,25 +2597,17 @@
                   <button type="button" class="client-search__select client-search__select--detailed" data-client-saved-load="${index}">
                     <div class="client-search__details-grid">
                         <div class="client-search__details-row">
+                          <div class="client-search__detail client-search__detail--inline" data-client-field="codeClient">
+                            <span class="client-search__detail-label">${escapeHTML(codeClientLabel)} :</span>
+                            <span class="client-search__detail-value">${formatValue(codeClient)}</span>
+                          </div>
                           <div class="client-search__detail client-search__detail--inline client-search__detail--name" data-client-field="name">
                             <span class="client-search__detail-label">${escapeHTML(nameLabel)} :</span>
                             <span class="client-search__detail-value">${formatValue(name)}</span>
                           </div>
-                          <div class="client-search__detail client-search__detail--inline" data-client-field="soldClient">
-                            <span class="client-search__detail-label">${escapeHTML(soldClientLabel)} :</span>
-                            <span class="client-search__detail-value">${formatValue(formatSoldClientValue(soldClient))}</span>
-                          </div>
                         </div>
                         ${typeRowHtml}
-                        ${contactRowHtml}
-                        <div class="client-search__detail client-search__detail--inline client-search__detail--email" data-client-field="email">
-                          <span class="client-search__detail-label">${escapeHTML(emailLabel)} :</span>
-                          <span class="client-search__detail-value">${formatValue(email)}</span>
-                        </div>
-                      <div class="client-search__detail client-search__detail--inline client-search__detail--full" data-client-field="address">
-                        <span class="client-search__detail-label">${escapeHTML(addressLabel)} :</span>
-                        <span class="client-search__detail-value">${formatValue(address)}</span>
-                      </div>
+                        ${taxIdRowHtml}
                     </div>
                   </button>
                   <div class="client-search__actions">

@@ -1712,8 +1712,8 @@ aspect-ratio: 1 / 1;
   min-height: 420px;
 }
 .swbDialog__panel.client-saved-modal__panel .client-saved-modal__list {
-  min-height: calc(3 * 132px + 2 * 14px);
-  max-height: calc(3 * 132px + 2 * 14px);
+  min-height: calc(3 * 140px + 2 * 14px);
+  max-height: calc(3 * 140px + 2 * 14px);
   overflow-y: hidden;
 }
 .swbDialog__panel.doc-history-modal__panel .doc-history-modal__body:not(.payments-history-modal__body) {

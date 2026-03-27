@@ -876,6 +876,7 @@
       focus,
       forms: SEM.forms
     });
+    AppInit.registerClientBulkDeleteActions?.();
     AppInit.__runtime = {
       numbering,
       history,
