@@ -934,7 +934,8 @@
   align-self: center;
 }
 
-.items-be-reception-form #beReceptionDestinationPanel {
+.items-be-reception-form #beReceptionDestinationPanel,
+.items-be-reception-form #bsSortieLocationPanel {
   border: 1px solid #a7f3d0;
   border-radius: 8px;
   background: #ffffff;
@@ -944,7 +945,8 @@
   padding: 6px;
 }
 
-.items-be-reception-form #beReceptionDestinationPanel .stock-location-option {
+.items-be-reception-form #beReceptionDestinationPanel .stock-location-option,
+.items-be-reception-form #bsSortieLocationPanel .stock-location-option {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -958,18 +960,21 @@
   cursor: pointer;
 }
 
-.items-be-reception-form #beReceptionDestinationPanel .stock-location-option:hover {
+.items-be-reception-form #beReceptionDestinationPanel .stock-location-option:hover,
+.items-be-reception-form #bsSortieLocationPanel .stock-location-option:hover {
   background: #ecfdf5;
   color: #047857;
 }
 
-.items-be-reception-form #beReceptionDestinationPanel .stock-location-option.is-active {
+.items-be-reception-form #beReceptionDestinationPanel .stock-location-option.is-active,
+.items-be-reception-form #bsSortieLocationPanel .stock-location-option.is-active {
   background: #d1fae5;
   color: #047857;
   font-weight: 600;
 }
 
-.items-be-reception-form #beReceptionDestinationPanel .stock-location-option__checkbox {
+.items-be-reception-form #beReceptionDestinationPanel .stock-location-option__checkbox,
+.items-be-reception-form #bsSortieLocationPanel .stock-location-option__checkbox {
   width: 16px;
   height: 16px;
   flex: 0 0 16px;
@@ -982,22 +987,26 @@
   color: #ffffff;
 }
 
-.items-be-reception-form #beReceptionDestinationPanel .stock-location-option__check {
+.items-be-reception-form #beReceptionDestinationPanel .stock-location-option__check,
+.items-be-reception-form #bsSortieLocationPanel .stock-location-option__check {
   width: 12px;
   height: 12px;
   opacity: 0;
 }
 
-.items-be-reception-form #beReceptionDestinationPanel .stock-location-option.is-active .stock-location-option__checkbox {
+.items-be-reception-form #beReceptionDestinationPanel .stock-location-option.is-active .stock-location-option__checkbox,
+.items-be-reception-form #bsSortieLocationPanel .stock-location-option.is-active .stock-location-option__checkbox {
   background: #10b981;
   border-color: #10b981;
 }
 
-.items-be-reception-form #beReceptionDestinationPanel .stock-location-option.is-active .stock-location-option__check {
+.items-be-reception-form #beReceptionDestinationPanel .stock-location-option.is-active .stock-location-option__check,
+.items-be-reception-form #bsSortieLocationPanel .stock-location-option.is-active .stock-location-option__check {
   opacity: 1;
 }
 
-.items-be-reception-form #beReceptionDestinationPanel .stock-location-option__label {
+.items-be-reception-form #beReceptionDestinationPanel .stock-location-option__label,
+.items-be-reception-form #bsSortieLocationPanel .stock-location-option__label {
   flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
@@ -1356,6 +1365,27 @@
   margin: 12px 0 14px;
 }
 
+#itemsSection .items-bs-context-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 12px;
+  margin: 12px 0 14px;
+}
+
+#itemsSection .items-bs-context-row[hidden] {
+  display: none !important;
+}
+
+#itemsSection .items-bs-context-row > .items-be-reception {
+  margin: 0;
+  min-width: 0;
+}
+
+#itemsSection .items-bs-context-row[data-visible-count="1"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 #itemsSection .items-be-reception__grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1452,6 +1482,10 @@
 
   .items-be-reception-form__grid,
   #itemsSection .items-be-reception__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #itemsSection .items-bs-context-row {
     grid-template-columns: minmax(0, 1fr);
   }
 

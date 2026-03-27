@@ -646,9 +646,18 @@
       (meta?.bsSortie && typeof meta.bsSortie === "object" && meta.bsSortie) ||
       (meta?.bs && typeof meta.bs === "object" && meta.bs) ||
       {};
+    const locationLabels = Array.isArray(raw.locationLabels)
+      ? raw.locationLabels
+      : Array.isArray(raw.destinationLabels)
+        ? raw.destinationLabels
+        : typeof raw.location === "string"
+          ? raw.location.split(",")
+          : [];
     return {
       depot: String(raw.depot ?? raw.depotName ?? raw.magasin ?? meta?.bsDepot ?? "").trim(),
-      location: String(raw.location ?? raw.emplacement ?? raw.destination ?? meta?.bsLocation ?? "").trim(),
+      location:
+        String(raw.location ?? raw.emplacement ?? raw.destination ?? meta?.bsLocation ?? "").trim() ||
+        locationLabels.map((entry) => String(entry || "").trim()).filter(Boolean).join(", "),
       date: String(raw.date ?? raw.sortieDate ?? raw.movementDate ?? meta?.bsSortieDate ?? meta?.date ?? "").trim(),
       time: String(raw.time ?? raw.sortieTime ?? raw.movementTime ?? meta?.bsSortieTime ?? "").trim(),
       sourceRef: String(raw.sourceRef ?? raw.referenceSource ?? raw.source ?? meta?.bsSourceRef ?? "").trim(),

@@ -1008,6 +1008,12 @@
     };
     const formatItemsModalBeReceptionDestinationText = (labels = []) =>
       normalizeItemsModalBeReceptionDestinationLabels(labels).join(", ");
+    const normalizeItemsModalBsSortieLocationIds = (value = []) =>
+      normalizeItemsModalBeReceptionDestinationIds(value);
+    const normalizeItemsModalBsSortieLocationLabels = (value = []) =>
+      normalizeItemsModalBeReceptionDestinationLabels(value);
+    const formatItemsModalBsSortieLocationText = (labels = []) =>
+      normalizeItemsModalBsSortieLocationLabels(labels).join(", ");
     const normalizeItemsModalBeReceptionText = (value = "") =>
       String(value || "")
         .replace(/\s+/g, " ")
@@ -1112,6 +1118,37 @@
             : []
       );
       return normalizeItemsModalBeReceptionDestinationIds(
+        targetLabels
+          .map((label) =>
+            (Array.isArray(records) ? records : []).find(
+              (entry) => normalizeItemsModalBeReceptionText(entry?.code || "").toLowerCase() === label.toLowerCase()
+            )?.id || ""
+          )
+          .filter(Boolean)
+      );
+    };
+    const resolveItemsModalBsSortieSelectedLocationIds = (records = [], sortie = {}) => {
+      const byId = new Map(
+        (Array.isArray(records) ? records : [])
+          .map((entry) => [normalizeItemsModalBeReceptionLocationId(entry?.id || ""), entry])
+          .filter(([id]) => !!id)
+      );
+      const explicitIds = normalizeItemsModalBsSortieLocationIds(
+        sortie?.locationIds?.length
+          ? sortie.locationIds
+          : sortie?.locationId
+            ? [sortie.locationId]
+            : []
+      ).filter((id) => byId.has(id));
+      if (explicitIds.length) return explicitIds;
+      const targetLabels = normalizeItemsModalBsSortieLocationLabels(
+        sortie?.locationLabels?.length
+          ? sortie.locationLabels
+          : sortie?.location
+            ? sortie.location
+            : []
+      );
+      return normalizeItemsModalBsSortieLocationIds(
         targetLabels
           .map((label) =>
             (Array.isArray(records) ? records : []).find(
@@ -2313,6 +2350,25 @@
       const normalizedSourceSelection = normalizeItemsModalBsSortieSourceSelection(
         raw.sourceSelection ?? raw.sourceDocuments ?? raw.sourceDocs ?? meta.bsSourceSelection ?? null
       );
+      const normalizedLocationIds = normalizeItemsModalBsSortieLocationIds(
+        raw.locationIds ??
+          raw.locationIdList ??
+          raw.locationSelection?.ids ??
+          raw.locationSelection ??
+          raw.locationId ??
+          raw.destinationId ??
+          raw.emplacementId ??
+          raw.emplacement_id ??
+          meta.bsLocationIds ??
+          meta.bsLocationId ??
+          []
+      );
+      const normalizedLocationLabels = normalizeItemsModalBsSortieLocationLabels(
+        raw.locationLabels ??
+          raw.locationLabelList ??
+          raw.locationSelection?.labels ??
+          []
+      );
       const normalized = {
         depot: String(raw.depot ?? raw.depotName ?? raw.magasin ?? meta.bsDepot ?? "").trim(),
         depotId: normalizeItemsModalBeReceptionDepotId(
@@ -2320,8 +2376,16 @@
         ),
         location: String(raw.location ?? raw.emplacement ?? raw.destination ?? meta.bsLocation ?? "").trim(),
         locationId: normalizeItemsModalBeReceptionLocationId(
-          raw.locationId ?? raw.destinationId ?? raw.emplacementId ?? raw.emplacement_id ?? meta.bsLocationId ?? ""
+          normalizedLocationIds[0] ??
+            raw.locationId ??
+            raw.destinationId ??
+            raw.emplacementId ??
+            raw.emplacement_id ??
+            meta.bsLocationId ??
+            ""
         ),
+        locationIds: normalizedLocationIds,
+        locationLabels: normalizedLocationLabels,
         sourceDocType: normalizeItemsModalBsSortieSourceDocType(
           raw.sourceDocType ??
             raw.sourceType ??
@@ -2342,6 +2406,12 @@
       if (!normalized.sourceRef && normalized.sourceSelection) {
         normalized.sourceRef = formatItemsModalBsSortieSourceSelectionText(normalized.sourceSelection);
       }
+      if (normalized.locationLabels.length && !normalized.location) {
+        normalized.location = formatItemsModalBsSortieLocationText(normalized.locationLabels);
+      }
+      if (normalized.location && !normalized.locationLabels.length) {
+        normalized.locationLabels = normalizeItemsModalBsSortieLocationLabels(normalized.location);
+      }
       if (docType === "bs") {
         if (!normalized.date) {
           normalized.date = String(meta.date || "").trim() || new Date().toISOString().slice(0, 10);
@@ -2355,6 +2425,8 @@
       meta.bsDepotId = normalized.depotId;
       meta.bsLocation = normalized.location;
       meta.bsLocationId = normalized.locationId;
+      meta.bsLocationIds = normalized.locationIds;
+      meta.bsLocationLabels = normalized.locationLabels;
       meta.bsSourceDocType = normalized.sourceDocType;
       meta.bsSourceSelection = normalized.sourceSelection;
       meta.bsSortieDate = normalized.date;
@@ -3048,6 +3120,7 @@
               displayId: ITEMS_BS_SORTIE_PICKERS.locationDisplay,
               placeholder: ITEMS_BS_SORTIE_LOCATION_PLACEHOLDER,
               useLocationStyle: true,
+              multiple: true,
               fieldId: ITEMS_BS_SORTIE_FIELDS.location
             })}
             <label class="items-be-reception-form__field" for="${ITEMS_BS_SORTIE_FIELDS.date}">
@@ -3601,7 +3674,7 @@
     const renderItemsModalBsSortieLocationPanel = (
       section,
       locations = [],
-      { selectedLocationId = "", depotSelected = false } = {}
+      { selectedLocationIds = [], depotSelected = false } = {}
     ) => {
       const refs = getItemsModalBsSortiePickerRefs(section);
       const select = refs.locationSelect;
@@ -3609,27 +3682,67 @@
       const menu = refs.locationMenu;
       const display = refs.locationDisplay;
       if (!(select instanceof HTMLSelectElement) || !(panel instanceof HTMLElement) || !(menu instanceof HTMLElement)) {
-        return { selectedLocationId: "", selectedLocationLabel: "", displayText: "" };
+        return { selectedLocationIds: [], selectedLocationLabels: [], displayText: "" };
       }
-      const selectedValue = setItemsModalBeReceptionSelectOptions(select, locations, {
-        placeholder: ITEMS_BS_SORTIE_LOCATION_PLACEHOLDER,
-        selectedValue: selectedLocationId,
-        valueKey: "id",
-        labelKey: "code",
-        normalizeValue: normalizeItemsModalBeReceptionLocationId
-      });
-      const selectedOption = Array.from(select.options || []).find((option) => option.value === selectedValue) || null;
-      const selectedLabel = normalizeItemsModalBeReceptionText(selectedOption?.textContent || "");
+      const stockUtils = getItemsModalBeReceptionStockUtils();
+      const normalizeSelectedIds = (value = []) => normalizeItemsModalBsSortieLocationIds(value);
+      const getSelectedIds =
+        typeof stockUtils.getSelectedLocationIds === "function"
+          ? stockUtils.getSelectedLocationIds
+          : (node) => normalizeSelectedIds(Array.from(node?.selectedOptions || []).map((option) => option.value));
+      const setSelectedIds =
+        typeof stockUtils.setSelectedLocationIds === "function"
+          ? stockUtils.setSelectedLocationIds
+          : (node, values = []) => {
+              const normalized = normalizeSelectedIds(values);
+              const selectedSet = new Set(normalized.map((entry) => entry.toLowerCase()));
+              Array.from(node?.options || []).forEach((option) => {
+                const optionValue = String(option.value || "").trim();
+                option.selected = !!optionValue && selectedSet.has(optionValue.toLowerCase());
+              });
+              return normalized;
+            };
+      const resolvedIds =
+        typeof stockUtils.setLocationSelectOptions === "function"
+          ? stockUtils.setLocationSelectOptions(select, locations, selectedLocationIds)
+          : (() => {
+              select.replaceChildren();
+              (Array.isArray(locations) ? locations : []).forEach((entry) => {
+                const option = document.createElement("option");
+                option.value = String(entry?.id || "").trim();
+                option.textContent = String(entry?.code || "").trim();
+                if (entry?.depotId) option.dataset.depotId = String(entry.depotId);
+                select.appendChild(option);
+              });
+              return setSelectedIds(select, selectedLocationIds);
+            })();
+      const selectedLabels = normalizeItemsModalBsSortieLocationLabels(
+        resolvedIds
+          .map((locationId) => {
+            const option = Array.from(select.options || []).find(
+              (entry) => String(entry.value || "").trim() === locationId
+            );
+            return normalizeItemsModalBeReceptionText(option?.textContent || "");
+          })
+          .filter(Boolean)
+      );
       const displayText = depotSelected
-        ? selectedLabel || ITEMS_BS_SORTIE_LOCATION_PLACEHOLDER
+        ? (
+            (typeof stockUtils.getLocationDisplayLabel === "function"
+              ? stockUtils.getLocationDisplayLabel(select, resolvedIds)
+              : selectedLabels.length > 1
+                ? `${selectedLabels.length} emplacements`
+                : selectedLabels[0]) || ITEMS_BS_SORTIE_LOCATION_PLACEHOLDER
+          )
         : ITEMS_BS_SORTIE_LOCATION_DEPOT_REQUIRED;
       if (display instanceof HTMLElement) {
         display.textContent = displayText;
-        display.dataset.selected = selectedValue ? "true" : "false";
+        display.dataset.selected = resolvedIds.length ? "true" : "false";
       }
-      menu.dataset.selected = selectedValue ? "true" : "false";
+      menu.dataset.selected = resolvedIds.length ? "true" : "false";
       setItemsModalBeReceptionPickerDisabled(menu, select, !depotSelected || !locations.length);
       panel.replaceChildren();
+      panel.setAttribute("aria-multiselectable", "true");
       if (!depotSelected) {
         const empty = document.createElement("p");
         empty.className = "model-select-empty";
@@ -3645,35 +3758,63 @@
           if (!option.value) return;
           const button = document.createElement("button");
           button.type = "button";
-          button.className = "model-select-option";
+          button.className = "model-select-option model-select-option--multiselect stock-location-option";
           button.dataset.value = option.value;
           button.setAttribute("role", "option");
-          button.textContent = normalizeItemsModalBeReceptionText(option.textContent || "");
+          const checkbox = document.createElement("span");
+          checkbox.className = "stock-location-option__checkbox";
+          checkbox.setAttribute("aria-hidden", "true");
+          const checkIcon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+          checkIcon.classList.add("stock-location-option__check");
+          checkIcon.setAttribute("viewBox", "0 0 20 20");
+          checkIcon.setAttribute("fill", "none");
+          checkIcon.setAttribute("focusable", "false");
+          checkIcon.setAttribute("aria-hidden", "true");
+          const checkPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          checkPath.setAttribute("d", "M5 10.5L8.5 14L15 7.5");
+          checkPath.setAttribute("stroke", "currentColor");
+          checkPath.setAttribute("stroke-width", "2");
+          checkPath.setAttribute("stroke-linecap", "round");
+          checkPath.setAttribute("stroke-linejoin", "round");
+          checkIcon.appendChild(checkPath);
+          checkbox.appendChild(checkIcon);
+          const label = document.createElement("span");
+          label.className = "stock-location-option__label";
+          label.textContent = normalizeItemsModalBeReceptionText(option.textContent || "");
+          button.append(checkbox, label);
           const isDisabled = !!option.disabled || !!select.disabled;
           button.disabled = isDisabled;
           button.classList.toggle("is-disabled", isDisabled);
           button.setAttribute("aria-disabled", isDisabled ? "true" : "false");
-          const isActive = option.value === selectedValue;
+          const isActive = resolvedIds.some((entry) => entry === option.value);
           button.classList.toggle("is-active", isActive);
           button.setAttribute("aria-selected", isActive ? "true" : "false");
-          button.addEventListener("click", () => {
+          button.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
             if (button.disabled || select.disabled) return;
-            const changed = select.value !== option.value;
-            select.value = option.value;
-            closeItemsModalBeReceptionPickerMenu(menu);
-            if (changed) {
-              try {
-                select.dispatchEvent(new Event("change", { bubbles: true }));
-              } catch {}
-            }
+            const nextValue = String(option.value || "").trim();
+            const currentIds = getSelectedIds(select);
+            const hasValue = currentIds.some((entry) => entry === nextValue);
+            const nextIds = hasValue
+              ? currentIds.filter((entry) => entry !== nextValue)
+              : [...currentIds, nextValue];
+            const updatedIds = setSelectedIds(select, nextIds);
+            renderItemsModalBsSortieLocationPanel(section, locations, {
+              selectedLocationIds: updatedIds,
+              depotSelected
+            });
+            try {
+              select.dispatchEvent(new Event("change", { bubbles: true }));
+            } catch {}
           });
           panel.appendChild(button);
         });
       }
       wireItemsModalBeReceptionPickerMenu(menu, panel);
       return {
-        selectedLocationId: selectedValue,
-        selectedLocationLabel: selectedLabel,
+        selectedLocationIds: resolvedIds,
+        selectedLocationLabels: selectedLabels,
         displayText
       };
     };
@@ -3703,19 +3844,16 @@
         locations = await getItemsModalBeReceptionLocationsForDepot(selectedDepotId);
       }
       if (section.dataset.bsSortieSyncToken !== syncToken) return false;
-      const matchedLocation = findItemsModalBeReceptionLocationRecord(locations, {
-        destinationId: sortie.locationId,
-        destination: sortie.location
-      });
+      const resolvedLocationIds = resolveItemsModalBsSortieSelectedLocationIds(locations, sortie);
       const locationPanelState = renderItemsModalBsSortieLocationPanel(section, locations, {
-        selectedLocationId: matchedLocation?.id || sortie.locationId || "",
+        selectedLocationIds: resolvedLocationIds,
         depotSelected: !!selectedDepotId
       });
-      const selectedLocationId = normalizeItemsModalBeReceptionLocationId(
-        locationPanelState.selectedLocationId || ""
+      const selectedLocationIds = normalizeItemsModalBsSortieLocationIds(
+        locationPanelState.selectedLocationIds || []
       );
-      const selectedLocationLabel = normalizeItemsModalBeReceptionText(
-        locationPanelState.selectedLocationLabel || matchedLocation?.code || sortie.location || ""
+      const selectedLocationLabels = normalizeItemsModalBsSortieLocationLabels(
+        locationPanelState.selectedLocationLabels || []
       );
       let touched = false;
       if (sortie.depotId !== selectedDepotId) {
@@ -3727,11 +3865,28 @@
         sortie.depot = nextDepotText;
         touched = true;
       }
-      if (sortie.locationId !== selectedLocationId) {
-        sortie.locationId = selectedLocationId;
+      const nextPrimaryLocationId = selectedLocationIds[0] || "";
+      if (sortie.locationId !== nextPrimaryLocationId) {
+        sortie.locationId = nextPrimaryLocationId;
         touched = true;
       }
-      const nextLocationText = selectedLocationId ? selectedLocationLabel : "";
+      if (
+        JSON.stringify(normalizeItemsModalBsSortieLocationIds(sortie.locationIds || [])) !==
+        JSON.stringify(selectedLocationIds)
+      ) {
+        sortie.locationIds = selectedLocationIds;
+        touched = true;
+      }
+      if (
+        JSON.stringify(normalizeItemsModalBsSortieLocationLabels(sortie.locationLabels || [])) !==
+        JSON.stringify(selectedLocationLabels)
+      ) {
+        sortie.locationLabels = selectedLocationLabels;
+        touched = true;
+      }
+      const nextLocationText = selectedLocationLabels.length
+        ? formatItemsModalBsSortieLocationText(selectedLocationLabels)
+        : "";
       if (sortie.location !== nextLocationText) {
         sortie.location = nextLocationText;
         touched = true;
@@ -3741,6 +3896,8 @@
       meta.bsDepotId = sortie.depotId;
       meta.bsLocation = sortie.location;
       meta.bsLocationId = sortie.locationId;
+      meta.bsLocationIds = sortie.locationIds;
+      meta.bsLocationLabels = sortie.locationLabels;
       if (touched && typeof SEM.refreshInvoiceSummary === "function") {
         SEM.refreshInvoiceSummary();
       }
@@ -4831,12 +4988,16 @@
           ? normalizeItemsModalBeReceptionText(selectedOption?.textContent || "")
           : "";
         sortie.locationId = "";
+        sortie.locationIds = [];
+        sortie.locationLabels = [];
         sortie.location = "";
         meta.bsSortie = sortie;
         meta.bsDepot = sortie.depot;
         meta.bsDepotId = sortie.depotId;
         meta.bsLocation = sortie.location;
         meta.bsLocationId = sortie.locationId;
+        meta.bsLocationIds = sortie.locationIds;
+        meta.bsLocationLabels = sortie.locationLabels;
         if (typeof SEM.refreshInvoiceSummary === "function") {
           SEM.refreshInvoiceSummary();
         }
@@ -4848,21 +5009,33 @@
       pickerRefs.locationSelect?.addEventListener("change", () => {
         const meta = getInvoiceMeta() || {};
         const sortie = ensureItemsModalBsSortieMeta(meta);
-        const selectedOption =
-          (pickerRefs.locationSelect.selectedOptions && pickerRefs.locationSelect.selectedOptions.length
-            ? pickerRefs.locationSelect.selectedOptions[0]
-            : null) ||
-          Array.from(pickerRefs.locationSelect.options || []).find(
-            (option) => option.value === pickerRefs.locationSelect.value
-          ) ||
-          null;
-        sortie.locationId = normalizeItemsModalBeReceptionLocationId(pickerRefs.locationSelect.value || "");
-        sortie.location = sortie.locationId
-          ? normalizeItemsModalBeReceptionText(selectedOption?.textContent || "")
+        const stockUtils = getItemsModalBeReceptionStockUtils();
+        const selectedLocationIds = normalizeItemsModalBsSortieLocationIds(
+          typeof stockUtils.getSelectedLocationIds === "function"
+            ? stockUtils.getSelectedLocationIds(pickerRefs.locationSelect)
+            : Array.from(pickerRefs.locationSelect.selectedOptions || []).map((option) => option.value)
+        );
+        const selectedLocationLabels = normalizeItemsModalBsSortieLocationLabels(
+          selectedLocationIds
+            .map((locationId) => {
+              const selectedOption = Array.from(pickerRefs.locationSelect.options || []).find(
+                (option) => normalizeItemsModalBeReceptionLocationId(option.value || "") === locationId
+              );
+              return normalizeItemsModalBeReceptionText(selectedOption?.textContent || "");
+            })
+            .filter(Boolean)
+        );
+        sortie.locationId = selectedLocationIds[0] || "";
+        sortie.locationIds = selectedLocationIds;
+        sortie.locationLabels = selectedLocationLabels;
+        sortie.location = selectedLocationLabels.length
+          ? formatItemsModalBsSortieLocationText(selectedLocationLabels)
           : "";
         meta.bsSortie = sortie;
         meta.bsLocation = sortie.location;
         meta.bsLocationId = sortie.locationId;
+        meta.bsLocationIds = sortie.locationIds;
+        meta.bsLocationLabels = sortie.locationLabels;
         if (typeof SEM.refreshInvoiceSummary === "function") {
           SEM.refreshInvoiceSummary();
         }

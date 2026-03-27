@@ -453,6 +453,35 @@
   };
   const formatBonEntreeDestinationText = (labels = []) =>
     normalizeBonEntreeDestinationLabels(labels).join(", ");
+  const normalizeBonSortieLocationIds = (value = []) => {
+    const source = Array.isArray(value) ? value : [value];
+    const seen = new Set();
+    return source
+      .map((entry) =>
+        String(entry ?? "")
+          .trim()
+          .replace(/^sqlite:\/\/emplacements\//i, "")
+      )
+      .filter((entry) => {
+        if (!entry) return false;
+        const key = entry.toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+  };
+  const normalizeBonSortieLocationLabels = (value = []) => {
+    const source = Array.isArray(value)
+      ? value
+      : typeof value === "string"
+        ? value.split(",")
+        : [value];
+    return source
+      .map((entry) => String(entry || "").replace(/\s+/g, " ").trim())
+      .filter(Boolean);
+  };
+  const formatBonSortieLocationText = (labels = []) =>
+    normalizeBonSortieLocationLabels(labels).join(", ");
   const normalizeBonEntreeReceptionMeta = (rawValue = {}, meta = {}) => {
     const raw = rawValue && typeof rawValue === "object" ? rawValue : {};
     const docType = String(meta?.docType || "").trim().toLowerCase();
@@ -551,6 +580,25 @@
     const normalizedSourceSelection = normalizeBonSortieSourceSelection(
       raw.sourceSelection ?? raw.sourceDocuments ?? raw.sourceDocs ?? meta?.bsSourceSelection ?? null
     );
+    const locationIds = normalizeBonSortieLocationIds(
+      raw.locationIds ??
+        raw.locationIdList ??
+        raw.locationSelection?.ids ??
+        raw.locationSelection ??
+        raw.locationId ??
+        raw.destinationId ??
+        raw.emplacementId ??
+        raw.emplacement_id ??
+        meta?.bsLocationIds ??
+        meta?.bsLocationId ??
+        []
+    );
+    const locationLabels = normalizeBonSortieLocationLabels(
+      raw.locationLabels ??
+        raw.locationLabelList ??
+        raw.locationSelection?.labels ??
+        []
+    );
     const normalized = {
       depot: String(raw.depot ?? raw.depotName ?? raw.magasin ?? meta?.bsDepot ?? "").trim(),
       depotId: String(
@@ -565,7 +613,8 @@
         .replace(/^sqlite:\/\/depots\//i, ""),
       location: String(raw.location ?? raw.emplacement ?? raw.destination ?? meta?.bsLocation ?? "").trim(),
       locationId: String(
-        raw.locationId ??
+        locationIds[0] ??
+          raw.locationId ??
           raw.destinationId ??
           raw.emplacementId ??
           raw.emplacement_id ??
@@ -574,6 +623,8 @@
       )
         .trim()
         .replace(/^sqlite:\/\/emplacements\//i, ""),
+      locationIds,
+      locationLabels,
       sourceDocType: normalizeBonSortieSourceDocType(
         raw.sourceDocType ?? raw.sourceType ?? normalizedSourceSelection?.docType ?? meta?.bsSourceDocType ?? ""
       ),
@@ -589,6 +640,12 @@
     };
     if (!normalized.sourceRef && normalized.sourceSelection) {
       normalized.sourceRef = formatBonSortieSourceSelectionText(normalized.sourceSelection);
+    }
+    if (normalized.locationLabels.length && !normalized.location) {
+      normalized.location = formatBonSortieLocationText(normalized.locationLabels);
+    }
+    if (normalized.location && !normalized.locationLabels.length) {
+      normalized.locationLabels = normalizeBonSortieLocationLabels(normalized.location);
     }
     if (docType === "bs") {
       if (!normalized.date) {
@@ -706,6 +763,8 @@
     meta.bsDepotId = meta.bsSortie.depotId;
     meta.bsLocation = meta.bsSortie.location;
     meta.bsLocationId = meta.bsSortie.locationId;
+    meta.bsLocationIds = meta.bsSortie.locationIds;
+    meta.bsLocationLabels = meta.bsSortie.locationLabels;
     meta.bsSourceDocType = meta.bsSortie.sourceDocType;
     meta.bsSourceSelection = meta.bsSortie.sourceSelection;
     meta.bsSortieDate = meta.bsSortie.date;
@@ -1392,6 +1451,77 @@
         .replace(/^sqlite:\/\/depots\//i, "")
         .replace(/^sqlite:\/\/emplacements\//i, "");
     };
+    const readSelectMultiSnapshot = (id, fallback = {}) => {
+      const fallbackIds = normalizeBonSortieLocationIds(
+        fallback?.ids ??
+          fallback?.locationIds ??
+          []
+      );
+      const fallbackLabels = normalizeBonSortieLocationLabels(
+        fallback?.labels ??
+          fallback?.locationLabels ??
+          []
+      );
+      const node = getEl(id);
+      if (!(typeof HTMLSelectElement !== "undefined" && node instanceof HTMLSelectElement)) {
+        return {
+          ids: fallbackIds,
+          labels: fallbackLabels
+        };
+      }
+      const selectedOptions = Array.from(node.selectedOptions || []);
+      const selectedIds = normalizeBonSortieLocationIds(
+        selectedOptions.map((option) => option?.value || "")
+      );
+      const selectedLabels = normalizeBonSortieLocationLabels(
+        selectedOptions.map((option) => option?.textContent || "")
+      );
+      if (selectedIds.length) {
+        return {
+          ids: selectedIds,
+          labels: selectedLabels
+        };
+      }
+      const singleValue = String(node.value || "").trim();
+      if (!singleValue) {
+        return {
+          ids: fallbackIds,
+          labels: fallbackLabels
+        };
+      }
+      const singleOption =
+        selectedOptions[0] ||
+        Array.from(node.options || []).find((option) => String(option?.value || "").trim() === singleValue) ||
+        null;
+      return {
+        ids: normalizeBonSortieLocationIds([singleValue]),
+        labels: normalizeBonSortieLocationLabels([singleOption?.textContent || ""])
+      };
+    };
+    const bsLocationSelection = readSelectMultiSnapshot("bsSortieLocationInput", {
+      locationIds:
+        st.meta.bsSortie?.locationIds ??
+        st.meta.bsLocationIds ??
+        st.meta.bsSortie?.locationId ??
+        st.meta.bsLocationId ??
+        [],
+      locationLabels:
+        st.meta.bsSortie?.locationLabels ??
+        st.meta.bsLocationLabels ??
+        st.meta.bsSortie?.location ??
+        st.meta.bsLocation ??
+        []
+    });
+    const bsLocationText = bsLocationSelection.labels.length
+      ? formatBonSortieLocationText(bsLocationSelection.labels)
+      : readSelectTextValue(
+          "bsSortieLocationInput",
+          st.meta.bsSortie?.location ?? st.meta.bsLocation ?? ""
+        );
+    const bsLocationId = bsLocationSelection.ids[0] || readSelectIdValue(
+      "bsSortieLocationInput",
+      st.meta.bsSortie?.locationId ?? st.meta.bsLocationId ?? ""
+    );
 
     st.meta.bsSortie = normalizeBonSortieMeta(
       {
@@ -1404,14 +1534,10 @@
           "bsSortieDepotInput",
           st.meta.bsSortie?.depotId ?? st.meta.bsDepotId ?? ""
         ),
-        location: readSelectTextValue(
-          "bsSortieLocationInput",
-          st.meta.bsSortie?.location ?? st.meta.bsLocation ?? ""
-        ),
-        locationId: readSelectIdValue(
-          "bsSortieLocationInput",
-          st.meta.bsSortie?.locationId ?? st.meta.bsLocationId ?? ""
-        ),
+        location: bsLocationText,
+        locationId: bsLocationId,
+        locationIds: bsLocationSelection.ids,
+        locationLabels: bsLocationSelection.labels,
         date: getStr(
           "bsSortieDateInput",
           st.meta.bsSortie?.date ?? st.meta.bsSortieDate ?? ""
@@ -1458,6 +1584,8 @@
     st.meta.bsDepotId = st.meta.bsSortie.depotId;
     st.meta.bsLocation = st.meta.bsSortie.location;
     st.meta.bsLocationId = st.meta.bsSortie.locationId;
+    st.meta.bsLocationIds = st.meta.bsSortie.locationIds;
+    st.meta.bsLocationLabels = st.meta.bsSortie.locationLabels;
     st.meta.bsSourceDocType = st.meta.bsSortie.sourceDocType;
     st.meta.bsSourceSelection = st.meta.bsSortie.sourceSelection;
     st.meta.bsSortieDate = st.meta.bsSortie.date;

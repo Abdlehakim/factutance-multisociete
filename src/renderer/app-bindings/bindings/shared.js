@@ -664,6 +664,35 @@
   };
   const formatItemsBeDestinationText = (labels = []) =>
     normalizeItemsBeDestinationLabels(labels).join(", ");
+  const normalizeItemsBsLocationIds = (value = []) => {
+    const source = Array.isArray(value) ? value : [value];
+    const seen = new Set();
+    return source
+      .map((entry) =>
+        String(entry ?? "")
+          .trim()
+          .replace(/^sqlite:\/\/emplacements\//i, "")
+      )
+      .filter((entry) => {
+        if (!entry) return false;
+        const key = entry.toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+  };
+  const normalizeItemsBsLocationLabels = (value = []) => {
+    const source = Array.isArray(value)
+      ? value
+      : typeof value === "string"
+        ? value.split(",")
+        : [value];
+    return source
+      .map((entry) => String(entry || "").replace(/\s+/g, " ").trim())
+      .filter(Boolean);
+  };
+  const formatItemsBsLocationText = (labels = []) =>
+    normalizeItemsBsLocationLabels(labels).join(", ");
   const normalizeItemsBeReceptionMeta = (metaInput = null) => {
     const meta =
       metaInput && typeof metaInput === "object"
@@ -803,6 +832,25 @@
         : (state().meta || (state().meta = {}));
     const raw = meta.bsSortie && typeof meta.bsSortie === "object" ? meta.bsSortie : {};
     const docType = String(meta.docType || "").trim().toLowerCase();
+    const locationIds = normalizeItemsBsLocationIds(
+      raw.locationIds ??
+        raw.locationIdList ??
+        raw.locationSelection?.ids ??
+        raw.locationSelection ??
+        raw.locationId ??
+        raw.destinationId ??
+        raw.emplacementId ??
+        raw.emplacement_id ??
+        meta.bsLocationIds ??
+        meta.bsLocationId ??
+        []
+    );
+    const locationLabels = normalizeItemsBsLocationLabels(
+      raw.locationLabels ??
+        raw.locationLabelList ??
+        raw.locationSelection?.labels ??
+        []
+    );
     const normalized = {
       depot: String(raw.depot ?? raw.depotName ?? raw.magasin ?? meta.bsDepot ?? "").trim(),
       depotId: String(
@@ -812,10 +860,18 @@
         .replace(/^sqlite:\/\/depots\//i, ""),
       location: String(raw.location ?? raw.emplacement ?? raw.destination ?? meta.bsLocation ?? "").trim(),
       locationId: String(
-        raw.locationId ?? raw.destinationId ?? raw.emplacementId ?? raw.emplacement_id ?? meta.bsLocationId ?? ""
+        locationIds[0] ??
+          raw.locationId ??
+          raw.destinationId ??
+          raw.emplacementId ??
+          raw.emplacement_id ??
+          meta.bsLocationId ??
+          ""
       )
         .trim()
         .replace(/^sqlite:\/\/emplacements\//i, ""),
+      locationIds,
+      locationLabels,
       date: String(raw.date ?? raw.sortieDate ?? raw.movementDate ?? meta.bsSortieDate ?? "").trim(),
       time: String(raw.time ?? raw.sortieTime ?? raw.movementTime ?? meta.bsSortieTime ?? "").trim(),
       sourceRef: String(raw.sourceRef ?? raw.referenceSource ?? raw.source ?? meta.bsSourceRef ?? "").trim(),
@@ -825,6 +881,12 @@
       transportMode: String(raw.transportMode ?? raw.modeTransport ?? meta.bsTransportMode ?? "").trim(),
       exitReason: String(raw.exitReason ?? raw.reason ?? raw.motifSortie ?? meta.bsExitReason ?? "").trim()
     };
+    if (normalized.locationLabels.length && !normalized.location) {
+      normalized.location = formatItemsBsLocationText(normalized.locationLabels);
+    }
+    if (normalized.location && !normalized.locationLabels.length) {
+      normalized.locationLabels = normalizeItemsBsLocationLabels(normalized.location);
+    }
     if (docType === "bs" && !normalized.date) {
       normalized.date = String(meta.date || "").trim() || new Date().toISOString().slice(0, 10);
     }
@@ -833,13 +895,16 @@
     meta.bsDepotId = normalized.depotId;
     meta.bsLocation = normalized.location;
     meta.bsLocationId = normalized.locationId;
+    meta.bsLocationIds = normalized.locationIds;
+    meta.bsLocationLabels = normalized.locationLabels;
     return normalized;
   };
   function refreshBonSortieSummary() {
     const meta = state().meta || (state().meta = {});
     const sortieBlock = getEl("itemsBsSortieBlock");
     const transportBlock = getEl("itemsBsTransportBlock");
-    if (!sortieBlock && !transportBlock) return;
+    const contextRow = getEl("itemsBsContextRow");
+    if (!sortieBlock && !transportBlock && !contextRow) return;
     const isBonSortie = String(meta.docType || "facture").trim().toLowerCase() === "bs";
     const sortie = normalizeItemsBsSortieMeta(meta);
     const sortieFields = [
@@ -884,6 +949,18 @@
       const showTransportBlock = isBonSortie && visibleTransportCount > 0;
       transportBlock.hidden = !showTransportBlock;
       transportBlock.style.display = showTransportBlock ? "" : "none";
+    }
+    if (contextRow) {
+      const showSortieBlock = isBonSortie && visibleSortieCount > 0;
+      const showTransportBlock = isBonSortie && visibleTransportCount > 0;
+      const visibleCount = (showSortieBlock ? 1 : 0) + (showTransportBlock ? 1 : 0);
+      contextRow.hidden = visibleCount < 1;
+      contextRow.style.display = visibleCount > 0 ? "" : "none";
+      if (visibleCount > 0) {
+        contextRow.dataset.visibleCount = String(visibleCount);
+      } else {
+        delete contextRow.dataset.visibleCount;
+      }
     }
   }
   SEM.refreshBonSortieSummary = refreshBonSortieSummary;
