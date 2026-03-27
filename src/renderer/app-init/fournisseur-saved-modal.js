@@ -53,6 +53,7 @@
   let els = null;
   let eventsBound = false;
   let openTriggerBound = false;
+  let mutationEventBound = false;
 
   const normalizeText = (value) => String(value || "").trim();
   const escapeHTML = (value) =>
@@ -206,6 +207,76 @@
   };
 
   const getTotalPages = () => (state.total > 0 ? Math.max(1, Math.ceil(state.total / PAGE_SIZE)) : 1);
+
+  const normalizeEntityType = (value) => {
+    const raw = String(value || "").trim().toLowerCase();
+    if (raw === "vendor" || raw === "fournisseur") return "vendor";
+    if (raw === "transporter" || raw === "transporteur") return "transporter";
+    return "client";
+  };
+
+  const normalizeMatchValue = (value) =>
+    String(value || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, " ");
+
+  const patchEntryFromMutation = (detail = {}) => {
+    if (!Array.isArray(state.entries) || !state.entries.length) return false;
+    const expectedType = normalizeEntityType(detail?.entityType);
+    if (expectedType !== "vendor") return false;
+    const snapshot = detail?.snapshot && typeof detail.snapshot === "object" ? detail.snapshot : {};
+    const nextPath = normalizeText(detail?.path || snapshot.__path || "");
+    const nextName = normalizeMatchValue(
+      snapshot.nomFournisseur || snapshot.nom_fournisseur || snapshot.name || ""
+    );
+    const nextVat = normalizeMatchValue(
+      snapshot.matriculeFiscal || snapshot.matricule_fiscal || snapshot.vat || ""
+    );
+    const targetIndex = state.entries.findIndex((entry) => {
+      const entryPath = normalizeText(entry?.path || entry?.raw?.path || entry?.raw?.__path || "");
+      if (nextPath && entryPath && entryPath === nextPath) return true;
+      const entryName = normalizeMatchValue(entry?.name || entry?.raw?.name || entry?.raw?.nomFournisseur || "");
+      if (!entryName || !nextName || entryName !== nextName) return false;
+      if (!nextVat) return true;
+      const entryVat = normalizeMatchValue(
+        entry?.matriculeFiscal || entry?.raw?.matriculeFiscal || entry?.raw?.vat || ""
+      );
+      return !entryVat || entryVat === nextVat;
+    });
+    if (targetIndex < 0) return false;
+    const current = state.entries[targetIndex] || {};
+    const nextRaw = {
+      ...(current.raw && typeof current.raw === "object" ? current.raw : {}),
+      ...snapshot
+    };
+    if (nextPath) {
+      nextRaw.path = nextPath;
+      nextRaw.__path = nextPath;
+    }
+    state.entries[targetIndex] = normalizeEntry(nextRaw);
+    return true;
+  };
+
+  const refreshAfterMutation = async (detail = {}) => {
+    if (!isOpen()) return;
+    if (normalizeEntityType(detail?.entityType) !== "vendor") return;
+    const listEl = els?.listEl || null;
+    const previousScrollTop = listEl && Number.isFinite(listEl.scrollTop) ? listEl.scrollTop : 0;
+    const patched = patchEntryFromMutation(detail);
+    if (patched) {
+      renderList();
+      if (listEl && Number.isFinite(previousScrollTop)) {
+        listEl.scrollTop = previousScrollTop;
+      }
+    }
+    if (state.loading) return;
+    const currentPage = Math.max(1, Number(state.page) || 1);
+    await loadPage(currentPage);
+    if (listEl && Number.isFinite(previousScrollTop)) {
+      listEl.scrollTop = previousScrollTop;
+    }
+  };
 
   const renderPager = () => {
     if (!els) return;
@@ -781,6 +852,12 @@
     els.listEl?.addEventListener("click", (evt) => {
       void onListClick(evt);
     });
+    if (!mutationEventBound) {
+      mutationEventBound = true;
+      w.addEventListener("client-saved-modal-entity-updated", (evt) => {
+        void refreshAfterMutation(evt?.detail || {});
+      });
+    }
   };
 
   const registerOpenTrigger = () => {

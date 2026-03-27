@@ -189,9 +189,8 @@
         ""
     );
     const name = normalizeText(raw.name || client.name || "");
-    const vat = normalizeText(raw.identifier || raw.vat || client.vat || client.identifiantFiscal || "");
     const phone = normalizeText(raw.phone || client.phone || client.telephone || "");
-    return { id, path, codeFournisseur, name, vat, phone };
+    return { id, path, codeFournisseur, name, phone };
   };
 
   const renderPager = () => {
@@ -278,7 +277,6 @@
         const checked = state.selectedKeys.has(key) ? "checked" : "";
         const codeFournisseur = escapeHTML(entry.codeFournisseur || "N.R.");
         const name = escapeHTML(entry.name || "N.R.");
-        const vat = escapeHTML(entry.vat || "N.R.");
         return `
           <label class="fournisseur-bulk-delete-modal__card" data-fournisseur-bulk-delete-key="${escapeHTML(key)}">
             <div class="fournisseur-bulk-delete-modal__card-main">
@@ -289,7 +287,6 @@
             </div>
             <div class="fournisseur-bulk-delete-modal__card-meta">
               <span class="fournisseur-bulk-delete-modal__meta-chip">Nom: ${name}</span>
-              <span class="fournisseur-bulk-delete-modal__meta-chip">Matricule fiscal: ${vat}</span>
             </div>
           </label>
         `;
