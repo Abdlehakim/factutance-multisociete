@@ -710,6 +710,7 @@
     const ITEMS_BE_RECEPTION_LOCATION_DEPOT_REQUIRED = "Selectionnez d'abord un depot";
     const ITEMS_BS_SORTIE_BOX_ID = "bsSortieBoxNewDoc";
     const ITEMS_BS_TRANSPORT_BOX_ID = "bsTransportBoxNewDoc";
+    const ITEMS_BS_TRANSPORT_SAVED_LIST_BTN_ID = "bsTransporteurSavedListBtn";
     const ITEMS_BS_SORTIE_FIELDS = {
       depot: "bsSortieDepotInput",
       location: "bsSortieLocationInput",
@@ -3245,7 +3246,26 @@
       template.innerHTML = `
         <fieldset id="${ITEMS_BS_TRANSPORT_BOX_ID}" class="section-box items-be-reception-form" hidden>
           <legend>Transport / exp&eacute;dition</legend>
-          <div class="items-be-reception-form__grid">
+          <div class="items-be-reception-form__section-actions" aria-label="Actions transport">
+            <button
+              id="${ITEMS_BS_TRANSPORT_SAVED_LIST_BTN_ID}"
+              type="button"
+              class="client-search__saved items-be-reception-form__picker-btn"
+              aria-label="Afficher les transporteurs enregistres"
+              data-bs-transport-saved-open="true"
+              title="Afficher les transporteurs enregistres"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
+                <circle cx="5" cy="6" r="1.5"></circle>
+                <circle cx="5" cy="12" r="1.5"></circle>
+                <circle cx="5" cy="18" r="1.5"></circle>
+                <line x1="9" y1="6" x2="20" y2="6" stroke-linecap="round"></line>
+                <line x1="9" y1="12" x2="20" y2="12" stroke-linecap="round"></line>
+                <line x1="9" y1="18" x2="20" y2="18" stroke-linecap="round"></line>
+              </svg>
+            </button>
+          </div>
+          <div class="items-be-reception-form__grid items-be-reception-form__grid--transport">
             <label class="items-be-reception-form__field" for="${ITEMS_BS_SORTIE_FIELDS.transporter}">
               <span>Transporteur</span>
               <input
@@ -5095,6 +5115,103 @@
         "exitReason"
       ]);
     };
+    const resolveItemsModalBsTransporteurSnapshot = (input = null) => {
+      const raw = input && typeof input === "object" ? input : {};
+      const client = raw.client && typeof raw.client === "object" ? raw.client : {};
+      const read = (...values) => {
+        for (const value of values) {
+          const normalized = normalizeItemsModalBeReceptionText(value || "");
+          if (normalized) return normalized;
+        }
+        return "";
+      };
+      return {
+        name: read(raw.name, raw.transporteur, raw.label, client.name, client.transporteur, client.label),
+        driverName: read(
+          raw.driverName,
+          raw.driver,
+          raw.chauffeur,
+          raw.benefit,
+          client.driverName,
+          client.driver,
+          client.chauffeur,
+          client.benefit
+        ),
+        vehiclePlate: read(
+          raw.vehiclePlate,
+          raw.vehicle,
+          raw.vehicule,
+          raw.matriculeVehicule,
+          raw.matriculeVehicle,
+          raw.account,
+          client.vehiclePlate,
+          client.vehicle,
+          client.vehicule,
+          client.matriculeVehicule,
+          client.matriculeVehicle,
+          client.account
+        ),
+        transportMode: read(
+          raw.transportMode,
+          raw.modeTransport,
+          raw.modeDeTransport,
+          raw.transport,
+          raw.stegRef,
+          client.transportMode,
+          client.modeTransport,
+          client.modeDeTransport,
+          client.transport,
+          client.stegRef
+        ),
+        codeTransporteur: read(
+          raw.codeTransporteur,
+          raw.code_transporteur,
+          raw.codeClient,
+          raw.code_client,
+          raw.code,
+          client.codeTransporteur,
+          client.code_transporteur,
+          client.codeClient,
+          client.code_client,
+          client.code
+        ),
+        phone: read(raw.phone, raw.telephone, raw.tel, client.phone, client.telephone, client.tel),
+        email: read(raw.email, client.email),
+        address: read(raw.address, raw.adresse, client.address, client.adresse)
+      };
+    };
+    const applyItemsModalBsTransporteurSnapshot = (payload = null) => {
+      const meta = getInvoiceMeta() || {};
+      const isBonSortie = String(meta.docType || "").trim().toLowerCase() === "bs";
+      if (!isBonSortie) return false;
+      const snapshot = resolveItemsModalBsTransporteurSnapshot(payload);
+      if (!snapshot.name && !snapshot.driverName && !snapshot.vehiclePlate && !snapshot.transportMode) {
+        return false;
+      }
+      const sortie = ensureItemsModalBsSortieMeta(meta);
+      sortie.transporter = snapshot.name;
+      sortie.driverName = snapshot.driverName;
+      sortie.vehiclePlate = snapshot.vehiclePlate;
+      sortie.transportMode = snapshot.transportMode;
+      meta.bsSortie = sortie;
+      meta.bsTransporter = sortie.transporter;
+      meta.bsDriverName = sortie.driverName;
+      meta.bsVehiclePlate = sortie.vehiclePlate;
+      meta.bsTransportMode = sortie.transportMode;
+      syncItemsModalBsSortieBoxFromState();
+      if (typeof SEM.refreshInvoiceSummary === "function") {
+        SEM.refreshInvoiceSummary();
+      }
+      if (typeof SEM.updateAmountWordsBlock === "function") {
+        SEM.updateAmountWordsBlock();
+      }
+      if (typeof SEM.markDocumentDirty === "function") {
+        SEM.markDocumentDirty(true);
+      }
+      return true;
+    };
+    SEM.applyTransporteurSavedSelectionToBonSortie = (payload = null) =>
+      applyItemsModalBsTransporteurSnapshot(payload);
     const syncItemsModalStockMovementBoxesFromState = () => {
       syncItemsModalBeReceptionBoxFromState();
       syncItemsModalBsSortieBoxFromState();

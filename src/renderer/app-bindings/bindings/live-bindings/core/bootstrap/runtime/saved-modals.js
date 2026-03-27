@@ -2387,7 +2387,10 @@
             const labels = getClientSavedModalLabels(clientSavedModalEntityType);
             const scopedFieldLabels = getScopedClientFieldLabels(clientSavedModalEntityType);
             const scopedVisibility = getScopedClientFieldVisibility(clientSavedModalEntityType);
-            const disableRowDeleteAction = clientSavedModal?.id === "clientSavedModalNv";
+            const disableRowDeleteAction =
+              clientSavedModal?.id === "clientSavedModalNv" ||
+              clientSavedModal?.id === "fournisseurSavedModalNv" ||
+              clientSavedModal?.id === "transporteurSavedModalNv";
             const resolveFieldLabel = (key) =>
               resolveScopedClientFieldLabel(key, clientSavedModalEntityType, scopedFieldLabels);
             const totalPages = getClientSavedModalTotalPages();
@@ -2829,6 +2832,7 @@
             clientSavedSearchTimer = null;
             clientSavedModalRequestId += 1;
             resetClientSavedModalEntityState(clientSavedModalEntityType);
+            delete clientSavedModal.dataset.bsTransportTarget;
             clientSavedModal.classList.remove("is-open");
             clientSavedModal.hidden = true;
             clientSavedModal.setAttribute("hidden", "");
@@ -2850,6 +2854,13 @@
             const isMainscreenContext = !!trigger.closest("#clientBoxMainscreen");
             const isHeaderClientTrigger = trigger.id === "btnAddClientMenu";
             const isHeaderFournisseurTrigger = trigger.id === "btnAddFournisseurMenu";
+            const isBsTransportDocTrigger =
+              trigger.id === "bsTransporteurSavedListBtn" ||
+              trigger.dataset?.bsTransportSavedOpen === "true";
+            const isTransporteurTrigger =
+              isBsTransportDocTrigger ||
+              trigger.id === "transporteurSavedModalOpenBtn" ||
+              trigger.id === "TransporteurSavedListBtn";
             clientSavedModalAllowAddAction =
               !isMainscreenContext && !isHeaderFournisseurTrigger && !isHeaderClientTrigger;
             if (isHeaderFournisseurTrigger) {
@@ -2858,6 +2869,13 @@
             } else if (isHeaderClientTrigger) {
               clientSavedModalFormScope = document.getElementById("clientBoxNewDoc") || null;
               clientSavedModalEntityType = "client";
+            } else if (isTransporteurTrigger) {
+              clientSavedModalFormScope =
+                trigger.closest("#itemsDocOptionsModal") ||
+                trigger.closest(`#${MAIN_TRANSPORTER_SCOPE_ID}`) ||
+                document.getElementById(MAIN_TRANSPORTER_SCOPE_ID) ||
+                null;
+              clientSavedModalEntityType = "transporter";
             } else {
               clientSavedModalFormScope =
                 trigger.closest(`#clientBoxNewDoc, #FournisseurBoxNewDoc, ${MAIN_SCOPE_SELECTOR}`) ||
@@ -2866,6 +2884,7 @@
                 null;
               clientSavedModalEntityType = resolveClientEntityType(clientSavedModalFormScope);
             }
+            clientSavedModal.dataset.bsTransportTarget = isBsTransportDocTrigger ? "true" : "false";
             setClientSavedModalId(clientSavedModalEntityType, { fromItemsModal: isItemsDocOptionsContext });
             setClientSavedModalPopoverIds(clientSavedModalEntityType);
             applyClientSavedModalLabels(clientSavedModalEntityType);
@@ -3093,6 +3112,28 @@
                 const idx = Number(loadBtn.dataset.clientSavedLoad);
                 const selected = clientSavedModalState.items[idx];
                 if (!selected) return;
+                const isBsTransportTarget =
+                  clientSavedModal?.dataset?.bsTransportTarget === "true" &&
+                  (resolveClientEntityType(clientSavedModal) === "transporter" ||
+                    clientSavedModalEntityType === "transporter");
+                if (isBsTransportTarget) {
+                  const payload = selected.client || selected;
+                  const applyBsTransporteur =
+                    typeof SEM.applyTransporteurSavedSelectionToBonSortie === "function"
+                      ? SEM.applyTransporteurSavedSelectionToBonSortie
+                      : null;
+                  if (applyBsTransporteur) {
+                    try {
+                      const applied = await Promise.resolve(applyBsTransporteur(payload, selected));
+                      if (applied !== false) {
+                        closeClientSavedModal();
+                        return;
+                      }
+                    } catch (err) {
+                      console.warn("bs transporteur saved load failed", err);
+                    }
+                  }
+                }
                 if (
                   (clientSavedModal?.id === "clientSavedModalNv" ||
                     clientSavedModal?.id === "fournisseurSavedModalNv" ||

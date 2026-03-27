@@ -290,7 +290,7 @@
             return mainScope.querySelector(MAIN_SCOPE_SELECTOR);
           };
             clientSavedListBtnSelector =
-              "#clientSavedListBtn, #FournisseurSavedListBtn, #TransporteurSavedListBtn, #fournisseurSavedModalOpenBtn, #transporteurSavedModalOpenBtn, #btnAddClientMenu, #btnAddFournisseurMenu";
+              "#clientSavedListBtn, #FournisseurSavedListBtn, #TransporteurSavedListBtn, #fournisseurSavedModalOpenBtn, #transporteurSavedModalOpenBtn, #bsTransporteurSavedListBtn, #btnAddClientMenu, #btnAddFournisseurMenu";
             clientFieldsSettingsBtnSelector = "#clientFieldsSettingsBtn";
             articleFieldsSettingsBtnSelector = "#articleFieldsSettingsBtn";
             ARTICLE_FIELD_LABELS_DEFAULTS = {

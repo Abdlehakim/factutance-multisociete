@@ -1030,6 +1030,17 @@
   position: relative;
 }
 
+.items-be-reception-form__section-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin: 2px 0 0;
+}
+
+.items-be-reception-form__grid--transport {
+  margin-top: 8px;
+}
+
 .items-be-reception-form__input-group input {
   flex: 1 1 auto;
   min-width: 0;
