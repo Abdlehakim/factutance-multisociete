@@ -322,12 +322,8 @@
         if (!key) return "";
         state.visibleEntriesByKey.set(key, entry);
         const checked = state.selectedKeys.has(key) ? "checked" : "";
-        const title = escapeHTML(entry.name || "N.R.");
-        const codeDepot = escapeHTML(entry.codeDepot || "N.R.");
-        const address = escapeHTML(entry.address || "N.R.");
-        const count = Number(entry.emplacementCount || 0);
-        const countLabel = `${count} emplacement${count > 1 ? "s" : ""}`;
-        const emplacementsPreview = escapeHTML(entry.emplacementsPreview || "N.R.");
+        const title = escapeHTML(entry.codeDepot || "N.R.");
+        const depotName = escapeHTML(entry.name || "N.R.");
         return `
           <label class="depot-magasin-bulk-delete-modal__card" data-depot-magasin-bulk-delete-key="${escapeHTML(key)}">
             <div class="depot-magasin-bulk-delete-modal__card-main">
@@ -337,10 +333,7 @@
               <div class="depot-magasin-bulk-delete-modal__card-title">${title}</div>
             </div>
             <div class="depot-magasin-bulk-delete-modal__card-meta">
-              <span class="depot-magasin-bulk-delete-modal__meta-chip">Code depot: ${codeDepot}</span>
-              <span class="depot-magasin-bulk-delete-modal__meta-chip">Adresse: ${address}</span>
-              <span class="depot-magasin-bulk-delete-modal__meta-chip">Emplacements: ${escapeHTML(countLabel)}</span>
-              <span class="depot-magasin-bulk-delete-modal__meta-chip">Codes: ${emplacementsPreview}</span>
+              <span class="depot-magasin-bulk-delete-modal__meta-chip">Nom: ${depotName}</span>
             </div>
           </label>
         `;

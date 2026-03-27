@@ -215,7 +215,6 @@
       row.className = "client-search__option client-saved-item";
       const codeDepot = escapeHtml(entry.codeDepot || "N.R.");
       const name = escapeHtml(entry.name || "N.R.");
-      const address = escapeHtml(entry.address || "N.R.");
       const count = Math.max(0, normalizeNumber(entry.emplacementCount));
       const countLabel = count > 1 ? `${count} emplacements` : `${count} emplacement`;
       const emplacementText = entry.emplacementPreview
@@ -239,12 +238,6 @@
               <div class="client-search__detail client-search__detail--inline client-search__detail--name">
                 <span class="client-search__detail-label">NOM :</span>
                 <span class="client-search__detail-value">${name}</span>
-              </div>
-            </div>
-            <div class="client-search__details-row">
-              <div class="client-search__detail client-search__detail--inline">
-                <span class="client-search__detail-label">ADRESSE :</span>
-                <span class="client-search__detail-value">${address}</span>
               </div>
             </div>
             <div class="client-search__details-row">
