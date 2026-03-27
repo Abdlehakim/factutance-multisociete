@@ -62,18 +62,6 @@
 
   const normalizeText = (value) => String(value || "").trim();
 
-  const formatPrice = (value) => {
-    if (value === null || value === undefined) return "N.R.";
-    const text = normalizeText(value);
-    if (!text) return "N.R.";
-    const numericCandidate = Number(String(value).replace(/,/g, "."));
-    if (Number.isFinite(numericCandidate)) {
-      const compact = numericCandidate.toFixed(3).replace(/\.?0+$/, "");
-      return `${compact} DT`;
-    }
-    return text;
-  };
-
   const showConfirmDialog = async (message, options = {}) => {
     if (typeof w.showConfirm === "function") {
       return !!(await w.showConfirm(message, options));
@@ -281,25 +269,11 @@
         article.name ||
         ""
     );
-    const description = normalizeText(raw.desc || raw.description || article.desc || article.description || "");
-    const priceSource =
-      raw.price ??
-      raw.salePrice ??
-      article.price ??
-      article.salePrice ??
-      article.purchasePrice ??
-      raw.purchase_price ??
-      article.purchase_price;
-    const priceDisplay = formatPrice(priceSource);
-    const updatedAt = normalizeText(raw.updatedAt || raw.modifiedAt || article.updatedAt || "");
     return {
       id,
       path,
       reference,
-      designation,
-      description,
-      priceDisplay,
-      updatedAt
+      designation
     };
   };
 
@@ -339,8 +313,6 @@
         const checked = state.selectedKeys.has(key) ? "checked" : "";
         const title = escapeHTML(entry.reference || entry.designation || "N.R.");
         const designation = escapeHTML(entry.designation || "N.R.");
-        const description = escapeHTML(entry.description || "N.R.");
-        const price = escapeHTML(entry.priceDisplay || "N.R.");
         return `
           <label class="article-bulk-delete-modal__card" data-article-bulk-delete-key="${escapeHTML(key)}">
             <div class="article-bulk-delete-modal__card-main">
@@ -351,8 +323,6 @@
             </div>
             <div class="article-bulk-delete-modal__card-meta">
               <span class="article-bulk-delete-modal__meta-chip">Designation: ${designation}</span>
-              <span class="article-bulk-delete-modal__meta-chip">Description: ${description}</span>
-              <span class="article-bulk-delete-modal__meta-chip">Prix: ${price}</span>
             </div>
           </label>
         `;

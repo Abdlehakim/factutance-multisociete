@@ -63,6 +63,7 @@
             totalRows: 0,
             busy: false
           };
+          ARTICLE_IMPORT_SUPPORTS_DEPOT_COLUMNS = false;
           articleImportModalRestoreFocus = null;
           articleExportBtnSelector = "#articleExportBtn";
           articleExportModal = getEl("articlesExportModal");
@@ -748,11 +749,6 @@
             desc: "desc",
             unite: "unit",
             unit: "unit",
-            stock: "stockQty",
-            stockdisponible: "stockQty",
-            quantite: "stockQty",
-            qty: "stockQty",
-            qte: "stockQty",
             prix: "price",
             price: "price",
             prixunitaire: "price",
@@ -767,19 +763,6 @@
             remisepurchase: "purchaseDiscount",
             purchasediscount: "purchaseDiscount",
             discountpurchase: "purchaseDiscount",
-            stockallownegative: "stockAllowNegative",
-            stocknegatifautorise: "stockAllowNegative",
-            stockblockinsufficient: "stockBlockInsufficient",
-            blockinsufficient: "stockBlockInsufficient",
-            stockalertenabled: "stockAlertEnabled",
-            alertestock: "stockAlertEnabled",
-            stockmin: "stockMin",
-            stockminimum: "stockMin",
-            stockmax: "stockMax",
-            stockmaximum: "stockMax",
-            stockdepotsjson: "stockDepotsJson",
-            stockdepots: "stockDepotsJson",
-            depotsjson: "stockDepotsJson",
             ajouterfodec: "fodecEnabled",
             ajoutfodec: "fodecEnabled",
             fodecenabled: "fodecEnabled",
@@ -813,6 +796,9 @@
           resolveArticleImportField = (header) => {
             const key = normalizeImportHeaderKey(header);
             if (!key) return "";
+            if (!ARTICLE_IMPORT_SUPPORTS_DEPOT_COLUMNS && isArticleImportDepotLikeHeader(key)) {
+              return "";
+            }
             const labelDefaults = resolveArticleFieldLabelDefaults();
             for (const fieldKey of Object.keys(labelDefaults)) {
               const rawLabel =
@@ -820,6 +806,7 @@
               const candidate = rawLabel || labelDefaults[fieldKey] || "";
               if (!candidate) continue;
               if (normalizeImportHeaderKey(candidate) === key) {
+                if (String(fieldKey || "").toLowerCase().startsWith("stock")) continue;
                 if (fieldKey === "fodecSale" || fieldKey === "fodec" || fieldKey === "fodecAmount") {
                   return "fodecEnabled";
                 }
@@ -858,13 +845,6 @@
             if (key.includes("designation") || key.includes("produit") || key.includes("product")) return "product";
             if (key.includes("desc")) return "desc";
             if (key.includes("unite") || key.includes("unit")) return "unit";
-            if ((key.includes("stock") || key.includes("depot")) && key.includes("json")) return "stockDepotsJson";
-            if (key.includes("stock") && (key.includes("allow") || key.includes("negatif"))) return "stockAllowNegative";
-            if ((key.includes("stock") || key.includes("sortie")) && key.includes("insuff")) return "stockBlockInsufficient";
-            if ((key.includes("stock") || key.includes("alert")) && key.includes("alert")) return "stockAlertEnabled";
-            if (key.includes("stockmin")) return "stockMin";
-            if (key.includes("stockmax")) return "stockMax";
-            if (key.includes("stock") || key.includes("quantite") || key.includes("qty") || key.includes("qte")) return "stockQty";
             if (key.includes("achat") || key.includes("purchase")) {
               if (key.includes("remise") || key.includes("discount") || key.includes("reduction")) {
                 return "purchaseDiscount";
@@ -930,6 +910,17 @@
                 ? Math.min(6, Math.max(1, Math.trunc(rawNumber)))
                 : 1;
             return `depot-${boundedNumber}`;
+          };
+          isArticleImportDepotLikeHeader = (normalizedHeaderKey = "") => {
+            const key = String(normalizedHeaderKey || "").trim();
+            if (!key) return false;
+            return (
+              key.includes("depot") ||
+              key.includes("magasin") ||
+              key.includes("entrepot") ||
+              key.includes("warehouse") ||
+              key.includes("stockdepotsjson")
+            );
           };
           isArticleImportDepotTabId = (value = "") => /^depot[-_\s]?\d+$/i.test(String(value || "").trim());
           parseArticleImportStockDepotsPayload = (rawValue = "") => {
@@ -1268,7 +1259,7 @@
             const headerFields = headerScan.fields;
             if (headerIndex < 0 || !headerFields.some(Boolean)) {
               result.errors.push(
-                "Colonnes non reconnues. Utilisez: Reference, Designation, Description, Unite, Stock, PU A. HT, TVA A., Remise A., P.U. HT, TVA, Remise, options stock (Allow/Block/Alerte/Min/Max), StockDepotsJson, FODEC V., Taux FODEC V., TVA FODEC V., FODEC A., Taux FODEC A., TVA FODEC A."
+                "Colonnes non reconnues. Utilisez: Reference, Designation, Description, Unite, PU A. HT, TVA A., Remise A., P.U. HT, TVA, Remise, FODEC V., Taux FODEC V., TVA FODEC V., FODEC A., Taux FODEC A., TVA FODEC A."
               );
               return result;
             }
@@ -1290,19 +1281,12 @@
                 continue;
               }
               result.totalRows += 1;
-              const stockQty = normalizeArticleImportNumber(data.stockQty, 0);
               const purchasePrice = normalizeArticleImportNumber(data.purchasePrice, 0);
               const purchaseTva = normalizeArticleImportNumber(data.purchaseTva, 19);
               const purchaseDiscount = normalizeArticleImportNumber(data.purchaseDiscount, null);
               const price = normalizeArticleImportNumber(data.price, 0);
               const tva = normalizeArticleImportNumber(data.tva, 19);
               const discount = normalizeArticleImportNumber(data.discount, 0);
-              const stockAllowNegative = normalizeArticleImportBool(data.stockAllowNegative);
-              const stockBlockInsufficient = normalizeArticleImportBool(data.stockBlockInsufficient);
-              const stockAlertEnabled = normalizeArticleImportBool(data.stockAlertEnabled ?? data.stockAlert);
-              const stockMin = normalizeArticleImportNumber(data.stockMin, null);
-              const stockMax = normalizeArticleImportNumber(data.stockMax, null);
-              const stockDepotsJsonRaw = normalizeImportValue(data.stockDepotsJson);
               const fodecRate = normalizeArticleImportNumber(data.fodecRate, null);
               const fodecTva = normalizeArticleImportNumber(data.fodecTva, null);
               const fodecEnabled = normalizeArticleImportBool(data.fodecEnabled);
@@ -1314,7 +1298,6 @@
                 product,
                 desc,
                 unit: data.unit || "",
-                stockQty: Number.isFinite(stockQty) ? stockQty : 0,
                 purchasePrice: Number.isFinite(purchasePrice) ? purchasePrice : 0,
                 purchaseTva: Number.isFinite(purchaseTva) ? purchaseTva : 19,
                 purchaseDiscount: Number.isFinite(purchaseDiscount)
@@ -1326,47 +1309,6 @@
                 tva: Number.isFinite(tva) ? tva : 19,
                 discount: Number.isFinite(discount) ? discount : 0
               };
-              if (stockDepotsJsonRaw) {
-                article.stockDepotsJson = stockDepotsJsonRaw;
-              }
-              if (stockAllowNegative !== null || stockBlockInsufficient !== null || stockAlertEnabled !== null) {
-                const allowNegative = stockAllowNegative === true;
-                const blockInsufficient =
-                  allowNegative
-                    ? false
-                    : stockBlockInsufficient === null
-                    ? true
-                    : stockBlockInsufficient === true;
-                article.stockManagement = {
-                  ...(article.stockManagement && typeof article.stockManagement === "object"
-                    ? article.stockManagement
-                    : {}),
-                  allowNegative,
-                  blockInsufficient,
-                  alertEnabled: stockAlertEnabled === true
-                };
-              }
-              if (Number.isFinite(stockMin)) {
-                article.stockMin = stockMin;
-                article.stockManagement = {
-                  ...(article.stockManagement && typeof article.stockManagement === "object"
-                    ? article.stockManagement
-                    : {}),
-                  min: stockMin
-                };
-              }
-              if (Number.isFinite(stockMax)) {
-                article.stockMax = stockMax;
-                article.stockManagement = {
-                  ...(article.stockManagement && typeof article.stockManagement === "object"
-                    ? article.stockManagement
-                    : {}),
-                  max: stockMax
-                };
-              }
-              if (stockAlertEnabled !== null) {
-                article.stockAlert = stockAlertEnabled === true;
-              }
               if (fodecEnabled === true) {
                 const resolvedFodecRate = Number.isFinite(fodecRate) ? fodecRate : 0;
                 const resolvedFodecTva = Number.isFinite(fodecTva) ? fodecTva : 0;
@@ -1391,15 +1333,14 @@
                   tva: resolvedPurchaseFodecTva
                 };
               }
-              const sanitizedArticle = sanitizeArticleImportDepotConfig(article);
-              const dedupeKey = getArticleImportDedupeKey(sanitizedArticle);
+              const dedupeKey = getArticleImportDedupeKey(article);
               if (dedupeKey && seen.has(dedupeKey)) {
                 const existingIndex = seen.get(dedupeKey);
-                result.items[existingIndex] = sanitizedArticle;
+                result.items[existingIndex] = article;
                 continue;
               }
               if (dedupeKey) seen.set(dedupeKey, result.items.length);
-              result.items.push(sanitizedArticle);
+              result.items.push(article);
             }
             return result;
           };
@@ -1854,7 +1795,7 @@
             if (articleImportHint) {
               articleImportHint.textContent =
                 "Selectionnez un fichier Excel (XLSX) ou CSV contenant plusieurs articles. " +
-                "Colonnes acceptees : Reference, Designation, Description, Unite, Stock, PU A. HT, TVA A., Remise A., P.U. HT, TVA, Remise, Autoriser stock negatif, Bloquer sortie stock insuffisant, Alerte stock, Stock minimum, Stock maximum, Stock Depots JSON, FODEC V., Taux FODEC V., TVA FODEC V., FODEC A., Taux FODEC A., TVA FODEC A.";
+                "Colonnes acceptees : Reference, Designation, Description, Unite, PU A. HT, TVA A., Remise A., P.U. HT, TVA, Remise, FODEC V., Taux FODEC V., TVA FODEC V., FODEC A., Taux FODEC A., TVA FODEC A.";
             }
             updateArticleImportExampleVisibility(articleFieldVisibility);
             updateArticleImportCopyHeaders(articleFieldVisibility);
@@ -1911,18 +1852,6 @@
                   return labels.fodecSale || labels.fodec || "FODEC V.";
                 case "purchaseDiscount":
                   return labels.purchaseDiscount || "Remise A.";
-                case "stockAllowNegative":
-                  return "Autoriser stock negatif";
-                case "stockBlockInsufficient":
-                  return "Bloquer sortie stock insuffisant";
-                case "stockAlertEnabled":
-                  return "Alerte stock";
-                case "stockMin":
-                  return "Stock minimum";
-                case "stockMax":
-                  return "Stock maximum";
-                case "stockDepotsJson":
-                  return "Stock Depots JSON";
                 case "purchaseFodecEnabled":
                   return labels.fodecPurchase || labels.purchaseFodecAmount || "FODEC A.";
                 case "purchaseFodecRate":
@@ -1943,19 +1872,12 @@
               "product",
               "desc",
               "unit",
-              "stockQty",
               "purchasePrice",
               "purchaseTva",
               "purchaseDiscount",
               "price",
               "tva",
               "discount",
-              "stockAllowNegative",
-              "stockBlockInsufficient",
-              "stockAlertEnabled",
-              "stockMin",
-              "stockMax",
-              "stockDepotsJson",
               "fodec",
               "fodecRate",
               "fodecTva",
@@ -1967,87 +1889,10 @@
             });
             return columns;
           };
-          normalizeDepotTabIdForExport = (value = "", fallback = 1) => {
-            const match = String(value || "").trim().match(/^depot[-_\s]?(\d+)$/i);
-            const parsed = Number(match?.[1] || fallback);
-            const safe = Number.isFinite(parsed) && parsed > 0 ? Math.trunc(parsed) : Math.max(1, Math.trunc(Number(fallback) || 1));
-            return `depot-${safe}`;
-          };
-          buildStockDepotsJsonExportValue = (article = {}) => {
-            const depots = Array.isArray(article?.depots) ? article.depots : [];
-            if (!depots.length) return "";
-            const tabs = depots
-              .map((entry, index) => {
-                const source = entry && typeof entry === "object" ? entry : {};
-                const tabId = normalizeDepotTabIdForExport(
-                  source.id || source.tabId || source.depotId || "",
-                  index + 1
-                );
-                if (!tabId) return null;
-                const row = {
-                  id: tabId,
-                  stockQty: Number.isFinite(Number(source.stockQty ?? source.stock_qty ?? source.qty))
-                    ? Number(source.stockQty ?? source.stock_qty ?? source.qty)
-                    : 0
-                };
-                const linkedDepotId = String(
-                  source.linkedDepotId ??
-                    source.depotDbId ??
-                    source.magasinId ??
-                    source.magasin_id ??
-                    ""
-                )
-                  .trim()
-                  .replace(/^sqlite:\/\/depots\//i, "");
-                if (linkedDepotId) row.linkedDepotId = linkedDepotId;
-                const selectedLocationIds = Array.isArray(source.selectedLocationIds)
-                  ? source.selectedLocationIds.map((value) => String(value || "").trim()).filter(Boolean)
-                  : [];
-                const selectedEmplacementIds = Array.isArray(source.selectedEmplacementIds)
-                  ? source.selectedEmplacementIds.map((value) => String(value || "").trim()).filter(Boolean)
-                  : [];
-                if (selectedLocationIds.length) row.selectedLocationIds = selectedLocationIds;
-                if (selectedEmplacementIds.length) row.selectedEmplacementIds = selectedEmplacementIds;
-                if (source.stockQtyCustomized) row.stockQtyCustomized = true;
-                if (source.name) row.name = String(source.name || "").trim();
-                if (source.createdAt) row.createdAt = String(source.createdAt || "").trim();
-                return row;
-              })
-              .filter(Boolean);
-            if (!tabs.length) return "";
-            const activeDepotRaw =
-              article?.activeDepotId ??
-              article?.selectedDepotId ??
-              article?.stockManagement?.activeDepotId ??
-              article?.stockManagement?.selectedDepotId ??
-              article?.stockManagement?.defaultDepot ??
-              tabs[0]?.id ??
-              "depot-1";
-            const activeTabId = normalizeDepotTabIdForExport(activeDepotRaw, 1);
-            const customized = !!(
-              article?.depotStockCustomized ??
-              article?.stockManagement?.depotStockCustomized ??
-              tabs.some((entry) => !!entry.stockQtyCustomized)
-            );
-            try {
-              return JSON.stringify({
-                v: 1,
-                activeTabId,
-                customized,
-                tabs
-              });
-            } catch {
-              return "";
-            }
-          };
           resolveArticleExportValue = (article = {}, key = "") => {
             const num = (value) => (Number.isFinite(Number(value)) ? Number(value) : "");
             const fodec = article?.fodec || {};
             const purchaseFodec = article?.purchaseFodec || {};
-            const stockManagement =
-              article?.stockManagement && typeof article.stockManagement === "object"
-                ? article.stockManagement
-                : {};
             const purchaseFodecEnabled =
               purchaseFodec?.enabled ?? article?.purchaseFodecEnabled ?? article?.purchase_fodec_enabled;
             switch (key) {
@@ -2059,8 +1904,6 @@
                 return normalizeArticleExportText(article.desc);
               case "unit":
                 return normalizeArticleExportText(article.unit);
-              case "stockQty":
-                return num(article.stockQty);
               case "purchasePrice":
                 return num(article.purchasePrice);
               case "purchaseTva":
@@ -2073,23 +1916,6 @@
                 return num(article.tva);
               case "discount":
                 return num(article.discount);
-              case "stockAllowNegative":
-                return stockManagement?.allowNegative ?? article?.allowNegative ? 1 : 0;
-              case "stockBlockInsufficient":
-                return !(stockManagement?.allowNegative ?? article?.allowNegative) &&
-                  (stockManagement?.blockInsufficient ?? article?.blockInsufficient)
-                  ? 1
-                  : 0;
-              case "stockAlertEnabled":
-                return stockManagement?.alertEnabled ?? article?.stockAlertEnabled ?? article?.stockAlert ? 1 : 0;
-              case "stockMin":
-                return num(stockManagement?.min ?? article?.stockMin);
-              case "stockMax": {
-                const value = stockManagement?.max ?? article?.stockMax;
-                return Number.isFinite(Number(value)) ? Number(value) : "";
-              }
-              case "stockDepotsJson":
-                return buildStockDepotsJsonExportValue(article);
               case "fodec":
                 return fodec?.enabled ? 1 : 0;
               case "fodecRate":

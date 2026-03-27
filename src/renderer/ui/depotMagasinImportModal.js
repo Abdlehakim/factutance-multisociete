@@ -1,7 +1,7 @@
 export const renderDepotMagasinImportModal = () => `
   <div id="depotMagasinImportModal" class="swbDialog client-import-modal depot-magasin-import-modal" hidden aria-hidden="true">
     <div
-      class="swbDialog__panel client-import-modal__panel"
+      class="swbDialog__panel client-import-modal__panel depot-magasin-import-modal__panel"
       role="dialog"
       aria-modal="true"
       aria-labelledby="depotMagasinImportModalTitle"
@@ -60,9 +60,16 @@ export const renderDepotMagasinImportModal = () => `
             </div>
           </div>
         </div>
-        <p class="client-import-modal__note">
-          Emplacements : separez les codes par <strong>;</strong> ou <strong>,</strong>.
-        </p>
+        <div class="client-import-modal__note">
+          <div class="client-import-modal__note-title">Note :</div>
+          <ul class="client-import-modal__note-list">
+            <li>
+              <span class="client-import-modal__note-item">
+                Emplacements : separez les codes par <strong>;</strong> ou <strong>,</strong>.
+              </span>
+            </li>
+          </ul>
+        </div>
         <label class="client-import-modal__file">
           <span class="client-import-modal__label">Fichier</span>
           <input id="depotMagasinImportFile" type="file" accept=".xlsx,.xls,.csv" />
