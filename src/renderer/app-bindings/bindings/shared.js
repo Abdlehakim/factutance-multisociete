@@ -434,6 +434,7 @@
 
   const CLIENT_SUMMARY_DISPLAY_IDS = {
     name: "itemsClientName",
+    codeClient: "itemsClientCode",
     benefit: "itemsClientBenefit",
     account: "itemsClientAccount",
     vat: "itemsClientVat",
@@ -466,10 +467,19 @@
     const client = state().client || {};
     Object.entries(CLIENT_SUMMARY_DISPLAY_IDS).forEach(([key, displayIds]) => {
       const ids = Array.isArray(displayIds) ? displayIds : [displayIds];
+      let value = client[key];
+      if (key === "codeClient") {
+        value =
+          client.codeClient ||
+          client.codeFournisseur ||
+          client.codeTransporteur ||
+          client.code ||
+          "";
+      }
       ids.forEach((displayId) => {
         const el = getEl(displayId);
         if (!el) return;
-        const text = String(client[key] || "").trim();
+        const text = String(value || "").trim();
         el.textContent = text || "-";
         el.classList.toggle("is-empty", !text);
       });

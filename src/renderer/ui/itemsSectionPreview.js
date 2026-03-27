@@ -94,6 +94,10 @@ export function renderItemsSectionPreview() {
             data-client-field="name"
             style="margin:0;font-weight:700; text-transform:capitalize; font-size:14px;"
           >-</p>
+          <p class="pdf-small pdf-meta-line" data-client-field="codeClient">
+            <span class="pdf-meta-label"><span data-client-field-label="codeClient">Code client</span>&nbsp;:</span>
+            <span class="pdf-meta-value is-empty" id="itemsClientCode">-</span>
+          </p>
           <p class="pdf-small pdf-meta-line" data-client-field="benefit">
             <span class="pdf-meta-label"><span data-client-field-label="benefit">Au profit de</span>&nbsp;:</span>
             <span class="pdf-meta-value is-empty" id="itemsClientBenefit">-</span>

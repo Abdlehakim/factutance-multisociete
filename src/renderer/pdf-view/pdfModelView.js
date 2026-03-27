@@ -708,11 +708,31 @@
     const partyName = partySection?.querySelector(".doc-design1__client-name");
     if (partyName) partyName.textContent = hasText(party.name) ? String(party.name).trim() : "-";
     const lines = partySection ? Array.from(partySection.querySelectorAll(".doc-design1__meta-line")) : [];
-    const values = [party.vat || party.mf || "-", party.phone || "-", party.email || "-", party.address || "-"];
+    const legacyValues = [party.vat || party.mf || "-", party.phone || "-", party.email || "-", party.address || "-"];
+    const partyCode =
+      party.codeClient ||
+      party.codeFournisseur ||
+      party.codeTransporteur ||
+      party.code ||
+      "-";
     lines.forEach((line, index) => {
       const valueNode = line.querySelector(".doc-design1__meta-value");
       if (!valueNode) return;
-      valueNode.textContent = hasText(values[index]) ? String(values[index]).trim() : "-";
+      const field = String(line.dataset?.partyField || valueNode.dataset?.partyField || "")
+        .trim()
+        .toLowerCase();
+      const valueByField = {
+        code: partyCode,
+        vat: party.vat || party.mf || "-",
+        phone: party.phone || "-",
+        email: party.email || "-",
+        address: party.address || "-"
+      };
+      const rawValue =
+        Object.prototype.hasOwnProperty.call(valueByField, field)
+          ? valueByField[field]
+          : legacyValues[index];
+      valueNode.textContent = hasText(rawValue) ? String(rawValue).trim() : "-";
     });
   }
 

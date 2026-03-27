@@ -4177,6 +4177,7 @@
           const st = SEM.state || (SEM.state = {});
           const client = st.client || (st.client = {});
           const name = readPreviewValue(getEl("itemsClientName"));
+          const codeClient = readPreviewValue(getEl("itemsClientCode"));
           const benefit = readPreviewValue(getEl("itemsClientBenefit"));
           const account = readPreviewValue(getEl("itemsClientAccount"));
           const vat = readPreviewValue(getEl("itemsClientVat"));
@@ -4185,6 +4186,8 @@
           const email = readPreviewValue(getEl("itemsClientEmail"));
           const address = readPreviewValue(getEl("itemsClientAddress"));
           client.name = name;
+          client.codeClient = codeClient;
+          if (isVendor) client.codeFournisseur = codeClient;
           client.benefit = benefit;
           client.account = account;
           client.vat = vat;
@@ -4204,6 +4207,7 @@
           };
           const CLIENT_VENDOR_INPUT_IDS = {
             clientType: "fournisseurType",
+            clientCode: "fournisseurCode",
             clientName: "fournisseurName",
             clientBeneficiary: "fournisseurBeneficiary",
             clientAccount: "fournisseurAccount",
@@ -4222,6 +4226,7 @@
             });
           };
           setFormValue("clientType", String(client.type || "societe"));
+          setFormValue("clientCode", codeClient);
           setFormValue("clientName", name);
           setFormValue("clientBeneficiary", benefit);
           setFormValue("clientAccount", account);

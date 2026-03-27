@@ -1709,6 +1709,10 @@
     const clientTypeRaw = String(state?.clientType || state?.client?.type || "").toLowerCase();
     const isParticulier = clientTypeRaw === "particulier";
     const idLabel = isParticulier ? "CIN / Passeport" : "MF";
+    const isClientPartyType = !["fa", "bc", "be"].includes(type);
+    const clientCodeHTML = isClientPartyType
+      ? buildMetaLine("Code client", client.codeClient || client.code || "")
+      : "";
 
     const clientBenefitHTML = buildClientMetaLine(
       "benefit",
@@ -1856,6 +1860,7 @@
                   )}</p>`
                 : ""
             }
+            ${clientCodeHTML}
             ${clientBenefitHTML}
             ${clientAccountHTML}
             ${clientIdHTML}
