@@ -464,7 +464,27 @@
     const docType = String(meta?.docType || "").trim().toLowerCase();
     const normalized = {
       depot: String(raw.depot ?? raw.depotName ?? raw.magasin ?? meta?.bsDepot ?? "").trim(),
+      depotId: String(
+        raw.depotId ??
+          raw.depotDbId ??
+          raw.magasinId ??
+          raw.magasin_id ??
+          meta?.bsDepotId ??
+          ""
+      )
+        .trim()
+        .replace(/^sqlite:\/\/depots\//i, ""),
       location: String(raw.location ?? raw.emplacement ?? raw.destination ?? meta?.bsLocation ?? "").trim(),
+      locationId: String(
+        raw.locationId ??
+          raw.destinationId ??
+          raw.emplacementId ??
+          raw.emplacement_id ??
+          meta?.bsLocationId ??
+          ""
+      )
+        .trim()
+        .replace(/^sqlite:\/\/emplacements\//i, ""),
       date: String(raw.date ?? raw.sortieDate ?? raw.movementDate ?? meta?.bsSortieDate ?? "").trim(),
       time: String(raw.time ?? raw.sortieTime ?? raw.movementTime ?? meta?.bsSortieTime ?? "").trim(),
       sourceRef: String(raw.sourceRef ?? raw.referenceSource ?? raw.source ?? meta?.bsSourceRef ?? "").trim(),
@@ -587,7 +607,9 @@
       meta
     );
     meta.bsDepot = meta.bsSortie.depot;
+    meta.bsDepotId = meta.bsSortie.depotId;
     meta.bsLocation = meta.bsSortie.location;
+    meta.bsLocationId = meta.bsSortie.locationId;
     meta.bsSortieDate = meta.bsSortie.date;
     meta.bsSortieTime = meta.bsSortie.time;
     meta.bsSourceRef = meta.bsSortie.sourceRef;
@@ -1240,17 +1262,57 @@
         .trim();
       pdf.bsRemarksTouched = !!remarksText;
     }
+    const readSelectTextValue = (id, fallback = "") => {
+      const node = getEl(id);
+      const isSelect = typeof HTMLSelectElement !== "undefined" && node instanceof HTMLSelectElement;
+      if (!isSelect) {
+        return getStr(id, fallback);
+      }
+      const selectedValue = String(node.value || "").trim();
+      if (!selectedValue) return "";
+      const selectedOption =
+        (node.selectedOptions && node.selectedOptions.length
+          ? node.selectedOptions[0]
+          : null) ||
+        Array.from(node.options || []).find((option) => option.value === selectedValue) ||
+        null;
+      const text = String(selectedOption?.textContent || "").trim();
+      return text || fallback;
+    };
+    const readSelectIdValue = (id, fallback = "") => {
+      const node = getEl(id);
+      if (!(node && "value" in node)) {
+        return String(fallback || "")
+          .trim()
+          .replace(/^sqlite:\/\/depots\//i, "")
+          .replace(/^sqlite:\/\/emplacements\//i, "");
+      }
+      const rawValue = String(node.value || "").trim();
+      if (!rawValue) return "";
+      return String(rawValue || "")
+        .trim()
+        .replace(/^sqlite:\/\/depots\//i, "")
+        .replace(/^sqlite:\/\/emplacements\//i, "");
+    };
 
     st.meta.bsSortie = normalizeBonSortieMeta(
       {
         ...(st.meta.bsSortie && typeof st.meta.bsSortie === "object" ? st.meta.bsSortie : {}),
-        depot: getStr(
+        depot: readSelectTextValue(
           "bsSortieDepotInput",
           st.meta.bsSortie?.depot ?? st.meta.bsDepot ?? ""
         ),
-        location: getStr(
+        depotId: readSelectIdValue(
+          "bsSortieDepotInput",
+          st.meta.bsSortie?.depotId ?? st.meta.bsDepotId ?? ""
+        ),
+        location: readSelectTextValue(
           "bsSortieLocationInput",
           st.meta.bsSortie?.location ?? st.meta.bsLocation ?? ""
+        ),
+        locationId: readSelectIdValue(
+          "bsSortieLocationInput",
+          st.meta.bsSortie?.locationId ?? st.meta.bsLocationId ?? ""
         ),
         date: getStr(
           "bsSortieDateInput",
@@ -1288,7 +1350,9 @@
       st.meta
     );
     st.meta.bsDepot = st.meta.bsSortie.depot;
+    st.meta.bsDepotId = st.meta.bsSortie.depotId;
     st.meta.bsLocation = st.meta.bsSortie.location;
+    st.meta.bsLocationId = st.meta.bsSortie.locationId;
     st.meta.bsSortieDate = st.meta.bsSortie.date;
     st.meta.bsSortieTime = st.meta.bsSortie.time;
     st.meta.bsSourceRef = st.meta.bsSortie.sourceRef;

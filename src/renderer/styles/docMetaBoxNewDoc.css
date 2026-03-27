@@ -785,6 +785,11 @@
   align-items: stretch;
 }
 
+.items-options-modal__content .items-options-modal__top-row.items-options-modal__top-row--bs {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
+}
+
 .items-options-modal__content .items-options-modal__be-party-row {
   margin-top: 0;
 }
@@ -800,6 +805,22 @@
 
 .items-options-modal__content .items-options-modal__top-row.items-options-modal__top-row--be > * {
   height: 100%;
+}
+
+.items-options-modal__content .items-options-modal__bs-third-column {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.items-options-modal__content .items-options-modal__bs-third-column[hidden] {
+  display: none !important;
+}
+
+.items-options-modal__content .items-options-modal__bs-third-column > * {
+  min-width: 0;
+  margin: 0;
 }
 
 .items-options-modal__content .section-row {
@@ -1421,6 +1442,10 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .items-options-modal__content .items-options-modal__top-row.items-options-modal__top-row--bs {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .swb-time-picker__stepper-row {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -1447,6 +1472,15 @@
 @media (max-width: 1200px) and (min-width: 901px) {
   .items-options-modal__content .items-options-modal__top-row.items-options-modal__top-row--be {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .items-options-modal__content .items-options-modal__top-row.items-options-modal__top-row--bs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .items-options-modal__content
+    .items-options-modal__bs-third-column {
+    grid-column: 1 / -1;
   }
 }
 

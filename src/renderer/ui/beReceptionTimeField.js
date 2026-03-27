@@ -13,7 +13,8 @@ export const renderBeReceptionTimePanel = ({ panelId = "beReceptionTimePanel" } 
 
 export const renderBeReceptionTimeField = ({
   inputId = "beReceptionTimeInput",
-  panelId = "beReceptionTimePanel"
+  panelId = "beReceptionTimePanel",
+  toggleAriaLabel = "Choisir une heure de reception"
 } = {}) => `
   <label class="items-be-reception-form__field">
     <span>Heure</span>
@@ -34,7 +35,7 @@ export const renderBeReceptionTimeField = ({
         type="button"
         class="swb-time-picker__toggle"
         data-time-picker-toggle=""
-        aria-label="Choisir une heure de reception"
+        aria-label="${toggleAriaLabel}"
         aria-haspopup="dialog"
         aria-expanded="false"
         aria-controls="${panelId}"

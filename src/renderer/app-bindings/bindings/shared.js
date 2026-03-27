@@ -805,7 +805,17 @@
     const docType = String(meta.docType || "").trim().toLowerCase();
     const normalized = {
       depot: String(raw.depot ?? raw.depotName ?? raw.magasin ?? meta.bsDepot ?? "").trim(),
+      depotId: String(
+        raw.depotId ?? raw.depotDbId ?? raw.magasinId ?? raw.magasin_id ?? meta.bsDepotId ?? ""
+      )
+        .trim()
+        .replace(/^sqlite:\/\/depots\//i, ""),
       location: String(raw.location ?? raw.emplacement ?? raw.destination ?? meta.bsLocation ?? "").trim(),
+      locationId: String(
+        raw.locationId ?? raw.destinationId ?? raw.emplacementId ?? raw.emplacement_id ?? meta.bsLocationId ?? ""
+      )
+        .trim()
+        .replace(/^sqlite:\/\/emplacements\//i, ""),
       date: String(raw.date ?? raw.sortieDate ?? raw.movementDate ?? meta.bsSortieDate ?? "").trim(),
       time: String(raw.time ?? raw.sortieTime ?? raw.movementTime ?? meta.bsSortieTime ?? "").trim(),
       sourceRef: String(raw.sourceRef ?? raw.referenceSource ?? raw.source ?? meta.bsSourceRef ?? "").trim(),
@@ -819,6 +829,10 @@
       normalized.date = String(meta.date || "").trim() || new Date().toISOString().slice(0, 10);
     }
     meta.bsSortie = normalized;
+    meta.bsDepot = normalized.depot;
+    meta.bsDepotId = normalized.depotId;
+    meta.bsLocation = normalized.location;
+    meta.bsLocationId = normalized.locationId;
     return normalized;
   };
   function refreshBonSortieSummary() {

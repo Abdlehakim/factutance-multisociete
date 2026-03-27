@@ -699,6 +699,7 @@
       destinationDisplay: "beReceptionDestinationDisplay"
     };
     const ITEMS_BE_RECEPTION_TIME_PANEL_ID = "beReceptionTimePanel";
+    const ITEMS_BS_SORTIE_TIME_PANEL_ID = "bsSortieTimePanel";
     const ITEMS_BE_RECEPTION_SOURCE_PICKER_ID = "beReceptionSourcePickerBtn";
     const ITEMS_BE_RECEPTION_SOURCE_REVIEW_ID = "beReceptionSourceReviewBtn";
     const ITEMS_BE_RECEPTION_SOURCE_MANAGER_ID = "beReceptionSourceManager";
@@ -708,6 +709,7 @@
     const ITEMS_BE_RECEPTION_LOCATION_PLACEHOLDER = "Aucun emplacement";
     const ITEMS_BE_RECEPTION_LOCATION_DEPOT_REQUIRED = "Selectionnez d'abord un depot";
     const ITEMS_BS_SORTIE_BOX_ID = "bsSortieBoxNewDoc";
+    const ITEMS_BS_TRANSPORT_BOX_ID = "bsTransportBoxNewDoc";
     const ITEMS_BS_SORTIE_FIELDS = {
       depot: "bsSortieDepotInput",
       location: "bsSortieLocationInput",
@@ -720,6 +722,19 @@
       transportMode: "bsTransportModeInput",
       exitReason: "bsExitReasonInput"
     };
+    const ITEMS_BS_SORTIE_PICKERS = {
+      depotLabel: "bsSortieDepotLabel",
+      depotMenu: "bsSortieDepotMenu",
+      depotPanel: "bsSortieDepotPanel",
+      depotDisplay: "bsSortieDepotDisplay",
+      locationLabel: "bsSortieLocationLabel",
+      locationMenu: "bsSortieLocationMenu",
+      locationPanel: "bsSortieLocationPanel",
+      locationDisplay: "bsSortieLocationDisplay"
+    };
+    const ITEMS_BS_SORTIE_DEPOT_PLACEHOLDER = "Selectionner un depot";
+    const ITEMS_BS_SORTIE_LOCATION_PLACEHOLDER = "Aucun emplacement";
+    const ITEMS_BS_SORTIE_LOCATION_DEPOT_REQUIRED = "Selectionnez d'abord un depot";
     const ITEMS_BE_RECEPTION_SOURCE_DOC_TYPE_LABELS = {
       fa: "Facture d'achat",
       bc: "Bon de commande"
@@ -1009,6 +1024,16 @@
       destinationMenu: section?.querySelector?.(`#${ITEMS_BE_RECEPTION_PICKERS.destinationMenu}`) || null,
       destinationPanel: section?.querySelector?.(`#${ITEMS_BE_RECEPTION_PICKERS.destinationPanel}`) || null,
       destinationDisplay: section?.querySelector?.(`#${ITEMS_BE_RECEPTION_PICKERS.destinationDisplay}`) || null
+    });
+    const getItemsModalBsSortiePickerRefs = (section) => ({
+      depotSelect: section?.querySelector?.(`#${ITEMS_BS_SORTIE_FIELDS.depot}`) || null,
+      depotMenu: section?.querySelector?.(`#${ITEMS_BS_SORTIE_PICKERS.depotMenu}`) || null,
+      depotPanel: section?.querySelector?.(`#${ITEMS_BS_SORTIE_PICKERS.depotPanel}`) || null,
+      depotDisplay: section?.querySelector?.(`#${ITEMS_BS_SORTIE_PICKERS.depotDisplay}`) || null,
+      locationSelect: section?.querySelector?.(`#${ITEMS_BS_SORTIE_FIELDS.location}`) || null,
+      locationMenu: section?.querySelector?.(`#${ITEMS_BS_SORTIE_PICKERS.locationMenu}`) || null,
+      locationPanel: section?.querySelector?.(`#${ITEMS_BS_SORTIE_PICKERS.locationPanel}`) || null,
+      locationDisplay: section?.querySelector?.(`#${ITEMS_BS_SORTIE_PICKERS.locationDisplay}`) || null
     });
     const getItemsModalBeReceptionDepotRecords = async ({ refresh = false } = {}) => {
       let records = normalizeItemsModalBeReceptionDepotRecords(
@@ -1757,6 +1782,14 @@
             panelId: ITEMS_BE_RECEPTION_TIME_PANEL_ID
           })
         : "";
+    const renderItemsModalBsSortieTimeField = () =>
+      typeof w.BeReceptionTimeField?.render === "function"
+        ? w.BeReceptionTimeField.render({
+            inputId: ITEMS_BS_SORTIE_FIELDS.time,
+            panelId: ITEMS_BS_SORTIE_TIME_PANEL_ID,
+            toggleAriaLabel: "Choisir une heure de sortie"
+          })
+        : "";
     const ensureItemsModalBeReceptionMeta = (metaInput = null) => {
       const meta =
         metaInput && typeof metaInput === "object"
@@ -1859,7 +1892,13 @@
       const docType = String(meta.docType || "").trim().toLowerCase();
       const normalized = {
         depot: String(raw.depot ?? raw.depotName ?? raw.magasin ?? meta.bsDepot ?? "").trim(),
+        depotId: normalizeItemsModalBeReceptionDepotId(
+          raw.depotId ?? raw.depotDbId ?? raw.magasinId ?? raw.magasin_id ?? meta.bsDepotId ?? ""
+        ),
         location: String(raw.location ?? raw.emplacement ?? raw.destination ?? meta.bsLocation ?? "").trim(),
+        locationId: normalizeItemsModalBeReceptionLocationId(
+          raw.locationId ?? raw.destinationId ?? raw.emplacementId ?? raw.emplacement_id ?? meta.bsLocationId ?? ""
+        ),
         date: String(raw.date ?? raw.sortieDate ?? raw.movementDate ?? meta.bsSortieDate ?? "").trim(),
         time: String(raw.time ?? raw.sortieTime ?? raw.movementTime ?? meta.bsSortieTime ?? "").trim(),
         sourceRef: String(raw.sourceRef ?? raw.referenceSource ?? raw.source ?? meta.bsSourceRef ?? "").trim(),
@@ -1879,7 +1918,9 @@
       }
       meta.bsSortie = normalized;
       meta.bsDepot = normalized.depot;
+      meta.bsDepotId = normalized.depotId;
       meta.bsLocation = normalized.location;
+      meta.bsLocationId = normalized.locationId;
       meta.bsSortieDate = normalized.date;
       meta.bsSortieTime = normalized.time;
       meta.bsSourceRef = normalized.sourceRef;
@@ -1894,6 +1935,8 @@
       itemsDocOptionsModalContent?.querySelector?.(`#${ITEMS_BE_RECEPTION_BOX_ID}`) || null;
     const getItemsModalBsSortieBox = () =>
       itemsDocOptionsModalContent?.querySelector?.(`#${ITEMS_BS_SORTIE_BOX_ID}`) || null;
+    const getItemsModalBsTransportBox = () =>
+      itemsDocOptionsModalContent?.querySelector?.(`#${ITEMS_BS_TRANSPORT_BOX_ID}`) || null;
     const ensureItemsModalBeReceptionDatePicker = (section) => {
       const dateInput = section?.querySelector?.(`#${ITEMS_BE_RECEPTION_FIELDS.date}`);
       if (!dateInput || dateInput.dataset.datePickerBound === "1") return;
@@ -1932,8 +1975,15 @@
       }
       dateInput.dataset.datePickerBound = "1";
     };
-    const ensureItemsModalBeReceptionTimePicker = (section) => {
-      const input = section?.querySelector?.(`#${ITEMS_BE_RECEPTION_FIELDS.time}`);
+    const ensureItemsModalBeReceptionTimePicker = (
+      section,
+      {
+        inputId = ITEMS_BE_RECEPTION_FIELDS.time,
+        panelId = ITEMS_BE_RECEPTION_TIME_PANEL_ID,
+        titleText = "Heure de reception"
+      } = {}
+    ) => {
+      const input = section?.querySelector?.(`#${inputId}`);
       if (!input || input.__swbTimePickerController) return input?.__swbTimePickerController || null;
       const wrapper =
         input.closest("[data-time-picker]") || input.parentElement?.closest("[data-time-picker]");
@@ -1957,7 +2007,7 @@
       panel.setAttribute("aria-label", "Choisir une heure");
       panel.tabIndex = -1;
       if (!panel.id) {
-        panel.id = ITEMS_BE_RECEPTION_TIME_PANEL_ID;
+        panel.id = panelId;
       }
       input.setAttribute("aria-controls", panel.id);
       toggle.setAttribute("aria-controls", panel.id);
@@ -1966,7 +2016,7 @@
       header.className = "swb-time-picker__header";
       const title = document.createElement("div");
       title.className = "swb-time-picker__title";
-      title.textContent = "Heure de reception";
+      title.textContent = String(titleText || "Heure");
       const currentValue = document.createElement("div");
       currentValue.className = "swb-time-picker__current";
       currentValue.setAttribute("aria-live", "polite");
@@ -2338,6 +2388,12 @@
       renderTimePanel();
       return controller;
     };
+    const ensureItemsModalBsSortieTimePicker = (section) =>
+      ensureItemsModalBeReceptionTimePicker(section, {
+        inputId: ITEMS_BS_SORTIE_FIELDS.time,
+        panelId: ITEMS_BS_SORTIE_TIME_PANEL_ID,
+        titleText: "Heure de sortie"
+      });
     const renderItemsModalBeReceptionSelectField = ({
       fieldKey = "depot",
       labelText = "",
@@ -2347,7 +2403,8 @@
       displayId = "",
       placeholder = "",
       useLocationStyle = false,
-      multiple = false
+      multiple = false,
+      fieldId = ""
     } = {}) => `
       <label class="items-be-reception-form__field doc-history-modal__filter article-stock-depot-filter${
         useLocationStyle ? " article-stock-location-filter" : ""
@@ -2378,7 +2435,7 @@
             ></div>
           </details>
           <select
-            id="${ITEMS_BE_RECEPTION_FIELDS[fieldKey]}"
+            id="${fieldId || ITEMS_BE_RECEPTION_FIELDS[fieldKey]}"
             class="model-select doc-dialog-model-select"
             aria-hidden="true"
             tabindex="-1"
@@ -2538,15 +2595,15 @@
         <fieldset id="${ITEMS_BS_SORTIE_BOX_ID}" class="section-box items-be-reception-form" hidden>
           <legend>Informations de sortie</legend>
           <div class="items-be-reception-form__grid">
-            <label class="items-be-reception-form__field" for="${ITEMS_BS_SORTIE_FIELDS.depot}">
-              <span>D&eacute;p&ocirc;t / Magasin</span>
-              <input
-                id="${ITEMS_BS_SORTIE_FIELDS.depot}"
-                type="text"
-                placeholder="Nom du depot ou magasin"
-                autocomplete="off"
-              />
-            </label>
+            ${renderItemsModalBeReceptionSelectField({
+              labelText: "D&eacute;p&ocirc;t / Magasin",
+              labelId: ITEMS_BS_SORTIE_PICKERS.depotLabel,
+              menuId: ITEMS_BS_SORTIE_PICKERS.depotMenu,
+              panelId: ITEMS_BS_SORTIE_PICKERS.depotPanel,
+              displayId: ITEMS_BS_SORTIE_PICKERS.depotDisplay,
+              placeholder: ITEMS_BS_SORTIE_DEPOT_PLACEHOLDER,
+              fieldId: ITEMS_BS_SORTIE_FIELDS.depot
+            })}
             <label class="items-be-reception-form__field" for="${ITEMS_BS_SORTIE_FIELDS.date}">
               <span>Date de sortie</span>
               <div class="swb-date-picker" data-date-picker="">
@@ -2596,24 +2653,17 @@
                 ></div>
               </div>
             </label>
-            <label class="items-be-reception-form__field" for="${ITEMS_BS_SORTIE_FIELDS.location}">
-              <span>Emplacement de sortie</span>
-              <input
-                id="${ITEMS_BS_SORTIE_FIELDS.location}"
-                type="text"
-                placeholder="Zone / emplacement de sortie"
-                autocomplete="off"
-              />
-            </label>
-            <label class="items-be-reception-form__field" for="${ITEMS_BS_SORTIE_FIELDS.time}">
-              <span>Heure</span>
-              <input
-                id="${ITEMS_BS_SORTIE_FIELDS.time}"
-                type="time"
-                placeholder="HH:MM"
-                autocomplete="off"
-              />
-            </label>
+            ${renderItemsModalBeReceptionSelectField({
+              labelText: "Emplacement de sortie",
+              labelId: ITEMS_BS_SORTIE_PICKERS.locationLabel,
+              menuId: ITEMS_BS_SORTIE_PICKERS.locationMenu,
+              panelId: ITEMS_BS_SORTIE_PICKERS.locationPanel,
+              displayId: ITEMS_BS_SORTIE_PICKERS.locationDisplay,
+              placeholder: ITEMS_BS_SORTIE_LOCATION_PLACEHOLDER,
+              useLocationStyle: true,
+              fieldId: ITEMS_BS_SORTIE_FIELDS.location
+            })}
+            ${renderItemsModalBsSortieTimeField()}
             <label class="items-be-reception-form__field items-be-reception-form__field--wide" for="${ITEMS_BS_SORTIE_FIELDS.sourceRef}">
               <span>R&eacute;f&eacute;rence source</span>
               <input
@@ -2624,11 +2674,16 @@
               />
             </label>
           </div>
-
-          <div class="items-be-reception-form__grid" style="margin-top:12px">
-            <label class="items-be-reception-form__field items-be-reception-form__field--wide" style="padding-top:4px">
-              <span style="font-weight:700">Transport / exp&eacute;dition</span>
-            </label>
+        </fieldset>
+      `.trim();
+      return template.content.firstElementChild;
+    };
+    const renderItemsModalBsTransportBox = () => {
+      const template = document.createElement("template");
+      template.innerHTML = `
+        <fieldset id="${ITEMS_BS_TRANSPORT_BOX_ID}" class="section-box items-be-reception-form" hidden>
+          <legend>Transport / exp&eacute;dition</legend>
+          <div class="items-be-reception-form__grid">
             <label class="items-be-reception-form__field" for="${ITEMS_BS_SORTIE_FIELDS.transporter}">
               <span>Transporteur</span>
               <input
@@ -2699,7 +2754,7 @@
         summary.setAttribute("aria-expanded", menu.open ? "true" : "false");
         if (!menu.open) return;
         menu
-          .closest?.(`#${ITEMS_BE_RECEPTION_BOX_ID}`)
+          .closest?.(".items-be-reception-form")
           ?.querySelectorAll?.(".field-toggle-menu[open]")
           ?.forEach?.((otherMenu) => {
             if (otherMenu === menu) return;
@@ -2988,6 +3043,215 @@
         touched = true;
       }
       meta.beReception = reception;
+      if (touched && typeof SEM.refreshInvoiceSummary === "function") {
+        SEM.refreshInvoiceSummary();
+      }
+      return true;
+    };
+    const renderItemsModalBsSortieDepotPanel = (section, records = [], selectedDepotId = "") => {
+      const refs = getItemsModalBsSortiePickerRefs(section);
+      const select = refs.depotSelect;
+      const panel = refs.depotPanel;
+      const menu = refs.depotMenu;
+      const display = refs.depotDisplay;
+      if (!(select instanceof HTMLSelectElement) || !(panel instanceof HTMLElement) || !(menu instanceof HTMLElement)) {
+        return { selectedDepotId: "", selectedDepotLabel: "" };
+      }
+      const selectedValue = setItemsModalBeReceptionSelectOptions(select, records, {
+        placeholder: ITEMS_BS_SORTIE_DEPOT_PLACEHOLDER,
+        selectedValue: selectedDepotId,
+        valueKey: "id",
+        labelKey: "name",
+        normalizeValue: normalizeItemsModalBeReceptionDepotId
+      });
+      const selectedOption = Array.from(select.options || []).find((option) => option.value === selectedValue) || null;
+      const selectedLabel = normalizeItemsModalBeReceptionText(selectedOption?.textContent || "");
+      if (display instanceof HTMLElement) {
+        display.textContent = selectedLabel || ITEMS_BS_SORTIE_DEPOT_PLACEHOLDER;
+        display.dataset.selected = selectedValue ? "true" : "false";
+      }
+      menu.dataset.selected = selectedValue ? "true" : "false";
+      setItemsModalBeReceptionPickerDisabled(menu, select, !records.length);
+      panel.replaceChildren();
+      if (!records.length) {
+        const empty = document.createElement("p");
+        empty.className = "model-select-empty";
+        empty.textContent = "Aucun depot enregistre";
+        panel.appendChild(empty);
+      } else {
+        records.forEach((record) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "model-select-option";
+          button.dataset.value = record.id;
+          button.setAttribute("role", "option");
+          button.textContent = record.name;
+          const isActive = record.id === selectedValue;
+          button.classList.toggle("is-active", isActive);
+          button.setAttribute("aria-selected", isActive ? "true" : "false");
+          button.addEventListener("click", () => {
+            if (select.disabled) return;
+            const changed = select.value !== record.id;
+            select.value = record.id;
+            closeItemsModalBeReceptionPickerMenu(menu);
+            if (changed) {
+              try {
+                select.dispatchEvent(new Event("change", { bubbles: true }));
+              } catch {}
+            }
+          });
+          panel.appendChild(button);
+        });
+      }
+      wireItemsModalBeReceptionPickerMenu(menu, panel);
+      return {
+        selectedDepotId: selectedValue,
+        selectedDepotLabel: selectedLabel
+      };
+    };
+    const renderItemsModalBsSortieLocationPanel = (
+      section,
+      locations = [],
+      { selectedLocationId = "", depotSelected = false } = {}
+    ) => {
+      const refs = getItemsModalBsSortiePickerRefs(section);
+      const select = refs.locationSelect;
+      const panel = refs.locationPanel;
+      const menu = refs.locationMenu;
+      const display = refs.locationDisplay;
+      if (!(select instanceof HTMLSelectElement) || !(panel instanceof HTMLElement) || !(menu instanceof HTMLElement)) {
+        return { selectedLocationId: "", selectedLocationLabel: "", displayText: "" };
+      }
+      const selectedValue = setItemsModalBeReceptionSelectOptions(select, locations, {
+        placeholder: ITEMS_BS_SORTIE_LOCATION_PLACEHOLDER,
+        selectedValue: selectedLocationId,
+        valueKey: "id",
+        labelKey: "code",
+        normalizeValue: normalizeItemsModalBeReceptionLocationId
+      });
+      const selectedOption = Array.from(select.options || []).find((option) => option.value === selectedValue) || null;
+      const selectedLabel = normalizeItemsModalBeReceptionText(selectedOption?.textContent || "");
+      const displayText = depotSelected
+        ? selectedLabel || ITEMS_BS_SORTIE_LOCATION_PLACEHOLDER
+        : ITEMS_BS_SORTIE_LOCATION_DEPOT_REQUIRED;
+      if (display instanceof HTMLElement) {
+        display.textContent = displayText;
+        display.dataset.selected = selectedValue ? "true" : "false";
+      }
+      menu.dataset.selected = selectedValue ? "true" : "false";
+      setItemsModalBeReceptionPickerDisabled(menu, select, !depotSelected || !locations.length);
+      panel.replaceChildren();
+      if (!depotSelected) {
+        const empty = document.createElement("p");
+        empty.className = "model-select-empty";
+        empty.textContent = ITEMS_BS_SORTIE_LOCATION_DEPOT_REQUIRED;
+        panel.appendChild(empty);
+      } else if (!locations.length) {
+        const empty = document.createElement("p");
+        empty.className = "model-select-empty";
+        empty.textContent = ITEMS_BS_SORTIE_LOCATION_PLACEHOLDER;
+        panel.appendChild(empty);
+      } else {
+        Array.from(select.options || []).forEach((option) => {
+          if (!option.value) return;
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "model-select-option";
+          button.dataset.value = option.value;
+          button.setAttribute("role", "option");
+          button.textContent = normalizeItemsModalBeReceptionText(option.textContent || "");
+          const isDisabled = !!option.disabled || !!select.disabled;
+          button.disabled = isDisabled;
+          button.classList.toggle("is-disabled", isDisabled);
+          button.setAttribute("aria-disabled", isDisabled ? "true" : "false");
+          const isActive = option.value === selectedValue;
+          button.classList.toggle("is-active", isActive);
+          button.setAttribute("aria-selected", isActive ? "true" : "false");
+          button.addEventListener("click", () => {
+            if (button.disabled || select.disabled) return;
+            const changed = select.value !== option.value;
+            select.value = option.value;
+            closeItemsModalBeReceptionPickerMenu(menu);
+            if (changed) {
+              try {
+                select.dispatchEvent(new Event("change", { bubbles: true }));
+              } catch {}
+            }
+          });
+          panel.appendChild(button);
+        });
+      }
+      wireItemsModalBeReceptionPickerMenu(menu, panel);
+      return {
+        selectedLocationId: selectedValue,
+        selectedLocationLabel: selectedLabel,
+        displayText
+      };
+    };
+    const syncItemsModalBsSortieSelectors = async (section = getItemsModalBsSortieBox()) => {
+      if (!section) return false;
+      const syncToken = String((Number(section.dataset.bsSortieSyncToken || "0") || 0) + 1);
+      section.dataset.bsSortieSyncToken = syncToken;
+      const meta = getInvoiceMeta() || {};
+      const sortie = ensureItemsModalBsSortieMeta(meta);
+      const depotRecords = await getItemsModalBeReceptionDepotRecords();
+      if (section.dataset.bsSortieSyncToken !== syncToken) return false;
+      const matchedDepot = findItemsModalBeReceptionDepotRecord(depotRecords, {
+        depotId: sortie.depotId,
+        depot: sortie.depot
+      });
+      const depotPanelState = renderItemsModalBsSortieDepotPanel(
+        section,
+        depotRecords,
+        matchedDepot?.id || sortie.depotId || ""
+      );
+      const selectedDepotId = normalizeItemsModalBeReceptionDepotId(depotPanelState.selectedDepotId || "");
+      const selectedDepotLabel = normalizeItemsModalBeReceptionText(
+        depotPanelState.selectedDepotLabel || matchedDepot?.name || sortie.depot || ""
+      );
+      let locations = [];
+      if (selectedDepotId) {
+        locations = await getItemsModalBeReceptionLocationsForDepot(selectedDepotId);
+      }
+      if (section.dataset.bsSortieSyncToken !== syncToken) return false;
+      const matchedLocation = findItemsModalBeReceptionLocationRecord(locations, {
+        destinationId: sortie.locationId,
+        destination: sortie.location
+      });
+      const locationPanelState = renderItemsModalBsSortieLocationPanel(section, locations, {
+        selectedLocationId: matchedLocation?.id || sortie.locationId || "",
+        depotSelected: !!selectedDepotId
+      });
+      const selectedLocationId = normalizeItemsModalBeReceptionLocationId(
+        locationPanelState.selectedLocationId || ""
+      );
+      const selectedLocationLabel = normalizeItemsModalBeReceptionText(
+        locationPanelState.selectedLocationLabel || matchedLocation?.code || sortie.location || ""
+      );
+      let touched = false;
+      if (sortie.depotId !== selectedDepotId) {
+        sortie.depotId = selectedDepotId;
+        touched = true;
+      }
+      const nextDepotText = selectedDepotId ? selectedDepotLabel : "";
+      if (sortie.depot !== nextDepotText) {
+        sortie.depot = nextDepotText;
+        touched = true;
+      }
+      if (sortie.locationId !== selectedLocationId) {
+        sortie.locationId = selectedLocationId;
+        touched = true;
+      }
+      const nextLocationText = selectedLocationId ? selectedLocationLabel : "";
+      if (sortie.location !== nextLocationText) {
+        sortie.location = nextLocationText;
+        touched = true;
+      }
+      meta.bsSortie = sortie;
+      meta.bsDepot = sortie.depot;
+      meta.bsDepotId = sortie.depotId;
+      meta.bsLocation = sortie.location;
+      meta.bsLocationId = sortie.locationId;
       if (touched && typeof SEM.refreshInvoiceSummary === "function") {
         SEM.refreshInvoiceSummary();
       }
@@ -3360,12 +3624,15 @@
         removeItemsModalBeReceptionSourceEntries(section, [sourceKey]);
       });
     };
-    const syncItemsModalBsSortieBoxFromState = (section = getItemsModalBsSortieBox()) => {
+    const syncItemsModalBsSortieBoxFromState = (
+      sortieSection = getItemsModalBsSortieBox(),
+      transportSection = getItemsModalBsTransportBox()
+    ) => {
       const meta = getInvoiceMeta() || {};
       const isBonSortie = String(meta.docType || "facture").trim().toLowerCase() === "bs";
       syncItemsModalDocOptionsNotesForDocType(meta.docType || "");
       syncItemsModalBsRemarksFromState({ hydrateFromModel: isBonSortie });
-      if (!section) {
+      if (!sortieSection && !transportSection) {
         if (typeof SEM.refreshInvoiceSummary === "function") {
           SEM.refreshInvoiceSummary();
         }
@@ -3375,18 +3642,41 @@
         return false;
       }
       const sortie = ensureItemsModalBsSortieMeta(meta);
-      ensureItemsModalBsSortieDatePicker(section);
+      ensureItemsModalBsSortieDatePicker(sortieSection);
+      const timePicker = ensureItemsModalBsSortieTimePicker(sortieSection);
       Object.entries(ITEMS_BS_SORTIE_FIELDS).forEach(([key, id]) => {
-        const input = section.querySelector(`#${id}`);
+        if (key === "depot" || key === "location") return;
+        const input =
+          itemsDocOptionsModalContent?.querySelector?.(`#${id}`) ||
+          sortieSection?.querySelector?.(`#${id}`) ||
+          transportSection?.querySelector?.(`#${id}`) ||
+          null;
         if (!input) return;
         const nextValue = String(sortie?.[key] || "");
+        if (key === "time" && timePicker) {
+          timePicker.setValue(nextValue, { silent: true });
+          return;
+        }
         if (input.value !== nextValue) {
           input.value = nextValue;
         }
       });
-      section.hidden = !isBonSortie;
-      section.setAttribute("aria-hidden", isBonSortie ? "false" : "true");
-      section.style.display = isBonSortie ? "" : "none";
+      [sortieSection, transportSection].forEach((section) => {
+        if (!section) return;
+        section.hidden = !isBonSortie;
+        section.setAttribute("aria-hidden", isBonSortie ? "false" : "true");
+        section.style.display = isBonSortie ? "" : "none";
+      });
+      if (isBonSortie && sortieSection) {
+        void syncItemsModalBsSortieSelectors(sortieSection);
+      } else if (sortieSection) {
+        try {
+          timePicker?.close?.();
+        } catch {}
+        const refs = getItemsModalBsSortiePickerRefs(sortieSection);
+        closeItemsModalBeReceptionPickerMenu(refs.depotMenu);
+        closeItemsModalBeReceptionPickerMenu(refs.locationMenu);
+      }
       if (typeof SEM.refreshInvoiceSummary === "function") {
         SEM.refreshInvoiceSummary();
       }
@@ -3395,11 +3685,11 @@
       }
       return true;
     };
-    const wireItemsModalBsSortieBox = (section) => {
-      if (!section || section.dataset.wired === "1") return;
-      section.dataset.wired = "1";
-      ensureItemsModalBsSortieDatePicker(section);
-      Object.entries(ITEMS_BS_SORTIE_FIELDS).forEach(([key, id]) => {
+    const bindItemsModalBsSortieFields = (section, fieldKeys = []) => {
+      if (!section) return;
+      fieldKeys.forEach((key) => {
+        const id = ITEMS_BS_SORTIE_FIELDS[key];
+        if (!id) return;
         const input = section.querySelector(`#${id}`);
         if (!input) return;
         const syncValue = () => {
@@ -3420,6 +3710,102 @@
         input.addEventListener("input", syncValue);
         input.addEventListener("change", syncValue);
       });
+    };
+    const wireItemsModalBsSortieBox = (section) => {
+      if (!section || section.dataset.wired === "1") return;
+      section.dataset.wired = "1";
+      ensureItemsModalBsSortieDatePicker(section);
+      ensureItemsModalBsSortieTimePicker(section);
+      const pickerRefs = getItemsModalBsSortiePickerRefs(section);
+      wireItemsModalBeReceptionPickerMenu(pickerRefs.depotMenu, pickerRefs.depotPanel);
+      wireItemsModalBeReceptionPickerMenu(pickerRefs.locationMenu, pickerRefs.locationPanel);
+      if (!SEM.__itemsBsSortiePickerDocBound) {
+        SEM.__itemsBsSortiePickerDocBound = true;
+        document.addEventListener(
+          "click",
+          (event) => {
+            if (!(event.target instanceof Element)) return;
+            document
+              .querySelectorAll?.(
+                `#${ITEMS_BS_SORTIE_BOX_ID} .field-toggle-menu[open]`
+              )
+              ?.forEach?.((menu) => {
+                if (!(menu instanceof HTMLElement)) return;
+                if (menu.contains(event.target)) return;
+                closeItemsModalBeReceptionPickerMenu(menu);
+              });
+          },
+          true
+        );
+      }
+      pickerRefs.depotSelect?.addEventListener("change", () => {
+        const meta = getInvoiceMeta() || {};
+        const sortie = ensureItemsModalBsSortieMeta(meta);
+        const selectedOption =
+          (pickerRefs.depotSelect.selectedOptions && pickerRefs.depotSelect.selectedOptions.length
+            ? pickerRefs.depotSelect.selectedOptions[0]
+            : null) ||
+          Array.from(pickerRefs.depotSelect.options || []).find(
+            (option) => option.value === pickerRefs.depotSelect.value
+          ) ||
+          null;
+        sortie.depotId = normalizeItemsModalBeReceptionDepotId(pickerRefs.depotSelect.value || "");
+        sortie.depot = sortie.depotId
+          ? normalizeItemsModalBeReceptionText(selectedOption?.textContent || "")
+          : "";
+        sortie.locationId = "";
+        sortie.location = "";
+        meta.bsSortie = sortie;
+        meta.bsDepot = sortie.depot;
+        meta.bsDepotId = sortie.depotId;
+        meta.bsLocation = sortie.location;
+        meta.bsLocationId = sortie.locationId;
+        if (typeof SEM.refreshInvoiceSummary === "function") {
+          SEM.refreshInvoiceSummary();
+        }
+        if (typeof SEM.markDocumentDirty === "function") {
+          SEM.markDocumentDirty(true);
+        }
+        void syncItemsModalBsSortieSelectors(section);
+      });
+      pickerRefs.locationSelect?.addEventListener("change", () => {
+        const meta = getInvoiceMeta() || {};
+        const sortie = ensureItemsModalBsSortieMeta(meta);
+        const selectedOption =
+          (pickerRefs.locationSelect.selectedOptions && pickerRefs.locationSelect.selectedOptions.length
+            ? pickerRefs.locationSelect.selectedOptions[0]
+            : null) ||
+          Array.from(pickerRefs.locationSelect.options || []).find(
+            (option) => option.value === pickerRefs.locationSelect.value
+          ) ||
+          null;
+        sortie.locationId = normalizeItemsModalBeReceptionLocationId(pickerRefs.locationSelect.value || "");
+        sortie.location = sortie.locationId
+          ? normalizeItemsModalBeReceptionText(selectedOption?.textContent || "")
+          : "";
+        meta.bsSortie = sortie;
+        meta.bsLocation = sortie.location;
+        meta.bsLocationId = sortie.locationId;
+        if (typeof SEM.refreshInvoiceSummary === "function") {
+          SEM.refreshInvoiceSummary();
+        }
+        if (typeof SEM.markDocumentDirty === "function") {
+          SEM.markDocumentDirty(true);
+        }
+        void syncItemsModalBsSortieSelectors(section);
+      });
+      bindItemsModalBsSortieFields(section, ["date", "time", "sourceRef"]);
+    };
+    const wireItemsModalBsTransportBox = (section) => {
+      if (!section || section.dataset.wired === "1") return;
+      section.dataset.wired = "1";
+      bindItemsModalBsSortieFields(section, [
+        "transporter",
+        "driverName",
+        "vehiclePlate",
+        "transportMode",
+        "exitReason"
+      ]);
     };
     const syncItemsModalStockMovementBoxesFromState = () => {
       syncItemsModalBeReceptionBoxFromState();
@@ -4959,8 +5345,13 @@
       if (!itemsModalMoved || !itemsDocOptionsModalContent) return;
       const beReceptionBox = getItemsModalBeReceptionBox();
       const beReceptionTimeInput = beReceptionBox?.querySelector?.(`#${ITEMS_BE_RECEPTION_FIELDS.time}`) || null;
+      const bsSortieBox = getItemsModalBsSortieBox();
+      const bsSortieTimeInput = bsSortieBox?.querySelector?.(`#${ITEMS_BS_SORTIE_FIELDS.time}`) || null;
       try {
         beReceptionTimeInput?.__swbTimePickerController?.close?.();
+      } catch {}
+      try {
+        bsSortieTimeInput?.__swbTimePickerController?.close?.();
       } catch {}
       Object.entries(movableRefs).forEach(([key, ref]) => {
         if (!ref?.node || !ref.parent) return;
@@ -4987,10 +5378,15 @@
       bePartyRow.className = "grid two items-options-modal__be-party-row";
       bePartyRow.hidden = true;
       bePartyRow.setAttribute("aria-hidden", "true");
+      const bsThirdColumn = document.createElement("div");
+      bsThirdColumn.className = "items-options-modal__bs-third-column";
+      bsThirdColumn.hidden = true;
+      bsThirdColumn.setAttribute("aria-hidden", "true");
       const rowBottom = document.createElement("div");
       rowBottom.className = "section-row";
       let beReceptionBox = null;
       let bsSortieBox = null;
+      let bsTransportBox = null;
 
       const renderDocMetaBox = () => {
         try {
@@ -5092,9 +5488,29 @@
           rowTop.querySelector(CLIENT_BOX_SELECTOR) || bePartyRow.querySelector(CLIENT_BOX_SELECTOR);
         rowTop.classList.toggle("three", isStockMovement);
         rowTop.classList.toggle("two", !isStockMovement);
-        rowTop.classList.toggle("items-options-modal__top-row--be", isStockMovement);
+        rowTop.classList.toggle("items-options-modal__top-row--be", isBonEntree);
+        rowTop.classList.toggle("items-options-modal__top-row--bs", isBonSortie);
+        if (isBonSortie) {
+          if (bsThirdColumn.parentNode !== rowTop) {
+            rowTop.appendChild(bsThirdColumn);
+          }
+          bsThirdColumn.hidden = false;
+          bsThirdColumn.setAttribute("aria-hidden", "false");
+          bsThirdColumn.style.display = "";
+        } else {
+          if (bsThirdColumn.parentNode !== bePartyRow) {
+            bePartyRow.appendChild(bsThirdColumn);
+          }
+          bsThirdColumn.hidden = true;
+          bsThirdColumn.setAttribute("aria-hidden", "true");
+          bsThirdColumn.style.display = "none";
+        }
         if (activeClientBox) {
-          if (activeClientBox.parentNode !== rowTop) {
+          if (isBonSortie) {
+            if (activeClientBox.parentNode !== bsThirdColumn) {
+              bsThirdColumn.insertBefore(activeClientBox, bsThirdColumn.firstChild || null);
+            }
+          } else if (activeClientBox.parentNode !== rowTop) {
             rowTop.appendChild(activeClientBox);
           }
         }
@@ -5109,11 +5525,23 @@
         }
         if (bsSortieBox) {
           if (isBonSortie) {
-            const clientReference =
-              rowTop.querySelector(CLIENT_BOX_SELECTOR) || null;
-            rowTop.insertBefore(bsSortieBox, clientReference);
+            const bsColumnReference = bsThirdColumn.parentNode === rowTop ? bsThirdColumn : null;
+            rowTop.insertBefore(bsSortieBox, bsColumnReference);
           } else if (bsSortieBox.parentNode !== bePartyRow) {
             bePartyRow.appendChild(bsSortieBox);
+          }
+        }
+        if (bsTransportBox) {
+          if (isBonSortie) {
+            if (activeClientBox && activeClientBox.parentNode === bsThirdColumn) {
+              if (activeClientBox.nextSibling !== bsTransportBox) {
+                bsThirdColumn.insertBefore(bsTransportBox, activeClientBox.nextSibling);
+              }
+            } else {
+              bsThirdColumn.appendChild(bsTransportBox);
+            }
+          } else if (bsTransportBox.parentNode !== bePartyRow) {
+            bePartyRow.appendChild(bsTransportBox);
           }
         }
         bePartyRow.hidden = true;
@@ -5257,6 +5685,11 @@
       if (bsSortieBox) {
         wireItemsModalBsSortieBox(bsSortieBox);
         bePartyRow.appendChild(bsSortieBox);
+      }
+      bsTransportBox = renderItemsModalBsTransportBox();
+      if (bsTransportBox) {
+        wireItemsModalBsTransportBox(bsTransportBox);
+        bePartyRow.appendChild(bsTransportBox);
       }
       syncHeaderRowsForDocType(resolveDocTypeValue());
 
