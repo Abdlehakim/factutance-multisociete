@@ -301,6 +301,7 @@ const api = {
   ensureClientsSystemFolder: (payload) => ipcRenderer.invoke("clients:ensureSystemFolder", payload || {}),
   saveClientDirect: (payload) => ipcRenderer.invoke("clients:saveDirect", payload),
   updateClientDirect: (payload) => ipcRenderer.invoke("clients:updateDirect", payload),
+  previewClientCode: (payload) => ipcRenderer.invoke("clients:previewCode", payload || {}),
   adjustClientSold: (payload) => ipcRenderer.invoke("clients:adjustSold", payload),
   readClientLedger: (payload) => ipcRenderer.invoke("clients:readLedger", payload),
   deleteClientLedgerEntry: (payload) => ipcRenderer.invoke("clients:deleteLedgerEntry", payload),

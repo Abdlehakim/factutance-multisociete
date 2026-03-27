@@ -63,6 +63,7 @@ function getBrandedCompanyName() {
 
   const DEFAULT_CLIENT = {
     type: "societe",
+    codeClient: "",
     name: "",
     email: "",
     phone: "",

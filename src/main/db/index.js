@@ -7,6 +7,11 @@ const Database = require("better-sqlite3");
 const { runMigrations: runSchemaMigrations } = require("./migrate");
 const { createDepotMagasinRepository } = require("./depot-magasin");
 const {
+  normalizeClientCodeValue,
+  generateUniqueClientCode,
+  isGeneratedClientCodeFormat
+} = require("./client-code");
+const {
   DOC_TYPE_TABLES,
   DOC_ITEM_TABLES,
   alignSchema
@@ -339,6 +344,7 @@ const migrateLegacyClients = (db) => {
       id,
       type,
       name,
+      code_client,
       client_type,
       benefit,
       account,
@@ -357,7 +363,7 @@ const migrateLegacyClients = (db) => {
       created_at,
       updated_at
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `
   );
   const tx = db.transaction(() => {
@@ -366,7 +372,11 @@ const migrateLegacyClients = (db) => {
       const data = dataRaw && typeof dataRaw === "object" ? dataRaw : {};
       const normalizedClient = normalizeClientRecord(data, row.type);
       const accountValue = normalizeAccountValue(normalizedClient.account);
+      const normalizedCodeClient = normalizeClientCodeValue(
+        data.codeClient || data.code_client || data.code
+      );
       const searchText = buildSearchText([
+        normalizedCodeClient,
         normalizedClient.name,
         normalizedClient.benefit,
         normalizedClient.account,
@@ -385,6 +395,7 @@ const migrateLegacyClients = (db) => {
         row.id,
         row.type,
         nameValue,
+        normalizedCodeClient || null,
         normalizedClient.clientType || null,
         normalizedClient.benefit || null,
         normalizedClient.account || null,
@@ -624,12 +635,13 @@ const migrateClientFieldsToColumns = (db) => {
   const fieldRowCount = db.prepare("SELECT COUNT(1) AS count FROM client_fields").get()?.count || 0;
   if (fieldRowCount <= 0) return;
   const rows = db
-    .prepare("SELECT id, type, name, legacy_path, created_at, updated_at FROM clients")
+    .prepare("SELECT id, type, name, code_client, legacy_path, created_at, updated_at FROM clients")
     .all();
   const update = db.prepare(
     `
     UPDATE clients SET
       name = ?,
+      code_client = ?,
       client_type = ?,
       benefit = ?,
       account = ?,
@@ -653,7 +665,11 @@ const migrateClientFieldsToColumns = (db) => {
       const data = loadFieldRows(db, "client_fields", "client_id", row.id);
       const normalized = normalizeClientRecord(data, row.type);
       const accountValue = normalizeAccountValue(normalized.account);
+      const normalizedCodeClient = normalizeClientCodeValue(
+        data.codeClient || data.code_client || row.code_client || ""
+      );
       const searchText = buildSearchText([
+        normalizedCodeClient,
         normalized.name,
         normalized.benefit,
         normalized.account,
@@ -670,6 +686,7 @@ const migrateClientFieldsToColumns = (db) => {
       const nameValue = row.name || normalized.name || "client";
       update.run(
         nameValue,
+        normalizedCodeClient || null,
         normalized.clientType || null,
         normalized.benefit || null,
         normalized.account || null,
@@ -1112,6 +1129,130 @@ const normalizeOptionalText = (value) => {
 
 const normalizeAccountValue = (value) => String(value || "").trim().toLowerCase();
 
+const clientCodeExists = (db, codeClient, exceptId = "") => {
+  const normalizedCode = normalizeClientCodeValue(codeClient);
+  if (!normalizedCode) return false;
+  const normalizedExceptId = String(exceptId || "").trim();
+  const match = db
+    .prepare(
+      `
+      SELECT id
+      FROM clients
+      WHERE lower(trim(type)) = 'client'
+        AND upper(trim(COALESCE(code_client, ''))) = ?
+        AND (? = '' OR id != ?)
+      LIMIT 1
+    `
+    )
+    .get(normalizedCode, normalizedExceptId, normalizedExceptId);
+  return !!match;
+};
+
+const generateNextClientCode = (db, options = {}) => {
+  const normalizedExceptId = String(options?.exceptId || "").trim();
+  const rows = db
+    .prepare(
+      `
+      SELECT code_client
+      FROM clients
+      WHERE lower(trim(type)) = 'client'
+        AND (? = '' OR id != ?)
+        AND code_client IS NOT NULL
+        AND trim(code_client) <> ''
+    `
+    )
+    .all(normalizedExceptId, normalizedExceptId);
+  const usedCodes = new Set();
+  rows.forEach((row) => {
+    const normalizedCode = normalizeClientCodeValue(row?.code_client);
+    if (normalizedCode) usedCodes.add(normalizedCode);
+  });
+  return generateUniqueClientCode({
+    exists: (candidate) => usedCodes.has(normalizeClientCodeValue(candidate))
+  });
+};
+
+const generateClientCodeWithDbGuard = (db, options = {}) => {
+  const normalizedExceptId = String(options?.exceptId || "").trim();
+  return generateUniqueClientCode({
+    exists: (candidate) => clientCodeExists(db, candidate, normalizedExceptId)
+  });
+};
+
+const shouldRepairClientCodeValue = (db, codeClient, exceptId = "") => {
+  const normalizedCode = normalizeClientCodeValue(codeClient);
+  if (!normalizedCode) return true;
+  if (!isGeneratedClientCodeFormat(normalizedCode)) return true;
+  return clientCodeExists(db, normalizedCode, exceptId);
+};
+
+const ensureClientCodeForRow = (db, row = {}) => {
+  if (!db || !row || normalizeClientEntityType(row.type) !== "client") return row;
+  const rowId = String(row.id || "").trim();
+  if (!rowId) return row;
+  if (!shouldRepairClientCodeValue(db, row.code_client, rowId)) return row;
+
+  const generatedCode = generateNextClientCode(db, { exceptId: rowId });
+  const updatedAt = new Date().toISOString();
+  db
+    .prepare(
+      "UPDATE clients SET code_client = ?, updated_at = ? WHERE id = ? AND lower(trim(type)) = 'client'"
+    )
+    .run(generatedCode, updatedAt, rowId);
+  return {
+    ...row,
+    code_client: generatedCode,
+    updated_at: updatedAt
+  };
+};
+
+const resolveClientCodeForPersist = ({
+  db,
+  entityType = "client",
+  id = "",
+  requestedCode = "",
+  existingCode = "",
+  fallbackToGenerate = true
+} = {}) => {
+  if (normalizeClientEntityType(entityType) !== "client") return "";
+  const normalizedId = String(id || "").trim();
+  const requested = normalizeClientCodeValue(requestedCode);
+  const existing = normalizeClientCodeValue(existingCode);
+  if (
+    existing &&
+    isGeneratedClientCodeFormat(existing) &&
+    !clientCodeExists(db, existing, normalizedId)
+  ) {
+    return existing;
+  }
+  if (
+    requested &&
+    isGeneratedClientCodeFormat(requested) &&
+    !clientCodeExists(db, requested, normalizedId)
+  ) {
+    return requested;
+  }
+  if (!fallbackToGenerate) return "";
+  return generateNextClientCode(db, { exceptId: normalizedId });
+};
+
+const isClientCodeConstraintError = (error) => {
+  const message = String(error?.message || error || "");
+  if (!message) return false;
+  return (
+    message.includes("idx_clients_code_client_unique") ||
+    message.includes("clients.code_client") ||
+    (/UNIQUE constraint failed/i.test(message) && /code_client/i.test(message))
+  );
+};
+
+const previewClientCode = ({ id } = {}) => {
+  const db = initDatabase();
+  const normalizedId = parseClientIdFromPath(id) || String(id || "").trim();
+  const codeClient = generateNextClientCode(db, { exceptId: normalizedId });
+  return { codeClient };
+};
+
 const parseBalanceValue = (value) => {
   const cleaned = String(value ?? "").replace(",", ".").trim();
   if (!cleaned) return 0;
@@ -1176,6 +1317,9 @@ const applyClientFactureCounts = (records = [], dbInstance) => {
 
 const buildClientIdentifier = (client = {}) => {
   const candidate =
+    client.codeClient ||
+    client.code_client ||
+    client.code ||
     client.vat ||
     client.identifiantFiscal ||
     client.cin ||
@@ -1192,10 +1336,13 @@ const buildClientIdentifier = (client = {}) => {
 const isTransporterEntityType = (value) => normalizeClientEntityType(value) === "transporter";
 
 const normalizeClientRecord = (client = {}, entityType = "client") => {
-  const isTransporter = isTransporterEntityType(entityType || client.entityType || client.typeEntity);
+  const normalizedEntityType = normalizeClientEntityType(entityType || client.entityType || client.typeEntity);
+  const isTransporter = normalizedEntityType === "transporter";
+  const isClient = normalizedEntityType === "client";
   if (isTransporter) {
     return {
       clientType: "",
+      codeClient: "",
       name: normalizeTextValue(client.name || client.company || client.transporter),
       benefit: normalizeTextValue(client.driverName || client.driver || client.chauffeur || client.benefit),
       account: normalizeTextValue(
@@ -1228,6 +1375,9 @@ const normalizeClientRecord = (client = {}, entityType = "client") => {
   }
   return {
     clientType: normalizeClientProfileType(client.type),
+    codeClient: isClient
+      ? normalizeClientCodeValue(client.codeClient || client.code_client || client.code)
+      : "",
     name: normalizeTextValue(client.name || client.company),
     benefit: normalizeTextValue(client.benefit),
     account: normalizeTextValue(client.account || client.accountOf),
@@ -1247,6 +1397,7 @@ const hydrateClientFromRow = (row = {}) => {
   const entityType = normalizeClientEntityType(row.type);
   const base = {
     type: row.client_type || "",
+    codeClient: row.code_client || "",
     name: row.name || "",
     benefit: row.benefit || "",
     account: row.account || "",
@@ -3364,6 +3515,7 @@ const persistClientRecord = ({
   id,
   type,
   name,
+  codeClient,
   clientType,
   benefit,
   account,
@@ -3390,6 +3542,7 @@ const persistClientRecord = ({
         id,
         type,
         name,
+        code_client,
         client_type,
         benefit,
         account,
@@ -3408,10 +3561,11 @@ const persistClientRecord = ({
         created_at,
         updated_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         type = excluded.type,
         name = excluded.name,
+        code_client = COALESCE(excluded.code_client, clients.code_client),
         client_type = excluded.client_type,
         benefit = excluded.benefit,
         account = excluded.account,
@@ -3434,6 +3588,7 @@ const persistClientRecord = ({
       id,
       type,
       name,
+      codeClient || null,
       clientType || null,
       benefit || null,
       account || null,
@@ -3481,42 +3636,87 @@ const saveClient = ({ client = {}, entityType = "client", suggestedName = "", id
     }
   }
   const now = new Date().toISOString();
-  const searchText = buildSearchText([
-    normalizedClient.name,
-    normalizedClient.benefit,
-    normalizedClient.account,
-    normalizedClient.vat,
-    normalizedClient.identifiantFiscal,
-    normalizedClient.cin,
-    normalizedClient.passport,
-    normalizedClient.stegRef,
-    normalizedClient.phone,
-    normalizedClient.email,
-    normalizedClient.address,
-    normalizedClient.soldClient
-  ]);
-  persistClientRecord({
-    id: assignedId,
-    type: normalizedType,
-    name: baseName,
-    clientType: normalizedClient.clientType,
-    benefit: normalizedClient.benefit,
-    account: normalizedClient.account,
-    accountNormalized: accountValue,
-    vat: normalizedClient.vat,
-    identifiantFiscal: normalizedClient.identifiantFiscal,
-    cin: normalizedClient.cin,
-    passport: normalizedClient.passport,
-    stegRef: normalizedClient.stegRef,
-    phone: normalizedClient.phone,
-    email: normalizedClient.email,
-    address: normalizedClient.address,
-    soldClient: normalizedClient.soldClient,
-    searchText,
-    legacyPath: legacyPath || null,
-    createdAt: now,
-    updatedAt: now
-  });
+  let persistedCodeClient =
+    normalizedType === "client"
+      ? resolveClientCodeForPersist({
+          db,
+          entityType: normalizedType,
+          id: assignedId,
+          requestedCode: normalizedClient.codeClient,
+          existingCode: existingRecord?.client?.codeClient
+        })
+      : "";
+  const maxPersistAttempts = normalizedType === "client" ? 48 : 1;
+  let persisted = false;
+  let lastPersistError = null;
+  for (let attempt = 0; attempt < maxPersistAttempts && !persisted; attempt += 1) {
+    const searchText = buildSearchText([
+      persistedCodeClient,
+      normalizedClient.name,
+      normalizedClient.benefit,
+      normalizedClient.account,
+      normalizedClient.vat,
+      normalizedClient.identifiantFiscal,
+      normalizedClient.cin,
+      normalizedClient.passport,
+      normalizedClient.stegRef,
+      normalizedClient.phone,
+      normalizedClient.email,
+      normalizedClient.address,
+      normalizedClient.soldClient
+    ]);
+    try {
+      persistClientRecord({
+        id: assignedId,
+        type: normalizedType,
+        name: baseName,
+        codeClient: persistedCodeClient,
+        clientType: normalizedClient.clientType,
+        benefit: normalizedClient.benefit,
+        account: normalizedClient.account,
+        accountNormalized: accountValue,
+        vat: normalizedClient.vat,
+        identifiantFiscal: normalizedClient.identifiantFiscal,
+        cin: normalizedClient.cin,
+        passport: normalizedClient.passport,
+        stegRef: normalizedClient.stegRef,
+        phone: normalizedClient.phone,
+        email: normalizedClient.email,
+        address: normalizedClient.address,
+        soldClient: normalizedClient.soldClient,
+        searchText,
+        legacyPath: legacyPath || null,
+        createdAt: now,
+        updatedAt: now
+      });
+      persisted = true;
+      lastPersistError = null;
+    } catch (error) {
+      lastPersistError = error;
+      if (
+        normalizedType === "client" &&
+        isClientCodeConstraintError(error) &&
+        attempt < maxPersistAttempts - 1
+      ) {
+        console.warn(
+          "[client-code] collision detected during client save",
+          JSON.stringify({
+            clientId: assignedId,
+            attempt: attempt + 1,
+            maxAttempts: maxPersistAttempts,
+            candidate: persistedCodeClient || ""
+          })
+        );
+        persistedCodeClient =
+          attempt >= Math.floor(maxPersistAttempts / 2)
+            ? generateClientCodeWithDbGuard(db, { exceptId: assignedId })
+            : generateNextClientCode(db, { exceptId: assignedId });
+        continue;
+      }
+      throw error;
+    }
+  }
+  if (!persisted && lastPersistError) throw lastPersistError;
   if (!existingRecord) {
     const initialValue = parseBalanceValue(normalizedClient.soldClient);
     if (Number.isFinite(initialValue) && initialValue !== 0) {
@@ -3532,7 +3732,12 @@ const saveClient = ({ client = {}, entityType = "client", suggestedName = "", id
       });
     }
   }
-  return { id: assignedId, path: formatClientPath(assignedId), name: baseName };
+  return {
+    id: assignedId,
+    path: formatClientPath(assignedId),
+    name: baseName,
+    codeClient: persistedCodeClient || ""
+  };
 };
 
 const updateClient = ({
@@ -3688,8 +3893,9 @@ const adjustClientSold = ({
 const getClientById = (id) => {
   if (!id) return null;
   const db = initDatabase();
-  const row = db.prepare("SELECT * FROM clients WHERE id = ?").get(id);
-  if (!row) return null;
+  const loadedRow = db.prepare("SELECT * FROM clients WHERE id = ?").get(id);
+  if (!loadedRow) return null;
+  const row = ensureClientCodeForRow(db, loadedRow);
   const parsed = hydrateClientFromRow(row);
   return {
     id: row.id,
@@ -3747,8 +3953,11 @@ const searchClients = ({ query = "", limit, offset, entityType } = {}) => {
       clauses.push(`(${vendorSearchColumns.map((column) => `${column} LIKE ?`).join(" OR ")})`);
       vendorSearchColumns.forEach(() => params.push(likeValue));
     } else {
-      clauses.push("search_text LIKE ?");
-      params.push(`%${normalizedQuery}%`);
+      const likeValue = `%${normalizedQuery}%`;
+      clauses.push(
+        "(search_text LIKE ? OR LOWER(COALESCE(code_client, '')) LIKE ?)"
+      );
+      params.push(likeValue, likeValue);
     }
   }
   if (clauses.length) {
@@ -3757,7 +3966,7 @@ const searchClients = ({ query = "", limit, offset, entityType } = {}) => {
   const countSql = `SELECT COUNT(*) as total FROM clients ${whereClause}`;
   const total = db.prepare(countSql).get(...params)?.total || 0;
   const parts = [
-    "SELECT id, type, name, client_type, benefit, account, vat, identifiant_fiscal, cin, passport, steg_ref, phone, email, address, sold_client, updated_at, created_at FROM clients",
+    "SELECT id, type, name, code_client, client_type, benefit, account, vat, identifiant_fiscal, cin, passport, steg_ref, phone, email, address, sold_client, updated_at, created_at FROM clients",
     whereClause,
     "ORDER BY updated_at DESC"
   ];
@@ -3770,13 +3979,15 @@ const searchClients = ({ query = "", limit, offset, entityType } = {}) => {
     params.push(offset);
   }
   const rows = db.prepare(parts.join(" ")).all(...params);
-    const results = rows.map((row) => {
+    const results = rows.map((rawRow) => {
+      const row = ensureClientCodeForRow(db, rawRow);
       const data = hydrateClientFromRow(row);
     return {
       id: row.id,
       name: row.name || data.name || "",
       entityType: row.type,
       identifier: buildClientIdentifier(data),
+      codeClient: data.codeClient || "",
       email: data.email || "",
       phone: data.phone || data.telephone || data.tel || "",
       path: formatClientPath(row.id),
@@ -6523,6 +6734,7 @@ module.exports = {
   adjustClientSold,
   deleteClient,
   searchClients,
+  previewClientCode,
   formatClientPath,
   parseClientIdFromPath,
   getClientIdByLegacyPath,

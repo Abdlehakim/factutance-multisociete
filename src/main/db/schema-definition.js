@@ -384,6 +384,7 @@ const BASE_TABLE_DEFINITIONS = {
       ["id", "TEXT PRIMARY KEY"],
       ["type", "TEXT NOT NULL"],
       ["name", "TEXT"],
+      ["code_client", "TEXT"],
       ["client_type", "TEXT"],
       ["benefit", "TEXT"],
       ["account", "TEXT"],
@@ -404,7 +405,11 @@ const BASE_TABLE_DEFINITIONS = {
     ],
     indexes: [
       { sql: "CREATE INDEX IF NOT EXISTS idx_clients_search_text ON clients (search_text)" },
-      { sql: "CREATE INDEX IF NOT EXISTS idx_clients_account_normalized ON clients (account_normalized)" }
+      { sql: "CREATE INDEX IF NOT EXISTS idx_clients_account_normalized ON clients (account_normalized)" },
+      {
+        sql: "CREATE UNIQUE INDEX IF NOT EXISTS idx_clients_code_client_unique ON clients (UPPER(TRIM(code_client))) WHERE lower(trim(type)) = 'client' AND code_client IS NOT NULL AND TRIM(code_client) <> ''",
+        ignoreErrors: true
+      }
     ]
   },
   client_fields: {

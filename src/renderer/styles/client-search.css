@@ -1867,6 +1867,17 @@ color: #000;
 .client-fields-row[data-grid-columns="4"] {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
+.client-fields-row[data-grid-columns="3"] {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.client-fields-row[data-grid-columns="2"] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+#clientFormPopover .client-form-modal__body .client-fields-row,
+#fournisseurFormPopover .client-form-modal__body .client-fields-row,
+#transporteurFormPopover .client-form-modal__body .client-fields-row {
+  margin-top: 0;
+}
 .client-fields-modal .model-field-toggles .client-field-label-reset {
   border: 1px solid #e6ebf5;
   background: #fff;

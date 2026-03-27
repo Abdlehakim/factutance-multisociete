@@ -21,6 +21,7 @@
 
   const CLIENT_SNAPSHOT_FIELDS = [
     "type",
+    "codeClient",
     "name",
     "benefit",
     "account",
@@ -55,6 +56,7 @@
   const CLIENT_ENTITY_FORM_FIELD_IDS = {
     client: {
       clientType: ["clientType"],
+      clientCode: ["clientCode"],
       clientName: ["clientName"],
       clientBeneficiary: ["clientBeneficiary"],
       clientAccount: ["clientAccount"],
@@ -553,8 +555,13 @@
     const readValue = (id) => readClientFieldValue(id, scopeNode, CLIENT_SNAPSHOT_FIELD_STATE_KEYS);
     const typeRaw = readValue("clientType") || currentState.type || "";
     const normalizedType = normalizeClientType(typeRaw);
+    const entityType = normalizeClientEntityType(resolveClientEntityTypeFromScope(scopeNode));
       return {
         type: normalizedType,
+        codeClient:
+          entityType === "client"
+            ? String(readValue("clientCode") || currentState.codeClient || "").trim()
+            : "",
         name: readValue("clientName"),
         benefit: readValue("clientBeneficiary"),
         account: readValue("clientAccount"),

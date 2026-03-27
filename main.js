@@ -3171,6 +3171,15 @@ ipcMain.handle("clients:search", async (_evt, payload = {}) => {
   }
 });
 
+ipcMain.handle("clients:previewCode", async (_evt, payload = {}) => {
+  try {
+    const result = FactDb.previewClientCode(payload || {});
+    return { ok: true, ...(result && typeof result === "object" ? result : { codeClient: "" }) };
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e), codeClient: "" };
+  }
+});
+
 ipcMain.handle("depots:list", async () => {
   try {
     const results = FactDb.listDepots();

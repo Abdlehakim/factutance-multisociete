@@ -474,6 +474,7 @@
 
             const CLIENT_SNAPSHOT_FIELDS = [
               "type",
+              "codeClient",
               "name",
               "benefit",
               "account",
@@ -487,6 +488,7 @@
             ];
             const CLIENT_FORM_BASE_INPUT_IDS = [
               "clientType",
+              "clientCode",
               "clientName",
               "clientBeneficiary",
               "clientAccount",
@@ -507,6 +509,7 @@
             const CLIENT_ENTITY_DIRECT_FIELD_IDS = {
               client: {
                 clientType: ["clientType"],
+                clientCode: ["clientCode"],
                 clientName: ["clientName"],
                 clientBeneficiary: ["clientBeneficiary"],
                 clientAccount: ["clientAccount"],
@@ -764,8 +767,15 @@
               const currentState = resolveClientEntityDraft(scopeNode);
               const soldFallback = currentState.soldClient ?? "";
               const typeRaw = getClientFormValue(scopeNode, "clientType", currentState.type || "societe");
+              const entityType = resolveScopedClientEntityType(scopeNode);
               const snapshot = {
                 type: normalizeClientTypeValue(typeRaw),
+                codeClient:
+                  entityType === "client"
+                    ? String(
+                        getClientFormValue(scopeNode, "clientCode", currentState.codeClient || "")
+                      ).trim()
+                    : "",
                 name: getClientFormValue(scopeNode, "clientName", currentState.name || ""),
                 benefit: getClientFormValue(scopeNode, "clientBeneficiary", currentState.benefit || ""),
                 account: getClientFormValue(scopeNode, "clientAccount", currentState.account || ""),
@@ -776,7 +786,7 @@
                 email: getClientFormValue(scopeNode, "clientEmail", currentState.email || ""),
                 address: getClientFormValue(scopeNode, "clientAddress", currentState.address || ""),
                 __path: currentState.__path || SEM.clientFormBaseline?.__path || "",
-                __entityType: resolveScopedClientEntityType(scopeNode)
+                __entityType: entityType
               };
               return sanitizeClientSnapshot(snapshot);
             };
@@ -871,6 +881,7 @@
               const entityType = resolveScopedClientEntityType(scopeNode);
               const blankClient = {
                 type: "societe",
+                codeClient: "",
                 name: "",
                 vat: "",
                 phone: "",
@@ -946,7 +957,10 @@
                     delete control.dataset.clientReadonlyPrevDisabled;
                   }
                   if ("readOnly" in control) {
-                    if (control.dataset.clientReadonlyPrevReadonly !== undefined) {
+                    if (control.id === "clientCode") {
+                      control.readOnly = true;
+                      delete control.dataset.clientReadonlyPrevReadonly;
+                    } else if (control.dataset.clientReadonlyPrevReadonly !== undefined) {
                       control.readOnly = control.dataset.clientReadonlyPrevReadonly === "1";
                       delete control.dataset.clientReadonlyPrevReadonly;
                     } else {
@@ -961,7 +975,9 @@
                     delete control.dataset.clientReadonlyPrevDisabled;
                     delete control.dataset.clientReadonlyPrevReadonly;
                     control.disabled = false;
-                    if ("readOnly" in control) control.readOnly = false;
+                    if ("readOnly" in control) {
+                      control.readOnly = control.id === "clientCode";
+                    }
                     control.setAttribute("aria-disabled", "false");
                   });
                 }
@@ -1889,6 +1905,35 @@
               }
             };
 
+            const hydrateNewClientCodePreview = async (scopeNode) => {
+              const target =
+                queryScopedClientFormElement(scopeNode, "clientCode") ||
+                queryGlobalClientFormElement("clientCode", scopeNode);
+              if (!(target instanceof HTMLInputElement)) return;
+              if (typeof window.electronAPI?.previewClientCode !== "function") return;
+              try {
+                const result = await window.electronAPI.previewClientCode();
+                const resolvedCode =
+                  typeof result === "string"
+                    ? result
+                    : String(result?.codeClient || "").trim();
+                if (!resolvedCode) return;
+                target.value = resolvedCode;
+                const formScope = target.closest(CLIENT_SCOPE_WITH_ROOT_SELECTOR) || scopeNode || null;
+                if (!formScope) return;
+                const snapshot = captureClientSnapshotFromScope(formScope);
+                snapshot.codeClient = resolvedCode;
+                applyClientSnapshotToState(snapshot, formScope, {
+                  entityType: "client",
+                  mirrorToDocumentState: shouldMirrorEntityStateToDocument(formScope)
+                });
+                evaluateClientDirtyFromSnapshot(snapshot, formScope);
+                SEM.refreshClientActionButtons?.();
+              } catch (error) {
+                console.warn("client code preview failed", error);
+              }
+            };
+
               const resetClientFormToNew = (formScope, options = {}) => {
                 const useScope =
                   formScope?.id === "clientBoxNewDoc" ||
@@ -1948,6 +1993,7 @@
                   const entityType = resolveScopedClientEntityType(targetScope);
                   const blankClient = {
                     type: "societe",
+                    codeClient: "",
                     name: "",
                     benefit: "",
                     account: "",
@@ -2002,6 +2048,10 @@
                     clearValidationState(popoverCtx.popover);
                     setClientFormPopoverMode(popoverCtx, "create");
                     setClientFormPopoverOpen(popoverCtx, true);
+                  }
+                  if (entityType === "client") {
+                    const codeScope = popoverCtx?.popover || targetScope || formScope || null;
+                    if (codeScope) void hydrateNewClientCodePreview(codeScope);
                   }
                   SEM.refreshClientActionButtons?.();
                   SEM.refreshFournisseurActionButtons?.();
@@ -2168,6 +2218,19 @@
                   entityType
                 });
                 if (res?.ok) {
+                  if (entityType === "client") {
+                    const returnedCode = String(res.codeClient || "").trim();
+                    if (returnedCode) {
+                      client.codeClient = returnedCode;
+                      const codeInput = queryScopedClientFormElement(formScope, "clientCode");
+                      if (codeInput && "value" in codeInput) codeInput.value = returnedCode;
+                    } else if (!String(client.codeClient || "").trim()) {
+                      const inputCode = queryScopedClientFormElement(formScope, "clientCode");
+                      if (inputCode && typeof inputCode.value === "string") {
+                        client.codeClient = inputCode.value.trim();
+                      }
+                    }
+                  }
                   const getEntityState = getClientBindingHelpers().getEntityClientFormState;
                   const entityState =
                     typeof getEntityState === "function" ? getEntityState(entityType) : {};
@@ -2283,6 +2346,19 @@
                   entityType
                 });
                 if (res?.ok) {
+                  if (entityType === "client") {
+                    const returnedCode = String(res.codeClient || "").trim();
+                    if (returnedCode) {
+                      client.codeClient = returnedCode;
+                      const codeInput = queryScopedClientFormElement(formScope, "clientCode");
+                      if (codeInput && "value" in codeInput) codeInput.value = returnedCode;
+                    } else if (!String(client.codeClient || "").trim()) {
+                      const inputCode = queryScopedClientFormElement(formScope, "clientCode");
+                      if (inputCode && typeof inputCode.value === "string") {
+                        client.codeClient = inputCode.value.trim();
+                      }
+                    }
+                  }
                   const resolvedPath = res.path || path;
                   client.__path = resolvedPath;
                   applyClientSnapshotToState(client, formScope, {

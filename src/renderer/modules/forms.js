@@ -364,6 +364,14 @@
     const currentPath = w.SEM?.state?.client?.__path || "";
     return {
       type: readScopedClientValue(scopeNode, typeIds) || "societe",
+      codeClient: readScopedClientValue(
+        scopeNode,
+        isVendor
+          ? ["fournisseurCode"]
+          : isTransporter
+            ? ["transporteurCode"]
+            : ["clientCode"]
+      ),
       name: readScopedClientValue(scopeNode, nameIds),
       benefit: readScopedClientValue(
         scopeNode,
@@ -406,6 +414,7 @@
   }
   function fillClientToForm(c = {}) {
     setVal("clientType", c.type ?? "societe"); setVal("clientName", c.name ?? "");
+    setVal("clientCode", c.codeClient ?? c.code_client ?? c.code ?? "");
     setVal("clientVat", c.vat ?? ""); setVal("clientPhone", c.phone ?? "");
     setVal("clientEmail", c.email ?? ""); setVal("clientAddress", c.address ?? "");
     SEM.updateClientIdLabel?.();

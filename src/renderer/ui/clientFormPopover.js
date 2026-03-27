@@ -78,14 +78,16 @@ export const renderClientFormPopover = () => `
               </select>
             </div>
           </label>
-
-          <div class="grid three full client-fields-row" data-grid-columns="4">
-            <label data-client-field="benefit"><span data-client-field-label="benefit">Au profit de</span> <input id="clientBeneficiary" placeholder="Beneficiaire" /></label>
-            <label data-client-field="account"><span data-client-field-label="account">Pour le compte de</span> <input id="clientAccount" placeholder="Pour le compte de" /></label>
+          <div class="grid three full client-fields-row client-fields-row--identity" data-grid-columns="3">
+            <label data-client-field="codeClient"><span data-client-field-label="codeClient">Code Client</span> <input id="clientCode" placeholder="CL0032A" readonly aria-readonly="true" /></label>
             <label data-client-field="name"><span data-client-field-label="name">Nom du client</span> <input id="clientName" placeholder="Client ou Entreprise" /></label>
             <label data-client-field="taxId"><span id="clientIdLabel" data-client-field-label="taxId">Matricule fiscal</span> <input id="clientVat" placeholder="ex: 1284118/W/A/M/000" /></label>
           </div>
-          <div class="grid three full" data-grid-columns="4">
+          <div class="grid three full client-fields-row client-fields-row--account" data-grid-columns="2">
+            <label data-client-field="benefit"><span data-client-field-label="benefit">Au profit de</span> <input id="clientBeneficiary" placeholder="Beneficiaire" /></label>
+            <label data-client-field="account"><span data-client-field-label="account">Pour le compte de</span> <input id="clientAccount" placeholder="Pour le compte de" /></label>
+          </div>
+          <div class="grid three full client-fields-row client-fields-row--contact" data-grid-columns="4">
             <label data-client-field="stegRef"><span data-client-field-label="stegRef">Ref STEG</span> <input id="clientStegRef" placeholder="Ref STEG" /></label>
             <label data-client-field="soldClient"><span data-client-field-label="soldClient">Solde client initial</span> <input id="clientSoldClient" type="number" inputmode="decimal" step="0.01" min="-999999999" placeholder="-4000" value="0" /></label>
             <label data-client-field="phone"><span data-client-field-label="phone">Telephone du client</span> <input id="clientPhone" placeholder="+216 ..." /></label>

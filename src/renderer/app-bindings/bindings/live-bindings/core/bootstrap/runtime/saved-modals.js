@@ -1463,6 +1463,10 @@
             const type =
               typeRaw === "particulier" || typeRaw === "personne_physique" ? typeRaw : "societe";
             setScopedVal("clientType", type);
+            setScopedVal(
+              "clientCode",
+              norm(client.codeClient || client.code_client || client.code)
+            );
             setScopedVal("clientName", norm(client.name));
             setScopedVal("clientBeneficiary", norm(client.benefit || client.beneficiary));
             setScopedVal("clientAccount", norm(client.account || client.accountOf));
