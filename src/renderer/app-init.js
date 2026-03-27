@@ -877,6 +877,8 @@
       forms: SEM.forms
     });
     AppInit.registerClientBulkDeleteActions?.();
+    AppInit.registerFournisseurSavedModalActions?.();
+    AppInit.registerFournisseurBulkDeleteActions?.();
     AppInit.__runtime = {
       numbering,
       history,
