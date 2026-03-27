@@ -13,6 +13,7 @@ const {
   generateUniqueEntityCode,
   normalizeClientCodeValue
 } = require("./client-code");
+const { normalizeDepotCodeValue } = require("./depot-code");
 const {
   DOC_TYPE_TABLES,
   DOC_ITEM_TABLES,
@@ -4316,6 +4317,9 @@ const saveDepot = ({ depot = {}, suggestedName = "", id } = {}) => {
   const payload = {
     ...source,
     id: id || source.id || source.path,
+    codeDepot: normalizeDepotCodeValue(
+      source.codeDepot || source.code_depot || source.code || ""
+    ),
     name: String(source.name || source.label || suggestedName || "").trim(),
     address: source.address,
     emplacements: Array.isArray(source.emplacements) ? source.emplacements : []
@@ -4324,7 +4328,10 @@ const saveDepot = ({ depot = {}, suggestedName = "", id } = {}) => {
   return {
     id: result?.id || "",
     path: result?.path || formatDepotPath(result?.id || ""),
-    name: result?.name || ""
+    name: result?.name || "",
+    codeDepot: normalizeDepotCodeValue(
+      result?.codeDepot || result?.code_depot || result?.code || ""
+    )
   };
 };
 
@@ -4357,6 +4364,17 @@ const deleteDepot = (id) => {
 
 const searchDepots = ({ query = "", limit, offset } = {}) => {
   return getDepotMagasinRepository().searchDepots({ query, limit, offset });
+};
+
+const previewDepotCode = ({ id } = {}) => {
+  const result = getDepotMagasinRepository().previewDepotCode({ id });
+  const codeDepot = normalizeDepotCodeValue(
+    result?.codeDepot || result?.code || ""
+  );
+  return {
+    code: codeDepot,
+    codeDepot
+  };
 };
 
 const listDepots = (query = "") => getDepotMagasinRepository().listDepots(query);
@@ -7041,6 +7059,7 @@ module.exports = {
   updateDepot,
   deleteDepot,
   searchDepots,
+  previewDepotCode,
   listDepots,
   listEmplacementsByDepot,
   getDepotById,

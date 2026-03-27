@@ -28,7 +28,18 @@ export const renderDepotMagasinFormPopover = () => `
       </div>
       <div class="client-form-modal__body depot-magasin-modal__body swbDialog__msg">
         <div class="grid two">
-          <div class="grid two full depot-magasin-modal__row" data-grid-columns="2">
+          <div class="grid three full depot-magasin-modal__row" data-grid-columns="3">
+            <div class="add-item-field">
+              <label for="depotMagasinCode" class="label-text">Code depot</label>
+              <input
+                id="depotMagasinCode"
+                placeholder="DP0032A"
+                autocomplete="off"
+                readonly
+                aria-readonly="true"
+                data-system-generated-code="true"
+              />
+            </div>
             <div class="add-item-field">
               <label for="depotMagasinName" class="label-text">Nom du depot/magasin</label>
               <input id="depotMagasinName" placeholder="ex. Depot principal" autocomplete="off" />

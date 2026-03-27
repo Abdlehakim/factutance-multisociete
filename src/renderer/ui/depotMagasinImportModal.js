@@ -19,7 +19,7 @@ export const renderDepotMagasinImportModal = () => `
       <div class="client-import-modal__body swbDialog__msg">
         <p id="depotMagasinImportHint" class="client-import-modal__hint">
           Selectionnez un fichier Excel (XLSX) ou CSV contenant plusieurs depots/magasins.
-          Colonnes acceptees : Nom (ou Nom depot/magasin), Adresse, Emplacements.
+          Colonnes acceptees : Code depot (optionnel), Nom (ou Nom depot/magasin), Adresse, Emplacements.
         </p>
         <div class="client-import-modal__example" aria-hidden="true">
           <div class="client-import-modal__example-title">Exemple</div>
@@ -33,7 +33,7 @@ export const renderDepotMagasinImportModal = () => `
                 title="Copier l'entete depot/magasin"
                 data-doc-history-copy="document"
                 data-depot-magasin-import-copy
-                data-doc-history-copy-value="Nom&#9;Adresse&#9;Emplacements"
+                data-doc-history-copy-value="Code depot&#9;Nom&#9;Adresse&#9;Emplacements"
               >
                 <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                   <path d="M16 1H6a2 2 0 0 0-2 2v12h2V3h10V1zm3 4H10a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H10V7h9v14z"></path>
@@ -44,6 +44,7 @@ export const renderDepotMagasinImportModal = () => `
               <table>
                 <thead>
                   <tr>
+                    <th data-depot-magasin-import-field="codeDepot">Code depot</th>
                     <th data-depot-magasin-import-field="name">Nom</th>
                     <th data-depot-magasin-import-field="address">Adresse</th>
                     <th data-depot-magasin-import-field="emplacements">Emplacements</th>
@@ -51,6 +52,7 @@ export const renderDepotMagasinImportModal = () => `
                 </thead>
                 <tbody>
                   <tr>
+                    <td data-depot-magasin-import-field="codeDepot">DP0032A</td>
                     <td data-depot-magasin-import-field="name">Depot principal</td>
                     <td data-depot-magasin-import-field="address">12 Rue de l'Industrie, Tunis</td>
                     <td data-depot-magasin-import-field="emplacements">A-01-R2; B-02; ZONE-3</td>

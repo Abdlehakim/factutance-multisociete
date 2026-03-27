@@ -2,7 +2,7 @@
   const SEM = (w.SEM = w.SEM || {});
 
   const MODAL_ID = "depotMagasinSavedModal";
-  const PAGE_SIZE = 3;
+  const PAGE_SIZE = 5;
   const MIN_SEARCH_LENGTH = 2;
 
   let searchTimer = null;
@@ -29,6 +29,7 @@
     status: null,
     prevBtn: null,
     nextBtn: null,
+    pageLabel: null,
     pageInput: null,
     totalPages: null
   };
@@ -37,6 +38,25 @@
   const normalizeNumber = (value) => {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : 0;
+  };
+  const normalizeCode = (value) => normalizeText(value).replace(/\s+/g, " ");
+  const extractEmplacementCodes = (value) => {
+    const entries = Array.isArray(value) ? value : [];
+    const seen = new Set();
+    const codes = [];
+    entries.forEach((entry) => {
+      const raw =
+        entry && typeof entry === "object"
+          ? entry.code || entry.name || entry.label || entry.value || ""
+          : entry;
+      const code = normalizeCode(raw);
+      if (!code) return;
+      const key = code.toLowerCase();
+      if (seen.has(key)) return;
+      seen.add(key);
+      codes.push(code);
+    });
+    return codes;
   };
 
   const escapeHtml = (value) =>
@@ -75,6 +95,7 @@
     refs.status = document.getElementById("depotMagasinSavedModalStatus");
     refs.prevBtn = document.getElementById("depotMagasinSavedModalPrev");
     refs.nextBtn = document.getElementById("depotMagasinSavedModalNext");
+    refs.pageLabel = document.getElementById("depotMagasinSavedModalPage");
     refs.pageInput = document.getElementById("depotMagasinSavedModalPageInput");
     refs.totalPages = document.getElementById("depotMagasinSavedModalTotalPages");
     return refs;
@@ -96,17 +117,23 @@
   const normalizeDepotRecord = (record = {}) => {
     const path = depotPathFromRecord(record);
     const id = normalizeText(record.id) || path.replace(/^sqlite:\/\/depots\//i, "");
-    const emplacements = Array.isArray(record.emplacements) ? record.emplacements : [];
+    const codeDepot = normalizeCode(
+      record.codeDepot || record.code_depot || record.code || ""
+    );
+    const emplacements = extractEmplacementCodes(record.emplacements);
     const emplacementCount = Math.max(
       0,
       normalizeNumber(record.emplacementCount || record.emplacementsCount || emplacements.length)
     );
+    const emplacementPreview = emplacements.slice(0, 3).join("; ");
     return {
       id,
       path,
+      codeDepot,
       name: normalizeText(record.name),
       address: normalizeText(record.address),
-      emplacementCount
+      emplacementCount,
+      emplacementPreview
     };
   };
 
@@ -137,25 +164,32 @@
       return;
     }
     if (!state.total) {
-      status.textContent = "Aucun depot/magasin enregistre.";
+      status.textContent = state.query ? "Aucun depot/magasin trouve." : "Aucun depot/magasin enregistre.";
       return;
     }
     const start = (state.page - 1) * PAGE_SIZE + 1;
     const end = Math.min(state.total, start + Math.max(0, state.items.length - 1));
-    status.textContent = `${state.total} resultat(s) (${start}-${end}).`;
+    status.textContent = `Affichage ${start}-${end} sur ${state.total} depot/magasin${state.total > 1 ? "s" : ""}.`;
   };
 
   const renderPagination = () => {
-    const { prevBtn, nextBtn, pageInput, totalPages: totalPagesNode } = hydrateRefs();
+    const { prevBtn, nextBtn, pageLabel, pageInput, totalPages: totalPagesNode } = hydrateRefs();
     const pages = totalPages();
     if (totalPagesNode) totalPagesNode.textContent = String(pages);
     if (pageInput) {
-      pageInput.value = String(state.page || 1);
+      pageInput.disabled = state.total <= 0;
+      pageInput.value = state.total > 0 ? String(state.page || 1) : "";
       pageInput.min = "1";
       pageInput.max = String(pages);
-      pageInput.setAttribute("aria-valuemin", "1");
+      pageInput.setAttribute("aria-valuemin", state.total > 0 ? "1" : "0");
       pageInput.setAttribute("aria-valuemax", String(pages));
-      pageInput.setAttribute("aria-valuenow", String(state.page || 1));
+      pageInput.setAttribute("aria-valuenow", state.total > 0 ? String(state.page || 1) : "0");
+    }
+    if (pageLabel) {
+      pageLabel.setAttribute(
+        "aria-label",
+        state.total > 0 ? `Page ${state.page || 1} sur ${pages}` : "Page 1 sur 1"
+      );
     }
     if (prevBtn) prevBtn.disabled = state.loading || state.total <= 0 || state.page <= 1;
     if (nextBtn) nextBtn.disabled = state.loading || state.total <= 0 || state.page >= pages;
@@ -167,46 +201,59 @@
     list.replaceChildren();
 
     if (!state.items.length) {
-      if (state.loading) return;
       const empty = document.createElement("div");
       empty.className = "client-saved-modal__empty";
-      empty.textContent = state.message || "Aucun depot/magasin enregistre.";
+      empty.textContent = state.loading
+        ? "Chargement des depots/magasins..."
+        : state.message || (state.query ? "Aucun depot/magasin trouve." : "Aucun depot/magasin enregistre.");
       list.appendChild(empty);
       return;
     }
 
     state.items.forEach((entry, index) => {
       const row = document.createElement("div");
-      row.className = "client-search__option";
+      row.className = "client-search__option client-saved-item";
+      const codeDepot = escapeHtml(entry.codeDepot || "N.R.");
       const name = escapeHtml(entry.name || "N.R.");
       const address = escapeHtml(entry.address || "N.R.");
       const count = Math.max(0, normalizeNumber(entry.emplacementCount));
       const countLabel = count > 1 ? `${count} emplacements` : `${count} emplacement`;
+      const emplacementText = entry.emplacementPreview
+        ? `${countLabel} (${escapeHtml(entry.emplacementPreview)})`
+        : countLabel;
 
       row.innerHTML = `
         <button
           type="button"
           class="client-search__select client-search__select--detailed"
-          data-depot-saved-edit-index="${index}"
+          data-depot-saved-load-index="${index}"
         >
-          <span class="client-search__details-grid">
-            <span class="client-search__details-row">
-              <span class="client-search__detail client-search__detail--inline client-search__detail--name">
-                <span class="client-search__detail-label">Nom</span>
+          <div class="client-search__details-grid">
+            <div class="client-search__details-row">
+              <div class="client-search__detail client-search__detail--inline client-search__detail--name">
+                <span class="client-search__detail-label">CODE DEPOT :</span>
+                <span class="client-search__detail-value">${codeDepot}</span>
+              </div>
+            </div>
+            <div class="client-search__details-row">
+              <div class="client-search__detail client-search__detail--inline client-search__detail--name">
+                <span class="client-search__detail-label">NOM :</span>
                 <span class="client-search__detail-value">${name}</span>
-              </span>
-              <span class="client-search__detail client-search__detail--inline">
-                <span class="client-search__detail-label">Emplacements</span>
-                <span class="client-search__detail-value">${escapeHtml(countLabel)}</span>
-              </span>
-            </span>
-            <span class="client-search__details-row">
-              <span class="client-search__detail client-search__detail--description">
-                <span class="client-search__detail-label">Adresse</span>
+              </div>
+            </div>
+            <div class="client-search__details-row">
+              <div class="client-search__detail client-search__detail--inline">
+                <span class="client-search__detail-label">ADRESSE :</span>
                 <span class="client-search__detail-value">${address}</span>
-              </span>
-            </span>
-          </span>
+              </div>
+            </div>
+            <div class="client-search__details-row">
+              <div class="client-search__detail client-search__detail--inline">
+                <span class="client-search__detail-label">EMPLACEMENTS :</span>
+                <span class="client-search__detail-value">${emplacementText}</span>
+              </div>
+            </div>
+          </div>
         </button>
         <div class="client-search__actions">
           <button
@@ -504,6 +551,12 @@
         if (state.loading || !state.total) return;
         const nextPage = Math.min(totalPages(), state.page + 1);
         if (nextPage !== state.page) await fetchDepotsPage(nextPage);
+        return;
+      }
+
+      const loadBtn = target.closest("[data-depot-saved-load-index]");
+      if (loadBtn) {
+        await openDepotEditByIndex(loadBtn.getAttribute("data-depot-saved-load-index"));
         return;
       }
 

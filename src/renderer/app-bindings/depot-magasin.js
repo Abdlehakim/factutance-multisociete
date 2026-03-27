@@ -13,9 +13,11 @@
   let activeDepotPath = "";
   let searchTimer = null;
   let draftEmplacements = [];
+  let depotCodeRequestId = 0;
 
   const getEl = (id, scope = document) => scope?.querySelector?.(`#${id}`) || document.getElementById(id);
   const normalizeText = (value) => String(value || "").trim();
+  const normalizeDepotCode = (value) => normalizeText(value).toUpperCase();
   const escapeHtml = (value) =>
     String(value || "")
       .replace(/&/g, "&amp;")
@@ -63,9 +65,13 @@
       : [];
     const id = resolveDepotId(record);
     const path = normalizeText(record.path) || (id ? `sqlite://depots/${id}` : "");
+    const codeDepot = normalizeDepotCode(
+      record.codeDepot || record.code_depot || record.code || ""
+    );
     return {
       id,
       path,
+      codeDepot,
       name: normalizeText(record.name),
       address: normalizeText(record.address),
       emplacements,
@@ -119,9 +125,50 @@
     return true;
   };
 
+  const buildLocalDepotCodeCandidate = () => {
+    const digits = String(Math.floor(Math.random() * 10000)).padStart(4, "0");
+    const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const letter = letters[Math.floor(Math.random() * letters.length)] || "A";
+    return `DP${digits}${letter}`;
+  };
+
+  const requestDepotCodePreview = async ({ id } = {}) => {
+    if (typeof w.electronAPI?.previewDepotCode !== "function") {
+      return buildLocalDepotCodeCandidate();
+    }
+    try {
+      const response = await w.electronAPI.previewDepotCode({ id });
+      if (!response?.ok) return buildLocalDepotCodeCandidate();
+      const codeDepot = normalizeDepotCode(
+        response.codeDepot || response.code_depot || response.code || ""
+      );
+      return codeDepot || buildLocalDepotCodeCandidate();
+    } catch {
+      return buildLocalDepotCodeCandidate();
+    }
+  };
+
+  const prefillCreateDepotCode = async ({ id = "" } = {}) => {
+    const requestId = ++depotCodeRequestId;
+    const codeDepot = await requestDepotCodePreview({ id });
+    if (requestId !== depotCodeRequestId) return "";
+    setDepotCodeField(codeDepot);
+    return codeDepot;
+  };
+
   const getEmplacementsInput = () => getEl("depotMagasinEmplacementInput");
   const getEmplacementsChipsContainer = () => getEl("depotMagasinEmplacementsChips");
+  const getDepotCodeInput = () => getEl("depotMagasinCode");
   const toEmplacementKey = (value) => normalizeText(value).toLowerCase();
+
+  const setDepotCodeField = (codeValue = "") => {
+    const input = getDepotCodeInput();
+    if (!input) return;
+    input.value = normalizeDepotCode(codeValue);
+    input.readOnly = true;
+    input.setAttribute("readonly", "true");
+    input.setAttribute("aria-readonly", "true");
+  };
 
   const renderEmplacements = (entries = draftEmplacements) => {
     const chips = getEmplacementsChipsContainer();
@@ -238,7 +285,8 @@
     }
   };
 
-  const resetForm = () => {
+  const resetForm = ({ clearCode = true } = {}) => {
+    depotCodeRequestId += 1;
     const popover = getPopover();
     if (popover) {
       popover.dataset.depotFormMode = "create";
@@ -249,6 +297,7 @@
     const addressInput = getEl("depotMagasinAddress");
     if (nameInput) nameInput.value = "";
     if (addressInput) addressInput.value = "";
+    if (clearCode) setDepotCodeField("");
     const emplacementInput = getEmplacementsInput();
     if (emplacementInput) emplacementInput.value = "";
     setDraftEmplacements([]);
@@ -256,6 +305,7 @@
   };
 
   const fillForm = (record = {}) => {
+    depotCodeRequestId += 1;
     const normalized = normalizeDepotRecord(record);
     const popover = getPopover();
     if (popover) {
@@ -267,6 +317,7 @@
     const addressInput = getEl("depotMagasinAddress");
     if (nameInput) nameInput.value = normalized.name;
     if (addressInput) addressInput.value = normalized.address;
+    setDepotCodeField(normalized.codeDepot);
     const emplacementInput = getEmplacementsInput();
     if (emplacementInput) emplacementInput.value = "";
     setDraftEmplacements(normalized.emplacements);
@@ -274,6 +325,7 @@
   };
 
   const buildPayloadFromForm = () => ({
+    codeDepot: normalizeDepotCode(getDepotCodeInput()?.value),
     name: normalizeText(getEl("depotMagasinName")?.value),
     address: normalizeText(getEl("depotMagasinAddress")?.value),
     emplacements: readEmplacementsFromForm()
@@ -285,9 +337,11 @@
     return depotsCache.find((entry) => normalizeText(entry.path) === targetPath) || null;
   };
 
-  const openCreateForm = () => {
-    resetForm();
+  const openCreateForm = async () => {
+    resetForm({ clearCode: true });
     if (!openPopover()) return;
+    await prefillCreateDepotCode();
+    refreshActionButtons();
     getEl("depotMagasinName")?.focus?.();
   };
 
@@ -330,6 +384,7 @@
       row.className = "client-search__option depot-magasin-search__option";
       const safePath = escapeHtml(record.path);
       const safeName = escapeHtml(record.name || "-");
+      const safeCode = escapeHtml(record.codeDepot || "N.R.");
       const safeAddress = escapeHtml(record.address || "N.R.");
       row.innerHTML = `
         <button
@@ -342,6 +397,10 @@
               <span class="client-search__detail client-search__detail--inline">
                 <span class="client-search__detail-label">Depot/Magasin</span>
                 <span class="client-search__detail-value">${safeName}</span>
+              </span>
+              <span class="client-search__detail client-search__detail--inline">
+                <span class="client-search__detail-label">Code depot</span>
+                <span class="client-search__detail-value">${safeCode}</span>
               </span>
               <span class="client-search__detail client-search__detail--inline">
                 <span class="client-search__detail-label">Emplacements</span>
@@ -484,7 +543,9 @@
     } catch {}
     setResultsHidden(true);
     if (forceCreate) {
-      resetForm();
+      resetForm({ clearCode: true });
+      await prefillCreateDepotCode();
+      refreshActionButtons();
       getEl("depotMagasinName")?.focus?.();
     } else {
       closePopover();
@@ -531,7 +592,7 @@
       }
 
       if (target.closest("#depotMagasinFormToggleBtn")) {
-        openCreateForm();
+        await openCreateForm();
         return;
       }
       if (target.closest("[data-depot-form-close]")) {
@@ -632,6 +693,7 @@
 
   const init = async () => {
     bindEvents();
+    setDepotCodeField("");
     setDraftEmplacements([]);
     refreshActionButtons();
     await refreshDepots({ query: "", showDropdown: false });

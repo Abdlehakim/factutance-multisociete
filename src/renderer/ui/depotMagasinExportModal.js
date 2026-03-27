@@ -22,6 +22,7 @@ export const renderDepotMagasinExportModal = () => `
             <table>
               <thead>
                 <tr>
+                  <th data-depot-magasin-export-field="codeDepot">Code depot</th>
                   <th data-depot-magasin-export-field="name">Nom</th>
                   <th data-depot-magasin-export-field="address">Adresse</th>
                   <th data-depot-magasin-export-field="emplacements">Emplacements</th>
@@ -29,6 +30,7 @@ export const renderDepotMagasinExportModal = () => `
               </thead>
               <tbody>
                 <tr>
+                  <td data-depot-magasin-export-field="codeDepot">DP0032A</td>
                   <td data-depot-magasin-export-field="name">Depot principal</td>
                   <td data-depot-magasin-export-field="address">12 Rue de l'Industrie, Tunis</td>
                   <td data-depot-magasin-export-field="emplacements">A-01-R2; B-02; ZONE-3</td>

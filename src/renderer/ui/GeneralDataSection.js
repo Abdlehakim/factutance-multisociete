@@ -830,14 +830,14 @@ export function renderGeneralDataSection() {
                 <input
                   id="depotMagasinSavedSearch"
                   type="search"
-                  placeholder="Rechercher un depot/magasin enregistre"
+                  placeholder="Rechercher un depot/magasin (code depot, nom, adresse)"
                   autocomplete="off"
                 />
                 <button
                   id="depotMagasinSavedSearchBtn"
                   type="button"
                   class="client-search__action"
-                  aria-label="Rechercher un depot/magasin enregistre"
+                  aria-label="Rechercher un depot/magasin"
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <circle cx="11" cy="11" r="6" />

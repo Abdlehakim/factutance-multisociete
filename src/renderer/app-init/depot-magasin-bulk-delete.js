@@ -109,7 +109,7 @@
                 type="text"
                 autocomplete="off"
                 spellcheck="false"
-                placeholder="Nom du depot/magasin ou adresse"
+                placeholder="Code depot, nom du depot/magasin ou adresse"
                 aria-label="Rechercher un depot/magasin"
               />
             </label>
@@ -258,6 +258,9 @@
   const normalizeEntry = (raw = {}) => {
     const id = normalizeText(raw.id || "");
     const path = normalizeText(raw.path || (id ? `sqlite://depots/${id}` : ""));
+    const codeDepot = normalizeText(
+      raw.codeDepot || raw.code_depot || raw.code || ""
+    ).toUpperCase();
     const name = normalizeText(raw.name || raw.label || "");
     const address = normalizeText(raw.address || raw.adresse || "");
     const emplacements = Array.isArray(raw.emplacements) ? raw.emplacements : [];
@@ -277,6 +280,7 @@
     return {
       id,
       path,
+      codeDepot,
       name,
       address,
       emplacementCount,
@@ -319,6 +323,7 @@
         state.visibleEntriesByKey.set(key, entry);
         const checked = state.selectedKeys.has(key) ? "checked" : "";
         const title = escapeHTML(entry.name || "N.R.");
+        const codeDepot = escapeHTML(entry.codeDepot || "N.R.");
         const address = escapeHTML(entry.address || "N.R.");
         const count = Number(entry.emplacementCount || 0);
         const countLabel = `${count} emplacement${count > 1 ? "s" : ""}`;
@@ -332,6 +337,7 @@
               <div class="depot-magasin-bulk-delete-modal__card-title">${title}</div>
             </div>
             <div class="depot-magasin-bulk-delete-modal__card-meta">
+              <span class="depot-magasin-bulk-delete-modal__meta-chip">Code depot: ${codeDepot}</span>
               <span class="depot-magasin-bulk-delete-modal__meta-chip">Adresse: ${address}</span>
               <span class="depot-magasin-bulk-delete-modal__meta-chip">Emplacements: ${escapeHTML(countLabel)}</span>
               <span class="depot-magasin-bulk-delete-modal__meta-chip">Codes: ${emplacementsPreview}</span>

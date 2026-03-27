@@ -17,6 +17,10 @@
   const normalizeDepotNameKey = (value) => normalizeText(value).toLowerCase();
 
   const DEPOT_IMPORT_HEADER_MAP = {
+    codedepot: "codeDepot",
+    codedepotmagasin: "codeDepot",
+    codeentrepot: "codeDepot",
+    code: "codeDepot",
     nom: "name",
     name: "name",
     nomdepot: "name",
@@ -40,6 +44,7 @@
     const key = normalizeHeaderKey(header);
     if (!key) return "";
     if (DEPOT_IMPORT_HEADER_MAP[key]) return DEPOT_IMPORT_HEADER_MAP[key];
+    if (key.startsWith("codedepot")) return "codeDepot";
     if (key.includes("emplacement") || key.includes("location")) return "emplacements";
     if (key.includes("adresse") || key.includes("address")) return "address";
     if (
@@ -154,7 +159,7 @@
     const headerFields = headerRow.map((cell) => resolveDepotImportField(cell));
     if (!headerFields.some(Boolean)) {
       result.errors.push(
-        "Colonnes non reconnues. Utilisez: Nom, Adresse, Emplacements."
+        "Colonnes non reconnues. Utilisez: Code depot (optionnel), Nom, Adresse, Emplacements."
       );
       return result;
     }
@@ -179,6 +184,7 @@
       }
 
       const item = {
+        codeDepot: normalizeText(data.codeDepot).toUpperCase(),
         name,
         address: normalizeText(data.address),
         emplacements: parseEmplacementsValue(data.emplacements)
@@ -278,6 +284,7 @@
   };
 
   const buildDepotPayload = (item) => ({
+    codeDepot: normalizeText(item?.codeDepot).toUpperCase(),
     name: normalizeText(item?.name),
     address: normalizeText(item?.address),
     emplacements: (Array.isArray(item?.emplacements) ? item.emplacements : [])

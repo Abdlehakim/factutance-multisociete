@@ -3199,6 +3199,15 @@ ipcMain.handle("depots:list", async () => {
   }
 });
 
+ipcMain.handle("depots:previewCode", async (_evt, payload = {}) => {
+  try {
+    const result = FactDb.previewDepotCode(payload || {});
+    return { ok: true, ...(result && typeof result === "object" ? result : { codeDepot: "" }) };
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e), codeDepot: "" };
+  }
+});
+
 ipcMain.handle("depots:listEmplacements", async (_evt, payload = {}) => {
   try {
     const pathValue = String(payload?.path || "").trim();

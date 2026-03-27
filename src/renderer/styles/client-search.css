@@ -2255,7 +2255,14 @@ color: #000;
 }
 #depotMagasinImportModal .client-import-modal__example-table.client-export-modal__preview-table.doc-export-wizard__preview-table table,
 #depotMagasinExportModal .client-import-modal__example-table.client-export-modal__preview-table.doc-export-wizard__preview-table table {
-  min-width: 620px;
+  min-width: 760px;
+}
+#depotMagasinImportModal .client-import-modal__example-table th[data-depot-magasin-import-field="codeDepot"],
+#depotMagasinImportModal .client-import-modal__example-table td[data-depot-magasin-import-field="codeDepot"],
+#depotMagasinExportModal .client-import-modal__example-table th[data-depot-magasin-export-field="codeDepot"],
+#depotMagasinExportModal .client-import-modal__example-table td[data-depot-magasin-export-field="codeDepot"] {
+  width: 140px;
+  min-width: 140px;
 }
 #depotMagasinImportModal .client-import-modal__example-table th[data-depot-magasin-import-field="name"],
 #depotMagasinImportModal .client-import-modal__example-table td[data-depot-magasin-import-field="name"],

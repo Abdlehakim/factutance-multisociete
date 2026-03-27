@@ -442,13 +442,18 @@ const BASE_TABLE_DEFINITIONS = {
     columns: [
       ["id", "TEXT PRIMARY KEY"],
       ["name", "TEXT NOT NULL"],
+      ["code_depot", "TEXT"],
       ["address", "TEXT"],
       ["created_at", "TEXT"],
       ["updated_at", "TEXT"]
     ],
     indexes: [
       { sql: "CREATE INDEX IF NOT EXISTS idx_depot_magasin_name ON depot_magasin (name)" },
-      { sql: "CREATE INDEX IF NOT EXISTS idx_depot_magasin_updated_at ON depot_magasin (updated_at)" }
+      { sql: "CREATE INDEX IF NOT EXISTS idx_depot_magasin_updated_at ON depot_magasin (updated_at)" },
+      {
+        sql: "CREATE UNIQUE INDEX IF NOT EXISTS idx_depot_magasin_code_depot_unique ON depot_magasin (UPPER(TRIM(code_depot))) WHERE code_depot IS NOT NULL AND TRIM(code_depot) <> ''",
+        ignoreErrors: true
+      }
     ]
   },
   depot_magasin_emplacement: {

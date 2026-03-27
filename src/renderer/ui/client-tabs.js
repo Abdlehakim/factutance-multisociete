@@ -397,7 +397,7 @@ const renderDepotMagasinPanelTemplate = () => `
           <input
             id="depotMagasinSearch"
             type="search"
-            placeholder="Nom du depot/magasin ou adresse"
+            placeholder="Code depot, nom du depot/magasin ou adresse"
             autocomplete="off"
           />
           <button

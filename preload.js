@@ -321,6 +321,7 @@ const api = {
     if (typeof payload === "string") return ipcRenderer.invoke("depots:search", payload);
     return ipcRenderer.invoke("depots:search", payload || {});
   },
+  previewDepotCode: (payload) => ipcRenderer.invoke("depots:previewCode", payload || {}),
   saveDepotDirect: (payload) => ipcRenderer.invoke("depots:saveDirect", payload || {}),
   updateDepotDirect: (payload) => ipcRenderer.invoke("depots:updateDirect", payload || {}),
   deleteDepot: (payload) => ipcRenderer.invoke("depots:delete", payload || {}),

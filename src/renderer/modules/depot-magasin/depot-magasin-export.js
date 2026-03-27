@@ -62,8 +62,9 @@
   };
 
   const buildExportRows = (depots = []) => {
-    const headers = ["Nom", "Adresse", "Emplacements"];
+    const headers = ["Code depot", "Nom", "Adresse", "Emplacements"];
     const rows = depots.map((entry) => [
+      normalizeText(entry?.codeDepot || entry?.code_depot || entry?.code).toUpperCase(),
       normalizeText(entry?.name),
       normalizeText(entry?.address),
       extractEmplacements(entry).join("; ")
