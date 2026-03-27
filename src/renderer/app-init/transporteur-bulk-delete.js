@@ -328,10 +328,7 @@
         state.visibleEntriesByKey.set(key, entry);
         const checked = state.selectedKeys.has(key) ? "checked" : "";
         const codeTransporteur = escapeHTML(entry.codeTransporteur || "N.R.");
-        const name = escapeHTML(entry.name || "N.R.");
-        const driverName = escapeHTML(entry.driverName || "N.R.");
         const vehiclePlate = escapeHTML(entry.vehiclePlate || "N.R.");
-        const transportMode = escapeHTML(entry.transportMode || "N.R.");
         return `
           <label class="transporteur-bulk-delete-modal__card" data-transporteur-bulk-delete-key="${escapeHTML(key)}">
             <div class="transporteur-bulk-delete-modal__card-main">
@@ -341,10 +338,7 @@
               <div class="transporteur-bulk-delete-modal__card-title">${codeTransporteur}</div>
             </div>
             <div class="transporteur-bulk-delete-modal__card-meta">
-              <span class="transporteur-bulk-delete-modal__meta-chip">Nom: ${name}</span>
-              <span class="transporteur-bulk-delete-modal__meta-chip">Chauffeur: ${driverName}</span>
               <span class="transporteur-bulk-delete-modal__meta-chip">Matricule vehicule: ${vehiclePlate}</span>
-              <span class="transporteur-bulk-delete-modal__meta-chip">Mode de transport: ${transportMode}</span>
             </div>
           </label>
         `;

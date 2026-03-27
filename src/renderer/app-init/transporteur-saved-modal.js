@@ -53,6 +53,7 @@
   let els = null;
   let eventsBound = false;
   let openTriggerBound = false;
+  let mutationEventBound = false;
 
   const normalizeText = (value) => String(value || "").trim();
   const escapeHTML = (value) =>
@@ -236,6 +237,92 @@
 
   const getTotalPages = () => (state.total > 0 ? Math.max(1, Math.ceil(state.total / PAGE_SIZE)) : 1);
 
+  const normalizeEntityType = (value) => {
+    const raw = String(value || "").trim().toLowerCase();
+    if (raw === "vendor" || raw === "fournisseur") return "vendor";
+    if (raw === "transporter" || raw === "transporteur") return "transporter";
+    return "client";
+  };
+
+  const normalizeMatchValue = (value) =>
+    String(value || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, " ");
+
+  const patchEntryFromMutation = (detail = {}) => {
+    if (!Array.isArray(state.entries) || !state.entries.length) return false;
+    const expectedType = normalizeEntityType(detail?.entityType);
+    if (expectedType !== "transporter") return false;
+    const snapshot = detail?.snapshot && typeof detail.snapshot === "object" ? detail.snapshot : {};
+    const nextPath = normalizeText(detail?.path || snapshot.__path || "");
+    const nextCode = normalizeMatchValue(
+      snapshot.codeTransporteur || snapshot.code_transporteur || snapshot.codeClient || ""
+    );
+    const nextName = normalizeMatchValue(snapshot.name || snapshot.nomTransporteur || snapshot.nom || "");
+    const nextPhone = normalizeMatchValue(snapshot.phone || snapshot.telephone || snapshot.tel || "");
+    const nextVehicle = normalizeMatchValue(
+      snapshot.vehiclePlate ||
+        snapshot.vehicle ||
+        snapshot.vehicule ||
+        snapshot.matriculeVehicule ||
+        snapshot.matriculeVehicle ||
+        snapshot.plate ||
+        ""
+    );
+    const targetIndex = state.entries.findIndex((entry) => {
+      const entryPath = normalizeText(entry?.path || entry?.raw?.path || entry?.raw?.__path || "");
+      if (nextPath && entryPath && entryPath === nextPath) return true;
+      const entryCode = normalizeMatchValue(entry?.codeTransporteur || entry?.raw?.codeTransporteur || "");
+      if (nextCode && entryCode && nextCode === entryCode) return true;
+      const entryName = normalizeMatchValue(entry?.name || entry?.raw?.name || entry?.raw?.nomTransporteur || "");
+      if (!entryName || !nextName || entryName !== nextName) return false;
+      if (nextPhone) {
+        const entryPhone = normalizeMatchValue(entry?.phone || entry?.raw?.phone || entry?.raw?.telephone || "");
+        if (entryPhone && entryPhone === nextPhone) return true;
+      }
+      if (nextVehicle) {
+        const entryVehicle = normalizeMatchValue(
+          entry?.vehiclePlate || entry?.raw?.vehiclePlate || entry?.raw?.matriculeVehicule || entry?.raw?.plate || ""
+        );
+        if (entryVehicle && entryVehicle === nextVehicle) return true;
+      }
+      return !nextPhone && !nextVehicle;
+    });
+    if (targetIndex < 0) return false;
+    const current = state.entries[targetIndex] || {};
+    const nextRaw = {
+      ...(current.raw && typeof current.raw === "object" ? current.raw : {}),
+      ...snapshot
+    };
+    if (nextPath) {
+      nextRaw.path = nextPath;
+      nextRaw.__path = nextPath;
+    }
+    state.entries[targetIndex] = normalizeEntry(nextRaw);
+    return true;
+  };
+
+  const refreshAfterMutation = async (detail = {}) => {
+    if (!isOpen()) return;
+    if (normalizeEntityType(detail?.entityType) !== "transporter") return;
+    const listEl = els?.listEl || null;
+    const previousScrollTop = listEl && Number.isFinite(listEl.scrollTop) ? listEl.scrollTop : 0;
+    const patched = patchEntryFromMutation(detail);
+    if (patched) {
+      renderList();
+      if (listEl && Number.isFinite(previousScrollTop)) {
+        listEl.scrollTop = previousScrollTop;
+      }
+    }
+    if (state.loading) return;
+    const currentPage = Math.max(1, Number(state.page) || 1);
+    await loadPage(currentPage);
+    if (listEl && Number.isFinite(previousScrollTop)) {
+      listEl.scrollTop = previousScrollTop;
+    }
+  };
+
   const renderPager = () => {
     if (!els) return;
     const totalPages = getTotalPages();
@@ -300,43 +387,43 @@
         const phone = escapeHTML(entry.phone || "N.R.");
         return `
           <div class="client-search__option client-saved-item">
-            <div class="client-search__row">
-              <button type="button" class="client-search__select client-search__select--detailed" data-transporteur-saved-load="${idx}">
-                <div class="client-search__details-grid">
-                  <div class="client-search__details-row">
-                    <div class="client-search__detail client-search__detail--inline">
-                      <span class="client-search__detail-label">Code transporteur :</span>
-                      <span class="client-search__detail-value">${codeTransporteur}</span>
-                    </div>
-                    <div class="client-search__detail client-search__detail--inline client-search__detail--name">
-                      <span class="client-search__detail-label">Nom :</span>
-                      <span class="client-search__detail-value">${name}</span>
-                    </div>
+            <button type="button" class="client-search__select client-search__select--detailed" data-transporteur-saved-load="${idx}">
+              <div class="client-search__details-grid">
+                <div class="client-search__details-row">
+                  <div class="client-search__detail client-search__detail--inline">
+                    <span class="client-search__detail-label">Code transporteur :</span>
+                    <span class="client-search__detail-value">${codeTransporteur}</span>
                   </div>
-                  <div class="client-search__details-row">
-                    <div class="client-search__detail client-search__detail--inline">
-                      <span class="client-search__detail-label">Chauffeur :</span>
-                      <span class="client-search__detail-value">${driverName}</span>
-                    </div>
-                    <div class="client-search__detail client-search__detail--inline">
-                      <span class="client-search__detail-label">Matricule vehicule :</span>
-                      <span class="client-search__detail-value">${vehiclePlate}</span>
-                    </div>
-                    <div class="client-search__detail client-search__detail--inline">
-                      <span class="client-search__detail-label">Mode de transport :</span>
-                      <span class="client-search__detail-value">${transportMode}</span>
-                    </div>
-                    <div class="client-search__detail client-search__detail--inline">
-                      <span class="client-search__detail-label">Telephone :</span>
-                      <span class="client-search__detail-value">${phone}</span>
-                    </div>
+                  <div class="client-search__detail client-search__detail--inline client-search__detail--name">
+                    <span class="client-search__detail-label">Nom :</span>
+                    <span class="client-search__detail-value">${name}</span>
                   </div>
                 </div>
-              </button>
-              <div class="client-search__actions">
-                <button type="button" class="client-search__edit" data-transporteur-saved-update="${idx}">Mettre a jour</button>
-                <button type="button" class="client-search__delete" data-transporteur-saved-delete="${idx}">Supprimer</button>
+                <div class="client-search__details-row">
+                  <div class="client-search__detail client-search__detail--inline">
+                    <span class="client-search__detail-label">Chauffeur :</span>
+                    <span class="client-search__detail-value">${driverName}</span>
+                  </div>
+                  <div class="client-search__detail client-search__detail--inline">
+                    <span class="client-search__detail-label">Matricule vehicule :</span>
+                    <span class="client-search__detail-value">${vehiclePlate}</span>
+                  </div>
+                </div>
+                <div class="client-search__details-row">
+                  <div class="client-search__detail client-search__detail--inline">
+                    <span class="client-search__detail-label">Mode de transport :</span>
+                    <span class="client-search__detail-value">${transportMode}</span>
+                  </div>
+                  <div class="client-search__detail client-search__detail--inline">
+                    <span class="client-search__detail-label">Telephone :</span>
+                    <span class="client-search__detail-value">${phone}</span>
+                  </div>
+                </div>
               </div>
+            </button>
+            <div class="client-search__actions">
+              <button type="button" class="client-search__edit" data-transporteur-saved-update="${idx}">Mettre a jour</button>
+              <button type="button" class="client-search__delete" data-transporteur-saved-delete="${idx}">Supprimer</button>
             </div>
           </div>
         `;
@@ -453,19 +540,135 @@
 
   const getFormScope = () => document.getElementById("clientBoxMainscreenTransporteursPanel");
 
+  const normalizeTransporteurMode = (mode = "view") => {
+    const raw = String(mode || "view").trim().toLowerCase();
+    if (raw === "load") return "view";
+    if (raw === "edit" || raw === "create" || raw === "view") return raw;
+    return "view";
+  };
+
+  const forceTransporteurPopoverMode = (popoverNode, mode = "view") => {
+    if (!(popoverNode instanceof HTMLElement)) return;
+    const normalized = normalizeTransporteurMode(mode);
+    const isView = normalized === "view";
+    const isEdit = normalized === "edit";
+    const isCreate = normalized === "create";
+    popoverNode.dataset.clientFormMode = normalized;
+    popoverNode.dataset.transporteurFormMode = normalized;
+    const rightActions = popoverNode.querySelector(".swbDialog__group.swbDialog__group--right");
+    if (rightActions) {
+      rightActions.hidden = isView;
+      rightActions.setAttribute("aria-hidden", isView ? "true" : "false");
+    }
+    const setBtn = (id, show, disabledWhenShown = false) => {
+      const btn = popoverNode.querySelector(`#${id}`);
+      if (!btn) return;
+      btn.hidden = !show;
+      btn.setAttribute("aria-hidden", show ? "false" : "true");
+      btn.disabled = show ? !!disabledWhenShown : true;
+      btn.setAttribute("aria-disabled", btn.disabled ? "true" : "false");
+    };
+    setBtn("btnUpdateTransporteur", isEdit, false);
+    setBtn("btnSaveTransporteur", isCreate, false);
+    setBtn("btnNewTransporteur", isCreate, false);
+  };
+
   const openTransporteurForm = (entry, mode = "view") => {
     if (!entry) return false;
     const formScope = getFormScope();
-    if (!formScope) return false;
-    if (typeof w.SEM?.loadClientRecordIntoForm === "function") {
-      w.SEM.loadClientRecordIntoForm(entry.raw || entry, { formScope });
-    } else {
-      return false;
+    const requestedMode = normalizeTransporteurMode(mode);
+    const payload =
+      entry && typeof entry === "object"
+        ? {
+            ...(entry.raw && typeof entry.raw === "object" ? entry.raw : entry),
+            entityType: "transporter"
+          }
+        : entry;
+    if (formScope && typeof w.SEM?.loadClientRecordIntoForm === "function") {
+      w.SEM.loadClientRecordIntoForm(payload, { formScope });
     }
-    const ctx = w.SEM?.getClientFormPopoverContext?.(formScope);
+    const popoverNode =
+      formScope?.querySelector?.("#transporteurFormPopover") ||
+      document.getElementById("transporteurFormPopover") ||
+      null;
+    if (!popoverNode) return false;
+    if (typeof w.SEM?.loadClientRecordIntoForm !== "function") {
+      const norm = (value) => String(value || "").trim();
+      const setVal = (selector, value) => {
+        const input = popoverNode.querySelector(selector);
+        if (!input || !("value" in input)) return;
+        input.value = value;
+      };
+      setVal("#transporteurCode", norm(payload.codeTransporteur || payload.code_transporteur || payload.codeClient || ""));
+      setVal("#transporteurName", norm(payload.name || payload.nomTransporteur || payload.nom || ""));
+      setVal(
+        "#transporteurDriverName",
+        norm(payload.driverName || payload.driver || payload.chauffeur || payload.benefit || "")
+      );
+      setVal(
+        "#transporteurVehiclePlate",
+        norm(
+          payload.vehiclePlate ||
+            payload.vehicle ||
+            payload.vehicule ||
+            payload.matriculeVehicule ||
+            payload.matriculeVehicle ||
+            payload.plate ||
+            payload.account ||
+            payload.accountOf ||
+            ""
+        )
+      );
+      setVal(
+        "#transporteurTransportMode",
+        norm(payload.transportMode || payload.modeTransport || payload.modeDeTransport || payload.transport || payload.stegRef || "")
+      );
+      setVal("#transporteurPhone", norm(payload.telephone || payload.phone || payload.tel || ""));
+      setVal("#transporteurEmail", norm(payload.email || ""));
+      setVal("#transporteurAddress", norm(payload.adresse || payload.address || ""));
+      setVal("#transporteurType", norm(payload.typeTransporteur || payload.type || "societe"));
+      setVal("#transporteurVat", norm(payload.matriculeFiscal || payload.matricule_fiscal || payload.vat || ""));
+    }
+    const ctx =
+      w.SEM?.getClientFormPopoverContext?.(formScope) ||
+      (popoverNode ? w.SEM?.getClientFormPopoverContext?.(popoverNode) : null);
     if (ctx) {
-      w.SEM?.setClientFormPopoverMode?.(ctx, mode);
-      w.SEM?.setClientFormPopoverOpen?.(ctx, true);
+      w.SEM?.setClientFormPopoverMode?.(ctx, requestedMode);
+      setTimeout(() => {
+        w.SEM?.setClientFormPopoverOpen?.(ctx, true);
+        w.SEM?.setClientFormPopoverMode?.(ctx, requestedMode);
+        forceTransporteurPopoverMode(ctx.popover || popoverNode, requestedMode);
+        w.SEM?.refreshTransporteurActionButtons?.();
+        setTimeout(() => {
+          w.SEM?.setClientFormPopoverMode?.(ctx, requestedMode);
+          forceTransporteurPopoverMode(ctx.popover || popoverNode, requestedMode);
+          w.SEM?.refreshTransporteurActionButtons?.();
+        }, 30);
+      }, 0);
+      return true;
+    }
+    const effectiveMode = requestedMode;
+    popoverNode.dataset.clientFormMode = effectiveMode;
+    popoverNode.dataset.transporteurFormMode = effectiveMode === "view" ? "view" : effectiveMode;
+    forceTransporteurPopoverMode(popoverNode, effectiveMode);
+    popoverNode.classList.add("is-open");
+    popoverNode.hidden = false;
+    popoverNode.removeAttribute("hidden");
+    popoverNode.setAttribute("aria-hidden", "false");
+    const focusTarget =
+      popoverNode.querySelector("#transporteurName") ||
+      popoverNode.querySelector("[data-client-form-close]") ||
+      popoverNode.querySelector("input,textarea,select");
+    if (focusTarget && typeof focusTarget.focus === "function") {
+      setTimeout(() => {
+        try {
+          focusTarget.focus({ preventScroll: true });
+        } catch {
+          try {
+            focusTarget.focus();
+          } catch {}
+        }
+      }, 0);
     }
     return true;
   };
@@ -473,19 +676,23 @@
   const onListClick = async (evt) => {
     const loadBtn = evt.target?.closest?.("[data-transporteur-saved-load]");
     if (loadBtn) {
+      evt.preventDefault();
+      evt.stopPropagation();
       const idx = Number(loadBtn.dataset.transporteurSavedLoad);
       const entry = state.entries[idx];
       if (!entry) return;
-      if (openTransporteurForm(entry, "view")) closeModal();
+      openTransporteurForm(entry, "view");
       return;
     }
 
     const updateBtn = evt.target?.closest?.("[data-transporteur-saved-update]");
     if (updateBtn) {
+      evt.preventDefault();
+      evt.stopPropagation();
       const idx = Number(updateBtn.dataset.transporteurSavedUpdate);
       const entry = state.entries[idx];
       if (!entry) return;
-      if (openTransporteurForm(entry, "edit")) closeModal();
+      openTransporteurForm(entry, "edit");
       return;
     }
 
@@ -659,6 +866,12 @@
     els.listEl?.addEventListener("click", (evt) => {
       void onListClick(evt);
     });
+    if (!mutationEventBound) {
+      mutationEventBound = true;
+      w.addEventListener("client-saved-modal-entity-updated", (evt) => {
+        void refreshAfterMutation(evt?.detail || {});
+      });
+    }
   };
 
   const registerOpenTrigger = () => {

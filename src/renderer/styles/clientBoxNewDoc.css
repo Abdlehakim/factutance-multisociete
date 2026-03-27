@@ -2,6 +2,7 @@
 #clientBoxNewDoc #clientFormPopover,
 #FournisseurBoxNewDoc #fournisseurFormPopover,
 #clientBoxMainscreenFournisseursPanel #fournisseurFormPopover,
+#clientBoxMainscreenTransporteursPanel #transporteurFormPopover,
 #clientSavedModal #clientFormPopover,
 #clientSavedModalNv #clientFormPopover,
 #fournisseurSavedModal #fournisseurFormPopover,
@@ -9,6 +10,7 @@
 #fournisseurSavedModalDedicated #fournisseurFormPopover,
 #transporteurSavedModal #transporteurFormPopover,
 #transporteurSavedModalNv #transporteurFormPopover,
+#transporteurSavedModalDedicated #transporteurFormPopover,
 #articleSavedModal #articleFormPopover,
 #articleFormPopover {
   position: fixed;
@@ -40,6 +42,7 @@
 #clientBoxNewDoc #clientFormPopover .client-form-modal__panel,
 #FournisseurBoxNewDoc #fournisseurFormPopover .client-form-modal__panel,
 #clientBoxMainscreenFournisseursPanel #fournisseurFormPopover .client-form-modal__panel,
+#clientBoxMainscreenTransporteursPanel #transporteurFormPopover .client-form-modal__panel,
 #clientSavedModal #clientFormPopover .client-form-modal__panel,
 #clientSavedModalNv #clientFormPopover .client-form-modal__panel,
 #fournisseurSavedModal #fournisseurFormPopover .client-form-modal__panel,
@@ -47,6 +50,7 @@
 #fournisseurSavedModalDedicated #fournisseurFormPopover .client-form-modal__panel,
 #transporteurSavedModal #transporteurFormPopover .client-form-modal__panel,
 #transporteurSavedModalNv #transporteurFormPopover .client-form-modal__panel,
+#transporteurSavedModalDedicated #transporteurFormPopover .client-form-modal__panel,
 #articleSavedModal #articleFormPopover .client-form-modal__panel,
 #articleFormPopover .client-form-modal__panel {
   width: min(880px, calc(100vw - 40px));
@@ -64,6 +68,7 @@
 #clientBoxNewDoc #clientFormPopover .client-form-modal__body,
 #FournisseurBoxNewDoc #fournisseurFormPopover .client-form-modal__body,
 #clientBoxMainscreenFournisseursPanel #fournisseurFormPopover .client-form-modal__body,
+#clientBoxMainscreenTransporteursPanel #transporteurFormPopover .client-form-modal__body,
 #clientSavedModal #clientFormPopover .client-form-modal__body,
 #clientSavedModalNv #clientFormPopover .client-form-modal__body,
 #fournisseurSavedModal #fournisseurFormPopover .client-form-modal__body,
@@ -71,6 +76,7 @@
 #fournisseurSavedModalDedicated #fournisseurFormPopover .client-form-modal__body,
 #transporteurSavedModal #transporteurFormPopover .client-form-modal__body,
 #transporteurSavedModalNv #transporteurFormPopover .client-form-modal__body,
+#transporteurSavedModalDedicated #transporteurFormPopover .client-form-modal__body,
 #articleSavedModal #articleFormPopover .client-form-modal__body,
 #articleFormPopover .client-form-modal__body {
   background: #f8fafc;
@@ -86,6 +92,7 @@
 #clientBoxNewDoc #clientFormPopover .client-form-modal__actions,
 #FournisseurBoxNewDoc #fournisseurFormPopover .client-form-modal__actions,
 #clientBoxMainscreenFournisseursPanel #fournisseurFormPopover .client-form-modal__actions,
+#clientBoxMainscreenTransporteursPanel #transporteurFormPopover .client-form-modal__actions,
 #clientSavedModal #clientFormPopover .client-form-modal__actions,
 #clientSavedModalNv #clientFormPopover .client-form-modal__actions,
 #fournisseurSavedModal #fournisseurFormPopover .client-form-modal__actions,
@@ -93,6 +100,7 @@
 #fournisseurSavedModalDedicated #fournisseurFormPopover .client-form-modal__actions,
 #transporteurSavedModal #transporteurFormPopover .client-form-modal__actions,
 #transporteurSavedModalNv #transporteurFormPopover .client-form-modal__actions,
+#transporteurSavedModalDedicated #transporteurFormPopover .client-form-modal__actions,
 #articleSavedModal #articleFormPopover .client-form-modal__actions,
 #articleFormPopover .client-form-modal__actions {
   display: flex;
@@ -109,6 +117,7 @@
 #fournisseurSavedModalNv #clientFormToggleBtn[aria-expanded="true"],
 #transporteurSavedModal #clientFormToggleBtn[aria-expanded="true"],
 #transporteurSavedModalNv #clientFormToggleBtn[aria-expanded="true"],
+#transporteurSavedModalDedicated #clientFormToggleBtn[aria-expanded="true"],
 #articleSavedModal #articleFormToggleBtn[aria-expanded="true"],
 #itemsSection #articleFormToggleBtn[aria-expanded="true"] {
   background: #15335e;
@@ -125,6 +134,7 @@
   #clientBoxNewDoc #clientFormPopover .client-form-modal__panel,
   #FournisseurBoxNewDoc #fournisseurFormPopover .client-form-modal__panel,
   #clientBoxMainscreenFournisseursPanel #fournisseurFormPopover .client-form-modal__panel,
+  #clientBoxMainscreenTransporteursPanel #transporteurFormPopover .client-form-modal__panel,
   #clientSavedModal #clientFormPopover .client-form-modal__panel,
   #clientSavedModalNv #clientFormPopover .client-form-modal__panel,
   #fournisseurSavedModal #fournisseurFormPopover .client-form-modal__panel,
@@ -132,6 +142,7 @@
   #fournisseurSavedModalDedicated #fournisseurFormPopover .client-form-modal__panel,
   #transporteurSavedModal #transporteurFormPopover .client-form-modal__panel,
   #transporteurSavedModalNv #transporteurFormPopover .client-form-modal__panel,
+  #transporteurSavedModalDedicated #transporteurFormPopover .client-form-modal__panel,
   #articleSavedModal #articleFormPopover .client-form-modal__panel,
   #articleFormPopover .client-form-modal__panel {
     width: calc(100vw - 24px);
@@ -141,6 +152,7 @@
   #clientBoxNewDoc #clientFormPopover .swbDialog__group--right,
   #FournisseurBoxNewDoc #fournisseurFormPopover .swbDialog__group--right,
   #clientBoxMainscreenFournisseursPanel #fournisseurFormPopover .swbDialog__group--right,
+  #clientBoxMainscreenTransporteursPanel #transporteurFormPopover .swbDialog__group--right,
   #clientSavedModal #clientFormPopover .swbDialog__group--right,
   #clientSavedModalNv #clientFormPopover .swbDialog__group--right,
   #fournisseurSavedModal #fournisseurFormPopover .swbDialog__group--right,
@@ -148,6 +160,7 @@
   #fournisseurSavedModalDedicated #fournisseurFormPopover .swbDialog__group--right,
   #transporteurSavedModal #transporteurFormPopover .swbDialog__group--right,
   #transporteurSavedModalNv #transporteurFormPopover .swbDialog__group--right,
+  #transporteurSavedModalDedicated #transporteurFormPopover .swbDialog__group--right,
   #articleSavedModal #articleFormPopover .swbDialog__group--right,
   #articleFormPopover .swbDialog__group--right {
     flex-wrap: wrap;
@@ -158,6 +171,7 @@
   #clientBoxNewDoc #clientFormPopover .client-form-modal__actions,
   #FournisseurBoxNewDoc #fournisseurFormPopover .client-form-modal__actions,
   #clientBoxMainscreenFournisseursPanel #fournisseurFormPopover .client-form-modal__actions,
+  #clientBoxMainscreenTransporteursPanel #transporteurFormPopover .client-form-modal__actions,
   #clientSavedModal #clientFormPopover .client-form-modal__actions,
   #clientSavedModalNv #clientFormPopover .client-form-modal__actions,
   #fournisseurSavedModal #fournisseurFormPopover .client-form-modal__actions,
@@ -165,6 +179,7 @@
   #fournisseurSavedModalDedicated #fournisseurFormPopover .client-form-modal__actions,
   #transporteurSavedModal #transporteurFormPopover .client-form-modal__actions,
   #transporteurSavedModalNv #transporteurFormPopover .client-form-modal__actions,
+  #transporteurSavedModalDedicated #transporteurFormPopover .client-form-modal__actions,
   #articleSavedModal #articleFormPopover .client-form-modal__actions,
   #articleFormPopover .client-form-modal__actions {
     justify-content: center;
