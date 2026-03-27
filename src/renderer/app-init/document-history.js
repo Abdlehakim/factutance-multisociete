@@ -1913,6 +1913,24 @@
         for (let idx = res.items.length - 1; idx >= 0; idx -= 1) {
           const item = res.items[idx];
           const entryDocType = item?.docType || normalized;
+          const itemClient =
+            item?.client && typeof item.client === "object" ? item.client : {};
+          const itemClientSnapshot =
+            item?.clientSnapshot && typeof item.clientSnapshot === "object"
+              ? item.clientSnapshot
+              : {};
+          const codeClient = String(
+            item?.codeClient ||
+              item?.code_client ||
+              item?.clientCode ||
+              itemClient.codeClient ||
+              itemClient.code_client ||
+              itemClient.code ||
+              itemClientSnapshot.codeClient ||
+              itemClientSnapshot.code_client ||
+              itemClientSnapshot.code ||
+              ""
+          ).trim();
           w.addDocumentHistory({
             id: item?.id,
             docType: entryDocType,
@@ -1923,6 +1941,7 @@
             name: item?.name,
             clientName: item?.clientName,
             clientAccount: item?.clientAccount,
+            codeClient,
             totalHT: item?.totalHT,
             totalTTC: item?.totalTTC,
             totalTTCExclStamp: item?.totalTTCExclStamp,
@@ -3873,6 +3892,25 @@
           const documentDateHtml = `<span class="doc-history__document-date">Date: ${safeHtml(documentDateValue || "-")}</span>`;
           const rawClientName = entry?.clientName ? String(entry.clientName).trim() : "";
           const rawClientAccount = entry?.clientAccount ? String(entry.clientAccount).trim() : "";
+          const codeClientRaw = String(
+            entry?.codeClient ||
+              entry?.code_client ||
+              entry?.clientCode ||
+              entry?.meta?.clientCode ||
+              entry?.meta?.codeClient ||
+              entry?.meta?.client?.codeClient ||
+              entry?.meta?.client?.code_client ||
+              (entry?.client && typeof entry.client === "object"
+                ? entry.client.codeClient || entry.client.code_client || entry.client.code || ""
+                : "") ||
+              (entry?.clientSnapshot && typeof entry.clientSnapshot === "object"
+                ? entry.clientSnapshot.codeClient ||
+                  entry.clientSnapshot.code_client ||
+                  entry.clientSnapshot.code ||
+                  ""
+                : "") ||
+              ""
+          ).trim();
           const resolvedClientValue = rawClientName || rawClientAccount;
           const clientCopyValue = resolvedClientValue ? resolvedClientValue : "";
           const clientValueText = resolvedClientValue ? truncateClientName(resolvedClientValue) : "";
@@ -3887,9 +3925,18 @@
           const clientValueHtml = clientValueText
             ? `<span class="client-search__detail-value client-search__detail-value--with-copy"><span class="client-search__detail-text">${safeHtml(clientValueText)}</span><span class="client-search__detail-copy" role="button" tabindex="0" aria-label="${partyLabels.copyLabel}" title="${partyLabels.copyLabel}" data-doc-history-copy="client" data-doc-history-copy-value="${escapeAttr(clientCopyValue)}">${copyIconHtml}</span></span>`
             : `<span class="client-search__detail-value client-search__detail-value--with-copy"><span class="client-search__empty">N.R.</span>${disabledCopyButtonHtml}</span>`;
-          const clientHtml = `<div class="client-search__detail client-search__detail--inline">
-                 <span class="client-search__detail-label">${clientLabel}</span>
-                 ${clientValueHtml}
+          const codeClientValueHtml = codeClientRaw
+            ? safeHtml(codeClientRaw)
+            : '<span class="client-search__empty">N.R.</span>';
+          const clientHtml = `<div class="client-search__details-row">
+                 <div class="client-search__detail client-search__detail--inline">
+                   <span class="client-search__detail-label">Code client :</span>
+                   <span class="client-search__detail-value">${codeClientValueHtml}</span>
+                 </div>
+                 <div class="client-search__detail client-search__detail--inline">
+                   <span class="client-search__detail-label">${clientLabel}</span>
+                   ${clientValueHtml}
+                 </div>
                </div>`;
           const totalsRow = totalsRowHtml(entry, currency);
           const paymentRow = paymentRowHtml(entry, currency, entryDocType);
@@ -4851,6 +4898,7 @@
               name: entry.name,
               clientName: entry.clientName,
               clientAccount: entry.clientAccount,
+              codeClient: entry.codeClient || entry.code_client || entry.clientCode || "",
               totalHT: entry.totalHT,
               totalTTC: entry.totalTTC,
               currency: entry.currency,

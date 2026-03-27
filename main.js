@@ -4147,6 +4147,20 @@ async function listInvoiceFiles(payload = {}) {
       const data = dataLevel1.data && typeof dataLevel1.data === "object" ? dataLevel1.data : dataLevel1;
       const meta = data?.meta && typeof data.meta === "object" ? data.meta : dataLevel1.meta || {};
       const client = data?.client && typeof data.client === "object" ? data.client : {};
+      const clientSnapshot =
+        data?.clientSnapshot && typeof data.clientSnapshot === "object" ? data.clientSnapshot : {};
+      const legacyClientSnapshot =
+        dataLevel1?.clientSnapshot && typeof dataLevel1.clientSnapshot === "object"
+          ? dataLevel1.clientSnapshot
+          : {};
+      const metaClient = meta?.client && typeof meta.client === "object" ? meta.client : {};
+      const pickTextValue = (...values) => {
+        for (const value of values) {
+          const text = String(value ?? "").trim();
+          if (text) return text;
+        }
+        return "";
+      };
       const totals =
         (data && typeof data.totals === "object" && data.totals) ||
         (dataLevel1 && typeof dataLevel1.totals === "object" && dataLevel1.totals) ||
@@ -4218,6 +4232,44 @@ async function listInvoiceFiles(payload = {}) {
         client?.entityType || client?.role,
         resolvedDocType
       );
+      const resolvedClientCode = pickTextValue(
+        client?.codeClient,
+        client?.code_client,
+        client?.clientCode,
+        client?.codeFournisseur,
+        client?.code_fournisseur,
+        client?.codeTransporteur,
+        client?.code_transporteur,
+        client?.code,
+        clientSnapshot?.codeClient,
+        clientSnapshot?.code_client,
+        clientSnapshot?.clientCode,
+        clientSnapshot?.codeFournisseur,
+        clientSnapshot?.code_fournisseur,
+        clientSnapshot?.codeTransporteur,
+        clientSnapshot?.code_transporteur,
+        clientSnapshot?.code,
+        legacyClientSnapshot?.codeClient,
+        legacyClientSnapshot?.code_client,
+        legacyClientSnapshot?.clientCode,
+        legacyClientSnapshot?.codeFournisseur,
+        legacyClientSnapshot?.code_fournisseur,
+        legacyClientSnapshot?.codeTransporteur,
+        legacyClientSnapshot?.code_transporteur,
+        legacyClientSnapshot?.code,
+        metaClient?.codeClient,
+        metaClient?.code_client,
+        metaClient?.clientCode,
+        data?.codeClient,
+        data?.code_client,
+        data?.clientCode,
+        dataLevel1?.codeClient,
+        dataLevel1?.code_client,
+        dataLevel1?.clientCode,
+        meta?.codeClient,
+        meta?.code_client,
+        meta?.clientCode
+      );
       const item = {
         id: id || "",
         docType: resolvedDocType || "facture",
@@ -4234,6 +4286,10 @@ async function listInvoiceFiles(payload = {}) {
         clientPath: String(client?.__path || client?.path || "").trim(),
         clientAccount: client?.account || client?.accountOf || ""
       };
+      if (resolvedClientCode) {
+        item.codeClient = resolvedClientCode;
+        item.clientCode = resolvedClientCode;
+      }
       if (clientType) item.clientType = clientType;
       if (clientEntityType) item.clientEntityType = clientEntityType;
       const normalizedPdfPath = String(pdfPath || "").trim();

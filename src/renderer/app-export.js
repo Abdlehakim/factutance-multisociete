@@ -451,6 +451,17 @@
       const st = window.SEM?.state || {};
       const clientName = String(st.client?.name || "").trim();
       const clientAccount = String(st.client?.account || st.client?.accountOf || "").trim();
+      const clientCode = String(
+        st.client?.codeClient ||
+          st.client?.code_client ||
+          st.client?.clientCode ||
+          st.client?.codeFournisseur ||
+          st.client?.code_fournisseur ||
+          st.client?.codeTransporteur ||
+          st.client?.code_transporteur ||
+          st.client?.code ||
+          ""
+      ).trim();
       const totalsFn = window.SEM?.computeTotalsReturn;
       const totals = typeof totalsFn === "function" ? totalsFn() : null;
       const totalHT = totals?.totalHT;
@@ -480,6 +491,7 @@
       return {
         clientName,
         clientAccount,
+        clientCode,
         totalHT,
         totalTTC,
         currency,
@@ -728,6 +740,7 @@
                 name: res.name,
                 clientName: historySummary.clientName,
                 clientAccount: historySummary.clientAccount,
+                codeClient: historySummary.clientCode || "",
                 totalHT: historySummary.totalHT,
                 totalTTC: historySummary.totalTTC,
                 currency: historySummary.currency,

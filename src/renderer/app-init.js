@@ -296,6 +296,12 @@
           const entry = items[idx];
           const pathValue = String(entry?.path || entry?.docPath || "").trim();
           if (!pathValue) continue;
+          const entryClient =
+            entry?.client && typeof entry.client === "object" ? entry.client : {};
+          const entryClientSnapshot =
+            entry?.clientSnapshot && typeof entry.clientSnapshot === "object"
+              ? entry.clientSnapshot
+              : {};
           w.addDocumentHistory({
             id: entry?.id,
             docType,
@@ -310,6 +316,17 @@
             clientName: entry?.clientName || entry?.client?.name || "",
             clientAccount:
               entry?.clientAccount || entry?.client?.account || entry?.client?.accountOf || "",
+            codeClient:
+              entry?.codeClient ||
+              entry?.code_client ||
+              entry?.clientCode ||
+              entryClient.codeClient ||
+              entryClient.code_client ||
+              entryClient.code ||
+              entryClientSnapshot.codeClient ||
+              entryClientSnapshot.code_client ||
+              entryClientSnapshot.code ||
+              "",
             totalHT: entry?.totalHT,
             totalTTC: entry?.totalTTC,
             stampTT: entry?.stampTT,

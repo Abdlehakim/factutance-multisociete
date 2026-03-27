@@ -874,6 +874,17 @@
         name: loaded?.name || "",
         clientName: entry.clientName || resolveHistoryClientName(loaded) || "",
         clientAccount: entry.clientAccount || resolveHistoryClientAccount(loaded) || "",
+        codeClient:
+          entry.codeClient ||
+          entry.code_client ||
+          entry.clientCode ||
+          loaded?.codeClient ||
+          loaded?.code_client ||
+          loaded?.clientCode ||
+          loaded?.client?.codeClient ||
+          loaded?.client?.code_client ||
+          loaded?.client?.code ||
+          "",
         totalTTC: total,
         currency: entry.currency || loaded?.currency || "",
         paid: nextPaid,
@@ -4183,6 +4194,7 @@ const normalizePaymentModeLabel = (value) => {
           name: invoice.name,
           clientName: invoice.clientName,
           clientAccount: invoice.clientAccount,
+          codeClient: invoice.codeClient || invoice.code_client || invoice.clientCode || "",
           totalTTC: total,
           currency: invoice.currency,
           paid: nextPaid,

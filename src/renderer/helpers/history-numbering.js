@@ -266,6 +266,35 @@
     if (clientAccount && String(clientAccount).trim()) {
       normalized.clientAccount = String(clientAccount).trim();
     }
+    const requestedCodeClient = String(
+      entry.codeClient ??
+        entry.code_client ??
+        entry.clientCode ??
+        entry.client?.codeClient ??
+        entry.client?.code_client ??
+        entry.client?.clientCode ??
+        entry.client?.codeFournisseur ??
+        entry.client?.code_fournisseur ??
+        entry.client?.codeTransporteur ??
+        entry.client?.code_transporteur ??
+        entry.client?.code ??
+        entry.clientSnapshot?.codeClient ??
+        entry.clientSnapshot?.code_client ??
+        entry.clientSnapshot?.clientCode ??
+        entry.clientSnapshot?.codeFournisseur ??
+        entry.clientSnapshot?.code_fournisseur ??
+        entry.clientSnapshot?.codeTransporteur ??
+        entry.clientSnapshot?.code_transporteur ??
+        entry.clientSnapshot?.code ??
+        entry.meta?.client?.codeClient ??
+        entry.meta?.client?.code_client ??
+        entry.meta?.clientCode ??
+        entry.meta?.codeClient ??
+        ""
+    ).trim();
+    if (requestedCodeClient) {
+      normalized.codeClient = requestedCodeClient;
+    }
     const totalHT = numberOrNull(entry.totalHT ?? entry.totals?.totalHT);
     if (totalHT !== null) normalized.totalHT = totalHT;
     const totalTTC = numberOrNull(entry.totalTTC ?? entry.totals?.totalTTC ?? entry.total);
@@ -302,6 +331,17 @@
         : (typeof entry.note_interne === "string" ? entry.note_interne : "");
     const existingBucket = Array.isArray(documentHistoryStore[docType]) ? documentHistoryStore[docType] : [];
     const existingMatch = existingBucket.find((item) => item && item.path === normalized.path);
+    if (!normalized.codeClient) {
+      const existingCodeClient = String(
+        existingMatch?.codeClient ??
+          existingMatch?.code_client ??
+          existingMatch?.clientCode ??
+          ""
+      ).trim();
+      if (existingCodeClient) {
+        normalized.codeClient = existingCodeClient;
+      }
+    }
     const createdAtValue = entry?.createdAt;
     const normalizedCreatedAt =
       createdAtValue === undefined || createdAtValue === null ? "" : String(createdAtValue).trim();
