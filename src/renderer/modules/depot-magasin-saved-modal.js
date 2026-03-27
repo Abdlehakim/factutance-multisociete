@@ -389,14 +389,31 @@
     }
   };
 
+  const resetModalSearchState = () => {
+    const { searchInput } = hydrateRefs();
+    clearSearchTimer();
+    requestId += 1;
+    if (searchInput) {
+      searchInput.value = "";
+    }
+    state.query = "";
+    state.page = 1;
+    state.total = 0;
+    state.items = [];
+    state.loading = false;
+    state.message = "";
+    render();
+    void fetchDepotsPage(1);
+  };
+
   const closeModal = ({ restoreFocus = true } = {}) => {
     const { modal } = hydrateRefs();
     if (!modal) return;
-    clearSearchTimer();
     modal.classList.remove("is-open");
     modal.hidden = true;
     modal.setAttribute("hidden", "");
     modal.setAttribute("aria-hidden", "true");
+    resetModalSearchState();
 
     if (restoreFocus && restoreFocusTarget && typeof restoreFocusTarget.focus === "function") {
       try {

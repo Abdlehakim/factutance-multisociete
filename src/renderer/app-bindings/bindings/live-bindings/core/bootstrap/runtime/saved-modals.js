@@ -3746,6 +3746,19 @@
 
           closeArticleSavedModal = function closeArticleSavedModal() {
             if (!articleSavedModal) return;
+            clearTimeout(articleSavedSearchTimer);
+            articleSavedSearchTimer = null;
+            articleSavedModalRequestId += 1;
+            if (articleSavedSearchInput) {
+              articleSavedSearchInput.value = "";
+            }
+            articleSavedModalState.query = "";
+            articleSavedModalState.page = 1;
+            articleSavedModalState.items = [];
+            articleSavedModalState.loading = false;
+            articleSavedModalState.message = "";
+            renderArticleSavedModal();
+            fetchArticleSavedModalData();
             syncArticleSavedModalTriggers(false);
             articleSavedModal.classList.remove("is-open");
             articleSavedModal.hidden = true;
