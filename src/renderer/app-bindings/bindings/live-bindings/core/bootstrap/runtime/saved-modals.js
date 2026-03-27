@@ -1064,6 +1064,11 @@
             list.className = "article-search__list";
             const isMainScope = !!resultsEl?.closest?.("#clientBoxMainscreen");
             const allowAddAction = !isMainScope;
+            const isClientSearchResults = resultsEl?.id === "clientSearchResults";
+            const isFournisseurSearchResults = resultsEl?.id === "fournisseurSearchResults";
+            const isTransporteurSearchResults = resultsEl?.id === "transporteurSearchResults";
+            const isCompactSearchResults =
+              isClientSearchResults || isFournisseurSearchResults || isTransporteurSearchResults;
 
             const formatValue = (value) => {
               if (!value) return '<span class="client-search__empty">N.R.</span>';
@@ -1080,13 +1085,48 @@
                   ? `<button type="button" class="client-search__edit" data-client-edit="${actualIndex}">Ajouter</button>`
                   : "",
                 `<button type="button" class="client-search__edit" data-client-saved-update="${actualIndex}">Mettre a jour</button>`,
-                `<button type="button" class="client-search__delete" data-client-delete="${actualIndex}">Supprimer</button>`
+                isCompactSearchResults
+                  ? ""
+                  : `<button type="button" class="client-search__delete" data-client-delete="${actualIndex}">Supprimer</button>`
               ]
                 .filter(Boolean)
                 .join("");
               if (entityType === "transporter") {
                 const transporter = item?.client && typeof item.client === "object" ? item.client : item || {};
                 const name = String(transporter.name || item?.name || "").trim();
+                const codeTransporteur =
+                  item?.codeTransporteur ||
+                  item?.code_transporteur ||
+                  item?.transporteurCode ||
+                  item?.code ||
+                  transporter.codeTransporteur ||
+                  transporter.code_transporteur ||
+                  transporter.transporteurCode ||
+                  transporter.code ||
+                  "";
+                const codeTransporteurLabel = "Code transporteur";
+                if (isTransporteurSearchResults) {
+                  option.innerHTML = `
+                    <button type="button" class="client-search__select client-search__select--detailed" data-client-select="${actualIndex}">
+                      <div class="client-search__details-grid">
+                        <div class="client-search__details-row">
+                          <div class="client-search__detail client-search__detail--inline" data-client-field="codeTransporteur">
+                            <span class="client-search__detail-label">${escapeHTML(codeTransporteurLabel)}</span>
+                            <span class="client-search__detail-value">${formatValue(codeTransporteur)}</span>
+                          </div>
+                          <div class="client-search__detail client-search__detail--inline client-search__detail--name" data-client-field="name">
+                            <span class="client-search__detail-label">${escapeHTML(resolveFieldLabel("name"))}</span>
+                            <span class="client-search__detail-value">${formatValue(name)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                    <div class="client-search__actions">
+                      ${actionsHtml}
+                    </div>`;
+                  list.appendChild(option);
+                  return;
+                }
                 const driverName = item?.driverName || transporter.driverName || transporter.benefit || "";
                 const vehiclePlate =
                   item?.vehiclePlate || transporter.vehiclePlate || transporter.account || "";
@@ -1147,31 +1187,86 @@
                 list.appendChild(option);
                 return;
               }
-              const clientName = String(item?.client?.name || item?.clientName || "").trim();
-              const hasClientData =
-                item?.client && typeof item.client === "object" && Object.keys(item.client).length > 0;
+              const safeClient =
+                item?.client && typeof item.client === "object" ? item.client : {};
+              const clientName = String(safeClient.name || item?.clientName || "").trim();
+              const hasClientData = Object.keys(safeClient).length > 0;
               const fallbackName = !hasClientData ? String(item?.name || "").trim() : "";
               const name = clientName || (fallbackName.toLowerCase() === "client" ? "" : fallbackName);
+              const codeClient =
+                item?.codeClient ||
+                item?.code_client ||
+                item?.code ||
+                safeClient.codeClient ||
+                safeClient.code_client ||
+                safeClient.code ||
+                "";
+              const codeFournisseur =
+                item?.codeFournisseur ||
+                item?.code_fournisseur ||
+                item?.fournisseurCode ||
+                item?.code ||
+                safeClient.codeFournisseur ||
+                safeClient.code_fournisseur ||
+                safeClient.fournisseurCode ||
+                safeClient.code ||
+                "";
               const identifier = item.identifier || item.vat || item.identifiantFiscal || item.tva || item.nif || "";
               const phone = item.phone || item.telephone || item.tel || "";
               const nameLabel = resolveFieldLabel("name");
+              const codeClientLabel = "Code client";
+              const codeFournisseurLabel = "Code fournisseur";
               const taxIdLabel = resolveFieldLabel("taxId");
               const phoneLabel = resolveFieldLabel("phone");
-              option.innerHTML = `
-                <button type="button" class="client-search__select client-search__select--detailed" data-client-select="${actualIndex}">
-                  <div class="client-search__details-grid">
+              const nameRowHtml = isClientSearchResults
+                ? `
+                    <div class="client-search__details-row">
+                      <div class="client-search__detail client-search__detail--inline" data-client-field="codeClient">
+                        <span class="client-search__detail-label">${escapeHTML(codeClientLabel)}</span>
+                        <span class="client-search__detail-value">${formatValue(codeClient)}</span>
+                      </div>
+                      <div class="client-search__detail client-search__detail--inline client-search__detail--name" data-client-field="name">
+                        <span class="client-search__detail-label">${escapeHTML(nameLabel)}</span>
+                        <span class="client-search__detail-value">${formatValue(name)}</span>
+                      </div>
+                    </div>`
+                : isFournisseurSearchResults
+                  ? `
+                    <div class="client-search__details-row">
+                      <div class="client-search__detail client-search__detail--inline" data-client-field="codeFournisseur">
+                        <span class="client-search__detail-label">${escapeHTML(codeFournisseurLabel)}</span>
+                        <span class="client-search__detail-value">${formatValue(codeFournisseur)}</span>
+                      </div>
+                      <div class="client-search__detail client-search__detail--inline client-search__detail--name" data-client-field="name">
+                        <span class="client-search__detail-label">${escapeHTML(nameLabel)}</span>
+                        <span class="client-search__detail-value">${formatValue(name)}</span>
+                      </div>
+                    </div>`
+                : `
                     <div class="client-search__detail client-search__detail--inline client-search__detail--name" data-client-field="name">
                       <span class="client-search__detail-label">${escapeHTML(nameLabel)}</span>
                       <span class="client-search__detail-value">${formatValue(name)}</span>
-                    </div>
+                    </div>`;
+              const taxIdRowHtml = isCompactSearchResults
+                ? ""
+                : `
                     <div class="client-search__detail client-search__detail--inline" data-client-field="taxId">
                       <span class="client-search__detail-label">${escapeHTML(taxIdLabel)}</span>
                       <span class="client-search__detail-value">${formatValue(identifier)}</span>
-                    </div>
+                    </div>`;
+              const phoneRowHtml = isCompactSearchResults
+                ? ""
+                : `
                     <div class="client-search__detail client-search__detail--inline client-search__detail--phone" data-client-field="phone">
                       <span class="client-search__detail-label">${escapeHTML(phoneLabel)}</span>
                       <span class="client-search__detail-value">${formatValue(phone)}</span>
-                    </div>
+                    </div>`;
+              option.innerHTML = `
+                <button type="button" class="client-search__select client-search__select--detailed" data-client-select="${actualIndex}">
+                  <div class="client-search__details-grid">
+                    ${nameRowHtml}
+                    ${taxIdRowHtml}
+                    ${phoneRowHtml}
                   </div>
                 </button>
                 <div class="client-search__actions">

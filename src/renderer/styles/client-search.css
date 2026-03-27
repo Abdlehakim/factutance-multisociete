@@ -245,6 +245,25 @@
   min-height: var(--article-search-list-height, 360px);
   max-height: var(--article-search-list-height, 360px);
 }
+#clientSearchResults.client-search--paged,
+#fournisseurSearchResults.client-search--paged,
+#transporteurSearchResults.client-search--paged {
+  max-height: none;
+  overflow: visible;
+}
+#clientSearchResults.client-search--paged .article-search__list,
+#fournisseurSearchResults.client-search--paged .article-search__list,
+#transporteurSearchResults.client-search--paged .article-search__list {
+  flex: 0 0 auto;
+  min-height: 0;
+  max-height: none;
+  overflow: visible;
+}
+#clientSearchResults.client-search--paged .client-search__select,
+#fournisseurSearchResults.client-search--paged .client-search__select,
+#transporteurSearchResults.client-search--paged .client-search__select {
+  min-height: 0;
+}
 .article-search__list .client-search__option {
   border-bottom: 1px solid #e2e8f0;
   padding-bottom: 6px;
