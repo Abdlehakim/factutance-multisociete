@@ -1520,6 +1520,320 @@
       }
       return removedCount;
     };
+    const pickItemsModalBsSourceDocumentItems = (data = {}) => {
+      const payload = data && typeof data === "object" ? data : {};
+      const candidates = [
+        payload.items,
+        payload.lines,
+        payload.articleLines,
+        payload.articles,
+        payload.rows,
+        payload.products
+      ];
+      for (const candidate of candidates) {
+        if (Array.isArray(candidate)) return candidate;
+      }
+      return [];
+    };
+    const normalizeItemsModalBsImportedItem = (entry, sourceMeta = {}) => {
+      const normalized = normalizeItemsModalBeImportedItem(entry, sourceMeta);
+      if (!normalized) return null;
+      const sourceDocType = normalizeItemsModalBsSortieSourceDocType(sourceMeta?.docType || "");
+      const nextItem = {
+        ...normalized,
+        __bsSourceImported: true,
+        __bsSourceDocKey: String(sourceMeta?.key || "").trim(),
+        __bsSourceDocType: sourceDocType,
+        __bsSourceDocNumber: String(sourceMeta?.number || "").trim()
+      };
+      delete nextItem.__beSourceImported;
+      delete nextItem.__beSourceDocKey;
+      delete nextItem.__beSourceDocType;
+      delete nextItem.__beSourceDocNumber;
+      return nextItem;
+    };
+    const pickItemsModalBsSourcePartyCandidate = (data = {}) => {
+      const payload = data && typeof data === "object" ? data : {};
+      const meta = payload.meta && typeof payload.meta === "object" ? payload.meta : {};
+      const candidates = [
+        payload.client,
+        payload.clientSnapshot,
+        payload.party,
+        payload.destination,
+        payload.destinationSnapshot,
+        payload.destinataire,
+        payload.recipient,
+        payload.customer,
+        meta.client,
+        meta.clientSnapshot,
+        meta.party,
+        meta.destination,
+        meta.destinationSnapshot,
+        meta.destinataire
+      ];
+      for (const candidate of candidates) {
+        if (candidate && typeof candidate === "object") return candidate;
+      }
+      return null;
+    };
+    const normalizeItemsModalBsSourcePartySnapshot = (value = {}, fallback = {}) => {
+      const raw = value && typeof value === "object" ? value : {};
+      const fallbackData = fallback && typeof fallback === "object" ? fallback : {};
+      const read = (...values) => {
+        for (const value of values) {
+          if (!hasItemsModalBeSourceValue(value)) continue;
+          return String(value).trim();
+        }
+        return "";
+      };
+      const normalized = {
+        type: read(raw.type, raw.clientType, raw.personType, fallbackData.type, "societe").toLowerCase(),
+        name: read(
+          raw.name,
+          raw.clientName,
+          raw.raisonSociale,
+          raw.displayName,
+          fallbackData.name,
+          fallbackData.clientName
+        ),
+        benefit: read(
+          raw.benefit,
+          raw.beneficiary,
+          raw.beneficiaire,
+          raw.clientBeneficiary,
+          fallbackData.benefit
+        ),
+        account: read(raw.account, raw.clientAccount, raw.accountOf, fallbackData.account),
+        soldClient: read(raw.soldClient, raw.solde, raw.balance, fallbackData.soldClient),
+        vat: read(
+          raw.vat,
+          raw.matriculeFiscal,
+          raw.identifiantFiscal,
+          raw.identifiant,
+          raw.identifier,
+          raw.tva,
+          raw.nif,
+          fallbackData.vat,
+          fallbackData.identifier
+        ),
+        stegRef: read(raw.stegRef, raw.referenceSteg, raw.refSteg, raw.steg, fallbackData.stegRef),
+        phone: read(raw.phone, raw.telephone, raw.tel, raw.mobile, fallbackData.phone),
+        email: read(raw.email, raw.mail, fallbackData.email),
+        address: read(raw.address, raw.adresse, raw.location, fallbackData.address),
+        codeClient: read(
+          raw.codeClient,
+          raw.code_client,
+          raw.clientCode,
+          raw.code,
+          fallbackData.codeClient,
+          fallbackData.code
+        ),
+        codeFournisseur: "",
+        __path: read(
+          raw.__path,
+          raw.path,
+          raw.clientPath,
+          fallbackData.__path,
+          fallbackData.path,
+          fallbackData.clientPath
+        ),
+        __entityType: "client"
+      };
+      if (normalized.type !== "particulier") normalized.type = "societe";
+      const hasContent =
+        normalized.name ||
+        normalized.vat ||
+        normalized.phone ||
+        normalized.email ||
+        normalized.address ||
+        normalized.codeClient ||
+        normalized.__path;
+      return hasContent ? normalized : null;
+    };
+    const loadItemsModalBsSourceDocumentData = async (entry = {}) => {
+      const normalizedEntry =
+        normalizeItemsModalBsSortieSourceSelection({
+          docType: entry?.docType,
+          items: [entry]
+        })?.items?.[0] || null;
+      if (!normalizedEntry) {
+        return {
+          ok: false,
+          error: "Document source invalide.",
+          entry: null,
+          items: [],
+          partySnapshot: null
+        };
+      }
+      const docType = normalizeItemsModalBsSortieSourceDocType(normalizedEntry.docType || "");
+      if (!docType) {
+        return {
+          ok: false,
+          error: "Type de document source non pris en charge.",
+          entry: normalizedEntry,
+          items: [],
+          partySnapshot: null
+        };
+      }
+      if (
+        typeof w.openInvoiceFromFilePicker !== "function" &&
+        typeof w.electronAPI?.openInvoiceJSON !== "function"
+      ) {
+        return {
+          ok: false,
+          error: "Chargement du document source indisponible.",
+          entry: normalizedEntry,
+          items: [],
+          partySnapshot: null
+        };
+      }
+      try {
+        const raw =
+          typeof w.openInvoiceFromFilePicker === "function"
+            ? await w.openInvoiceFromFilePicker({
+                path: normalizedEntry.path,
+                number: normalizedEntry.number,
+                docType
+              })
+            : await w.electronAPI.openInvoiceJSON({
+                path: normalizedEntry.path,
+                number: normalizedEntry.number,
+                docType
+              });
+        if (!raw || (raw.ok === false && !(raw.data && typeof raw.data === "object"))) {
+          return {
+            ok: false,
+            error: String(raw?.error || "Chargement du document source impossible."),
+            entry: normalizedEntry,
+            items: [],
+            partySnapshot: null
+          };
+        }
+        const data = pickItemsModalBeSourceDocumentData(raw);
+        const sourceItems = pickItemsModalBsSourceDocumentItems(data);
+        const items = sourceItems
+          .map((item) => normalizeItemsModalBsImportedItem(item, normalizedEntry))
+          .filter(Boolean);
+        const partyCandidate = pickItemsModalBsSourcePartyCandidate(data);
+        const partySnapshot = normalizeItemsModalBsSourcePartySnapshot(partyCandidate, {
+          clientName: normalizedEntry.clientName,
+          clientPath: normalizedEntry.clientPath
+        });
+        return {
+          ok: true,
+          entry: normalizedEntry,
+          items,
+          partySnapshot,
+          empty: !items.length
+        };
+      } catch (err) {
+        return {
+          ok: false,
+          error: String(err?.message || err || "Chargement du document source impossible."),
+          entry: normalizedEntry,
+          items: [],
+          partySnapshot: null
+        };
+      }
+    };
+    const removeItemsModalBsImportedItemsBySourceKeys = (sourceKeys = []) => {
+      const st = getItemsModalDocumentState();
+      if (!st || !Array.isArray(st.items)) return 0;
+      const normalizedKeys = normalizeItemsModalBsSortieSourceKeys(sourceKeys);
+      if (!normalizedKeys.length) return 0;
+      const keySet = new Set(normalizedKeys.map((entry) => entry.toLowerCase()));
+      const currentItems = Array.isArray(st.items) ? st.items : [];
+      const nextItems = currentItems.filter((item) => {
+        const sourceKey = String(item?.__bsSourceDocKey || "").trim().toLowerCase();
+        return !sourceKey || !keySet.has(sourceKey);
+      });
+      const removedCount = currentItems.length - nextItems.length;
+      if (removedCount > 0) {
+        st.items = nextItems;
+        if (typeof SEM.renderItems === "function") SEM.renderItems();
+        else if (typeof SEM.computeTotals === "function") SEM.computeTotals();
+      }
+      return removedCount;
+    };
+    const getItemsModalBsSortieDestinationScope = () =>
+      itemsDocOptionsModalContent?.querySelector?.("#clientBoxNewDoc") || getEl("clientBoxNewDoc") || null;
+    const syncItemsModalBsSortieDestinationSearchUi = (scopeNode, label = "") => {
+      if (!scopeNode) return;
+      const searchInput = scopeNode.querySelector?.("#clientSearch") || null;
+      if (searchInput && "value" in searchInput) {
+        searchInput.value = String(label || "").trim();
+      }
+      const searchResults = scopeNode.querySelector?.("#clientSearchResults") || null;
+      if (searchResults) {
+        searchResults.innerHTML = "";
+        searchResults.hidden = true;
+        searchResults.classList.remove("client-search--paged");
+      }
+    };
+    const buildItemsModalBsSortieDestinationRecord = (snapshot = null) => {
+      const payload = normalizeItemsModalBsSourcePartySnapshot(snapshot || {}) || null;
+      if (!payload) return null;
+      const resolvedPath = String(payload.__path || "").trim();
+      return {
+        entityType: "client",
+        path: resolvedPath,
+        name: String(payload.name || "").trim(),
+        client: {
+          ...payload,
+          __entityType: "client",
+          __path: resolvedPath
+        }
+      };
+    };
+    const loadItemsModalBsSortieDestinationIntoForm = (section, snapshot = null) => {
+      const scopeNode = getItemsModalBsSortieDestinationScope();
+      if (!scopeNode) return false;
+      const record = buildItemsModalBsSortieDestinationRecord(snapshot);
+      if (!record) return false;
+      const payload =
+        record?.client && typeof record.client === "object" ? record.client : { ...record };
+      if (typeof SEM.loadClientRecordIntoForm === "function") {
+        SEM.loadClientRecordIntoForm(record, {
+          formScope: scopeNode,
+          skipReadInputs: true
+        });
+      } else {
+        if (typeof SEM.syncClientFormFields === "function") {
+          SEM.syncClientFormFields(payload, scopeNode);
+        }
+        if (typeof SEM.applyClientToState === "function") {
+          SEM.applyClientToState(payload, {
+            formScope: scopeNode,
+            entityType: "client",
+            mirrorToDocumentState: true
+          });
+        } else {
+          const st = SEM.state || (SEM.state = {});
+          st.client = {
+            ...(st.client || {}),
+            ...(payload || {}),
+            __entityType: "client",
+            __path: String(record?.path || payload?.__path || "").trim()
+          };
+          SEM.refreshClientSummary?.();
+        }
+      }
+      syncItemsModalBsSortieDestinationSearchUi(scopeNode, payload?.name || record.name || "");
+      return true;
+    };
+    const syncItemsModalBsSortieDestinationFromSourceSelection = (
+      section,
+      sourcePartySnapshot = null
+    ) => {
+      const normalizedSnapshot = normalizeItemsModalBsSourcePartySnapshot(sourcePartySnapshot || {});
+      if (normalizedSnapshot) {
+        return loadItemsModalBsSortieDestinationIntoForm(section, normalizedSnapshot);
+      }
+      const scopeNode = getItemsModalBsSortieDestinationScope();
+      if (!scopeNode) return false;
+      resetItemsModalClientState(scopeNode);
+      return true;
+    };
     const normalizeItemsModalBeReceptionSupplierInfo = (value = {}) => {
       const raw = value && typeof value === "object" ? value : {};
       const path = String(raw.path || raw.clientPath || raw.__path || "").trim();
@@ -3852,7 +4166,120 @@
           return true;
         });
     };
-    const removeItemsModalBsSortieSourceEntries = (section, sourceKeys = []) => {
+    const applyItemsModalBsSortieSourceSelection = async (section, selection) => {
+      const meta = getInvoiceMeta() || {};
+      const sortie = ensureItemsModalBsSortieMeta(meta);
+      const previousSelection = normalizeItemsModalBsSortieSourceSelection(sortie.sourceSelection);
+      const previousSelectionSignature = JSON.stringify(previousSelection || null);
+      const previousSourceKeys = normalizeItemsModalBsSortieSourceKeys(
+        (previousSelection?.items || []).map((entry) => entry?.key || "")
+      );
+      const removedRowCount = removeItemsModalBsImportedItemsBySourceKeys(previousSourceKeys);
+      const normalizedSelection = normalizeItemsModalBsSortieSourceSelection(selection);
+      const entriesToImport = Array.isArray(normalizedSelection?.items) ? normalizedSelection.items : [];
+      const importedItems = [];
+      const emptyEntries = [];
+      const failedEntries = [];
+      let sourcePartySnapshot = null;
+
+      for (const entry of entriesToImport) {
+        const result = await loadItemsModalBsSourceDocumentData(entry);
+        if (!result?.ok) {
+          failedEntries.push({
+            ...entry,
+            error: String(result?.error || "Chargement impossible.")
+          });
+          continue;
+        }
+        if (!sourcePartySnapshot && result.partySnapshot) {
+          sourcePartySnapshot = normalizeItemsModalBsSourcePartySnapshot(result.partySnapshot);
+        }
+        if (!Array.isArray(result.items) || !result.items.length) {
+          emptyEntries.push(entry);
+          continue;
+        }
+        importedItems.push(...result.items);
+      }
+
+      const resolvedPartySnapshot =
+        sourcePartySnapshot ||
+        normalizeItemsModalBsSourcePartySnapshot(normalizedSelection?.party || null);
+      const resolvedPartySummary = resolvedPartySnapshot
+        ? {
+            path: String(resolvedPartySnapshot.__path || "").trim(),
+            name: String(resolvedPartySnapshot.name || "").trim(),
+            label: String(resolvedPartySnapshot.name || "").trim(),
+            identifier: String(resolvedPartySnapshot.vat || "").trim()
+          }
+        : null;
+      const selectionForState = normalizedSelection
+        ? {
+            ...normalizedSelection,
+            party: resolvedPartySummary || normalizedSelection.party || null
+          }
+        : null;
+
+      sortie.sourceSelection = selectionForState;
+      sortie.sourceDocType = selectionForState
+        ? normalizeItemsModalBsSortieSourceDocType(selectionForState.docType || "")
+        : "";
+      sortie.sourceRef = selectionForState
+        ? formatItemsModalBsSortieSourceSelectionText(selectionForState)
+        : "";
+      meta.bsSortie = sortie;
+      meta.bsSourceSelection = selectionForState;
+      meta.bsSourceDocType = sortie.sourceDocType;
+      meta.bsSourceRef = sortie.sourceRef;
+      const sourceInput = section?.querySelector?.(`#${ITEMS_BS_SORTIE_FIELDS.sourceRef}`);
+      if (sourceInput && sourceInput.value !== sortie.sourceRef) {
+        sourceInput.value = sortie.sourceRef;
+      }
+      renderItemsModalBsSortieSourceSelectionList(section, selectionForState);
+      syncItemsModalBsSortieSourcePickerUi(section, sortie);
+      if (importedItems.length) {
+        appendItemsModalBeImportedItems(importedItems);
+      }
+      const destinationSynced = syncItemsModalBsSortieDestinationFromSourceSelection(
+        section,
+        selectionForState ? resolvedPartySnapshot : null
+      );
+      if (typeof SEM.refreshInvoiceSummary === "function") {
+        SEM.refreshInvoiceSummary();
+      }
+      if (typeof SEM.updateAmountWordsBlock === "function") {
+        SEM.updateAmountWordsBlock();
+      }
+      const selectionChanged =
+        previousSelectionSignature !== JSON.stringify(selectionForState || null);
+      if (
+        (selectionChanged || removedRowCount > 0 || importedItems.length > 0 || destinationSynced) &&
+        typeof SEM.markDocumentDirty === "function"
+      ) {
+        SEM.markDocumentDirty(true);
+      }
+      const notices = [];
+      if (emptyEntries.length) {
+        notices.push(
+          `Aucun article n'a ete trouve dans : ${formatItemsModalBeSourceEntryList(emptyEntries)}.`
+        );
+      }
+      if (failedEntries.length) {
+        notices.push(
+          `Impossible de charger : ${failedEntries
+            .map((entry) => `${String(entry.displayName || entry.number || "Document").trim()} (${entry.error})`)
+            .join(", ")}.`
+        );
+      }
+      if (notices.length) {
+        await w.showDialog?.(notices.join("\n\n"), { title: "Import des articles" });
+      }
+      return {
+        selectionChanged,
+        removedRowCount,
+        importedCount: importedItems.length
+      };
+    };
+    const removeItemsModalBsSortieSourceEntries = async (section, sourceKeys = []) => {
       const meta = getInvoiceMeta() || {};
       const sortie = ensureItemsModalBsSortieMeta(meta);
       const normalizedKeys = normalizeItemsModalBsSortieSourceKeys(sourceKeys);
@@ -3870,32 +4297,7 @@
               items: nextSelectionItems
             }
           : null;
-      sortie.sourceSelection = nextSelection;
-      sortie.sourceDocType = nextSelection
-        ? normalizeItemsModalBsSortieSourceDocType(nextSelection.docType || "")
-        : "";
-      sortie.sourceRef = nextSelection
-        ? formatItemsModalBsSortieSourceSelectionText(nextSelection)
-        : "";
-      meta.bsSortie = sortie;
-      meta.bsSourceSelection = nextSelection;
-      meta.bsSourceDocType = sortie.sourceDocType;
-      meta.bsSourceRef = sortie.sourceRef;
-      const sourceInput = section?.querySelector?.(`#${ITEMS_BS_SORTIE_FIELDS.sourceRef}`);
-      if (sourceInput && sourceInput.value !== sortie.sourceRef) {
-        sourceInput.value = sortie.sourceRef;
-      }
-      renderItemsModalBsSortieSourceSelectionList(section, nextSelection);
-      syncItemsModalBsSortieSourcePickerUi(section, sortie);
-      if (typeof SEM.refreshInvoiceSummary === "function") {
-        SEM.refreshInvoiceSummary();
-      }
-      if (typeof SEM.updateAmountWordsBlock === "function") {
-        SEM.updateAmountWordsBlock();
-      }
-      if (typeof SEM.markDocumentDirty === "function") {
-        SEM.markDocumentDirty(true);
-      }
+      await applyItemsModalBsSortieSourceSelection(section, nextSelection);
       return true;
     };
     const syncItemsModalBsSortieSourcePickerUi = (section, sortieInput = null) => {
@@ -3978,11 +4380,18 @@
       if (!normalizedDocType) return;
       const previousSelection = normalizeItemsModalBsSortieSourceSelection(sortie.sourceSelection);
       const previousSelectionText = formatItemsModalBsSortieSourceSelectionText(previousSelection);
+      const previousSourceKeys = normalizeItemsModalBsSortieSourceKeys(
+        (previousSelection?.items || []).map((entry) => entry?.key || "")
+      );
+      let removedRowCount = 0;
+      let destinationReset = false;
       sortie.sourceDocType = normalizedDocType;
       if (
         previousSelection &&
         normalizeItemsModalBsSortieSourceDocType(previousSelection.docType || "") !== normalizedDocType
       ) {
+        removedRowCount = removeItemsModalBsImportedItemsBySourceKeys(previousSourceKeys);
+        destinationReset = syncItemsModalBsSortieDestinationFromSourceSelection(section, null);
         sortie.sourceSelection = null;
         if (!sortie.sourceRef || sortie.sourceRef === previousSelectionText) {
           sortie.sourceRef = "";
@@ -4029,33 +4438,19 @@
             pickerResult.supplier ||
             null
         });
-        sortie.sourceSelection = normalizedSelection;
-        sortie.sourceDocType =
-          normalizeItemsModalBsSortieSourceDocType(normalizedSelection?.docType || normalizedDocType) ||
-          normalizedDocType;
-        sortie.sourceRef = normalizedSelection
-          ? formatItemsModalBsSortieSourceSelectionText(normalizedSelection)
-          : "";
-        meta.bsSortie = sortie;
-        meta.bsSourceDocType = sortie.sourceDocType;
-        meta.bsSourceSelection = normalizedSelection;
-        meta.bsSourceRef = sortie.sourceRef;
-        if (sourceInput && sourceInput.value !== sortie.sourceRef) {
-          sourceInput.value = sortie.sourceRef;
-        }
-        syncItemsModalBsSortieSourcePickerUi(section, sortie);
-        renderItemsModalBsSortieSourceSelectionList(section, normalizedSelection);
+        await applyItemsModalBsSortieSourceSelection(section, normalizedSelection);
       }
       if (typeof SEM.refreshInvoiceSummary === "function") {
         SEM.refreshInvoiceSummary();
       }
+      const finalSortie = ensureItemsModalBsSortieMeta(meta);
       const finalStateSignature = JSON.stringify({
-        sourceDocType: normalizeItemsModalBsSortieSourceDocType(sortie?.sourceDocType || ""),
-        sourceRef: String(sortie?.sourceRef || ""),
-        sourceSelection: normalizeItemsModalBsSortieSourceSelection(sortie?.sourceSelection) || null
+        sourceDocType: normalizeItemsModalBsSortieSourceDocType(finalSortie?.sourceDocType || ""),
+        sourceRef: String(finalSortie?.sourceRef || ""),
+        sourceSelection: normalizeItemsModalBsSortieSourceSelection(finalSortie?.sourceSelection) || null
       });
       if (
-        finalStateSignature !== initialStateSignature &&
+        (finalStateSignature !== initialStateSignature || removedRowCount > 0 || destinationReset) &&
         typeof SEM.markDocumentDirty === "function"
       ) {
         SEM.markDocumentDirty(true);
@@ -4508,7 +4903,7 @@
         event.stopPropagation();
         const sourceKey = String(removeBtn.dataset.sourceRemoveKey || "").trim();
         if (!sourceKey) return;
-        removeItemsModalBsSortieSourceEntries(section, [sourceKey]);
+        void removeItemsModalBsSortieSourceEntries(section, [sourceKey]);
       });
       renderItemsModalBsSortieSourceSelectionList(
         section,
