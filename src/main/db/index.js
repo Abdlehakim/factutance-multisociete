@@ -2398,6 +2398,15 @@ const normalizeDocumentPayload = (payload = {}, { docType = "" } = {}) => {
     client_id: normalizeOptionalText(clientId),
     client_type: normalizeOptionalText(client.type),
     client_name: normalizeOptionalText(client.name),
+    client_code: normalizeOptionalText(
+      client.codeClient ||
+        client.code_client ||
+        client.codeFournisseur ||
+        client.code_fournisseur ||
+        client.codeTransporteur ||
+        client.code_transporteur ||
+        client.code
+    ),
     client_benefit: normalizeOptionalText(client.benefit),
     client_account: normalizeOptionalText(client.account || client.accountOf),
     client_vat: normalizeOptionalText(client.vat),
@@ -2639,6 +2648,7 @@ const readNumberValue = (value) => {
 };
 
 const buildDocumentPayloadFromRow = (row = {}, items = [], taxRows = []) => {
+  const persistedClientCode = readTextValue(row.client_code);
   const company = {
     name: readTextValue(row.company_name),
     type: readTextValue(row.company_type),
@@ -2672,6 +2682,8 @@ const buildDocumentPayloadFromRow = (row = {}, items = [], taxRows = []) => {
     __path: readTextValue(row.client_path),
     type: readTextValue(row.client_type),
     name: readTextValue(row.client_name),
+    codeClient: persistedClientCode,
+    code: persistedClientCode,
     benefit: readTextValue(row.client_benefit),
     account: readTextValue(row.client_account),
     vat: readTextValue(row.client_vat),

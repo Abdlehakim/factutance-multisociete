@@ -54,6 +54,7 @@ const DOC_COLUMNS = [
   ["client_id", "TEXT"],
   ["client_type", "TEXT"],
   ["client_name", "TEXT"],
+  ["client_code", "TEXT"],
   ["client_benefit", "TEXT"],
   ["client_account", "TEXT"],
   ["client_vat", "TEXT"],
