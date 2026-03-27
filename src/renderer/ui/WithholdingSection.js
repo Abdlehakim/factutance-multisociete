@@ -2,6 +2,7 @@
 import { renderWhPdfNoteSection } from "./whPdfNoteSection.js";
 import { renderFooterNoteSection } from "./footerNoteSection.js";
 import { renderBeRemarksNoteSection } from "./beRemarksNoteSection.js";
+import { renderBsRemarksNoteSection } from "./bsRemarksNoteSection.js";
 
 export function renderWithholdingSection() {
   return html(`
@@ -81,6 +82,8 @@ export function renderWithholdingSection() {
     ${renderFooterNoteSection()}
 
     ${renderBeRemarksNoteSection()}
+
+    ${renderBsRemarksNoteSection()}
 
     <fieldset class="section-box wh-note-box" id="noteInterneBox">
       <legend><span class="model-save-dot">Commentaire sur document</span></legend>

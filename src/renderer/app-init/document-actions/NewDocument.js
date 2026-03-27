@@ -512,7 +512,7 @@
       if (typeof syncItemsModalHeaderLayoutForDocType === "function") {
         syncItemsModalHeaderLayoutForDocType(docTypeValue);
       }
-      syncItemsModalBeReceptionBoxFromState();
+      syncItemsModalStockMovementBoxesFromState();
       return true;
     };
 
@@ -644,11 +644,13 @@
       if (!docOptionsRoot) return false;
       const normalizedDocType = String(docTypeValue || "").trim().toLowerCase();
       const isBonEntree = normalizedDocType === "be";
+      const isBonSortie = normalizedDocType === "bs";
+      const isStockMovement = isBonEntree || isBonSortie;
 
       ["#whNoteBox", "#NoteBasDePage"].forEach((selector) => {
         const section = docOptionsRoot.querySelector(selector);
         if (!section) return;
-        const visible = !isBonEntree;
+        const visible = !isStockMovement;
         section.hidden = !visible;
         section.setAttribute("aria-hidden", visible ? "false" : "true");
         section.style.display = visible ? "" : "none";
@@ -664,6 +666,16 @@
         beRemarksSection.setAttribute("aria-hidden", isBonEntree ? "false" : "true");
         beRemarksSection.style.display = isBonEntree ? "" : "none";
         setItemsModalSectionInteractiveState(beRemarksSection, isBonEntree);
+      }
+      const bsRemarksSection =
+        docOptionsRoot.querySelector("#bsRemarksNoteBox") ||
+        docOptionsRoot.querySelector("#bsRemarksNoteBoxModal") ||
+        null;
+      if (bsRemarksSection) {
+        bsRemarksSection.hidden = !isBonSortie;
+        bsRemarksSection.setAttribute("aria-hidden", isBonSortie ? "false" : "true");
+        bsRemarksSection.style.display = isBonSortie ? "" : "none";
+        setItemsModalSectionInteractiveState(bsRemarksSection, isBonSortie);
       }
       return true;
     };
@@ -695,6 +707,19 @@
     const ITEMS_BE_RECEPTION_DEPOT_PLACEHOLDER = "Selectionner un depot";
     const ITEMS_BE_RECEPTION_LOCATION_PLACEHOLDER = "Aucun emplacement";
     const ITEMS_BE_RECEPTION_LOCATION_DEPOT_REQUIRED = "Selectionnez d'abord un depot";
+    const ITEMS_BS_SORTIE_BOX_ID = "bsSortieBoxNewDoc";
+    const ITEMS_BS_SORTIE_FIELDS = {
+      depot: "bsSortieDepotInput",
+      location: "bsSortieLocationInput",
+      date: "bsSortieDateInput",
+      time: "bsSortieTimeInput",
+      sourceRef: "bsSortieSourceInput",
+      transporter: "bsTransporterInput",
+      driverName: "bsDriverNameInput",
+      vehiclePlate: "bsVehiclePlateInput",
+      transportMode: "bsTransportModeInput",
+      exitReason: "bsExitReasonInput"
+    };
     const ITEMS_BE_RECEPTION_SOURCE_DOC_TYPE_LABELS = {
       fa: "Facture d'achat",
       bc: "Bon de commande"
@@ -1825,10 +1850,71 @@
       meta.beReception = normalized;
       return normalized;
     };
+    const ensureItemsModalBsSortieMeta = (metaInput = null) => {
+      const meta =
+        metaInput && typeof metaInput === "object"
+          ? metaInput
+          : (getInvoiceMeta() || {});
+      const raw = meta.bsSortie && typeof meta.bsSortie === "object" ? meta.bsSortie : {};
+      const docType = String(meta.docType || "").trim().toLowerCase();
+      const normalized = {
+        depot: String(raw.depot ?? raw.depotName ?? raw.magasin ?? meta.bsDepot ?? "").trim(),
+        location: String(raw.location ?? raw.emplacement ?? raw.destination ?? meta.bsLocation ?? "").trim(),
+        date: String(raw.date ?? raw.sortieDate ?? raw.movementDate ?? meta.bsSortieDate ?? "").trim(),
+        time: String(raw.time ?? raw.sortieTime ?? raw.movementTime ?? meta.bsSortieTime ?? "").trim(),
+        sourceRef: String(raw.sourceRef ?? raw.referenceSource ?? raw.source ?? meta.bsSourceRef ?? "").trim(),
+        transporter: String(raw.transporter ?? raw.transporteur ?? meta.bsTransporter ?? "").trim(),
+        driverName: String(raw.driverName ?? raw.chauffeur ?? meta.bsDriverName ?? "").trim(),
+        vehiclePlate: String(raw.vehiclePlate ?? raw.vehicle ?? raw.matriculeVehicule ?? meta.bsVehiclePlate ?? "").trim(),
+        transportMode: String(raw.transportMode ?? raw.modeTransport ?? meta.bsTransportMode ?? "").trim(),
+        exitReason: String(raw.exitReason ?? raw.reason ?? raw.motifSortie ?? meta.bsExitReason ?? "").trim()
+      };
+      if (docType === "bs") {
+        if (!normalized.date) {
+          normalized.date = String(meta.date || "").trim() || new Date().toISOString().slice(0, 10);
+        }
+        if (!normalized.time) {
+          normalized.time = formatItemsModalReceptionTime();
+        }
+      }
+      meta.bsSortie = normalized;
+      meta.bsDepot = normalized.depot;
+      meta.bsLocation = normalized.location;
+      meta.bsSortieDate = normalized.date;
+      meta.bsSortieTime = normalized.time;
+      meta.bsSourceRef = normalized.sourceRef;
+      meta.bsTransporter = normalized.transporter;
+      meta.bsDriverName = normalized.driverName;
+      meta.bsVehiclePlate = normalized.vehiclePlate;
+      meta.bsTransportMode = normalized.transportMode;
+      meta.bsExitReason = normalized.exitReason;
+      return normalized;
+    };
     const getItemsModalBeReceptionBox = () =>
       itemsDocOptionsModalContent?.querySelector?.(`#${ITEMS_BE_RECEPTION_BOX_ID}`) || null;
+    const getItemsModalBsSortieBox = () =>
+      itemsDocOptionsModalContent?.querySelector?.(`#${ITEMS_BS_SORTIE_BOX_ID}`) || null;
     const ensureItemsModalBeReceptionDatePicker = (section) => {
       const dateInput = section?.querySelector?.(`#${ITEMS_BE_RECEPTION_FIELDS.date}`);
+      if (!dateInput || dateInput.dataset.datePickerBound === "1") return;
+      if (w.AppDatePicker?.create) {
+        w.AppDatePicker.create(dateInput, {
+          labels: {
+            today: "Aujourd'hui",
+            clear: "Effacer",
+            prevMonth: "Mois precedent",
+            nextMonth: "Mois suivant",
+            dialog: "Choisir une date"
+          },
+          allowManualInput: true
+        });
+      } else {
+        dateInput.readOnly = false;
+      }
+      dateInput.dataset.datePickerBound = "1";
+    };
+    const ensureItemsModalBsSortieDatePicker = (section) => {
+      const dateInput = section?.querySelector?.(`#${ITEMS_BS_SORTIE_FIELDS.date}`);
       if (!dateInput || dateInput.dataset.datePickerBound === "1") return;
       if (w.AppDatePicker?.create) {
         w.AppDatePicker.create(dateInput, {
@@ -2446,6 +2532,153 @@
       `.trim();
       return template.content.firstElementChild;
     };
+    const renderItemsModalBsSortieBox = () => {
+      const template = document.createElement("template");
+      template.innerHTML = `
+        <fieldset id="${ITEMS_BS_SORTIE_BOX_ID}" class="section-box items-be-reception-form" hidden>
+          <legend>Informations de sortie</legend>
+          <div class="items-be-reception-form__grid">
+            <label class="items-be-reception-form__field" for="${ITEMS_BS_SORTIE_FIELDS.depot}">
+              <span>D&eacute;p&ocirc;t / Magasin</span>
+              <input
+                id="${ITEMS_BS_SORTIE_FIELDS.depot}"
+                type="text"
+                placeholder="Nom du depot ou magasin"
+                autocomplete="off"
+              />
+            </label>
+            <label class="items-be-reception-form__field" for="${ITEMS_BS_SORTIE_FIELDS.date}">
+              <span>Date de sortie</span>
+              <div class="swb-date-picker" data-date-picker="">
+                <input
+                  id="${ITEMS_BS_SORTIE_FIELDS.date}"
+                  type="text"
+                  inputmode="numeric"
+                  placeholder="AAAA-MM-JJ"
+                  autocomplete="off"
+                  spellcheck="false"
+                  aria-haspopup="dialog"
+                  aria-expanded="false"
+                  role="combobox"
+                  aria-controls="bsSortieDatePanel"
+                />
+                <button
+                  type="button"
+                  class="swb-date-picker__toggle"
+                  data-date-picker-toggle=""
+                  aria-label="Choisir une date de sortie"
+                  aria-haspopup="dialog"
+                  aria-expanded="false"
+                  aria-controls="bsSortieDatePanel"
+                >
+                  <svg
+                    class="swb-date-picker__toggle-icon"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    aria-hidden="true"
+                    focusable="false"
+                  >
+                    <rect x="3.5" y="5" width="17" height="15" rx="2" />
+                    <path d="M8 3.5v3M16 3.5v3M3.5 10h17" stroke-linecap="round" />
+                  </svg>
+                </button>
+                <div
+                  class="swb-date-picker__panel"
+                  data-date-picker-panel=""
+                  role="dialog"
+                  aria-modal="false"
+                  aria-label="Choisir une date"
+                  tabindex="-1"
+                  id="bsSortieDatePanel"
+                  hidden
+                ></div>
+              </div>
+            </label>
+            <label class="items-be-reception-form__field" for="${ITEMS_BS_SORTIE_FIELDS.location}">
+              <span>Emplacement de sortie</span>
+              <input
+                id="${ITEMS_BS_SORTIE_FIELDS.location}"
+                type="text"
+                placeholder="Zone / emplacement de sortie"
+                autocomplete="off"
+              />
+            </label>
+            <label class="items-be-reception-form__field" for="${ITEMS_BS_SORTIE_FIELDS.time}">
+              <span>Heure</span>
+              <input
+                id="${ITEMS_BS_SORTIE_FIELDS.time}"
+                type="time"
+                placeholder="HH:MM"
+                autocomplete="off"
+              />
+            </label>
+            <label class="items-be-reception-form__field items-be-reception-form__field--wide" for="${ITEMS_BS_SORTIE_FIELDS.sourceRef}">
+              <span>R&eacute;f&eacute;rence source</span>
+              <input
+                id="${ITEMS_BS_SORTIE_FIELDS.sourceRef}"
+                type="text"
+                placeholder="ex : Bon de commande interne / Demande de sortie"
+                autocomplete="off"
+              />
+            </label>
+          </div>
+
+          <div class="items-be-reception-form__grid" style="margin-top:12px">
+            <label class="items-be-reception-form__field items-be-reception-form__field--wide" style="padding-top:4px">
+              <span style="font-weight:700">Transport / exp&eacute;dition</span>
+            </label>
+            <label class="items-be-reception-form__field" for="${ITEMS_BS_SORTIE_FIELDS.transporter}">
+              <span>Transporteur</span>
+              <input
+                id="${ITEMS_BS_SORTIE_FIELDS.transporter}"
+                type="text"
+                placeholder="Nom du transporteur"
+                autocomplete="off"
+              />
+            </label>
+            <label class="items-be-reception-form__field" for="${ITEMS_BS_SORTIE_FIELDS.driverName}">
+              <span>Chauffeur</span>
+              <input
+                id="${ITEMS_BS_SORTIE_FIELDS.driverName}"
+                type="text"
+                placeholder="Nom du chauffeur"
+                autocomplete="off"
+              />
+            </label>
+            <label class="items-be-reception-form__field" for="${ITEMS_BS_SORTIE_FIELDS.vehiclePlate}">
+              <span>Matricule v&eacute;hicule</span>
+              <input
+                id="${ITEMS_BS_SORTIE_FIELDS.vehiclePlate}"
+                type="text"
+                placeholder="Matricule du vehicule"
+                autocomplete="off"
+              />
+            </label>
+            <label class="items-be-reception-form__field" for="${ITEMS_BS_SORTIE_FIELDS.transportMode}">
+              <span>Mode de transport</span>
+              <input
+                id="${ITEMS_BS_SORTIE_FIELDS.transportMode}"
+                type="text"
+                placeholder="Camion, utilitaire, etc."
+                autocomplete="off"
+              />
+            </label>
+            <label class="items-be-reception-form__field items-be-reception-form__field--wide" for="${ITEMS_BS_SORTIE_FIELDS.exitReason}">
+              <span>Motif de sortie</span>
+              <input
+                id="${ITEMS_BS_SORTIE_FIELDS.exitReason}"
+                type="text"
+                placeholder="Motif / commentaire de sortie"
+                autocomplete="off"
+              />
+            </label>
+          </div>
+        </fieldset>
+      `.trim();
+      return template.content.firstElementChild;
+    };
     const wireItemsModalBeReceptionPickerMenu = (menu, panel) => {
       if (!(menu instanceof HTMLElement) || !(panel instanceof HTMLElement) || menu.dataset.beReceptionWired === "1") return;
       const summary = menu.querySelector("summary.field-toggle-trigger");
@@ -2927,8 +3160,10 @@
       if (!section) return false;
       const meta = getInvoiceMeta() || {};
       const isBonEntree = String(meta.docType || "facture").trim().toLowerCase() === "be";
+      const isBonSortie = String(meta.docType || "facture").trim().toLowerCase() === "bs";
       syncItemsModalDocOptionsNotesForDocType(meta.docType || "");
       syncItemsModalBeRemarksFromState({ hydrateFromModel: isBonEntree });
+      syncItemsModalBsRemarksFromState({ hydrateFromModel: isBonSortie });
       const reception = ensureItemsModalBeReceptionMeta(meta);
       ensureItemsModalBeReceptionDatePicker(section);
       const timePicker = ensureItemsModalBeReceptionTimePicker(section);
@@ -3124,6 +3359,71 @@
         if (!sourceKey) return;
         removeItemsModalBeReceptionSourceEntries(section, [sourceKey]);
       });
+    };
+    const syncItemsModalBsSortieBoxFromState = (section = getItemsModalBsSortieBox()) => {
+      const meta = getInvoiceMeta() || {};
+      const isBonSortie = String(meta.docType || "facture").trim().toLowerCase() === "bs";
+      syncItemsModalDocOptionsNotesForDocType(meta.docType || "");
+      syncItemsModalBsRemarksFromState({ hydrateFromModel: isBonSortie });
+      if (!section) {
+        if (typeof SEM.refreshInvoiceSummary === "function") {
+          SEM.refreshInvoiceSummary();
+        }
+        if (typeof SEM.updateAmountWordsBlock === "function") {
+          SEM.updateAmountWordsBlock();
+        }
+        return false;
+      }
+      const sortie = ensureItemsModalBsSortieMeta(meta);
+      ensureItemsModalBsSortieDatePicker(section);
+      Object.entries(ITEMS_BS_SORTIE_FIELDS).forEach(([key, id]) => {
+        const input = section.querySelector(`#${id}`);
+        if (!input) return;
+        const nextValue = String(sortie?.[key] || "");
+        if (input.value !== nextValue) {
+          input.value = nextValue;
+        }
+      });
+      section.hidden = !isBonSortie;
+      section.setAttribute("aria-hidden", isBonSortie ? "false" : "true");
+      section.style.display = isBonSortie ? "" : "none";
+      if (typeof SEM.refreshInvoiceSummary === "function") {
+        SEM.refreshInvoiceSummary();
+      }
+      if (typeof SEM.updateAmountWordsBlock === "function") {
+        SEM.updateAmountWordsBlock();
+      }
+      return true;
+    };
+    const wireItemsModalBsSortieBox = (section) => {
+      if (!section || section.dataset.wired === "1") return;
+      section.dataset.wired = "1";
+      ensureItemsModalBsSortieDatePicker(section);
+      Object.entries(ITEMS_BS_SORTIE_FIELDS).forEach(([key, id]) => {
+        const input = section.querySelector(`#${id}`);
+        if (!input) return;
+        const syncValue = () => {
+          const meta = getInvoiceMeta() || {};
+          const sortie = ensureItemsModalBsSortieMeta(meta);
+          sortie[key] = String(input.value || "").trim();
+          meta.bsSortie = sortie;
+          if (typeof SEM.refreshInvoiceSummary === "function") {
+            SEM.refreshInvoiceSummary();
+          }
+          if (typeof SEM.updateAmountWordsBlock === "function") {
+            SEM.updateAmountWordsBlock();
+          }
+          if (typeof SEM.markDocumentDirty === "function") {
+            SEM.markDocumentDirty(true);
+          }
+        };
+        input.addEventListener("input", syncValue);
+        input.addEventListener("change", syncValue);
+      });
+    };
+    const syncItemsModalStockMovementBoxesFromState = () => {
+      syncItemsModalBeReceptionBoxFromState();
+      syncItemsModalBsSortieBoxFromState();
     };
 
     const CLIENT_SCOPE_SELECTOR = "#clientBoxNewDoc, #FournisseurBoxNewDoc";
@@ -3438,6 +3738,100 @@
         if (editor) {
           if (editor.innerHTML !== value) editor.innerHTML = value;
           editor.dataset.empty = hasItemsModalBeRemarksText(value) ? "false" : "true";
+        }
+      }
+      if (typeof SEM.updateAmountWordsBlock === "function") {
+        SEM.updateAmountWordsBlock();
+      }
+      return true;
+    };
+    const normalizeItemsModalBsRemarksFontSize = (value, fallback = 12) => {
+      const parsed = Number.parseInt(value, 10);
+      if ([10, 12, 14].includes(parsed)) return parsed;
+      const fallbackParsed = Number.parseInt(fallback, 10);
+      return [10, 12, 14].includes(fallbackParsed) ? fallbackParsed : 12;
+    };
+    const hasItemsModalBsRemarksText = (value) =>
+      String(value || "")
+        .replace(/<br\s*\/?>/gi, " ")
+        .replace(/<[^>]*>/g, " ")
+        .replace(/&nbsp;|\u00a0/gi, " ")
+        .trim().length > 0;
+    const hydrateItemsModalBsRemarksFromModelIfNeeded = (metaInput = null) => {
+      const meta =
+        metaInput && typeof metaInput === "object"
+          ? metaInput
+          : (getInvoiceMeta() || {});
+      if (!meta || typeof meta !== "object") return false;
+
+      const docTypeValue = String(meta.docType || "").trim().toLowerCase();
+      if (docTypeValue !== "bs") return false;
+      if (isItemsModalEditMode()) return false;
+      if (String(meta.historyPath || meta.historyDocType || "").trim()) return false;
+
+      if (!meta.extras || typeof meta.extras !== "object") meta.extras = {};
+      if (!meta.extras.pdf || typeof meta.extras.pdf !== "object") meta.extras.pdf = {};
+      const pdfState = meta.extras.pdf;
+
+      const existingValue = String(pdfState.bsRemarks ?? "");
+      const touched = pdfState.bsRemarksTouched === true;
+      if (hasItemsModalBsRemarksText(existingValue) || touched) return false;
+
+      const modelName = sanitizeModelSeed(
+        meta.documentModelName ||
+          meta.docDialogModelName ||
+          meta.modelName ||
+          meta.modelKey ||
+          ""
+      );
+      if (!modelName) return false;
+      const modelConfig = resolveItemsModalModelConfigByName(modelName);
+      const modelPdf = modelConfig?.pdf && typeof modelConfig.pdf === "object" ? modelConfig.pdf : null;
+      const seededValue = typeof modelPdf?.bsRemarks === "string" ? modelPdf.bsRemarks : "";
+      if (!hasItemsModalBsRemarksText(seededValue)) return false;
+
+      pdfState.bsRemarks = seededValue;
+      pdfState.bsRemarksSize = normalizeItemsModalBsRemarksFontSize(
+        modelPdf?.bsRemarksSize,
+        pdfState.bsRemarksSize ?? 12
+      );
+      pdfState.bsRemarksTouched = false;
+      return true;
+    };
+    const syncItemsModalBsRemarksFromState = ({ hydrateFromModel = false } = {}) => {
+      const meta = getInvoiceMeta() || {};
+      if (!meta || typeof meta !== "object") return false;
+      if (hydrateFromModel) {
+        hydrateItemsModalBsRemarksFromModelIfNeeded(meta);
+      }
+      if (!meta.extras || typeof meta.extras !== "object") return false;
+      if (!meta.extras.pdf || typeof meta.extras.pdf !== "object") meta.extras.pdf = {};
+      const pdfState = meta.extras.pdf;
+
+      const value = String(pdfState.bsRemarks ?? "");
+      const size = normalizeItemsModalBsRemarksFontSize(pdfState.bsRemarksSize, 12);
+      pdfState.bsRemarksSize = size;
+
+      const hiddenInput = itemsDocOptionsModalContent?.querySelector?.("#bsRemarks") || getEl("bsRemarks");
+      if (hiddenInput && hiddenInput.value !== value) {
+        hiddenInput.value = value;
+      }
+
+      const sizeInput =
+        itemsDocOptionsModalContent?.querySelector?.("#bsRemarksFontSize") || getEl("bsRemarksFontSize");
+      if (sizeInput && sizeInput.value !== String(size)) {
+        sizeInput.value = String(size);
+      }
+
+      const setEditorContent = SEM?.__bindingHelpers?.setWhNoteEditorContent;
+      if (typeof setEditorContent === "function") {
+        setEditorContent(value, { group: "bsRemarksMain" });
+      } else {
+        const editor =
+          itemsDocOptionsModalContent?.querySelector?.("#bsRemarksEditor") || getEl("bsRemarksEditor");
+        if (editor) {
+          if (editor.innerHTML !== value) editor.innerHTML = value;
+          editor.dataset.empty = hasItemsModalBsRemarksText(value) ? "false" : "true";
         }
       }
       if (typeof SEM.updateAmountWordsBlock === "function") {
@@ -4596,6 +4990,7 @@
       const rowBottom = document.createElement("div");
       rowBottom.className = "section-row";
       let beReceptionBox = null;
+      let bsSortieBox = null;
 
       const renderDocMetaBox = () => {
         try {
@@ -4612,6 +5007,8 @@
         String(getInvoiceMeta()?.docType || getEl("docType")?.value || "facture").toLowerCase();
       const isBonEntreeDocType = (docTypeValue) =>
         String(docTypeValue || "").trim().toLowerCase() === "be";
+      const isBonSortieDocType = (docTypeValue) =>
+        String(docTypeValue || "").trim().toLowerCase() === "bs";
       const shouldUseVendorBox = (docTypeValue) => isPurchaseDocType(docTypeValue);
       const renderClientBox = (docTypeValue) => {
         try {
@@ -4689,11 +5086,13 @@
       };
       const syncHeaderRowsForDocType = (docTypeValue) => {
         const isBonEntree = isBonEntreeDocType(docTypeValue);
+        const isBonSortie = isBonSortieDocType(docTypeValue);
+        const isStockMovement = isBonEntree || isBonSortie;
         const activeClientBox =
           rowTop.querySelector(CLIENT_BOX_SELECTOR) || bePartyRow.querySelector(CLIENT_BOX_SELECTOR);
-        rowTop.classList.toggle("three", isBonEntree);
-        rowTop.classList.toggle("two", !isBonEntree);
-        rowTop.classList.toggle("items-options-modal__top-row--be", isBonEntree);
+        rowTop.classList.toggle("three", isStockMovement);
+        rowTop.classList.toggle("two", !isStockMovement);
+        rowTop.classList.toggle("items-options-modal__top-row--be", isStockMovement);
         if (activeClientBox) {
           if (activeClientBox.parentNode !== rowTop) {
             rowTop.appendChild(activeClientBox);
@@ -4706,6 +5105,15 @@
             rowTop.insertBefore(beReceptionBox, clientReference);
           } else if (beReceptionBox.parentNode !== bePartyRow) {
             bePartyRow.appendChild(beReceptionBox);
+          }
+        }
+        if (bsSortieBox) {
+          if (isBonSortie) {
+            const clientReference =
+              rowTop.querySelector(CLIENT_BOX_SELECTOR) || null;
+            rowTop.insertBefore(bsSortieBox, clientReference);
+          } else if (bsSortieBox.parentNode !== bePartyRow) {
+            bePartyRow.appendChild(bsSortieBox);
           }
         }
         bePartyRow.hidden = true;
@@ -4754,6 +5162,7 @@
         }
         const meta = getInvoiceMeta() || {};
         ensureItemsModalBeReceptionMeta(meta);
+        ensureItemsModalBsSortieMeta(meta);
         syncDocMetaBoxModelDefaults(docMetaBox);
         if (meta.historyPath) {
           syncDocMetaBoxFromState(docMetaBox);
@@ -4781,12 +5190,12 @@
           }
           invDateInput.addEventListener("input", () => {
             meta.date = String(invDateInput.value || "").trim();
-            syncItemsModalBeReceptionBoxFromState();
+            syncItemsModalStockMovementBoxesFromState();
           });
           invDateInput.addEventListener("change", () => {
             meta.date = String(invDateInput.value || "").trim();
             updateNumberFromDate(docMetaBox);
-            syncItemsModalBeReceptionBoxFromState();
+            syncItemsModalStockMovementBoxesFromState();
           });
         }
         const docTypeSelectModal = docMetaBox.querySelector("#docType");
@@ -4804,12 +5213,13 @@
           const meta = getInvoiceMeta() || {};
           meta.docType = String(docTypeSelectModal.value || meta.docType || "facture").toLowerCase();
           ensureItemsModalBeReceptionMeta(meta);
+          ensureItemsModalBsSortieMeta(meta);
           if (typeof w.syncDocTypeMenuUi === "function") {
             w.syncDocTypeMenuUi(meta.docType, { updateSelect: true });
           }
           void applyNextNumberToDocMetaBox(docMetaBox);
           swapClientBoxForDocType(meta.docType);
-          syncItemsModalBeReceptionBoxFromState();
+          syncItemsModalStockMovementBoxesFromState();
           void ensureItemsModalModelForDocType(docMetaBox, {
             docTypeValue: meta.docType,
             autoSelectFallback: true,
@@ -4842,6 +5252,11 @@
       if (beReceptionBox) {
         wireItemsModalBeReceptionBox(beReceptionBox);
         bePartyRow.appendChild(beReceptionBox);
+      }
+      bsSortieBox = renderItemsModalBsSortieBox();
+      if (bsSortieBox) {
+        wireItemsModalBsSortieBox(bsSortieBox);
+        bePartyRow.appendChild(bsSortieBox);
       }
       syncHeaderRowsForDocType(resolveDocTypeValue());
 
@@ -4877,7 +5292,7 @@
       if (rowBottom.childElementCount) fragment.appendChild(rowBottom);
       itemsDocOptionsModalContent.appendChild(fragment);
       syncHeaderRowsForDocType(resolveDocTypeValue());
-      syncItemsModalBeReceptionBoxFromState(beReceptionBox);
+      syncItemsModalStockMovementBoxesFromState();
       if (typeof w.syncDocTypeMenuUi === "function") {
         const meta = getInvoiceMeta() || {};
         const docTypeValue = String(
@@ -4918,7 +5333,7 @@
           SEM.renderItems();
         }
         syncDocMetaBoxFromState();
-        syncItemsModalBeReceptionBoxFromState();
+        syncItemsModalStockMovementBoxesFromState();
         applyItemsModalOptionalSectionsVisibility({
           modelName: sanitizeModelSeed(
             getInvoiceMeta()?.documentModelName ||
@@ -4946,7 +5361,7 @@
         if (typeof SEM?.applyColumnHiding === "function") {
           SEM.applyColumnHiding();
         }
-        syncItemsModalBeReceptionBoxFromState();
+        syncItemsModalStockMovementBoxesFromState();
         const modelName = sanitizeModelSeed(
           options.model ||
             getInvoiceMeta()?.documentModelName ||
@@ -5085,6 +5500,8 @@
         config: detail.config && typeof detail.config === "object" ? detail.config : null
       });
       syncItemsModalBeRemarksFromState({ hydrateFromModel: true });
+      syncItemsModalBsRemarksFromState({ hydrateFromModel: true });
+      syncItemsModalStockMovementBoxesFromState();
       syncDocMetaBoxFromState();
     });
 

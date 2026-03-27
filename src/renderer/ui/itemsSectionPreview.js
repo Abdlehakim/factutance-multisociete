@@ -155,6 +155,58 @@ export function renderItemsSectionPreview() {
         </div>
       </fieldset>
 
+      <fieldset id="itemsBsSortieBlock" class="section-box-pdf items-be-reception items-bs-sortie" hidden>
+        <legend>Informations de sortie</legend>
+        <div class="items-be-reception__grid">
+          <p class="pdf-small pdf-meta-line" id="itemsBsSortieDepotRow" hidden>
+            <span class="pdf-meta-label">D&eacute;p&ocirc;t / Magasin&nbsp;:</span>
+            <span class="pdf-meta-value is-empty" id="itemsBsSortieDepot">-</span>
+          </p>
+          <p class="pdf-small pdf-meta-line" id="itemsBsSortieDateRow" hidden>
+            <span class="pdf-meta-label">Date de sortie&nbsp;:</span>
+            <span class="pdf-meta-value is-empty" id="itemsBsSortieDate">-</span>
+          </p>
+          <p class="pdf-small pdf-meta-line" id="itemsBsSortieLocationRow" hidden>
+            <span class="pdf-meta-label">Emplacement de sortie&nbsp;:</span>
+            <span class="pdf-meta-value is-empty" id="itemsBsSortieLocation">-</span>
+          </p>
+          <p class="pdf-small pdf-meta-line" id="itemsBsSortieTimeRow" hidden>
+            <span class="pdf-meta-label">Heure&nbsp;:</span>
+            <span class="pdf-meta-value is-empty" id="itemsBsSortieTime">-</span>
+          </p>
+          <p class="pdf-small pdf-meta-line items-be-reception__row--wide" id="itemsBsSortieSourceRow" hidden>
+            <span class="pdf-meta-label">R&eacute;f&eacute;rence source&nbsp;:</span>
+            <span class="pdf-meta-value is-empty" id="itemsBsSortieSource">-</span>
+          </p>
+        </div>
+      </fieldset>
+
+      <fieldset id="itemsBsTransportBlock" class="section-box-pdf items-be-reception items-bs-transport" hidden>
+        <legend>Transport / exp&eacute;dition</legend>
+        <div class="items-be-reception__grid">
+          <p class="pdf-small pdf-meta-line" id="itemsBsTransporterRow" hidden>
+            <span class="pdf-meta-label">Transporteur&nbsp;:</span>
+            <span class="pdf-meta-value is-empty" id="itemsBsTransporter">-</span>
+          </p>
+          <p class="pdf-small pdf-meta-line" id="itemsBsDriverNameRow" hidden>
+            <span class="pdf-meta-label">Chauffeur&nbsp;:</span>
+            <span class="pdf-meta-value is-empty" id="itemsBsDriverName">-</span>
+          </p>
+          <p class="pdf-small pdf-meta-line" id="itemsBsVehiclePlateRow" hidden>
+            <span class="pdf-meta-label">Matricule v&eacute;hicule&nbsp;:</span>
+            <span class="pdf-meta-value is-empty" id="itemsBsVehiclePlate">-</span>
+          </p>
+          <p class="pdf-small pdf-meta-line" id="itemsBsTransportModeRow" hidden>
+            <span class="pdf-meta-label">Mode de transport&nbsp;:</span>
+            <span class="pdf-meta-value is-empty" id="itemsBsTransportMode">-</span>
+          </p>
+          <p class="pdf-small pdf-meta-line items-be-reception__row--wide" id="itemsBsExitReasonRow" hidden>
+            <span class="pdf-meta-label">Motif de sortie&nbsp;:</span>
+            <span class="pdf-meta-value is-empty" id="itemsBsExitReason">-</span>
+          </p>
+        </div>
+      </fieldset>
+
       <div class="table-wrap tabM">
         <table id="items">
           <thead>
@@ -350,6 +402,46 @@ export function renderItemsSectionPreview() {
             <strong
               class="items-be-approval__name"
               id="itemsBeValidatedBy"
+              data-default="Responsable stock"
+            >Responsable stock</strong>
+            <span class="items-be-approval__line"></span>
+          </div>
+        </div>
+      </div>
+
+      <div id="itemsBsBottomBlock" class="items-be-bottom items-bs-bottom" hidden>
+        <fieldset id="itemsBsRemarksBlock" class="section-box-pdf items-be-remarks-block items-bs-remarks-block" hidden>
+          <legend>Observation / Remarques</legend>
+          <div
+            id="itemsBsRemarks"
+            class="pdf-small items-be-remarks items-bs-remarks"
+            data-default=""
+          ></div>
+        </fieldset>
+        <div class="items-be-approvals items-bs-approvals" id="itemsBsApprovals" hidden>
+          <div class="items-be-approval items-bs-approval" id="itemsBsIssuedByBlock">
+            <span class="items-be-approval__label">SORTIE EFFECTU&Eacute;E PAR</span>
+            <strong
+              class="items-be-approval__name"
+              id="itemsBsIssuedBy"
+              data-default="Magasinier principal"
+            >Magasinier principal</strong>
+            <span class="items-be-approval__line"></span>
+          </div>
+          <div class="items-be-approval items-bs-approval" id="itemsBsCheckedByBlock">
+            <span class="items-be-approval__label">CONTR&Ocirc;L&Eacute; PAR</span>
+            <strong
+              class="items-be-approval__name"
+              id="itemsBsCheckedBy"
+              data-default="Responsable logistique"
+            >Responsable logistique</strong>
+            <span class="items-be-approval__line"></span>
+          </div>
+          <div class="items-be-approval items-bs-approval" id="itemsBsValidatedByBlock">
+            <span class="items-be-approval__label">VALID&Eacute; PAR</span>
+            <strong
+              class="items-be-approval__name"
+              id="itemsBsValidatedBy"
               data-default="Responsable stock"
             >Responsable stock</strong>
             <span class="items-be-approval__line"></span>

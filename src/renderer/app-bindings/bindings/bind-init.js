@@ -260,9 +260,16 @@
       const beRemarksSize =
         normalizeWhNoteFontSize(pdfOptions.beRemarksSize) ?? WH_NOTE_DEFAULT_FONT_SIZE;
       const beRemarksTouched = pdfOptions.beRemarksTouched === true;
+      const bsRemarksValue = String(pdfOptions.bsRemarks ?? "");
+      const bsRemarksSize =
+        normalizeWhNoteFontSize(pdfOptions.bsRemarksSize) ?? WH_NOTE_DEFAULT_FONT_SIZE;
+      const bsRemarksTouched = pdfOptions.bsRemarksTouched === true;
       setVal("beRemarks", beRemarksValue);
       setVal("beRemarksFontSize", String(beRemarksSize));
       setWhNoteEditorContent(beRemarksValue, { group: "beRemarksMain" });
+      setVal("bsRemarks", bsRemarksValue);
+      setVal("bsRemarksFontSize", String(bsRemarksSize));
+      setWhNoteEditorContent(bsRemarksValue, { group: "bsRemarksMain" });
       if (st.meta?.extras?.pdf && typeof st.meta.extras.pdf === "object") {
         st.meta.extras.pdf.beRemarks = beRemarksValue;
         st.meta.extras.pdf.beRemarksSize = beRemarksSize;
@@ -270,6 +277,15 @@
           typeof pdfOptions.beRemarksTouched === "boolean"
             ? beRemarksTouched
             : !!String(beRemarksValue || "")
+                .replace(/<br\s*\/?>/gi, " ")
+                .replace(/<[^>]*>/g, "")
+                .trim();
+        st.meta.extras.pdf.bsRemarks = bsRemarksValue;
+        st.meta.extras.pdf.bsRemarksSize = bsRemarksSize;
+        st.meta.extras.pdf.bsRemarksTouched =
+          typeof pdfOptions.bsRemarksTouched === "boolean"
+            ? bsRemarksTouched
+            : !!String(bsRemarksValue || "")
                 .replace(/<br\s*\/?>/gi, " ")
                 .replace(/<[^>]*>/g, "")
                 .trim();

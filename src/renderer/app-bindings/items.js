@@ -1822,6 +1822,10 @@
     const beRemarksSection = getItemsScopedEl("itemsBeRemarksBlock");
     const beRemarksHost = getItemsScopedEl("itemsBeRemarks");
     const beApprovalsHost = getItemsScopedEl("itemsBeApprovals");
+    const bsBottomHost = getItemsScopedEl("itemsBsBottomBlock");
+    const bsRemarksSection = getItemsScopedEl("itemsBsRemarksBlock");
+    const bsRemarksHost = getItemsScopedEl("itemsBsRemarks");
+    const bsApprovalsHost = getItemsScopedEl("itemsBsApprovals");
     if (
       !amountWordsHost &&
       !summaryNoteHost &&
@@ -1831,7 +1835,10 @@
       !signatureOverlay &&
       !beBottomHost &&
       !beRemarksHost &&
-      !beApprovalsHost
+      !beApprovalsHost &&
+      !bsBottomHost &&
+      !bsRemarksHost &&
+      !bsApprovalsHost
     ) {
       return;
     }
@@ -1887,10 +1894,12 @@
     const currency = totals?.currency || meta?.currency || "DT";
     const docType = normalizeDocType(meta?.docType || getStr("docType", "facture"));
     const isBonEntreeDocType = docType === "be";
+    const isBonSortieDocType = docType === "bs";
+    const isStockMovementDocType = isBonEntreeDocType || isBonSortieDocType;
 
     const showWordsByType =
       docType === "facture" || docType === "fa" || docType === "devis" || docType === "bl";
-    const showWords = !isBonEntreeDocType && showWordsByType && showAmountWords && docType !== "bc";
+    const showWords = !isStockMovementDocType && showWordsByType && showAmountWords && docType !== "bc";
     const wordsHeader =
       docType === "devis"   ? "Arr&ecirc;t&eacute; le pr&eacute;sent devis &agrave; la somme de&nbsp;:"
     : docType === "facture" ? "Arr&ecirc;t&eacute;e la pr&eacute;sente facture &agrave; la somme de&nbsp;:"
@@ -1914,14 +1923,14 @@
 
     const formattedNotes = formatNoteHTML(st?.notes);
     const notesHTML =
-      !isBonEntreeDocType && formattedNotes
+      !isStockMovementDocType && formattedNotes
         ? `<div class="pdf-notes">
              <div class="pdf-notes-title"><span style="font-weight:600">Notes&nbsp;:</span>${formattedNotes}</div>
            </div>`
         : "";
 
     const amountWordsBlock =
-      !isBonEntreeDocType && (showWords || notesHTML)
+      !isStockMovementDocType && (showWords || notesHTML)
         ? `<div class="pdf-amount-words">
              ${showWords ? `${wordsHeaderFinal}<br/><strong>${escapeHTML(wordsTgtText)}</strong>` : ""}
              ${notesHTML}
@@ -1937,7 +1946,7 @@
     const whNoteValue = meta?.withholding?.note;
     const safeWhNote = formatNoteHTML(whNoteValue);
     const summaryNoteContent =
-      !isBonEntreeDocType && hasTextContent(safeWhNote) ? safeWhNote : "";
+      !isStockMovementDocType && hasTextContent(safeWhNote) ? safeWhNote : "";
     if (summaryNoteHost) {
       summaryNoteHost.innerHTML = summaryNoteContent;
       summaryNoteHost.hidden = !summaryNoteContent;
@@ -1956,7 +1965,7 @@
     const footerNoteSize = normalizeFooterNoteFontSize(footerNoteSizeRaw);
     const footerNoteHTML = hasVal(footerNoteRaw) ? formatFooterNoteHTML(footerNoteRaw) : "";
     const footerNoteContent =
-      !isBonEntreeDocType && hasTextContent(footerNoteHTML) ? footerNoteHTML : "";
+      !isStockMovementDocType && hasTextContent(footerNoteHTML) ? footerNoteHTML : "";
     if (footerNoteHost) {
       footerNoteHost.innerHTML = footerNoteContent;
       footerNoteHost.style.fontSize = `${footerNoteSize}px`;
@@ -2036,11 +2045,95 @@
       }
       setNodeVisibility(beApprovalsHost, visibleApprovalCount > 0);
       setNodeVisibility(beBottomHost, hasTextContent(remarksHtml) || visibleApprovalCount > 0);
-    } else {
+      if (bsApprovalsHost) delete bsApprovalsHost.dataset.visibleCount;
+      setNodeVisibility(bsRemarksSection, false);
+      setNodeVisibility(bsApprovalsHost, false);
+      setNodeVisibility(bsBottomHost, false);
+    } else if (isBonSortieDocType) {
+      const remarksRaw =
+        pdfOptions.bsRemarks ??
+        meta?.pdf?.bsRemarks ??
+        meta?.bsRemarks ??
+        "";
+      const remarksSource = resolveTextValue(remarksRaw);
+      const remarksBaseHtml = hasVal(remarksSource) ? formatFooterNoteHTML(remarksSource) : "";
+      const remarksSize =
+        normalizeWhNoteFontSize(
+          pdfOptions.bsRemarksSize ??
+            meta?.pdf?.bsRemarksSize ??
+            meta?.bsRemarksSize
+        ) ?? WH_NOTE_DEFAULT_FONT_SIZE;
+      const remarksHtml = hasTextContent(remarksBaseHtml)
+        ? ensureWhNoteSizeWrapper(remarksBaseHtml, remarksSize)
+        : "";
+      if (bsRemarksHost) {
+        bsRemarksHost.innerHTML = remarksHtml;
+      }
+      setNodeVisibility(bsRemarksSection, hasTextContent(remarksHtml));
+
+      const approvalConfig = [
+        {
+          showKey: "showBsIssuedBy",
+          blockId: "itemsBsIssuedByBlock",
+          nameId: "itemsBsIssuedBy",
+          keys: ["bsIssuedByName", "issuedByName", "bsIssuedBy", "issuedBy"],
+          metaKeys: ["bsIssuedByName", "issuedByName", "bsIssuedBy", "issuedBy"]
+        },
+        {
+          showKey: "showBsCheckedBy",
+          blockId: "itemsBsCheckedByBlock",
+          nameId: "itemsBsCheckedBy",
+          keys: ["bsCheckedByName", "checkedByName", "bsCheckedBy", "checkedBy"],
+          metaKeys: ["bsCheckedByName", "checkedByName", "bsCheckedBy", "checkedBy"]
+        },
+        {
+          showKey: "showBsValidatedBy",
+          blockId: "itemsBsValidatedByBlock",
+          nameId: "itemsBsValidatedBy",
+          keys: ["bsValidatedByName", "validatedByName", "bsValidatedBy", "validatedBy"],
+          metaKeys: ["bsValidatedByName", "validatedByName", "bsValidatedBy", "validatedBy"]
+        }
+      ];
+      let visibleApprovalCount = 0;
+      approvalConfig.forEach((entry) => {
+        const block = getItemsScopedEl(entry.blockId);
+        const nameNode = getItemsScopedEl(entry.nameId);
+        const resolvedName = resolveTextValue(
+          ...entry.keys.map((key) => pdfOptions?.[key]),
+          ...entry.keys.map((key) => modelPdfOptions?.[key]),
+          ...entry.metaKeys.map((key) => meta?.[key])
+        );
+        if (nameNode) {
+          const fallbackName = String(nameNode.dataset?.default || nameNode.textContent || "").trim();
+          nameNode.textContent = resolvedName || fallbackName || "-";
+          nameNode.classList.toggle("is-empty", !(resolvedName || fallbackName));
+        }
+        const show = resolvePdfOption(entry.showKey, true) !== false;
+        setNodeVisibility(block, show);
+        if (show) visibleApprovalCount += 1;
+      });
+      if (bsApprovalsHost) {
+        if (visibleApprovalCount > 0) {
+          bsApprovalsHost.dataset.visibleCount = String(visibleApprovalCount);
+        } else {
+          delete bsApprovalsHost.dataset.visibleCount;
+        }
+      }
+      setNodeVisibility(bsApprovalsHost, visibleApprovalCount > 0);
+      setNodeVisibility(bsBottomHost, hasTextContent(remarksHtml) || visibleApprovalCount > 0);
       if (beApprovalsHost) delete beApprovalsHost.dataset.visibleCount;
       setNodeVisibility(beRemarksSection, false);
       setNodeVisibility(beApprovalsHost, false);
       setNodeVisibility(beBottomHost, false);
+    } else {
+      if (beApprovalsHost) delete beApprovalsHost.dataset.visibleCount;
+      if (bsApprovalsHost) delete bsApprovalsHost.dataset.visibleCount;
+      setNodeVisibility(beRemarksSection, false);
+      setNodeVisibility(beApprovalsHost, false);
+      setNodeVisibility(beBottomHost, false);
+      setNodeVisibility(bsRemarksSection, false);
+      setNodeVisibility(bsApprovalsHost, false);
+      setNodeVisibility(bsBottomHost, false);
     }
 
     const company = st?.company || {};
@@ -2049,7 +2142,7 @@
 
     if (sealOverlay && sealImg) {
       const sealSrc = seal?.enabled && typeof seal?.image === "string" ? seal.image : "";
-      if (!isBonEntreeDocType && showSeal && sealSrc) {
+      if (!isStockMovementDocType && showSeal && sealSrc) {
         if (sealImg.getAttribute("src") !== sealSrc) sealImg.setAttribute("src", sealSrc);
         const rotation = Number(seal?.rotateDeg);
         sealImg.style.transform = Number.isFinite(rotation) ? `rotate(${rotation}deg)` : "";
@@ -2072,7 +2165,7 @@
 
     if (signatureOverlay && signatureImg) {
       const signatureSrc = signature?.enabled && typeof signature?.image === "string" ? signature.image : "";
-      if (!isBonEntreeDocType && showSignature && signatureSrc) {
+      if (!isStockMovementDocType && showSignature && signatureSrc) {
         if (signatureImg.getAttribute("src") !== signatureSrc) signatureImg.setAttribute("src", signatureSrc);
         const rotation = Number(signature?.rotateDeg);
         signatureImg.style.transform = Number.isFinite(rotation) ? `rotate(${rotation}deg)` : "";
@@ -2093,7 +2186,7 @@
       }
     }
 
-    setNodeVisibility(footerHost, !isBonEntreeDocType);
+    setNodeVisibility(footerHost, !isStockMovementDocType);
   };
 
   const shouldSkipMainscreenAddFormUpdate = () => {

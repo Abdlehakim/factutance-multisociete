@@ -459,6 +459,31 @@
     }
     return normalized;
   };
+  const normalizeBonSortieMeta = (rawValue = {}, meta = {}) => {
+    const raw = rawValue && typeof rawValue === "object" ? rawValue : {};
+    const docType = String(meta?.docType || "").trim().toLowerCase();
+    const normalized = {
+      depot: String(raw.depot ?? raw.depotName ?? raw.magasin ?? meta?.bsDepot ?? "").trim(),
+      location: String(raw.location ?? raw.emplacement ?? raw.destination ?? meta?.bsLocation ?? "").trim(),
+      date: String(raw.date ?? raw.sortieDate ?? raw.movementDate ?? meta?.bsSortieDate ?? "").trim(),
+      time: String(raw.time ?? raw.sortieTime ?? raw.movementTime ?? meta?.bsSortieTime ?? "").trim(),
+      sourceRef: String(raw.sourceRef ?? raw.referenceSource ?? raw.source ?? meta?.bsSourceRef ?? "").trim(),
+      transporter: String(raw.transporter ?? raw.transporteur ?? meta?.bsTransporter ?? "").trim(),
+      driverName: String(raw.driverName ?? raw.chauffeur ?? meta?.bsDriverName ?? "").trim(),
+      vehiclePlate: String(raw.vehiclePlate ?? raw.vehicle ?? raw.matriculeVehicule ?? meta?.bsVehiclePlate ?? "").trim(),
+      transportMode: String(raw.transportMode ?? raw.modeTransport ?? meta?.bsTransportMode ?? "").trim(),
+      exitReason: String(raw.exitReason ?? raw.reason ?? raw.motifSortie ?? meta?.bsExitReason ?? "").trim()
+    };
+    if (docType === "bs") {
+      if (!normalized.date) {
+        normalized.date = String(meta?.date || "").trim() || new Date().toISOString().slice(0, 10);
+      }
+      if (!normalized.time) {
+        normalized.time = formatReceptionTimeValue();
+      }
+    }
+    return normalized;
+  };
 
   function normalizeInvoiceMeta(metaInput, options = {}) {
     const { refreshDates = false } = options;
@@ -557,6 +582,20 @@
       meta.beReception ?? baseMeta.beReception,
       meta
     );
+    meta.bsSortie = normalizeBonSortieMeta(
+      meta.bsSortie ?? baseMeta.bsSortie,
+      meta
+    );
+    meta.bsDepot = meta.bsSortie.depot;
+    meta.bsLocation = meta.bsSortie.location;
+    meta.bsSortieDate = meta.bsSortie.date;
+    meta.bsSortieTime = meta.bsSortie.time;
+    meta.bsSourceRef = meta.bsSortie.sourceRef;
+    meta.bsTransporter = meta.bsSortie.transporter;
+    meta.bsDriverName = meta.bsSortie.driverName;
+    meta.bsVehiclePlate = meta.bsSortie.vehiclePlate;
+    meta.bsTransportMode = meta.bsSortie.transportMode;
+    meta.bsExitReason = meta.bsSortie.exitReason;
 
     meta.extras = {
       shipping: { ...shippingDefaults, ...(baseExtras.shipping || {}), ...(inputExtras.shipping || {}) },
@@ -1181,6 +1220,83 @@
         .trim();
       pdf.beRemarksTouched = !!remarksText;
     }
+    const bsRemarksCandidates = [];
+    if (typeof document !== "undefined" && document.querySelectorAll) {
+      document.querySelectorAll("#bsRemarks").forEach((el) => {
+        const val = (el && typeof el.value === "string") ? el.value.trim() : "";
+        if (val) bsRemarksCandidates.push(val);
+      });
+    }
+    const bsRemarksValue = bsRemarksCandidates[0] || getStr("bsRemarks", pdf.bsRemarks ?? "");
+    const bsRemarksSizeRaw = getStr("bsRemarksFontSize", pdf.bsRemarksSize ?? 12);
+    const bsRemarksSizeNum = Number.parseInt(bsRemarksSizeRaw, 10);
+    const bsRemarksSize = Number.isFinite(bsRemarksSizeNum) ? bsRemarksSizeNum : 12;
+    pdf.bsRemarks = bsRemarksValue;
+    pdf.bsRemarksSize = bsRemarksSize;
+    if (typeof pdf.bsRemarksTouched !== "boolean") {
+      const remarksText = String(bsRemarksValue || "")
+        .replace(/<br\s*\/?>/gi, " ")
+        .replace(/<[^>]*>/g, "")
+        .trim();
+      pdf.bsRemarksTouched = !!remarksText;
+    }
+
+    st.meta.bsSortie = normalizeBonSortieMeta(
+      {
+        ...(st.meta.bsSortie && typeof st.meta.bsSortie === "object" ? st.meta.bsSortie : {}),
+        depot: getStr(
+          "bsSortieDepotInput",
+          st.meta.bsSortie?.depot ?? st.meta.bsDepot ?? ""
+        ),
+        location: getStr(
+          "bsSortieLocationInput",
+          st.meta.bsSortie?.location ?? st.meta.bsLocation ?? ""
+        ),
+        date: getStr(
+          "bsSortieDateInput",
+          st.meta.bsSortie?.date ?? st.meta.bsSortieDate ?? ""
+        ),
+        time: getStr(
+          "bsSortieTimeInput",
+          st.meta.bsSortie?.time ?? st.meta.bsSortieTime ?? ""
+        ),
+        sourceRef: getStr(
+          "bsSortieSourceInput",
+          st.meta.bsSortie?.sourceRef ?? st.meta.bsSourceRef ?? ""
+        ),
+        transporter: getStr(
+          "bsTransporterInput",
+          st.meta.bsSortie?.transporter ?? st.meta.bsTransporter ?? ""
+        ),
+        driverName: getStr(
+          "bsDriverNameInput",
+          st.meta.bsSortie?.driverName ?? st.meta.bsDriverName ?? ""
+        ),
+        vehiclePlate: getStr(
+          "bsVehiclePlateInput",
+          st.meta.bsSortie?.vehiclePlate ?? st.meta.bsVehiclePlate ?? ""
+        ),
+        transportMode: getStr(
+          "bsTransportModeInput",
+          st.meta.bsSortie?.transportMode ?? st.meta.bsTransportMode ?? ""
+        ),
+        exitReason: getStr(
+          "bsExitReasonInput",
+          st.meta.bsSortie?.exitReason ?? st.meta.bsExitReason ?? ""
+        )
+      },
+      st.meta
+    );
+    st.meta.bsDepot = st.meta.bsSortie.depot;
+    st.meta.bsLocation = st.meta.bsSortie.location;
+    st.meta.bsSortieDate = st.meta.bsSortie.date;
+    st.meta.bsSortieTime = st.meta.bsSortie.time;
+    st.meta.bsSourceRef = st.meta.bsSortie.sourceRef;
+    st.meta.bsTransporter = st.meta.bsSortie.transporter;
+    st.meta.bsDriverName = st.meta.bsSortie.driverName;
+    st.meta.bsVehiclePlate = st.meta.bsSortie.vehiclePlate;
+    st.meta.bsTransportMode = st.meta.bsSortie.transportMode;
+    st.meta.bsExitReason = st.meta.bsSortie.exitReason;
 
     s.enabled = !!getEl("shipEnabled")?.checked;
     s.label   = getStr("shipLabel", s.label || "Frais de livraison");

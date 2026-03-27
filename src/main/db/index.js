@@ -2273,6 +2273,29 @@ const normalizeBonEntreeReceptionMetaForStorage = (meta = {}, normalizedDocType 
   return normalized;
 };
 
+const normalizeBonSortieMetaForStorage = (meta = {}, normalizedDocType = "") => {
+  const safeMeta = meta && typeof meta === "object" ? meta : {};
+  const raw = safeMeta.bsSortie && typeof safeMeta.bsSortie === "object" ? safeMeta.bsSortie : {};
+  const normalized = {
+    depot: String(raw.depot ?? raw.depotName ?? raw.magasin ?? safeMeta.bsDepot ?? "").trim(),
+    location: String(raw.location ?? raw.emplacement ?? raw.destination ?? safeMeta.bsLocation ?? "").trim(),
+    date: String(raw.date ?? raw.sortieDate ?? raw.movementDate ?? safeMeta.bsSortieDate ?? "").trim(),
+    time: String(raw.time ?? raw.sortieTime ?? raw.movementTime ?? safeMeta.bsSortieTime ?? "").trim(),
+    sourceRef: String(raw.sourceRef ?? raw.referenceSource ?? raw.source ?? safeMeta.bsSourceRef ?? "").trim(),
+    transporter: String(raw.transporter ?? raw.transporteur ?? safeMeta.bsTransporter ?? "").trim(),
+    driverName: String(raw.driverName ?? raw.chauffeur ?? safeMeta.bsDriverName ?? "").trim(),
+    vehiclePlate: String(raw.vehiclePlate ?? raw.vehicle ?? raw.matriculeVehicule ?? safeMeta.bsVehiclePlate ?? "").trim(),
+    transportMode: String(raw.transportMode ?? raw.modeTransport ?? safeMeta.bsTransportMode ?? "").trim(),
+    exitReason: String(raw.exitReason ?? raw.reason ?? raw.motifSortie ?? safeMeta.bsExitReason ?? "").trim()
+  };
+  if (String(normalizedDocType || "").trim().toLowerCase() === "bs") {
+    if (!normalized.date) {
+      normalized.date = String(safeMeta.date || "").trim();
+    }
+  }
+  return normalized;
+};
+
 const serializeOptionalJsonValue = (value) => {
   if (value === undefined || value === null) return null;
   if (Array.isArray(value) && !value.length) return null;
@@ -2307,6 +2330,7 @@ const normalizeDocumentPayload = (payload = {}, { docType = "" } = {}) => {
   const meta = data.meta && typeof data.meta === "object" ? data.meta : {};
   const normalizedDocType = normalizeDocType(meta.docType || docType || "facture");
   const isBonEntreeDoc = normalizedDocType === "be";
+  const isBonSortieDoc = normalizedDocType === "bs";
   const isSupplierDoc = normalizedDocType === "fa" || normalizedDocType === "bc" || normalizedDocType === "be";
   const totals = data.totals && typeof data.totals === "object" ? data.totals : {};
   const itemsRaw = Array.isArray(data.items) ? data.items : [];
@@ -2342,6 +2366,7 @@ const normalizeDocumentPayload = (payload = {}, { docType = "" } = {}) => {
   const addForm = meta.addForm && typeof meta.addForm === "object" ? meta.addForm : {};
   const addFormFodec = addForm.fodec && typeof addForm.fodec === "object" ? addForm.fodec : {};
   const beReception = normalizeBonEntreeReceptionMetaForStorage(meta, normalizedDocType);
+  const bsSortie = normalizeBonSortieMetaForStorage(meta, normalizedDocType);
   const beSourceSelection =
     beReception.sourceSelection && typeof beReception.sourceSelection === "object"
       ? beReception.sourceSelection
@@ -2449,6 +2474,31 @@ const normalizeDocumentPayload = (payload = {}, { docType = "" } = {}) => {
     meta_pdf_be_remarks_touched: isBonEntreeDoc
       ? normalizeOptionalBool(pdf.beRemarksTouched)
       : undefined,
+    meta_pdf_bs_remarks: isBonSortieDoc ? normalizeOptionalText(pdf.bsRemarks) : undefined,
+    meta_pdf_bs_remarks_size: isBonSortieDoc
+      ? normalizeOptionalNumber(pdf.bsRemarksSize)
+      : undefined,
+    meta_pdf_bs_remarks_touched: isBonSortieDoc
+      ? normalizeOptionalBool(pdf.bsRemarksTouched)
+      : undefined,
+    meta_pdf_show_bs_issued_by: isBonSortieDoc
+      ? normalizeOptionalBool(pdf.showBsIssuedBy)
+      : undefined,
+    meta_pdf_show_bs_checked_by: isBonSortieDoc
+      ? normalizeOptionalBool(pdf.showBsCheckedBy)
+      : undefined,
+    meta_pdf_show_bs_validated_by: isBonSortieDoc
+      ? normalizeOptionalBool(pdf.showBsValidatedBy)
+      : undefined,
+    meta_pdf_bs_issued_by_name: isBonSortieDoc
+      ? normalizeOptionalText(pdf.bsIssuedByName ?? pdf.issuedByName)
+      : undefined,
+    meta_pdf_bs_checked_by_name: isBonSortieDoc
+      ? normalizeOptionalText(pdf.bsCheckedByName ?? pdf.checkedByName)
+      : undefined,
+    meta_pdf_bs_validated_by_name: isBonSortieDoc
+      ? normalizeOptionalText(pdf.bsValidatedByName ?? pdf.validatedByName)
+      : undefined,
     meta_taxes_enabled: normalizeOptionalBool(meta.taxesEnabled),
     meta_note_interne: normalizeOptionalText(meta.noteInterne),
     meta_reglement_enabled: normalizeOptionalBool(meta.reglementEnabled ?? reglement.enabled),
@@ -2539,6 +2589,26 @@ const normalizeDocumentPayload = (payload = {}, { docType = "" } = {}) => {
       ? serializeOptionalJsonValue(
           normalizeBeReceptionImportedSourceKeys(beReception.importedSourceKeys, beSourceSelection)
         )
+      : undefined,
+    meta_bs_sortie_depot: isBonSortieDoc ? normalizeOptionalText(bsSortie.depot) : undefined,
+    meta_bs_sortie_location: isBonSortieDoc ? normalizeOptionalText(bsSortie.location) : undefined,
+    meta_bs_sortie_date: isBonSortieDoc ? normalizeOptionalText(bsSortie.date) : undefined,
+    meta_bs_sortie_time: isBonSortieDoc ? normalizeOptionalText(bsSortie.time) : undefined,
+    meta_bs_sortie_source_ref: isBonSortieDoc ? normalizeOptionalText(bsSortie.sourceRef) : undefined,
+    meta_bs_sortie_transporter: isBonSortieDoc
+      ? normalizeOptionalText(bsSortie.transporter)
+      : undefined,
+    meta_bs_sortie_driver_name: isBonSortieDoc
+      ? normalizeOptionalText(bsSortie.driverName)
+      : undefined,
+    meta_bs_sortie_vehicle_plate: isBonSortieDoc
+      ? normalizeOptionalText(bsSortie.vehiclePlate)
+      : undefined,
+    meta_bs_sortie_transport_mode: isBonSortieDoc
+      ? normalizeOptionalText(bsSortie.transportMode)
+      : undefined,
+    meta_bs_sortie_exit_reason: isBonSortieDoc
+      ? normalizeOptionalText(bsSortie.exitReason)
       : undefined,
     meta_col_ref: normalizeOptionalBool(normalizedColumns.ref),
     meta_col_product: normalizeOptionalBool(normalizedColumns.product),
@@ -2901,7 +2971,16 @@ const buildDocumentPayloadFromRow = (row = {}, items = [], taxRows = []) => {
         footerNoteSize: readNumberValue(row.meta_pdf_footer_note_size),
         beRemarks: readTextValue(row.meta_pdf_be_remarks),
         beRemarksSize: readNumberValue(row.meta_pdf_be_remarks_size),
-        beRemarksTouched: readBoolValue(row.meta_pdf_be_remarks_touched)
+        beRemarksTouched: readBoolValue(row.meta_pdf_be_remarks_touched),
+        bsRemarks: readTextValue(row.meta_pdf_bs_remarks),
+        bsRemarksSize: readNumberValue(row.meta_pdf_bs_remarks_size),
+        bsRemarksTouched: readBoolValue(row.meta_pdf_bs_remarks_touched),
+        showBsIssuedBy: readBoolValue(row.meta_pdf_show_bs_issued_by),
+        showBsCheckedBy: readBoolValue(row.meta_pdf_show_bs_checked_by),
+        showBsValidatedBy: readBoolValue(row.meta_pdf_show_bs_validated_by),
+        bsIssuedByName: readTextValue(row.meta_pdf_bs_issued_by_name),
+        bsCheckedByName: readTextValue(row.meta_pdf_bs_checked_by_name),
+        bsValidatedByName: readTextValue(row.meta_pdf_bs_validated_by_name)
       }
     },
     addForm: {
@@ -2967,6 +3046,46 @@ const buildDocumentPayloadFromRow = (row = {}, items = [], taxRows = []) => {
     meta.beSourceRef = beReception.sourceRef;
     meta.beSourceSelection = beReception.sourceSelection;
     meta.beSourceImportedKeys = [...beReception.importedSourceKeys];
+  }
+  const bsSortie = {
+    depot: readTextValue(row.meta_bs_sortie_depot),
+    location: readTextValue(row.meta_bs_sortie_location),
+    date: readTextValue(row.meta_bs_sortie_date),
+    time: readTextValue(row.meta_bs_sortie_time),
+    sourceRef: readTextValue(row.meta_bs_sortie_source_ref),
+    transporter: readTextValue(row.meta_bs_sortie_transporter),
+    driverName: readTextValue(row.meta_bs_sortie_driver_name),
+    vehiclePlate: readTextValue(row.meta_bs_sortie_vehicle_plate),
+    transportMode: readTextValue(row.meta_bs_sortie_transport_mode),
+    exitReason: readTextValue(row.meta_bs_sortie_exit_reason)
+  };
+  if (normalizedDocType === "bs" && !bsSortie.date) {
+    bsSortie.date = readTextValue(row.meta_date);
+  }
+  const hasBsSortieData = !!(
+    bsSortie.depot ||
+    bsSortie.location ||
+    bsSortie.date ||
+    bsSortie.time ||
+    bsSortie.sourceRef ||
+    bsSortie.transporter ||
+    bsSortie.driverName ||
+    bsSortie.vehiclePlate ||
+    bsSortie.transportMode ||
+    bsSortie.exitReason
+  );
+  if (normalizedDocType === "bs" || hasBsSortieData) {
+    meta.bsSortie = bsSortie;
+    meta.bsDepot = bsSortie.depot;
+    meta.bsLocation = bsSortie.location;
+    meta.bsSortieDate = bsSortie.date;
+    meta.bsSortieTime = bsSortie.time;
+    meta.bsSourceRef = bsSortie.sourceRef;
+    meta.bsTransporter = bsSortie.transporter;
+    meta.bsDriverName = bsSortie.driverName;
+    meta.bsVehiclePlate = bsSortie.vehiclePlate;
+    meta.bsTransportMode = bsSortie.transportMode;
+    meta.bsExitReason = bsSortie.exitReason;
   }
   if (hasAnyValue(rawColumns)) {
     meta.columns = columns;

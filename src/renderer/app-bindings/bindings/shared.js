@@ -71,6 +71,15 @@
       boldId: "bsRemarksBoldModal",
       italicId: "bsRemarksItalicModal",
       listId: "bsRemarksListModal"
+    },
+    bsRemarksMain: {
+      boxId: "bsRemarksNoteBox",
+      hiddenId: "bsRemarks",
+      editorId: "bsRemarksEditor",
+      sizeId: "bsRemarksFontSize",
+      boldId: "bsRemarksBold",
+      italicId: "bsRemarksItalic",
+      listId: "bsRemarksList"
     }
   };
   const resolveWhNoteGroups = (target) => {
@@ -444,6 +453,7 @@
     address: "itemsClientAddress"
   };
   const SUPPLIER_PARTY_DOC_TYPES = new Set(["fa", "bc", "be"]);
+  const DESTINATION_PARTY_DOC_TYPES = new Set(["bs"]);
   const isSupplierPartyDocType = (docType = state().meta?.docType) =>
     SUPPLIER_PARTY_DOC_TYPES.has(String(docType || "").trim().toLowerCase());
   const resolveItemsPartyCodeLabel = (docType = state().meta?.docType) =>
@@ -786,6 +796,84 @@
   }
   SEM.refreshBonEntreeReceptionSummary = refreshBonEntreeReceptionSummary;
 
+  const normalizeItemsBsSortieMeta = (metaInput = null) => {
+    const meta =
+      metaInput && typeof metaInput === "object"
+        ? metaInput
+        : (state().meta || (state().meta = {}));
+    const raw = meta.bsSortie && typeof meta.bsSortie === "object" ? meta.bsSortie : {};
+    const docType = String(meta.docType || "").trim().toLowerCase();
+    const normalized = {
+      depot: String(raw.depot ?? raw.depotName ?? raw.magasin ?? meta.bsDepot ?? "").trim(),
+      location: String(raw.location ?? raw.emplacement ?? raw.destination ?? meta.bsLocation ?? "").trim(),
+      date: String(raw.date ?? raw.sortieDate ?? raw.movementDate ?? meta.bsSortieDate ?? "").trim(),
+      time: String(raw.time ?? raw.sortieTime ?? raw.movementTime ?? meta.bsSortieTime ?? "").trim(),
+      sourceRef: String(raw.sourceRef ?? raw.referenceSource ?? raw.source ?? meta.bsSourceRef ?? "").trim(),
+      transporter: String(raw.transporter ?? raw.transporteur ?? meta.bsTransporter ?? "").trim(),
+      driverName: String(raw.driverName ?? raw.chauffeur ?? meta.bsDriverName ?? "").trim(),
+      vehiclePlate: String(raw.vehiclePlate ?? raw.vehicle ?? raw.matriculeVehicule ?? meta.bsVehiclePlate ?? "").trim(),
+      transportMode: String(raw.transportMode ?? raw.modeTransport ?? meta.bsTransportMode ?? "").trim(),
+      exitReason: String(raw.exitReason ?? raw.reason ?? raw.motifSortie ?? meta.bsExitReason ?? "").trim()
+    };
+    if (docType === "bs" && !normalized.date) {
+      normalized.date = String(meta.date || "").trim() || new Date().toISOString().slice(0, 10);
+    }
+    meta.bsSortie = normalized;
+    return normalized;
+  };
+  function refreshBonSortieSummary() {
+    const meta = state().meta || (state().meta = {});
+    const sortieBlock = getEl("itemsBsSortieBlock");
+    const transportBlock = getEl("itemsBsTransportBlock");
+    if (!sortieBlock && !transportBlock) return;
+    const isBonSortie = String(meta.docType || "facture").trim().toLowerCase() === "bs";
+    const sortie = normalizeItemsBsSortieMeta(meta);
+    const sortieFields = [
+      ["depot", "itemsBsSortieDepotRow", "itemsBsSortieDepot"],
+      ["location", "itemsBsSortieLocationRow", "itemsBsSortieLocation"],
+      ["date", "itemsBsSortieDateRow", "itemsBsSortieDate"],
+      ["time", "itemsBsSortieTimeRow", "itemsBsSortieTime"],
+      ["sourceRef", "itemsBsSortieSourceRow", "itemsBsSortieSource"]
+    ];
+    const transportFields = [
+      ["transporter", "itemsBsTransporterRow", "itemsBsTransporter"],
+      ["driverName", "itemsBsDriverNameRow", "itemsBsDriverName"],
+      ["vehiclePlate", "itemsBsVehiclePlateRow", "itemsBsVehiclePlate"],
+      ["transportMode", "itemsBsTransportModeRow", "itemsBsTransportMode"],
+      ["exitReason", "itemsBsExitReasonRow", "itemsBsExitReason"]
+    ];
+    let visibleSortieCount = 0;
+    let visibleTransportCount = 0;
+    const renderField = ([key, rowId, valueId], incrementCounter) => {
+      const row = getEl(rowId);
+      const valueEl = getEl(valueId);
+      const text = String(sortie?.[key] || "").trim();
+      if (valueEl) {
+        valueEl.textContent = text || "-";
+        valueEl.classList.toggle("is-empty", !text);
+      }
+      const show = isBonSortie && !!text;
+      if (row) {
+        row.hidden = !show;
+        row.style.display = show ? "" : "none";
+      }
+      if (show) incrementCounter();
+    };
+    sortieFields.forEach((field) => renderField(field, () => { visibleSortieCount += 1; }));
+    transportFields.forEach((field) => renderField(field, () => { visibleTransportCount += 1; }));
+    if (sortieBlock) {
+      const showSortieBlock = isBonSortie && visibleSortieCount > 0;
+      sortieBlock.hidden = !showSortieBlock;
+      sortieBlock.style.display = showSortieBlock ? "" : "none";
+    }
+    if (transportBlock) {
+      const showTransportBlock = isBonSortie && visibleTransportCount > 0;
+      transportBlock.hidden = !showTransportBlock;
+      transportBlock.style.display = showTransportBlock ? "" : "none";
+    }
+  }
+  SEM.refreshBonSortieSummary = refreshBonSortieSummary;
+
   const DOC_TYPE_SUMMARY_LABELS = {
     facture: {
       number: "N\u00B0 :",
@@ -845,7 +933,11 @@
       docTitleEl.textContent = DOC_TYPE_TITLES[normalized] || DOC_TYPE_TITLES.facture;
     }
     if (partyLegendEl) {
-      partyLegendEl.textContent = ["fa", "bc", "be"].includes(normalized) ? "Fournisseur" : "Client";
+      partyLegendEl.textContent = SUPPLIER_PARTY_DOC_TYPES.has(normalized)
+        ? "Fournisseur"
+        : DESTINATION_PARTY_DOC_TYPES.has(normalized)
+          ? "Destinataire"
+          : "Client";
     }
     updateItemsPartyCodeLabel(normalized);
   }
@@ -866,6 +958,7 @@
       el.classList.toggle("is-empty", !text);
     });
     refreshBonEntreeReceptionSummary();
+    refreshBonSortieSummary();
   }
   SEM.refreshInvoiceSummary = refreshInvoiceSummary;
 
@@ -1248,6 +1341,7 @@
     refreshClientSummary,
     updateItemsMetaSummaryLabels,
     refreshInvoiceSummary,
+    refreshBonSortieSummary,
     sanitizeWhNoteForEditor,
     normalizeWhNoteFromEditor,
     updateWhNotePlaceholder,

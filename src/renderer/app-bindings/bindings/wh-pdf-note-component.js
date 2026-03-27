@@ -40,6 +40,24 @@
       boldId: "beRemarksBold",
       italicId: "beRemarksItalic",
       listId: "beRemarksList"
+    },
+    bsRemarks: {
+      boxId: "bsRemarksNoteBoxModal",
+      hiddenId: "bsRemarksModal",
+      editorId: "bsRemarksEditorModal",
+      sizeId: "bsRemarksFontSizeModal",
+      boldId: "bsRemarksBoldModal",
+      italicId: "bsRemarksItalicModal",
+      listId: "bsRemarksListModal"
+    },
+    bsRemarksMain: {
+      boxId: "bsRemarksNoteBox",
+      hiddenId: "bsRemarks",
+      editorId: "bsRemarksEditor",
+      sizeId: "bsRemarksFontSize",
+      boldId: "bsRemarksBold",
+      italicId: "bsRemarksItalic",
+      listId: "bsRemarksList"
     }
   };
 
