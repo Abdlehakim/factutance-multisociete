@@ -2387,6 +2387,7 @@
             const labels = getClientSavedModalLabels(clientSavedModalEntityType);
             const scopedFieldLabels = getScopedClientFieldLabels(clientSavedModalEntityType);
             const scopedVisibility = getScopedClientFieldVisibility(clientSavedModalEntityType);
+            const disableRowDeleteAction = clientSavedModal?.id === "clientSavedModalNv";
             const resolveFieldLabel = (key) =>
               resolveScopedClientFieldLabel(key, clientSavedModalEntityType, scopedFieldLabels);
             const totalPages = getClientSavedModalTotalPages();
@@ -2455,9 +2456,11 @@
                   actionButtons.push(
                     `<button type="button" class="client-search__edit" data-client-saved-update="${index}">Mettre a jour</button>`
                   );
-                  actionButtons.push(
-                    `<button type="button" class="client-search__delete" data-client-saved-delete="${index}">Supprimer</button>`
-                  );
+                  if (!disableRowDeleteAction) {
+                    actionButtons.push(
+                      `<button type="button" class="client-search__delete" data-client-saved-delete="${index}">Supprimer</button>`
+                    );
+                  }
                   row.innerHTML = `
                     <button type="button" class="client-search__select client-search__select--detailed" data-client-saved-load="${index}">
                       <div class="client-search__details-grid">
@@ -2590,9 +2593,11 @@
                 actionButtons.push(
                   `<button type="button" class="client-search__edit" data-client-saved-update="${index}">Mettre a jour</button>`
                 );
-                actionButtons.push(
-                  `<button type="button" class="client-search__delete" data-client-saved-delete="${index}">Supprimer</button>`
-                );
+                if (!disableRowDeleteAction) {
+                  actionButtons.push(
+                    `<button type="button" class="client-search__delete" data-client-saved-delete="${index}">Supprimer</button>`
+                  );
+                }
                 row.innerHTML = `
                   <button type="button" class="client-search__select client-search__select--detailed" data-client-saved-load="${index}">
                     <div class="client-search__details-grid">
