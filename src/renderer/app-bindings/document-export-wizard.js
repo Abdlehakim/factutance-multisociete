@@ -3530,17 +3530,20 @@
               </div>
             </div>
           </section>
+
+          <div class="doc-export-wizard__step-actions">
+            <div class="client-search__actions client-saved-modal__pager doc-history-modal__pager">
+              <button id="docHistoryExportModalBack" type="button" class="client-search__edit" hidden>Precedent</button>
+              <button id="docHistoryExportModalNext" type="button" class="client-search__add">Suivant</button>
+              <button id="docHistoryExportModalSave" type="button" class="client-search__add" hidden>Exporter</button>
+              <button id="docHistoryExportModalDone" type="button" class="client-search__add" hidden>Terminer</button>
+            </div>
+          </div>
         </div>
 
         <div class="client-saved-modal__actions doc-history-modal__actions">
           <div class="client-search__actions client-saved-modal__actions-left doc-history-modal__actions-left">
             <button id="docHistoryExportModalCancel" type="button" class="btn btn-close client-search__close">Annuler</button>
-          </div>
-          <div class="client-search__actions client-saved-modal__pager doc-history-modal__pager">
-            <button id="docHistoryExportModalBack" type="button" class="client-search__edit" hidden>Precedent</button>
-            <button id="docHistoryExportModalNext" type="button" class="client-search__add">Suivant</button>
-            <button id="docHistoryExportModalSave" type="button" class="client-search__add" hidden>Exporter</button>
-            <button id="docHistoryExportModalDone" type="button" class="client-search__add" hidden>Terminer</button>
           </div>
         </div>
       </div>`;

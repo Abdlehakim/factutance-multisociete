@@ -810,6 +810,19 @@
   gap: 30px;
 }
 
+.doc-export-wizard__step-actions {
+  display: flex;
+  width: 100%;
+  justify-content: center;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.doc-export-wizard__step-actions .doc-history-modal__pager {
+  justify-content: center;
+  margin: 0 auto;
+}
+
 #docHistoryExportStep2 .doc-export-wizard__step-content {
   justify-content: flex-start;
   height: 100%;
