@@ -33,6 +33,75 @@
     if (btn) btn.disabled = !!disabled;
   };
   const getBindingHelpers = () => SEM.__bindingHelpers || {};
+  const resolveFormMode = (scope) =>
+    String(scope?.dataset?.transporteurFormMode || scope?.dataset?.clientFormMode || "create")
+      .trim()
+      .toLowerCase();
+  const resolvePopoverFromNode = (node) => {
+    const scopedPopover = node?.closest?.(
+      "#clientBoxMainscreenTransporteursPanel, #transporteurSavedModal, #transporteurSavedModalNv"
+    )?.querySelector?.(POPOVER_SELECTOR);
+    return scopedPopover || resolvePopover();
+  };
+  const parseTransporteurCodeResult = (result) =>
+    String(
+      (typeof result === "string" ? result : "") ||
+        result?.codeTransporteur ||
+        result?.codeClient ||
+        result?.code ||
+        ""
+    ).trim();
+  const syncTransporteurCodeState = (scope, codeValue) => {
+    const resolvedCode = String(codeValue || "").trim();
+    if (!resolvedCode) return;
+    const helpers = getBindingHelpers();
+    const getState = helpers.getEntityClientStateForScope;
+    const setState = helpers.setEntityClientFormState;
+    const shouldMirror = helpers.shouldMirrorEntityClientStateToDocument;
+    const currentState =
+      typeof getState === "function" ? getState(scope) || {} : {};
+    if (typeof setState === "function") {
+      setState("transporter", {
+        ...currentState,
+        codeClient: resolvedCode,
+        codeTransporteur: resolvedCode,
+        __entityType: "transporter"
+      });
+    }
+    if (
+      typeof shouldMirror === "function" &&
+      shouldMirror(scope) &&
+      SEM.state &&
+      SEM.state.client &&
+      (SEM.state.client.__entityType === "transporter" || !SEM.state.client.__entityType)
+    ) {
+      SEM.state.client.codeClient = resolvedCode;
+      SEM.state.client.codeTransporteur = resolvedCode;
+      SEM.state.client.__entityType = "transporter";
+    }
+  };
+  const hydrateTransporteurCode = async (scope, { force = false } = {}) => {
+    const codeInput = scope?.querySelector?.("#transporteurCode");
+    if (!(codeInput instanceof HTMLInputElement)) return "";
+    const current = String(codeInput.value || "").trim();
+    if (!force && current) return current;
+    if (typeof window?.electronAPI?.previewClientCode !== "function") return current;
+    try {
+      const preview = await window.electronAPI.previewClientCode({ entityType: "transporter" });
+      const nextCode = parseTransporteurCodeResult(preview);
+      if (!nextCode) return current;
+      codeInput.value = nextCode;
+      codeInput.readOnly = true;
+      codeInput.setAttribute("readonly", "");
+      codeInput.setAttribute("aria-readonly", "true");
+      syncTransporteurCodeState(scope, nextCode);
+      refreshTransporteurActionButtons();
+      return nextCode;
+    } catch (error) {
+      console.warn("transporteur code preview failed", error);
+      return current;
+    }
+  };
   const buildSnapshot = (scope) => ({
     type: readValue(scope, "transporteurType") || "societe",
     name: readValue(scope, "transporteurName"),
@@ -79,6 +148,24 @@
     ).toLowerCase();
     const isEditMode = mode === "edit";
     const isCreateMode = mode === "create" || mode === "default";
+    const codeInput = scope.querySelector?.("#transporteurCode");
+    if (codeInput instanceof HTMLInputElement) {
+      codeInput.readOnly = true;
+      codeInput.setAttribute("readonly", "");
+      codeInput.setAttribute("aria-readonly", "true");
+      if (
+        isCreateMode &&
+        !String(codeInput.value || "").trim() &&
+        scope.dataset.transporteurCodeHydrating !== "1"
+      ) {
+        scope.dataset.transporteurCodeHydrating = "1";
+        void hydrateTransporteurCode(scope).finally(() => {
+          if (scope.dataset.transporteurCodeHydrating === "1") {
+            delete scope.dataset.transporteurCodeHydrating;
+          }
+        });
+      }
+    }
     const content = hasContent(scope);
     setDisabled(scope, "btnSaveTransporteur", !isCreateMode || !content);
     setDisabled(scope, "btnNewTransporteur", !isCreateMode || !content);
@@ -104,9 +191,37 @@
   document.addEventListener("click", (evt) => {
     const toggle = evt.target?.closest?.('[aria-controls="transporteurFormPopover"]');
     if (!toggle) return;
-    setTimeout(refreshTransporteurActionButtons, 0);
+    setTimeout(() => {
+      const scope = resolvePopoverFromNode(toggle);
+      if (!scope) return;
+      const mode = resolveFormMode(scope);
+      if (
+        mode === "create" ||
+        mode === "default" ||
+        !String(scope.querySelector?.("#transporteurCode")?.value || "").trim()
+      ) {
+        void hydrateTransporteurCode(scope);
+      }
+      refreshTransporteurActionButtons();
+    }, 0);
+  });
+  document.addEventListener("click", (evt) => {
+    const newBtn = evt.target?.closest?.(`${POPOVER_SELECTOR} #btnNewTransporteur`);
+    if (!newBtn) return;
+    setTimeout(() => {
+      const scope = resolvePopoverFromNode(newBtn);
+      if (!scope) return;
+      void hydrateTransporteurCode(scope, { force: true });
+      refreshTransporteurActionButtons();
+    }, 0);
   });
   document.addEventListener("DOMContentLoaded", () => {
-    setTimeout(refreshTransporteurActionButtons, 0);
+    setTimeout(() => {
+      const scope = resolvePopover();
+      if (scope && (resolveFormMode(scope) === "create" || resolveFormMode(scope) === "default")) {
+        void hydrateTransporteurCode(scope);
+      }
+      refreshTransporteurActionButtons();
+    }, 0);
   });
 })(window);

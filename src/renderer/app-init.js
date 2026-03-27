@@ -879,6 +879,8 @@
     AppInit.registerClientBulkDeleteActions?.();
     AppInit.registerFournisseurSavedModalActions?.();
     AppInit.registerFournisseurBulkDeleteActions?.();
+    AppInit.registerTransporteurSavedModalActions?.();
+    AppInit.registerTransporteurBulkDeleteActions?.();
     AppInit.__runtime = {
       numbering,
       history,

@@ -1189,6 +1189,7 @@ aspect-ratio: 1 / 1;
 #clientSavedModal .client-saved-modal__panel,
 #fournisseurSavedModal .client-saved-modal__panel,
 #fournisseurSavedModalNv .client-saved-modal__panel,
+#fournisseurSavedModalDedicated .client-saved-modal__panel,
 #transporteurSavedModal .client-saved-modal__panel,
 #transporteurSavedModalNv .client-saved-modal__panel,
 #depotMagasinSavedModal .client-saved-modal__panel {
@@ -1204,6 +1205,7 @@ aspect-ratio: 1 / 1;
 #clientSavedModalNv.is-open .client-saved-modal__panel,
 #fournisseurSavedModal.is-open .client-saved-modal__panel,
 #fournisseurSavedModalNv.is-open .client-saved-modal__panel,
+#fournisseurSavedModalDedicated.is-open .client-saved-modal__panel,
 #transporteurSavedModal.is-open .client-saved-modal__panel,
 #transporteurSavedModalNv.is-open .client-saved-modal__panel,
 #depotMagasinSavedModal.is-open .client-saved-modal__panel {
@@ -1223,6 +1225,7 @@ aspect-ratio: 1 / 1;
   #clientSavedModalNv .client-saved-modal__panel,
   #fournisseurSavedModal .client-saved-modal__panel,
   #fournisseurSavedModalNv .client-saved-modal__panel,
+  #fournisseurSavedModalDedicated .client-saved-modal__panel,
   #transporteurSavedModal .client-saved-modal__panel,
   #transporteurSavedModalNv .client-saved-modal__panel,
   #depotMagasinSavedModal .client-saved-modal__panel {
@@ -1655,6 +1658,7 @@ aspect-ratio: 1 / 1;
 #clientSavedModalNv .client-saved-modal__panel,
 #fournisseurSavedModal .client-saved-modal__panel,
 #fournisseurSavedModalNv .client-saved-modal__panel,
+#fournisseurSavedModalDedicated .client-saved-modal__panel,
 #depotMagasinSavedModal .client-saved-modal__panel {
   width: min(1040px, calc(100vw - 40px));
 }

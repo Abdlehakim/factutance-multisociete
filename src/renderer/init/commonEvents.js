@@ -311,12 +311,38 @@
           }
         }
 
-        const ok = await platform?.saveClient?.({
+        const saveResult = await platform?.saveClient?.({
           client,
           suggestedName: F().pickSuggestedClientName(client),
           entityType
         });
+        const ok = !!(saveResult?.ok ?? saveResult);
         if (ok) {
+          const returnedCode = String(
+            entityType === "vendor"
+              ? saveResult?.codeFournisseur || saveResult?.codeClient || saveResult?.code || ""
+              : entityType === "transporter"
+                ? saveResult?.codeTransporteur || saveResult?.codeClient || saveResult?.code || ""
+                : saveResult?.codeClient || saveResult?.code || ""
+          ).trim();
+          if (returnedCode) {
+            const codeInputId =
+              entityType === "vendor"
+                ? "fournisseurCode"
+                : entityType === "transporter"
+                  ? "transporteurCode"
+                  : "clientCode";
+            const codeInput =
+              trigger.closest?.("#clientFormPopover, #fournisseurFormPopover, #transporteurFormPopover")?.querySelector?.(
+                `#${codeInputId}`
+              ) || document.getElementById(codeInputId);
+            if (codeInput) codeInput.value = returnedCode;
+            if (client && typeof client === "object") {
+              client.codeClient = returnedCode;
+              client.codeFournisseur = entityType === "vendor" ? returnedCode : "";
+              client.codeTransporteur = entityType === "transporter" ? returnedCode : "";
+            }
+          }
           const successMessage =
             entityType === "vendor"
               ? getMessage("SUPPLIER_SAVE_SUCCESS", {
@@ -344,6 +370,11 @@
               snapshot.__path ||
               currentState.__path ||
               `client-browser-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+            if (returnedCode) {
+              snapshot.codeClient = returnedCode;
+              snapshot.codeFournisseur = entityType === "vendor" ? returnedCode : "";
+              snapshot.codeTransporteur = entityType === "transporter" ? returnedCode : "";
+            }
             snapshot.__path = fallbackPath;
             if (SEM.state && SEM.state.client) SEM.state.client.__path = snapshot.__path;
             if (typeof SEM.setClientFormBaseline === "function") {

@@ -475,6 +475,8 @@
             const CLIENT_SNAPSHOT_FIELDS = [
               "type",
               "codeClient",
+              "codeFournisseur",
+              "codeTransporteur",
               "name",
               "benefit",
               "account",
@@ -522,6 +524,7 @@
               },
               vendor: {
                 clientType: ["fournisseurType", "clientType"],
+                clientCode: ["fournisseurCode", "clientCode"],
                 clientName: ["fournisseurName", "clientName"],
                 clientBeneficiary: ["fournisseurBeneficiary", "clientBeneficiary"],
                 clientAccount: ["fournisseurAccount", "clientAccount"],
@@ -534,6 +537,7 @@
               },
               transporter: {
                 clientType: ["transporteurType", "clientType"],
+                clientCode: ["transporteurCode", "clientCode"],
                 clientName: ["transporteurName", "clientName"],
                 clientBeneficiary: ["transporteurDriverName", "clientBeneficiary"],
                 clientAccount: ["transporteurVehiclePlate", "clientAccount"],
@@ -575,6 +579,19 @@
                 return "transporter";
               }
               return resolveClientEntityType(candidate);
+            };
+            const isSystemGeneratedCodeField = (control) => {
+              if (!(control instanceof HTMLElement)) return false;
+              if (control.dataset?.systemGeneratedCode === "true") return true;
+              const controlId = String(control.id || "");
+              if (
+                controlId === "clientCode" ||
+                controlId === "fournisseurCode" ||
+                controlId === "transporteurCode"
+              ) {
+                return true;
+              }
+              return toCanonicalClientFormId(controlId) === "clientCode";
             };
             const readDirectScopedClientValue = (scopeNode, canonicalId, entityType) => {
               const ids =
@@ -768,14 +785,20 @@
               const soldFallback = currentState.soldClient ?? "";
               const typeRaw = getClientFormValue(scopeNode, "clientType", currentState.type || "societe");
               const entityType = resolveScopedClientEntityType(scopeNode);
+              const fallbackCode =
+                entityType === "vendor"
+                  ? currentState.codeFournisseur || currentState.codeClient || ""
+                  : entityType === "transporter"
+                    ? currentState.codeTransporteur || currentState.codeClient || ""
+                    : currentState.codeClient || "";
+              const resolvedCode = String(
+                getClientFormValue(scopeNode, "clientCode", fallbackCode)
+              ).trim();
               const snapshot = {
                 type: normalizeClientTypeValue(typeRaw),
-                codeClient:
-                  entityType === "client"
-                    ? String(
-                        getClientFormValue(scopeNode, "clientCode", currentState.codeClient || "")
-                      ).trim()
-                    : "",
+                codeClient: resolvedCode,
+                codeFournisseur: entityType === "vendor" ? resolvedCode : "",
+                codeTransporteur: entityType === "transporter" ? resolvedCode : "",
                 name: getClientFormValue(scopeNode, "clientName", currentState.name || ""),
                 benefit: getClientFormValue(scopeNode, "clientBeneficiary", currentState.benefit || ""),
                 account: getClientFormValue(scopeNode, "clientAccount", currentState.account || ""),
@@ -816,6 +839,23 @@
               if (!CLIENT_FORM_INPUT_IDS.has(target.id) && !CLIENT_FORM_INPUT_IDS.has(canonicalTargetId)) return;
               const formScope = target.closest(CLIENT_SCOPE_SELECTOR);
               if (!formScope) return;
+              if (canonicalTargetId === "clientCode" && target instanceof HTMLInputElement) {
+                const entityType = resolveScopedClientEntityType(formScope, target);
+                const currentState = resolveClientEntityDraft(formScope);
+                const expectedCode = String(
+                  entityType === "vendor"
+                    ? currentState.codeFournisseur || currentState.codeClient || ""
+                    : entityType === "transporter"
+                      ? currentState.codeTransporteur || currentState.codeClient || ""
+                      : currentState.codeClient || ""
+                ).trim();
+                if (expectedCode && String(target.value || "").trim() !== expectedCode) {
+                  target.value = expectedCode;
+                }
+                if (!String(target.value || "").trim()) {
+                  target.value = expectedCode;
+                }
+              }
               const snapshot = captureClientSnapshotFromScope(formScope);
               applyClientSnapshotToState(snapshot, formScope);
               if (canonicalTargetId === "clientType") {
@@ -827,6 +867,15 @@
             };
             document.addEventListener("input", handleClientBoxInput);
             document.addEventListener("change", handleClientBoxInput);
+            const blockClientCodeInputMutation = (evt) => {
+              const target = evt.target;
+              if (!(target instanceof HTMLInputElement)) return;
+              if (!isSystemGeneratedCodeField(target)) return;
+              if (evt.cancelable) evt.preventDefault();
+            };
+            document.addEventListener("beforeinput", blockClientCodeInputMutation);
+            document.addEventListener("paste", blockClientCodeInputMutation);
+            document.addEventListener("drop", blockClientCodeInputMutation);
 
             const getClientFormPopoverContext = (node) => {
               const directPopover = node?.closest?.(CLIENT_POPOVER_SELECTOR) || null;
@@ -882,6 +931,8 @@
               const blankClient = {
                 type: "societe",
                 codeClient: "",
+                codeFournisseur: "",
+                codeTransporteur: "",
                 name: "",
                 vat: "",
                 phone: "",
@@ -957,7 +1008,7 @@
                     delete control.dataset.clientReadonlyPrevDisabled;
                   }
                   if ("readOnly" in control) {
-                    if (control.id === "clientCode") {
+                    if (isSystemGeneratedCodeField(control)) {
                       control.readOnly = true;
                       delete control.dataset.clientReadonlyPrevReadonly;
                     } else if (control.dataset.clientReadonlyPrevReadonly !== undefined) {
@@ -976,7 +1027,7 @@
                     delete control.dataset.clientReadonlyPrevReadonly;
                     control.disabled = false;
                     if ("readOnly" in control) {
-                      control.readOnly = control.id === "clientCode";
+                      control.readOnly = isSystemGeneratedCodeField(control);
                     }
                     control.setAttribute("aria-disabled", "false");
                   });
@@ -1055,6 +1106,14 @@
                 soldInput.readOnly = lockSold;
                 soldInput.setAttribute("aria-disabled", lockSold ? "true" : "false");
               }
+              const isPopoverVisible =
+                !ctx.popover.hidden && ctx.popover.getAttribute("aria-hidden") !== "true";
+              if (effectiveMode === "create" && isPopoverVisible) {
+                const codeInput = queryScopedClientFormElement(ctx.popover, "clientCode");
+                if (codeInput instanceof HTMLInputElement && !String(codeInput.value || "").trim()) {
+                  void hydrateNewClientCodePreview(ctx.popover, { force: true });
+                }
+              }
             };
 
             const setClientFormPopoverOpen = (ctx, open) => {
@@ -1079,6 +1138,13 @@
                 applyClientFieldVisibility(ctx.popover, visibilityState);
                 applyClientFieldLabels(ctx.popover, labelState);
                 const popoverMode = String(ctx.popover.dataset.clientFormMode || "").toLowerCase();
+                if (popoverMode === "create" || popoverMode === "default") {
+                  const codeInput = queryScopedClientFormElement(ctx.popover, "clientCode");
+                  const currentCode = String(codeInput?.value || "").trim();
+                  if (!currentCode) {
+                    void hydrateNewClientCodePreview(ctx.popover);
+                  }
+                }
                 const focusTarget =
                   (popoverMode === "view"
                     ? ctx.popover.querySelector("[data-client-form-close]")
@@ -1905,26 +1971,37 @@
               }
             };
 
-            const hydrateNewClientCodePreview = async (scopeNode) => {
+            const hydrateNewClientCodePreview = async (scopeNode, options = {}) => {
               const target =
                 queryScopedClientFormElement(scopeNode, "clientCode") ||
                 queryGlobalClientFormElement("clientCode", scopeNode);
               if (!(target instanceof HTMLInputElement)) return;
+              const force = options?.force === true;
+              if (!force && String(target.value || "").trim()) return;
               if (typeof window.electronAPI?.previewClientCode !== "function") return;
               try {
-                const result = await window.electronAPI.previewClientCode();
+                const entityType = resolveScopedClientEntityType(scopeNode);
+                const codeFieldKey =
+                  entityType === "vendor"
+                    ? "codeFournisseur"
+                    : entityType === "transporter"
+                      ? "codeTransporteur"
+                      : "codeClient";
+                const result = await window.electronAPI.previewClientCode({ entityType });
                 const resolvedCode =
                   typeof result === "string"
                     ? result
-                    : String(result?.codeClient || "").trim();
+                    : String(result?.[codeFieldKey] || result?.codeClient || result?.code || "").trim();
                 if (!resolvedCode) return;
                 target.value = resolvedCode;
                 const formScope = target.closest(CLIENT_SCOPE_WITH_ROOT_SELECTOR) || scopeNode || null;
                 if (!formScope) return;
                 const snapshot = captureClientSnapshotFromScope(formScope);
                 snapshot.codeClient = resolvedCode;
+                snapshot.codeFournisseur = entityType === "vendor" ? resolvedCode : "";
+                snapshot.codeTransporteur = entityType === "transporter" ? resolvedCode : "";
                 applyClientSnapshotToState(snapshot, formScope, {
-                  entityType: "client",
+                  entityType,
                   mirrorToDocumentState: shouldMirrorEntityStateToDocument(formScope)
                 });
                 evaluateClientDirtyFromSnapshot(snapshot, formScope);
@@ -1994,6 +2071,8 @@
                   const blankClient = {
                     type: "societe",
                     codeClient: "",
+                    codeFournisseur: "",
+                    codeTransporteur: "",
                     name: "",
                     benefit: "",
                     account: "",
@@ -2049,10 +2128,8 @@
                     setClientFormPopoverMode(popoverCtx, "create");
                     setClientFormPopoverOpen(popoverCtx, true);
                   }
-                  if (entityType === "client") {
-                    const codeScope = popoverCtx?.popover || targetScope || formScope || null;
-                    if (codeScope) void hydrateNewClientCodePreview(codeScope);
-                  }
+                  const codeScope = popoverCtx?.popover || targetScope || formScope || null;
+                  if (codeScope) void hydrateNewClientCodePreview(codeScope, { force: true });
                   SEM.refreshClientActionButtons?.();
                   SEM.refreshFournisseurActionButtons?.();
                   SEM.refreshTransporteurActionButtons?.();
@@ -2218,17 +2295,36 @@
                   entityType
                 });
                 if (res?.ok) {
-                  if (entityType === "client") {
-                    const returnedCode = String(res.codeClient || "").trim();
-                    if (returnedCode) {
-                      client.codeClient = returnedCode;
-                      const codeInput = queryScopedClientFormElement(formScope, "clientCode");
-                      if (codeInput && "value" in codeInput) codeInput.value = returnedCode;
-                    } else if (!String(client.codeClient || "").trim()) {
-                      const inputCode = queryScopedClientFormElement(formScope, "clientCode");
-                      if (inputCode && typeof inputCode.value === "string") {
-                        client.codeClient = inputCode.value.trim();
-                      }
+                  const codeFieldKey =
+                    entityType === "vendor"
+                      ? "codeFournisseur"
+                      : entityType === "transporter"
+                        ? "codeTransporteur"
+                        : "codeClient";
+                  const returnedCode = String(
+                    res?.[codeFieldKey] || res?.codeClient || ""
+                  ).trim();
+                  if (returnedCode) {
+                    client.codeClient = returnedCode;
+                    client.codeFournisseur = entityType === "vendor" ? returnedCode : "";
+                    client.codeTransporteur = entityType === "transporter" ? returnedCode : "";
+                    const codeInput = queryScopedClientFormElement(formScope, "clientCode");
+                    if (codeInput && "value" in codeInput) codeInput.value = returnedCode;
+                  } else if (
+                    !String(
+                      client?.[codeFieldKey] ||
+                        client.codeClient ||
+                        client.codeFournisseur ||
+                        client.codeTransporteur ||
+                        ""
+                    ).trim()
+                  ) {
+                    const inputCode = queryScopedClientFormElement(formScope, "clientCode");
+                    if (inputCode && typeof inputCode.value === "string") {
+                      const fallbackCode = inputCode.value.trim();
+                      client.codeClient = fallbackCode;
+                      client.codeFournisseur = entityType === "vendor" ? fallbackCode : "";
+                      client.codeTransporteur = entityType === "transporter" ? fallbackCode : "";
                     }
                   }
                   const getEntityState = getClientBindingHelpers().getEntityClientFormState;
@@ -2346,17 +2442,36 @@
                   entityType
                 });
                 if (res?.ok) {
-                  if (entityType === "client") {
-                    const returnedCode = String(res.codeClient || "").trim();
-                    if (returnedCode) {
-                      client.codeClient = returnedCode;
-                      const codeInput = queryScopedClientFormElement(formScope, "clientCode");
-                      if (codeInput && "value" in codeInput) codeInput.value = returnedCode;
-                    } else if (!String(client.codeClient || "").trim()) {
-                      const inputCode = queryScopedClientFormElement(formScope, "clientCode");
-                      if (inputCode && typeof inputCode.value === "string") {
-                        client.codeClient = inputCode.value.trim();
-                      }
+                  const codeFieldKey =
+                    entityType === "vendor"
+                      ? "codeFournisseur"
+                      : entityType === "transporter"
+                        ? "codeTransporteur"
+                        : "codeClient";
+                  const returnedCode = String(
+                    res?.[codeFieldKey] || res?.codeClient || ""
+                  ).trim();
+                  if (returnedCode) {
+                    client.codeClient = returnedCode;
+                    client.codeFournisseur = entityType === "vendor" ? returnedCode : "";
+                    client.codeTransporteur = entityType === "transporter" ? returnedCode : "";
+                    const codeInput = queryScopedClientFormElement(formScope, "clientCode");
+                    if (codeInput && "value" in codeInput) codeInput.value = returnedCode;
+                  } else if (
+                    !String(
+                      client?.[codeFieldKey] ||
+                        client.codeClient ||
+                        client.codeFournisseur ||
+                        client.codeTransporteur ||
+                        ""
+                    ).trim()
+                  ) {
+                    const inputCode = queryScopedClientFormElement(formScope, "clientCode");
+                    if (inputCode && typeof inputCode.value === "string") {
+                      const fallbackCode = inputCode.value.trim();
+                      client.codeClient = fallbackCode;
+                      client.codeFournisseur = entityType === "vendor" ? fallbackCode : "";
+                      client.codeTransporteur = entityType === "transporter" ? fallbackCode : "";
                     }
                   }
                   const resolvedPath = res.path || path;

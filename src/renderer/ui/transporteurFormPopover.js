@@ -30,7 +30,18 @@ export const renderTransporteurFormPopover = ({ includeParticulier = false } = {
       </div>
       <div class="client-form-modal__body swbDialog__msg">
         <div class="grid two">
-          <div class="grid two full" data-transporteur-field-group="identity" data-grid-columns="2">
+          <div class="grid three full" data-transporteur-field-group="identity" data-grid-columns="3">
+            <label data-transporteur-field="codeTransporteur">
+              <span data-transporteur-field-label="codeTransporteur">Code transporteur</span>
+              <input
+                id="transporteurCode"
+                placeholder="TR0032A"
+                readonly
+                aria-readonly="true"
+                data-system-generated-code="true"
+                autocomplete="off"
+              />
+            </label>
             <label data-transporteur-field="name">
               <span data-transporteur-field-label="name">Transporteur / Nom</span>
               <input id="transporteurName" placeholder="Transporteur ou Entreprise" />

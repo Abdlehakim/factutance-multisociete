@@ -385,6 +385,8 @@ const BASE_TABLE_DEFINITIONS = {
       ["type", "TEXT NOT NULL"],
       ["name", "TEXT"],
       ["code_client", "TEXT"],
+      ["code_fournisseur", "TEXT"],
+      ["code_transporteur", "TEXT"],
       ["client_type", "TEXT"],
       ["benefit", "TEXT"],
       ["account", "TEXT"],
@@ -408,6 +410,14 @@ const BASE_TABLE_DEFINITIONS = {
       { sql: "CREATE INDEX IF NOT EXISTS idx_clients_account_normalized ON clients (account_normalized)" },
       {
         sql: "CREATE UNIQUE INDEX IF NOT EXISTS idx_clients_code_client_unique ON clients (UPPER(TRIM(code_client))) WHERE lower(trim(type)) = 'client' AND code_client IS NOT NULL AND TRIM(code_client) <> ''",
+        ignoreErrors: true
+      },
+      {
+        sql: "CREATE UNIQUE INDEX IF NOT EXISTS idx_clients_code_fournisseur_unique ON clients (UPPER(TRIM(code_fournisseur))) WHERE lower(trim(type)) = 'vendor' AND code_fournisseur IS NOT NULL AND TRIM(code_fournisseur) <> ''",
+        ignoreErrors: true
+      },
+      {
+        sql: "CREATE UNIQUE INDEX IF NOT EXISTS idx_clients_code_transporteur_unique ON clients (UPPER(TRIM(code_transporteur))) WHERE lower(trim(type)) = 'transporter' AND code_transporteur IS NOT NULL AND TRIM(code_transporteur) <> ''",
         ignoreErrors: true
       }
     ]

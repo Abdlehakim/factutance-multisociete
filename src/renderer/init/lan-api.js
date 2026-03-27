@@ -284,6 +284,7 @@
       postJson("/api/payments/write", { items: Array.isArray(items) ? items : [] }),
 
     ensureClientsSystemFolder: (payload) => postJson("/api/clients/ensure", payload),
+    previewClientCode: (payload) => postJson("/api/clients/preview-code", payload),
     saveClientDirect: (payload) => postJson("/api/clients/save", payload),
     updateClientDirect: (payload) => postJson("/api/clients/update", payload),
     adjustClientSold: (payload) => postJson("/api/clients/adjustSold", payload),

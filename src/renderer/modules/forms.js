@@ -372,6 +372,10 @@
             ? ["transporteurCode"]
             : ["clientCode"]
       ),
+      codeFournisseur: isVendor ? readScopedClientValue(scopeNode, ["fournisseurCode"]) : "",
+      codeTransporteur: isTransporter
+        ? readScopedClientValue(scopeNode, ["transporteurCode"])
+        : "",
       name: readScopedClientValue(scopeNode, nameIds),
       benefit: readScopedClientValue(
         scopeNode,
@@ -415,6 +419,14 @@
   function fillClientToForm(c = {}) {
     setVal("clientType", c.type ?? "societe"); setVal("clientName", c.name ?? "");
     setVal("clientCode", c.codeClient ?? c.code_client ?? c.code ?? "");
+    setVal(
+      "fournisseurCode",
+      c.codeFournisseur ?? c.code_fournisseur ?? c.codeClient ?? c.code_client ?? c.code ?? ""
+    );
+    setVal(
+      "transporteurCode",
+      c.codeTransporteur ?? c.code_transporteur ?? c.codeClient ?? c.code_client ?? c.code ?? ""
+    );
     setVal("clientVat", c.vat ?? ""); setVal("clientPhone", c.phone ?? "");
     setVal("clientEmail", c.email ?? ""); setVal("clientAddress", c.address ?? "");
     SEM.updateClientIdLabel?.();

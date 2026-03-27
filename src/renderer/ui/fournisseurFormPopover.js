@@ -92,7 +92,18 @@ ${particulierSelectOption}
             </div>
           </label>
 
-          <div class="grid two full" data-fournisseur-field-group="identity" data-grid-columns="2">
+          <div class="grid three full" data-fournisseur-field-group="identity" data-grid-columns="3">
+            <label data-fournisseur-field="codeFournisseur">
+              <span data-fournisseur-field-label="codeFournisseur">Code fournisseur</span>
+              <input
+                id="fournisseurCode"
+                placeholder="FR0032A"
+                readonly
+                aria-readonly="true"
+                data-system-generated-code="true"
+                autocomplete="off"
+              />
+            </label>
             <label data-fournisseur-field="name">
               <span data-fournisseur-field-label="name">Nom du fournisseur</span>
               <input id="fournisseurName" placeholder="Fournisseur ou Entreprise" />

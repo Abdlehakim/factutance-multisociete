@@ -4,22 +4,22 @@
     w.getEl ||
     ((id) => (typeof document !== "undefined" ? document.getElementById(id) : null));
 
-  const MODAL_ID = "fournisseurBulkDeleteModal";
-  const OPEN_BTN_ID = "fournisseurBulkDeleteOpenBtn";
-  const TITLE_ID = "fournisseurBulkDeleteTitle";
-  const SEARCH_ID = "fournisseurBulkDeleteSearch";
-  const LIST_ID = "fournisseurBulkDeleteList";
-  const STATUS_ID = "fournisseurBulkDeleteStatus";
-  const CLOSE_ID = "fournisseurBulkDeleteCloseBtn";
-  const CANCEL_ID = "fournisseurBulkDeleteCancelBtn";
-  const SELECT_ALL_ID = "fournisseurBulkDeleteSelectAll";
-  const UNSELECT_ALL_ID = "fournisseurBulkDeleteUnselectAll";
-  const CONFIRM_ID = "fournisseurBulkDeleteConfirmBtn";
-  const PAGE_LABEL_ID = "fournisseurBulkDeletePage";
-  const PAGE_INPUT_ID = "fournisseurBulkDeletePageInput";
-  const TOTAL_PAGES_ID = "fournisseurBulkDeleteTotalPages";
-  const PREV_ID = "fournisseurBulkDeletePrev";
-  const NEXT_ID = "fournisseurBulkDeleteNext";
+  const MODAL_ID = "transporteurBulkDeleteModal";
+  const OPEN_BTN_ID = "transporteurBulkDeleteOpenBtn";
+  const TITLE_ID = "transporteurBulkDeleteTitle";
+  const SEARCH_ID = "transporteurBulkDeleteSearch";
+  const LIST_ID = "transporteurBulkDeleteList";
+  const STATUS_ID = "transporteurBulkDeleteStatus";
+  const CLOSE_ID = "transporteurBulkDeleteCloseBtn";
+  const CANCEL_ID = "transporteurBulkDeleteCancelBtn";
+  const SELECT_ALL_ID = "transporteurBulkDeleteSelectAll";
+  const UNSELECT_ALL_ID = "transporteurBulkDeleteUnselectAll";
+  const CONFIRM_ID = "transporteurBulkDeleteConfirmBtn";
+  const PAGE_LABEL_ID = "transporteurBulkDeletePage";
+  const PAGE_INPUT_ID = "transporteurBulkDeletePageInput";
+  const TOTAL_PAGES_ID = "transporteurBulkDeleteTotalPages";
+  const PREV_ID = "transporteurBulkDeletePrev";
+  const NEXT_ID = "transporteurBulkDeleteNext";
   const PAGE_SIZE = 12;
 
   const CLOSE_ICON_SVG = `
@@ -73,6 +73,55 @@
     w.alert?.(String(message || ""));
   };
 
+  const resolveDriverName = (raw = {}, client = {}) =>
+    normalizeText(
+      raw.driverName ||
+        raw.driver ||
+        raw.chauffeur ||
+        raw.benefit ||
+        client.driverName ||
+        client.driver ||
+        client.chauffeur ||
+        client.benefit ||
+        ""
+    );
+
+  const resolveVehiclePlate = (raw = {}, client = {}) =>
+    normalizeText(
+      raw.vehiclePlate ||
+        raw.vehicle ||
+        raw.vehicule ||
+        raw.matriculeVehicule ||
+        raw.matriculeVehicle ||
+        raw.plate ||
+        raw.account ||
+        raw.accountOf ||
+        client.vehiclePlate ||
+        client.vehicle ||
+        client.vehicule ||
+        client.matriculeVehicule ||
+        client.matriculeVehicle ||
+        client.plate ||
+        client.account ||
+        client.accountOf ||
+        ""
+    );
+
+  const resolveTransportMode = (raw = {}, client = {}) =>
+    normalizeText(
+      raw.transportMode ||
+        raw.modeTransport ||
+        raw.modeDeTransport ||
+        raw.transport ||
+        raw.stegRef ||
+        client.transportMode ||
+        client.modeTransport ||
+        client.modeDeTransport ||
+        client.transport ||
+        client.stegRef ||
+        ""
+    );
+
   const getEntryKey = (entry = {}) => normalizeText(entry.path || entry.id || entry.name || "");
   const getTotalPages = () => (state.total > 0 ? Math.max(1, Math.ceil(state.total / PAGE_SIZE)) : 1);
   const clampPage = (value) => {
@@ -83,35 +132,35 @@
   };
 
   const buildModalMarkup = () => `
-    <div id="${MODAL_ID}" class="swbDialog doc-history-modal fournisseur-bulk-delete-modal" hidden aria-hidden="true" aria-busy="false">
-      <div class="swbDialog__panel doc-history-modal__panel fournisseur-bulk-delete-modal__panel" role="dialog" aria-modal="true" aria-labelledby="${TITLE_ID}">
+    <div id="${MODAL_ID}" class="swbDialog doc-history-modal transporteur-bulk-delete-modal" hidden aria-hidden="true" aria-busy="false">
+      <div class="swbDialog__panel doc-history-modal__panel transporteur-bulk-delete-modal__panel" role="dialog" aria-modal="true" aria-labelledby="${TITLE_ID}">
         <div class="swbDialog__header">
-          <div id="${TITLE_ID}" class="swbDialog__title">Supprimer des fournisseurs</div>
+          <div id="${TITLE_ID}" class="swbDialog__title">Supprimer des transporteurs</div>
           <button id="${CLOSE_ID}" type="button" class="swbDialog__close" aria-label="Fermer">
             ${CLOSE_ICON_SVG}
           </button>
         </div>
-        <div class="swbDialog__msg doc-history-modal__body fournisseur-bulk-delete-modal__body">
-          <div class="fournisseur-bulk-delete-modal__toolbar">
-            <label class="fournisseur-bulk-delete-modal__search" for="${SEARCH_ID}">
-              <span class="fournisseur-bulk-delete-modal__search-label">Recherche</span>
+        <div class="swbDialog__msg doc-history-modal__body transporteur-bulk-delete-modal__body">
+          <div class="transporteur-bulk-delete-modal__toolbar">
+            <label class="transporteur-bulk-delete-modal__search" for="${SEARCH_ID}">
+              <span class="transporteur-bulk-delete-modal__search-label">Recherche</span>
               <input
                 id="${SEARCH_ID}"
-                class="fournisseur-bulk-delete-modal__search-input"
+                class="transporteur-bulk-delete-modal__search-input"
                 type="text"
                 autocomplete="off"
                 spellcheck="false"
-                placeholder="Code fournisseur, nom du fournisseur, matricule fiscal ou telephone"
-                aria-label="Rechercher un fournisseur"
+                placeholder="Code transporteur, nom, chauffeur, matricule vehicule ou telephone"
+                aria-label="Rechercher un transporteur"
               />
             </label>
-            <div class="fournisseur-bulk-delete-modal__selection-tools">
+            <div class="transporteur-bulk-delete-modal__selection-tools">
               <button id="${SELECT_ALL_ID}" type="button" class="client-search__edit">Tout selectionner</button>
               <button id="${UNSELECT_ALL_ID}" type="button" class="client-search__deleteDoc">Tout deselectionner</button>
             </div>
           </div>
-          <div id="${LIST_ID}" class="fournisseur-bulk-delete-modal__list doc-history-modal__list" role="listbox" aria-multiselectable="true"></div>
-          <div class="fournisseur-bulk-delete-modal__actions-row">
+          <div id="${LIST_ID}" class="transporteur-bulk-delete-modal__list doc-history-modal__list" role="listbox" aria-multiselectable="true"></div>
+          <div class="transporteur-bulk-delete-modal__actions-row">
             <div class="client-search__actions client-saved-modal__pager doc-history-modal__pager">
               <button id="${PREV_ID}" type="button" class="client-search__edit" disabled>Precedent</button>
               <span id="${PAGE_LABEL_ID}" class="client-saved-modal__page" aria-live="polite" aria-label="Page 1 sur 1">
@@ -135,7 +184,7 @@
               Supprimer la selection
             </button>
           </div>
-          <p id="${STATUS_ID}" class="doc-history-modal__status fournisseur-bulk-delete-modal__status" aria-live="polite"></p>
+          <p id="${STATUS_ID}" class="doc-history-modal__status transporteur-bulk-delete-modal__status" aria-live="polite"></p>
         </div>
         <div class="swbDialog__actions">
           <div class="swbDialog__group swbDialog__group--left">
@@ -179,19 +228,21 @@
     const client = raw?.client && typeof raw.client === "object" ? raw.client : {};
     const id = normalizeText(raw.id || client.id || "");
     const path = normalizeText(raw.path || (id ? `sqlite://clients/${id}` : ""));
-    const codeFournisseur = normalizeText(
-      raw.codeFournisseur ||
-        client.codeFournisseur ||
-        raw.code_fournisseur ||
-        client.code_fournisseur ||
+    const codeTransporteur = normalizeText(
+      raw.codeTransporteur ||
+        client.codeTransporteur ||
+        raw.code_transporteur ||
+        client.code_transporteur ||
         raw.codeClient ||
         client.codeClient ||
         ""
     );
     const name = normalizeText(raw.name || client.name || "");
-    const vat = normalizeText(raw.identifier || raw.vat || client.vat || client.identifiantFiscal || "");
-    const phone = normalizeText(raw.phone || client.phone || client.telephone || "");
-    return { id, path, codeFournisseur, name, vat, phone };
+    const driverName = resolveDriverName(raw, client);
+    const vehiclePlate = resolveVehiclePlate(raw, client);
+    const transportMode = resolveTransportMode(raw, client);
+    const phone = normalizeText(raw.phone || client.phone || client.telephone || client.tel || "");
+    return { id, path, codeTransporteur, name, driverName, vehiclePlate, transportMode, phone };
   };
 
   const renderPager = () => {
@@ -226,7 +277,7 @@
   const syncStatus = () => {
     if (!els?.statusEl) return;
     if (state.loading) {
-      els.statusEl.textContent = "Chargement des fournisseurs...";
+      els.statusEl.textContent = "Chargement des transporteurs...";
       return;
     }
     if (state.error) {
@@ -235,15 +286,15 @@
     }
     if (state.total <= 0) {
       els.statusEl.textContent = state.query
-        ? "Aucun fournisseur trouve pour cette recherche."
-        : "Aucun fournisseur enregistre.";
+        ? "Aucun transporteur trouve pour cette recherche."
+        : "Aucun transporteur enregistre.";
       return;
     }
     const start = (state.page - 1) * PAGE_SIZE + 1;
     const end = Math.min(start + state.entries.length - 1, state.total);
     const selected = state.selectedKeys.size;
     const selection = selected > 0 ? ` - ${selected} selectionne(s)` : "";
-    els.statusEl.textContent = `Affichage ${start}-${end} sur ${state.total} fournisseurs${selection}.`;
+    els.statusEl.textContent = `Affichage ${start}-${end} sur ${state.total} transporteurs${selection}.`;
   };
 
   const renderEntries = () => {
@@ -251,20 +302,20 @@
     renderPager();
     state.visibleEntriesByKey = new Map();
     if (state.loading) {
-      els.listEl.innerHTML = '<div class="fournisseur-bulk-delete-modal__empty">Chargement...</div>';
+      els.listEl.innerHTML = '<div class="transporteur-bulk-delete-modal__empty">Chargement...</div>';
       syncActionButtons();
       syncStatus();
       return;
     }
     if (state.error) {
-      els.listEl.innerHTML = `<div class="fournisseur-bulk-delete-modal__empty">${escapeHTML(state.error)}</div>`;
+      els.listEl.innerHTML = `<div class="transporteur-bulk-delete-modal__empty">${escapeHTML(state.error)}</div>`;
       syncActionButtons();
       syncStatus();
       return;
     }
     if (!state.entries.length) {
-      els.listEl.innerHTML = `<div class="fournisseur-bulk-delete-modal__empty">${
-        state.query ? "Aucun fournisseur trouve." : "Aucun fournisseur enregistre."
+      els.listEl.innerHTML = `<div class="transporteur-bulk-delete-modal__empty">${
+        state.query ? "Aucun transporteur trouve." : "Aucun transporteur enregistre."
       }</div>`;
       syncActionButtons();
       syncStatus();
@@ -276,20 +327,24 @@
         if (!key) return "";
         state.visibleEntriesByKey.set(key, entry);
         const checked = state.selectedKeys.has(key) ? "checked" : "";
-        const codeFournisseur = escapeHTML(entry.codeFournisseur || "N.R.");
+        const codeTransporteur = escapeHTML(entry.codeTransporteur || "N.R.");
         const name = escapeHTML(entry.name || "N.R.");
-        const vat = escapeHTML(entry.vat || "N.R.");
+        const driverName = escapeHTML(entry.driverName || "N.R.");
+        const vehiclePlate = escapeHTML(entry.vehiclePlate || "N.R.");
+        const transportMode = escapeHTML(entry.transportMode || "N.R.");
         return `
-          <label class="fournisseur-bulk-delete-modal__card" data-fournisseur-bulk-delete-key="${escapeHTML(key)}">
-            <div class="fournisseur-bulk-delete-modal__card-main">
-              <input type="checkbox" class="fournisseur-bulk-delete-modal__checkbox" data-fournisseur-bulk-delete-check="${escapeHTML(
+          <label class="transporteur-bulk-delete-modal__card" data-transporteur-bulk-delete-key="${escapeHTML(key)}">
+            <div class="transporteur-bulk-delete-modal__card-main">
+              <input type="checkbox" class="transporteur-bulk-delete-modal__checkbox" data-transporteur-bulk-delete-check="${escapeHTML(
                 key
               )}" ${checked} />
-              <div class="fournisseur-bulk-delete-modal__card-title">${codeFournisseur}</div>
+              <div class="transporteur-bulk-delete-modal__card-title">${codeTransporteur}</div>
             </div>
-            <div class="fournisseur-bulk-delete-modal__card-meta">
-              <span class="fournisseur-bulk-delete-modal__meta-chip">Nom: ${name}</span>
-              <span class="fournisseur-bulk-delete-modal__meta-chip">Matricule fiscal: ${vat}</span>
+            <div class="transporteur-bulk-delete-modal__card-meta">
+              <span class="transporteur-bulk-delete-modal__meta-chip">Nom: ${name}</span>
+              <span class="transporteur-bulk-delete-modal__meta-chip">Chauffeur: ${driverName}</span>
+              <span class="transporteur-bulk-delete-modal__meta-chip">Matricule vehicule: ${vehiclePlate}</span>
+              <span class="transporteur-bulk-delete-modal__meta-chip">Mode de transport: ${transportMode}</span>
             </div>
           </label>
         `;
@@ -303,7 +358,7 @@
     if (!els || state.busy) return;
     if (!w.electronAPI?.searchClients) {
       state.loading = false;
-      state.error = "Recherche des fournisseurs indisponible.";
+      state.error = "Recherche des transporteurs indisponible.";
       state.entries = [];
       state.total = 0;
       renderEntries();
@@ -320,7 +375,7 @@
         query: state.query,
         limit: PAGE_SIZE,
         offset,
-        entityType: "vendor"
+        entityType: "transporter"
       });
       if (requestId !== state.requestId) return;
       if (!res?.ok) {
@@ -373,27 +428,27 @@
     try {
       w.dispatchEvent(
         new CustomEvent("client-saved-modal-entity-updated", {
-          detail: { entityType: "vendor", path, snapshot: {} }
+          detail: { entityType: "transporter", path, snapshot: {} }
         })
       );
     } catch {}
   };
 
-  const refreshSupplierViews = () => {
+  const refreshTransporteurViews = () => {
     const scopes = Array.from(
-      document.querySelectorAll("#clientBoxMainscreenFournisseursPanel, #FournisseurBoxNewDoc")
+      document.querySelectorAll("#clientBoxMainscreenTransporteursPanel, #TransporteurBoxNewDoc")
     );
     scopes.forEach((scope) => {
-      const input = scope.querySelector?.("#fournisseurSearch");
-      const results = scope.querySelector?.("#fournisseurSearchResults");
+      const input = scope.querySelector?.("#transporteurSearch");
+      const results = scope.querySelector?.("#transporteurSearchResults");
       if (!input || !results || results.hidden) return;
-      const btn = scope.querySelector?.("#fournisseurSearchBtn");
+      const btn = scope.querySelector?.("#transporteurSearchBtn");
       if (btn) btn.click();
       else input.dispatchEvent(new Event("input", { bubbles: true }));
     });
-    const savedModal = document.getElementById("fournisseurSavedModalDedicated");
+    const savedModal = document.getElementById("transporteurSavedModalDedicated");
     if (savedModal && savedModal.classList.contains("is-open")) {
-      const refreshBtn = savedModal.querySelector("#fournisseurSavedRefresh");
+      const refreshBtn = savedModal.querySelector("#transporteurSavedRefresh");
       refreshBtn?.click?.();
     }
   };
@@ -408,12 +463,12 @@
       return;
     }
     const confirmed = await showConfirmDialog(
-      `Supprimer ${selectedEntries.length} fournisseur(s) selectionne(s) ?`,
-      { title: "Supprimer des fournisseurs", okText: "Supprimer", cancelText: "Annuler" }
+      `Supprimer ${selectedEntries.length} transporteur(s) selectionne(s) ?`,
+      { title: "Supprimer des transporteurs", okText: "Supprimer", cancelText: "Annuler" }
     );
     if (!confirmed) return;
     if (!w.electronAPI?.deleteClient) {
-      await showMessageDialog("Suppression des fournisseurs indisponible.", { title: "Erreur" });
+      await showMessageDialog("Suppression des transporteurs indisponible.", { title: "Erreur" });
       return;
     }
 
@@ -423,7 +478,7 @@
     const deleted = [];
     for (const entry of selectedEntries) {
       try {
-        const res = await w.electronAPI.deleteClient({ path: entry.path, entityType: "vendor" });
+        const res = await w.electronAPI.deleteClient({ path: entry.path, entityType: "transporter" });
         if (res?.ok) {
           deleted.push(entry);
           const key = getEntryKey(entry);
@@ -442,8 +497,8 @@
 
     if (deleted.length) {
       deleted.forEach(dispatchMutationEvent);
-      refreshSupplierViews();
-      w.showToast?.(`${deleted.length} fournisseur(s) supprime(s).`);
+      refreshTransporteurViews();
+      w.showToast?.(`${deleted.length} transporteur(s) supprime(s).`);
     }
     if (failed.length) {
       await showMessageDialog(failed.slice(0, 8).join("\n"), { title: "Suppression partielle" });
@@ -606,9 +661,9 @@
       renderPager();
     });
     els.listEl?.addEventListener("change", (evt) => {
-      const checkbox = evt.target?.closest?.("[data-fournisseur-bulk-delete-check]");
+      const checkbox = evt.target?.closest?.("[data-transporteur-bulk-delete-check]");
       if (!checkbox || state.loading || state.busy) return;
-      const key = normalizeText(checkbox.dataset.fournisseurBulkDeleteCheck || "");
+      const key = normalizeText(checkbox.dataset.transporteurBulkDeleteCheck || "");
       if (!key) return;
       if (checkbox.checked) {
         state.selectedKeys.add(key);
@@ -634,14 +689,14 @@
     });
   };
 
-  AppInit.registerFournisseurBulkDeleteActions = function registerFournisseurBulkDeleteActions() {
+  AppInit.registerTransporteurBulkDeleteActions = function registerTransporteurBulkDeleteActions() {
     ensureModal();
     captureEls();
     bindEvents();
     registerOpenTrigger();
   };
 
-  AppInit.FournisseurBulkDelete = {
+  AppInit.TransporteurBulkDelete = {
     open: (trigger = null) => openModal(trigger),
     close: () => closeModal({ ok: false, canceled: true })
   };

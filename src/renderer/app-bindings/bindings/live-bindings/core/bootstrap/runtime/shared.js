@@ -98,6 +98,7 @@
           CLIENT_ENTITY_ID_ALIASES = {
             vendor: {
               clientType: "fournisseurType",
+              clientCode: "fournisseurCode",
               clientTypeLabel: "fournisseurTypeLabel",
               clientTypeMenu: "fournisseurTypeMenu",
               clientTypeDisplay: "fournisseurTypeDisplay",
@@ -118,6 +119,7 @@
             },
             transporter: {
               clientType: "transporteurType",
+              clientCode: "transporteurCode",
               clientName: "transporteurName",
               clientBeneficiary: "transporteurDriverName",
               clientAccount: "transporteurVehiclePlate",
@@ -288,7 +290,7 @@
             return mainScope.querySelector(MAIN_SCOPE_SELECTOR);
           };
             clientSavedListBtnSelector =
-              "#clientSavedListBtn, #FournisseurSavedListBtn, #TransporteurSavedListBtn, #btnAddClientMenu, #btnAddFournisseurMenu";
+              "#clientSavedListBtn, #FournisseurSavedListBtn, #TransporteurSavedListBtn, #fournisseurSavedModalOpenBtn, #transporteurSavedModalOpenBtn, #btnAddClientMenu, #btnAddFournisseurMenu";
             clientFieldsSettingsBtnSelector = "#clientFieldsSettingsBtn";
             articleFieldsSettingsBtnSelector = "#articleFieldsSettingsBtn";
             ARTICLE_FIELD_LABELS_DEFAULTS = {

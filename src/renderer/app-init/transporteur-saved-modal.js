@@ -4,21 +4,21 @@
     w.getEl ||
     ((id) => (typeof document !== "undefined" ? document.getElementById(id) : null));
 
-  const MODAL_ID = "fournisseurSavedModalDedicated";
-  const OPEN_BTN_ID = "fournisseurSavedModalOpenBtn";
-  const TITLE_ID = "fournisseurSavedModalTitle";
-  const SEARCH_ID = "fournisseurSavedSearch";
-  const SEARCH_BTN_ID = "fournisseurSavedSearchBtn";
-  const LIST_ID = "fournisseurSavedList";
-  const STATUS_ID = "fournisseurSavedStatus";
-  const CLOSE_ID = "fournisseurSavedClose";
-  const CLOSE_FOOTER_ID = "fournisseurSavedCloseFooter";
-  const REFRESH_ID = "fournisseurSavedRefresh";
-  const PAGE_ID = "fournisseurSavedPage";
-  const PAGE_INPUT_ID = "fournisseurSavedPageInput";
-  const TOTAL_PAGES_ID = "fournisseurSavedTotalPages";
-  const PREV_ID = "fournisseurSavedPrev";
-  const NEXT_ID = "fournisseurSavedNext";
+  const MODAL_ID = "transporteurSavedModalDedicated";
+  const OPEN_BTN_ID = "transporteurSavedModalOpenBtn";
+  const TITLE_ID = "transporteurSavedModalTitle";
+  const SEARCH_ID = "transporteurSavedSearch";
+  const SEARCH_BTN_ID = "transporteurSavedSearchBtn";
+  const LIST_ID = "transporteurSavedList";
+  const STATUS_ID = "transporteurSavedStatus";
+  const CLOSE_ID = "transporteurSavedClose";
+  const CLOSE_FOOTER_ID = "transporteurSavedCloseFooter";
+  const REFRESH_ID = "transporteurSavedRefresh";
+  const PAGE_ID = "transporteurSavedPage";
+  const PAGE_INPUT_ID = "transporteurSavedPageInput";
+  const TOTAL_PAGES_ID = "transporteurSavedTotalPages";
+  const PREV_ID = "transporteurSavedPrev";
+  const NEXT_ID = "transporteurSavedNext";
   const PAGE_SIZE = 5;
   const MIN_SEARCH_LENGTH = 2;
 
@@ -76,13 +76,62 @@
     w.alert?.(String(message || ""));
   };
 
+  const resolveDriverName = (raw = {}, client = {}) =>
+    normalizeText(
+      raw.driverName ||
+        raw.driver ||
+        raw.chauffeur ||
+        raw.benefit ||
+        client.driverName ||
+        client.driver ||
+        client.chauffeur ||
+        client.benefit ||
+        ""
+    );
+
+  const resolveVehiclePlate = (raw = {}, client = {}) =>
+    normalizeText(
+      raw.vehiclePlate ||
+        raw.vehicle ||
+        raw.vehicule ||
+        raw.matriculeVehicule ||
+        raw.matriculeVehicle ||
+        raw.plate ||
+        raw.account ||
+        raw.accountOf ||
+        client.vehiclePlate ||
+        client.vehicle ||
+        client.vehicule ||
+        client.matriculeVehicule ||
+        client.matriculeVehicle ||
+        client.plate ||
+        client.account ||
+        client.accountOf ||
+        ""
+    );
+
+  const resolveTransportMode = (raw = {}, client = {}) =>
+    normalizeText(
+      raw.transportMode ||
+        raw.modeTransport ||
+        raw.modeDeTransport ||
+        raw.transport ||
+        raw.stegRef ||
+        client.transportMode ||
+        client.modeTransport ||
+        client.modeDeTransport ||
+        client.transport ||
+        client.stegRef ||
+        ""
+    );
+
   const buildModalMarkup = () => `
-    <div id="${MODAL_ID}" class="swbDialog client-saved-modal fournisseur-saved-modal" hidden aria-hidden="true">
+    <div id="${MODAL_ID}" class="swbDialog client-saved-modal transporteur-saved-modal" hidden aria-hidden="true">
       <div class="swbDialog__panel client-saved-modal__panel" role="dialog" aria-modal="true" aria-labelledby="${TITLE_ID}">
         <div class="swbDialog__header">
           <div class="doc-history-modal__header-row">
-            <div id="${TITLE_ID}" class="swbDialog__title">Fournisseurs enregistres</div>
-            <button id="${REFRESH_ID}" type="button" class="btn ghost doc-history-modal__refresh" aria-label="Rafraichir les fournisseurs enregistres">
+            <div id="${TITLE_ID}" class="swbDialog__title">Transporteurs enregistres</div>
+            <button id="${REFRESH_ID}" type="button" class="btn ghost doc-history-modal__refresh" aria-label="Rafraichir les transporteurs enregistres">
               ${REFRESH_ICON_SVG}
             </button>
           </div>
@@ -94,8 +143,8 @@
           <div class="client-saved-modal__search article-saved-modal__search article-search client-search">
             <div class="client-search__controls">
               <label class="client-search__field">
-                <input id="${SEARCH_ID}" type="search" placeholder="Code fournisseur, nom ou matricule fiscal" autocomplete="off" />
-                <button id="${SEARCH_BTN_ID}" type="button" class="client-search__action" aria-label="Rechercher un fournisseur">
+                <input id="${SEARCH_ID}" type="search" placeholder="Rechercher un transporteur enregistre" autocomplete="off" />
+                <button id="${SEARCH_BTN_ID}" type="button" class="client-search__action" aria-label="Rechercher un transporteur enregistre">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <circle cx="11" cy="11" r="6" />
                     <line x1="16.5" y1="16.5" x2="21" y2="21" stroke-linecap="round" />
@@ -167,42 +216,22 @@
     const client = raw?.client && typeof raw.client === "object" ? raw.client : {};
     const id = normalizeText(raw.id || client.id || "");
     const path = normalizeText(raw.path || (id ? `sqlite://clients/${id}` : ""));
-    const codeFournisseur = normalizeText(
-      raw.codeFournisseur ||
-        client.codeFournisseur ||
-        raw.code_fournisseur ||
-        client.code_fournisseur ||
+    const codeTransporteur = normalizeText(
+      raw.codeTransporteur ||
+        client.codeTransporteur ||
+        raw.code_transporteur ||
+        client.code_transporteur ||
         raw.codeClient ||
         client.codeClient ||
         ""
     );
-    const name = normalizeText(
-      raw.nomFournisseur ||
-        raw.nom_fournisseur ||
-        raw.name ||
-        client.nomFournisseur ||
-        client.nom_fournisseur ||
-        client.name ||
-        ""
-    );
-    const matriculeFiscal = normalizeText(
-      raw.matriculeFiscal ||
-        raw.matricule_fiscal ||
-        raw.vat ||
-        client.matriculeFiscal ||
-        client.matricule_fiscal ||
-        client.vat ||
-        client.identifiantFiscal ||
-        ""
-    );
-    const normalizedCode = normalizeText(codeFournisseur).toUpperCase();
-    const normalizedMatricule = normalizeText(matriculeFiscal).toUpperCase();
-    const safeMatriculeFiscal =
-      normalizedCode && normalizedMatricule === normalizedCode ? "" : matriculeFiscal;
-    const type = normalizeText(
-      raw.typeFournisseur || raw.type_fournisseur || client.typeFournisseur || client.type || raw.type || "societe"
-    );
-    return { id, path, codeFournisseur, name, matriculeFiscal: safeMatriculeFiscal, type, raw };
+    const name = normalizeText(raw.name || client.name || "");
+    const driverName = resolveDriverName(raw, client);
+    const vehiclePlate = resolveVehiclePlate(raw, client);
+    const transportMode = resolveTransportMode(raw, client);
+    const phone = normalizeText(raw.phone || client.phone || client.telephone || client.tel || "");
+    const email = normalizeText(raw.email || client.email || "");
+    return { id, path, codeTransporteur, name, driverName, vehiclePlate, transportMode, phone, email, raw };
   };
 
   const getTotalPages = () => (state.total > 0 ? Math.max(1, Math.ceil(state.total / PAGE_SIZE)) : 1);
@@ -231,7 +260,7 @@
   const renderStatus = () => {
     if (!els?.statusEl) return;
     if (state.loading) {
-      els.statusEl.textContent = "Chargement des fournisseurs...";
+      els.statusEl.textContent = "Chargement des transporteurs...";
       return;
     }
     if (state.message) {
@@ -239,65 +268,75 @@
       return;
     }
     if (state.total <= 0) {
-      els.statusEl.textContent = state.query ? "Aucun fournisseur trouve." : "Aucun fournisseur enregistre.";
+      els.statusEl.textContent = state.query ? "Aucun transporteur trouve." : "Aucun transporteur enregistre.";
       return;
     }
     const start = (state.page - 1) * PAGE_SIZE + 1;
     const end = Math.min(start + state.entries.length - 1, state.total);
-    els.statusEl.textContent = `Affichage ${start}–${end} sur ${state.total} fournisseur${state.total > 1 ? "s" : ""}`;
+    els.statusEl.textContent = `Affichage ${start}-${end} sur ${state.total} transporteurs.`;
   };
 
   const renderList = () => {
     if (!els?.listEl) return;
     renderPager();
     if (state.loading) {
-      els.listEl.innerHTML = '<div class="client-saved-modal__empty">Chargement des fournisseurs...</div>';
+      els.listEl.innerHTML = '<div class="client-saved-modal__empty">Chargement des transporteurs...</div>';
       renderStatus();
       return;
     }
     if (!state.entries.length) {
-      const msg = state.query ? "Aucun fournisseur trouve." : "Aucun fournisseur enregistre.";
+      const msg = state.query ? "Aucun transporteur trouve." : "Aucun transporteur enregistre.";
       els.listEl.innerHTML = `<div class="client-saved-modal__empty">${escapeHTML(msg)}</div>`;
       renderStatus();
       return;
     }
     els.listEl.innerHTML = state.entries
       .map((entry, idx) => {
-        const codeFournisseur = escapeHTML(entry.codeFournisseur || "N.R.");
+        const codeTransporteur = escapeHTML(entry.codeTransporteur || "N.R.");
         const name = escapeHTML(entry.name || "N.R.");
-        const matriculeFiscal = escapeHTML(entry.matriculeFiscal || "N.R.");
-        const typeLabel = entry.type === "particulier" ? "Personne physique" : "Societe / personne morale";
+        const driverName = escapeHTML(entry.driverName || "N.R.");
+        const vehiclePlate = escapeHTML(entry.vehiclePlate || "N.R.");
+        const transportMode = escapeHTML(entry.transportMode || "N.R.");
+        const phone = escapeHTML(entry.phone || "N.R.");
         return `
           <div class="client-search__option client-saved-item">
-            <button type="button" class="client-search__select client-search__select--detailed" data-fournisseur-saved-load="${idx}">
-              <div class="client-search__details-grid">
-                <div class="client-search__details-row">
-                  <div class="client-search__detail client-search__detail--inline">
-                    <span class="client-search__detail-label">Code fournisseur :</span>
-                    <span class="client-search__detail-value">${codeFournisseur}</span>
+            <div class="client-search__row">
+              <button type="button" class="client-search__select client-search__select--detailed" data-transporteur-saved-load="${idx}">
+                <div class="client-search__details-grid">
+                  <div class="client-search__details-row">
+                    <div class="client-search__detail client-search__detail--inline">
+                      <span class="client-search__detail-label">Code transporteur :</span>
+                      <span class="client-search__detail-value">${codeTransporteur}</span>
+                    </div>
+                    <div class="client-search__detail client-search__detail--inline client-search__detail--name">
+                      <span class="client-search__detail-label">Nom :</span>
+                      <span class="client-search__detail-value">${name}</span>
+                    </div>
                   </div>
-                  <div class="client-search__detail client-search__detail--inline client-search__detail--name">
-                    <span class="client-search__detail-label">Nom :</span>
-                    <span class="client-search__detail-value">${name}</span>
+                  <div class="client-search__details-row">
+                    <div class="client-search__detail client-search__detail--inline">
+                      <span class="client-search__detail-label">Chauffeur :</span>
+                      <span class="client-search__detail-value">${driverName}</span>
+                    </div>
+                    <div class="client-search__detail client-search__detail--inline">
+                      <span class="client-search__detail-label">Matricule vehicule :</span>
+                      <span class="client-search__detail-value">${vehiclePlate}</span>
+                    </div>
+                    <div class="client-search__detail client-search__detail--inline">
+                      <span class="client-search__detail-label">Mode de transport :</span>
+                      <span class="client-search__detail-value">${transportMode}</span>
+                    </div>
+                    <div class="client-search__detail client-search__detail--inline">
+                      <span class="client-search__detail-label">Telephone :</span>
+                      <span class="client-search__detail-value">${phone}</span>
+                    </div>
                   </div>
                 </div>
-                <div class="client-search__details-row">
-                  <div class="client-search__detail client-search__detail--inline">
-                    <span class="client-search__detail-label">Type de fournisseur :</span>
-                    <span class="client-search__detail-value">${escapeHTML(typeLabel)}</span>
-                  </div>
-                </div>
-                <div class="client-search__details-row">
-                  <div class="client-search__detail client-search__detail--inline">
-                    <span class="client-search__detail-label">Matricule fiscal :</span>
-                    <span class="client-search__detail-value">${matriculeFiscal}</span>
-                  </div>
-                </div>
+              </button>
+              <div class="client-search__actions">
+                <button type="button" class="client-search__edit" data-transporteur-saved-update="${idx}">Mettre a jour</button>
+                <button type="button" class="client-search__delete" data-transporteur-saved-delete="${idx}">Supprimer</button>
               </div>
-            </button>
-            <div class="client-search__actions">
-              <button type="button" class="client-search__edit" data-fournisseur-saved-update="${idx}">Mettre a jour</button>
-              <button type="button" class="client-search__delete" data-fournisseur-saved-delete="${idx}">Supprimer</button>
             </div>
           </div>
         `;
@@ -331,7 +370,7 @@
       state.loading = false;
       state.total = 0;
       state.entries = [];
-      state.message = "Recherche des fournisseurs indisponible.";
+      state.message = "Recherche des transporteurs indisponible.";
       renderList();
       return;
     }
@@ -342,7 +381,7 @@
         query: trimmedQuery,
         limit: PAGE_SIZE,
         offset,
-        entityType: "vendor"
+        entityType: "transporter"
       });
       if (requestId !== state.requestId) return;
       if (!res?.ok) {
@@ -375,33 +414,33 @@
     }
   };
 
-  const dispatchFournisseurMutationEvent = (entry = {}) => {
+  const dispatchTransporteurMutationEvent = (entry = {}) => {
     const path = normalizeText(entry.path || "");
     if (!path) return;
     try {
       w.dispatchEvent(
         new CustomEvent("client-saved-modal-entity-updated", {
-          detail: { entityType: "vendor", path, snapshot: {} }
+          detail: { entityType: "transporter", path, snapshot: {} }
         })
       );
     } catch {}
   };
 
-  const refreshFournisseurViews = () => {
+  const refreshTransporteurViews = () => {
     const scopes = Array.from(
-      document.querySelectorAll("#clientBoxMainscreenFournisseursPanel, #FournisseurBoxNewDoc")
+      document.querySelectorAll("#clientBoxMainscreenTransporteursPanel, #TransporteurBoxNewDoc")
     );
     scopes.forEach((scope) => {
-      const input = scope.querySelector?.("#fournisseurSearch");
-      const results = scope.querySelector?.("#fournisseurSearchResults");
+      const input = scope.querySelector?.("#transporteurSearch");
+      const results = scope.querySelector?.("#transporteurSearchResults");
       if (!input || !results || results.hidden) return;
-      const searchBtn = scope.querySelector?.("#fournisseurSearchBtn");
+      const searchBtn = scope.querySelector?.("#transporteurSearchBtn");
       if (searchBtn) searchBtn.click();
       else input.dispatchEvent(new Event("input", { bubbles: true }));
     });
     const legacyModal =
-      document.getElementById("fournisseurSavedModal") ||
-      document.getElementById("fournisseurSavedModalNv");
+      document.getElementById("transporteurSavedModal") ||
+      document.getElementById("transporteurSavedModalNv");
     if (
       legacyModal &&
       legacyModal.classList.contains("is-open") &&
@@ -412,229 +451,68 @@
     }
   };
 
-  const getFormScope = () =>
-    document.getElementById("clientBoxMainscreenFournisseursPanel") ||
-    document.getElementById("FournisseurBoxNewDoc");
+  const getFormScope = () => document.getElementById("clientBoxMainscreenTransporteursPanel");
 
-  const normalizeFournisseurMode = (mode = "view") => {
-    const raw = String(mode || "view").trim().toLowerCase();
-    if (raw === "load") return "view";
-    if (raw === "edit" || raw === "create" || raw === "view") return raw;
-    return "view";
-  };
-
-  const forceFournisseurPopoverMode = (popoverNode, mode = "view") => {
-    if (!(popoverNode instanceof HTMLElement)) return;
-    const normalized = normalizeFournisseurMode(mode);
-    const isView = normalized === "view";
-    const isEdit = normalized === "edit";
-    const isCreate = normalized === "create";
-    popoverNode.dataset.clientFormMode = normalized;
-    popoverNode.dataset.fournisseurFormMode = normalized;
-    const rightActions = popoverNode.querySelector(".swbDialog__group.swbDialog__group--right");
-    if (rightActions) {
-      rightActions.hidden = isView;
-      rightActions.setAttribute("aria-hidden", isView ? "true" : "false");
-    }
-    const setBtn = (id, show, disabledWhenShown = false) => {
-      const btn = popoverNode.querySelector(`#${id}`);
-      if (!btn) return;
-      btn.hidden = !show;
-      btn.setAttribute("aria-hidden", show ? "false" : "true");
-      btn.disabled = show ? !!disabledWhenShown : true;
-      btn.setAttribute("aria-disabled", btn.disabled ? "true" : "false");
-    };
-    setBtn("btnUpdateFournisseur", isEdit, false);
-    setBtn("btnSaveFournisseur", isCreate, false);
-    setBtn("btnNewFournisseur", isCreate, false);
-  };
-
-  const syncFournisseurTypeUi = (popoverNode, payload = {}) => {
-    if (!(popoverNode instanceof HTMLElement)) return;
-    const norm = (value) => String(value || "").trim().toLowerCase();
-    const typeRaw = norm(
-      payload.typeFournisseur ||
-        payload.type_fournisseur ||
-        payload.type ||
-        popoverNode.querySelector?.("#fournisseurType")?.value ||
-        "societe"
-    );
-    const type =
-      typeRaw === "personne_physique" || typeRaw === "particulier" ? typeRaw : "societe";
-    const label = type === "particulier" ? "CIN / passeport" : "Matricule fiscal";
-    const placeholder = type === "particulier" ? "CIN ou Passeport" : "ex: 1284118/W/A/M/000";
-    const displayText =
-      type === "personne_physique"
-        ? "Personne physique"
-        : type === "particulier"
-          ? "Particulier"
-          : "Societe / personne morale";
-    const select = popoverNode.querySelector("#fournisseurType");
-    if (select && "value" in select) {
-      select.value = type;
-      select.dispatchEvent(new Event("input", { bubbles: true }));
-      select.dispatchEvent(new Event("change", { bubbles: true }));
-    }
-    const display = popoverNode.querySelector("#fournisseurTypeDisplay");
-    if (display) display.textContent = displayText;
-    const labelEl = popoverNode.querySelector("#fournisseurIdLabel");
-    if (labelEl) labelEl.textContent = label;
-    const vatInput = popoverNode.querySelector("#fournisseurVat");
-    if (vatInput && "placeholder" in vatInput) vatInput.placeholder = placeholder;
-  };
-
-  const openFournisseurForm = (entry, mode = "view") => {
+  const openTransporteurForm = (entry, mode = "view") => {
     if (!entry) return false;
     const formScope = getFormScope();
-    const requestedMode = normalizeFournisseurMode(mode);
-    const payload =
-      entry && typeof entry === "object"
-        ? {
-            ...(entry.raw && typeof entry.raw === "object" ? entry.raw : entry),
-            entityType: "vendor"
-          }
-        : entry;
-    if (formScope && typeof w.SEM?.loadClientRecordIntoForm === "function") {
-      w.SEM.loadClientRecordIntoForm(payload, { formScope });
+    if (!formScope) return false;
+    if (typeof w.SEM?.loadClientRecordIntoForm === "function") {
+      w.SEM.loadClientRecordIntoForm(entry.raw || entry, { formScope });
+    } else {
+      return false;
     }
-    const popoverNode =
-      formScope?.querySelector?.("#fournisseurFormPopover") ||
-      document.getElementById("fournisseurFormPopover") ||
-      null;
-    if (!popoverNode) return false;
-    if (typeof w.SEM?.loadClientRecordIntoForm !== "function") {
-      const norm = (value) => String(value || "").trim();
-      const typeRaw = norm(
-        payload.typeFournisseur || payload.type_fournisseur || payload.type || "societe"
-      );
-      const type = typeRaw === "personne_physique" || typeRaw === "particulier" ? typeRaw : "societe";
-      const setVal = (selector, value) => {
-        const input = popoverNode.querySelector(selector);
-        if (!input || !("value" in input)) return;
-        input.value = value;
-      };
-      setVal(
-        "#fournisseurCode",
-        norm(payload.codeFournisseur || payload.code_fournisseur || payload.codeClient || "")
-      );
-      setVal(
-        "#fournisseurName",
-        norm(payload.nomFournisseur || payload.nom_fournisseur || payload.name || "")
-      );
-      setVal(
-        "#fournisseurVat",
-        norm(payload.matriculeFiscal || payload.matricule_fiscal || payload.vat || "")
-      );
-      setVal("#fournisseurPhone", norm(payload.telephone || payload.phone || payload.tel || ""));
-      setVal("#fournisseurEmail", norm(payload.email || ""));
-      setVal("#fournisseurAddress", norm(payload.adresse || payload.address || ""));
-      const typeSelect = popoverNode.querySelector("#fournisseurType");
-      if (typeSelect && "value" in typeSelect) {
-        typeSelect.value = type;
-        typeSelect.dispatchEvent(new Event("change", { bubbles: true }));
-      }
-      const display = popoverNode.querySelector("#fournisseurTypeDisplay");
-      if (display) {
-        display.textContent =
-          type === "personne_physique" ? "Personne physique" : type === "particulier" ? "Particulier" : "Societe / personne morale";
-      }
-    }
-    const ctx =
-      w.SEM?.getClientFormPopoverContext?.(formScope) ||
-      (popoverNode ? w.SEM?.getClientFormPopoverContext?.(popoverNode) : null);
+    const ctx = w.SEM?.getClientFormPopoverContext?.(formScope);
     if (ctx) {
-      w.SEM?.setClientFormPopoverMode?.(ctx, requestedMode);
-      // Defer opening to avoid same-click global "outside click" listeners closing it immediately.
-      setTimeout(() => {
-        w.SEM?.setClientFormPopoverOpen?.(ctx, true);
-        w.SEM?.setClientFormPopoverMode?.(ctx, requestedMode);
-        forceFournisseurPopoverMode(ctx.popover || popoverNode, requestedMode);
-        syncFournisseurTypeUi(ctx.popover || popoverNode, payload);
-        w.SEM?.refreshFournisseurActionButtons?.();
-        // Second pass: override any late listener resetting mode to create/default.
-        setTimeout(() => {
-          w.SEM?.setClientFormPopoverMode?.(ctx, requestedMode);
-          forceFournisseurPopoverMode(ctx.popover || popoverNode, requestedMode);
-          syncFournisseurTypeUi(ctx.popover || popoverNode, payload);
-          w.SEM?.refreshFournisseurActionButtons?.();
-        }, 30);
-      }, 0);
-      return true;
-    }
-    const effectiveMode = requestedMode;
-    popoverNode.dataset.clientFormMode = effectiveMode;
-    popoverNode.dataset.fournisseurFormMode = effectiveMode === "view" ? "view" : effectiveMode;
-    forceFournisseurPopoverMode(popoverNode, effectiveMode);
-    syncFournisseurTypeUi(popoverNode, payload);
-    popoverNode.classList.add("is-open");
-    popoverNode.hidden = false;
-    popoverNode.removeAttribute("hidden");
-    popoverNode.setAttribute("aria-hidden", "false");
-    const focusTarget =
-      popoverNode.querySelector("#fournisseurName") ||
-      popoverNode.querySelector("[data-client-form-close]") ||
-      popoverNode.querySelector("input,textarea,select");
-    if (focusTarget && typeof focusTarget.focus === "function") {
-      setTimeout(() => {
-        try {
-          focusTarget.focus({ preventScroll: true });
-        } catch {
-          try {
-            focusTarget.focus();
-          } catch {}
-        }
-      }, 0);
+      w.SEM?.setClientFormPopoverMode?.(ctx, mode);
+      w.SEM?.setClientFormPopoverOpen?.(ctx, true);
     }
     return true;
   };
 
   const onListClick = async (evt) => {
-    const loadBtn = evt.target?.closest?.("[data-fournisseur-saved-load]");
+    const loadBtn = evt.target?.closest?.("[data-transporteur-saved-load]");
     if (loadBtn) {
-      evt.preventDefault();
-      evt.stopPropagation();
-      const idx = Number(loadBtn.dataset.fournisseurSavedLoad);
+      const idx = Number(loadBtn.dataset.transporteurSavedLoad);
       const entry = state.entries[idx];
       if (!entry) return;
-      openFournisseurForm(entry, "view");
+      if (openTransporteurForm(entry, "view")) closeModal();
       return;
     }
 
-    const updateBtn = evt.target?.closest?.("[data-fournisseur-saved-update]");
+    const updateBtn = evt.target?.closest?.("[data-transporteur-saved-update]");
     if (updateBtn) {
-      evt.preventDefault();
-      evt.stopPropagation();
-      const idx = Number(updateBtn.dataset.fournisseurSavedUpdate);
+      const idx = Number(updateBtn.dataset.transporteurSavedUpdate);
       const entry = state.entries[idx];
       if (!entry) return;
-      openFournisseurForm(entry, "edit");
+      if (openTransporteurForm(entry, "edit")) closeModal();
       return;
     }
 
-    const deleteBtn = evt.target?.closest?.("[data-fournisseur-saved-delete]");
+    const deleteBtn = evt.target?.closest?.("[data-transporteur-saved-delete]");
     if (!deleteBtn) return;
-    const idx = Number(deleteBtn.dataset.fournisseurSavedDelete);
+    const idx = Number(deleteBtn.dataset.transporteurSavedDelete);
     const entry = state.entries[idx];
     if (!entry) return;
-    const confirmed = await showConfirmDialog(`Supprimer le fournisseur "${entry.name || "N.R."}" ?`, {
-      title: "Supprimer le fournisseur",
+    const confirmed = await showConfirmDialog(`Supprimer le transporteur "${entry.name || "N.R."}" ?`, {
+      title: "Supprimer le transporteur",
       okText: "Supprimer",
       cancelText: "Annuler"
     });
     if (!confirmed) return;
     if (!w.electronAPI?.deleteClient) {
-      await showMessageDialog("Suppression des fournisseurs indisponible.", { title: "Erreur" });
+      await showMessageDialog("Suppression des transporteurs indisponible.", { title: "Erreur" });
       return;
     }
     try {
-      const res = await w.electronAPI.deleteClient({ path: entry.path, entityType: "vendor" });
+      const res = await w.electronAPI.deleteClient({ path: entry.path, entityType: "transporter" });
       if (!res?.ok) {
         await showMessageDialog(normalizeText(res?.error || "Suppression impossible."), { title: "Erreur" });
         return;
       }
-      dispatchFournisseurMutationEvent(entry);
-      refreshFournisseurViews();
-      w.showToast?.("Fournisseur supprime.");
+      dispatchTransporteurMutationEvent(entry);
+      refreshTransporteurViews();
+      w.showToast?.("Transporteur supprime.");
       const maxPage = Math.max(1, Math.ceil(Math.max(0, state.total - 1) / PAGE_SIZE));
       state.page = Math.min(state.page, maxPage);
       await loadPage(state.page);
@@ -789,10 +667,10 @@
     document.addEventListener(
       "click",
       (evt) => {
-        const trigger = evt.target?.closest?.(`#${OPEN_BTN_ID}, #FournisseurSavedListBtn`);
+        const trigger = evt.target?.closest?.(`#${OPEN_BTN_ID}, #TransporteurSavedListBtn`);
         if (!trigger) return;
-        const inMainFournisseurPanel = !!trigger.closest("#clientBoxMainscreenFournisseursPanel");
-        if (!inMainFournisseurPanel) return;
+        const inMainTransporteurPanel = !!trigger.closest("#clientBoxMainscreenTransporteursPanel");
+        if (!inMainTransporteurPanel) return;
         evt.preventDefault();
         evt.stopImmediatePropagation();
         if (!isOpen()) {
@@ -807,14 +685,14 @@
     );
   };
 
-  AppInit.registerFournisseurSavedModalActions = function registerFournisseurSavedModalActions() {
+  AppInit.registerTransporteurSavedModalActions = function registerTransporteurSavedModalActions() {
     ensureModal();
     captureEls();
     bindEvents();
     registerOpenTrigger();
   };
 
-  AppInit.FournisseurSavedModal = {
+  AppInit.TransporteurSavedModal = {
     open: (trigger = null) => openModal(trigger),
     close: () => closeModal(),
     reload: () => loadPage(state.page || 1)

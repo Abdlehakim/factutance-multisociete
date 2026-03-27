@@ -1962,6 +1962,16 @@ async function handleLanApiRequest(req, res, url, pathname, requestContext = {})
         sendLanServerJson(res, 200, result);
         return;
       }
+      case "/api/clients/preview-code": {
+        try {
+          const result = FactDb.previewClientCode(body || {});
+          sendLanServerJson(res, 200, { ok: true, ...result });
+          return;
+        } catch (err) {
+          sendLanServerJson(res, 200, { ok: false, error: String(err?.message || err) });
+          return;
+        }
+      }
       case "/api/clients/save": {
         try {
           const { client = {}, suggestedName = "client", entityType } = body || {};

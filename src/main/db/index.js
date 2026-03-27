@@ -7,9 +7,11 @@ const Database = require("better-sqlite3");
 const { runMigrations: runSchemaMigrations } = require("./migrate");
 const { createDepotMagasinRepository } = require("./depot-magasin");
 const {
-  normalizeClientCodeValue,
-  generateUniqueClientCode,
-  isGeneratedClientCodeFormat
+  resolveEntityCodeConfig,
+  normalizeEntityCodeValue,
+  isGeneratedEntityCodeFormat,
+  generateUniqueEntityCode,
+  normalizeClientCodeValue
 } = require("./client-code");
 const {
   DOC_TYPE_TABLES,
@@ -345,6 +347,8 @@ const migrateLegacyClients = (db) => {
       type,
       name,
       code_client,
+      code_fournisseur,
+      code_transporteur,
       client_type,
       benefit,
       account,
@@ -363,7 +367,7 @@ const migrateLegacyClients = (db) => {
       created_at,
       updated_at
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `
   );
   const tx = db.transaction(() => {
@@ -371,12 +375,35 @@ const migrateLegacyClients = (db) => {
       const dataRaw = parseJsonSafeForMigration(row.data);
       const data = dataRaw && typeof dataRaw === "object" ? dataRaw : {};
       const normalizedClient = normalizeClientRecord(data, row.type);
+      const normalizedType = normalizeClientEntityType(row.type);
       const accountValue = normalizeAccountValue(normalizedClient.account);
       const normalizedCodeClient = normalizeClientCodeValue(
-        data.codeClient || data.code_client || data.code
+        normalizedType === "client" ? data.codeClient || data.code_client || data.code : ""
       );
+      const normalizedCodeFournisseur = normalizeEntityCodeValue(
+        normalizedType === "vendor"
+          ? data.codeFournisseur || data.code_fournisseur || data.codeClient || data.code_client || data.code
+          : "",
+        "vendor"
+      );
+      const normalizedCodeTransporteur = normalizeEntityCodeValue(
+        normalizedType === "transporter"
+          ? data.codeTransporteur ||
+              data.code_transporteur ||
+              data.codeClient ||
+              data.code_client ||
+              data.code
+          : "",
+        "transporter"
+      );
+      const normalizedCodePrimary =
+        normalizedType === "vendor"
+          ? normalizedCodeFournisseur
+          : normalizedType === "transporter"
+            ? normalizedCodeTransporteur
+            : normalizedCodeClient;
       const searchText = buildSearchText([
-        normalizedCodeClient,
+        normalizedCodePrimary,
         normalizedClient.name,
         normalizedClient.benefit,
         normalizedClient.account,
@@ -396,6 +423,8 @@ const migrateLegacyClients = (db) => {
         row.type,
         nameValue,
         normalizedCodeClient || null,
+        normalizedCodeFournisseur || null,
+        normalizedCodeTransporteur || null,
         normalizedClient.clientType || null,
         normalizedClient.benefit || null,
         normalizedClient.account || null,
@@ -635,13 +664,17 @@ const migrateClientFieldsToColumns = (db) => {
   const fieldRowCount = db.prepare("SELECT COUNT(1) AS count FROM client_fields").get()?.count || 0;
   if (fieldRowCount <= 0) return;
   const rows = db
-    .prepare("SELECT id, type, name, code_client, legacy_path, created_at, updated_at FROM clients")
+    .prepare(
+      "SELECT id, type, name, code_client, code_fournisseur, code_transporteur, legacy_path, created_at, updated_at FROM clients"
+    )
     .all();
   const update = db.prepare(
     `
     UPDATE clients SET
       name = ?,
       code_client = ?,
+      code_fournisseur = ?,
+      code_transporteur = ?,
       client_type = ?,
       benefit = ?,
       account = ?,
@@ -664,12 +697,43 @@ const migrateClientFieldsToColumns = (db) => {
     rows.forEach((row) => {
       const data = loadFieldRows(db, "client_fields", "client_id", row.id);
       const normalized = normalizeClientRecord(data, row.type);
+      const normalizedEntityType = normalizeClientEntityType(row.type);
       const accountValue = normalizeAccountValue(normalized.account);
       const normalizedCodeClient = normalizeClientCodeValue(
-        data.codeClient || data.code_client || row.code_client || ""
+        normalizedEntityType === "client"
+          ? data.codeClient || data.code_client || row.code_client || ""
+          : row.code_client || ""
       );
+      const normalizedCodeFournisseur = normalizeEntityCodeValue(
+        normalizedEntityType === "vendor"
+          ? data.codeFournisseur ||
+              data.code_fournisseur ||
+              data.codeClient ||
+              data.code_client ||
+              row.code_fournisseur ||
+              ""
+          : row.code_fournisseur || "",
+        "vendor"
+      );
+      const normalizedCodeTransporteur = normalizeEntityCodeValue(
+        normalizedEntityType === "transporter"
+          ? data.codeTransporteur ||
+              data.code_transporteur ||
+              data.codeClient ||
+              data.code_client ||
+              row.code_transporteur ||
+              ""
+          : row.code_transporteur || "",
+        "transporter"
+      );
+      const normalizedCodePrimary =
+        normalizedEntityType === "vendor"
+          ? normalizedCodeFournisseur
+          : normalizedEntityType === "transporter"
+            ? normalizedCodeTransporteur
+            : normalizedCodeClient;
       const searchText = buildSearchText([
-        normalizedCodeClient,
+        normalizedCodePrimary,
         normalized.name,
         normalized.benefit,
         normalized.account,
@@ -687,6 +751,8 @@ const migrateClientFieldsToColumns = (db) => {
       update.run(
         nameValue,
         normalizedCodeClient || null,
+        normalizedCodeFournisseur || null,
+        normalizedCodeTransporteur || null,
         normalized.clientType || null,
         normalized.benefit || null,
         normalized.account || null,
@@ -1129,84 +1195,146 @@ const normalizeOptionalText = (value) => {
 
 const normalizeAccountValue = (value) => String(value || "").trim().toLowerCase();
 
-const clientCodeExists = (db, codeClient, exceptId = "") => {
-  const normalizedCode = normalizeClientCodeValue(codeClient);
+const CODE_MANAGED_ENTITY_TYPES = new Set(["client", "vendor", "transporter"]);
+
+const resolveEntityCodeRuntimeConfig = (entityType = "client") => {
+  const normalizedEntityType = normalizeClientEntityType(entityType);
+  return resolveEntityCodeConfig(normalizedEntityType);
+};
+
+const getEntityCodeColumnName = (entityType = "client") =>
+  resolveEntityCodeRuntimeConfig(entityType).column;
+
+const getEntityCodeResultKey = (entityType = "client") =>
+  resolveEntityCodeRuntimeConfig(entityType).resultKey;
+
+const getEntityCodeValueFromRow = (row = {}, entityType = "client") => {
+  const column = getEntityCodeColumnName(entityType);
+  return normalizeEntityCodeValue(row?.[column], entityType);
+};
+
+const entityCodeExists = (db, entityType = "client", codeValue = "", exceptId = "") => {
+  const normalizedType = normalizeClientEntityType(entityType);
+  if (!CODE_MANAGED_ENTITY_TYPES.has(normalizedType)) return false;
+  const normalizedCode = normalizeEntityCodeValue(codeValue, normalizedType);
   if (!normalizedCode) return false;
   const normalizedExceptId = String(exceptId || "").trim();
+  const codeColumn = getEntityCodeColumnName(normalizedType);
   const match = db
     .prepare(
       `
       SELECT id
       FROM clients
-      WHERE lower(trim(type)) = 'client'
-        AND upper(trim(COALESCE(code_client, ''))) = ?
+      WHERE lower(trim(type)) = ?
+        AND upper(trim(COALESCE(${codeColumn}, ''))) = ?
         AND (? = '' OR id != ?)
       LIMIT 1
     `
     )
-    .get(normalizedCode, normalizedExceptId, normalizedExceptId);
+    .get(normalizedType, normalizedCode, normalizedExceptId, normalizedExceptId);
   return !!match;
 };
 
-const generateNextClientCode = (db, options = {}) => {
+const generateNextEntityCode = (db, options = {}) => {
+  const normalizedType = normalizeClientEntityType(options?.entityType || "client");
+  if (!CODE_MANAGED_ENTITY_TYPES.has(normalizedType)) return "";
   const normalizedExceptId = String(options?.exceptId || "").trim();
+  const codeColumn = getEntityCodeColumnName(normalizedType);
   const rows = db
     .prepare(
       `
-      SELECT code_client
+      SELECT ${codeColumn} AS code_value
       FROM clients
-      WHERE lower(trim(type)) = 'client'
+      WHERE lower(trim(type)) = ?
         AND (? = '' OR id != ?)
-        AND code_client IS NOT NULL
-        AND trim(code_client) <> ''
+        AND ${codeColumn} IS NOT NULL
+        AND trim(${codeColumn}) <> ''
     `
     )
-    .all(normalizedExceptId, normalizedExceptId);
+    .all(normalizedType, normalizedExceptId, normalizedExceptId);
   const usedCodes = new Set();
   rows.forEach((row) => {
-    const normalizedCode = normalizeClientCodeValue(row?.code_client);
+    const normalizedCode = normalizeEntityCodeValue(row?.code_value, normalizedType);
     if (normalizedCode) usedCodes.add(normalizedCode);
   });
-  return generateUniqueClientCode({
-    exists: (candidate) => usedCodes.has(normalizeClientCodeValue(candidate))
+  return generateUniqueEntityCode({
+    entityType: normalizedType,
+    exists: (candidate) => usedCodes.has(normalizeEntityCodeValue(candidate, normalizedType))
   });
 };
 
-const generateClientCodeWithDbGuard = (db, options = {}) => {
+const generateEntityCodeWithDbGuard = (db, options = {}) => {
+  const normalizedType = normalizeClientEntityType(options?.entityType || "client");
+  if (!CODE_MANAGED_ENTITY_TYPES.has(normalizedType)) return "";
   const normalizedExceptId = String(options?.exceptId || "").trim();
-  return generateUniqueClientCode({
-    exists: (candidate) => clientCodeExists(db, candidate, normalizedExceptId)
+  return generateUniqueEntityCode({
+    entityType: normalizedType,
+    exists: (candidate) => entityCodeExists(db, normalizedType, candidate, normalizedExceptId)
   });
 };
 
-const shouldRepairClientCodeValue = (db, codeClient, exceptId = "") => {
-  const normalizedCode = normalizeClientCodeValue(codeClient);
+const shouldRepairEntityCodeValue = (db, entityType = "client", codeValue = "", exceptId = "") => {
+  const normalizedType = normalizeClientEntityType(entityType);
+  if (!CODE_MANAGED_ENTITY_TYPES.has(normalizedType)) return false;
+  const normalizedCode = normalizeEntityCodeValue(codeValue, normalizedType);
   if (!normalizedCode) return true;
-  if (!isGeneratedClientCodeFormat(normalizedCode)) return true;
-  return clientCodeExists(db, normalizedCode, exceptId);
+  if (!isGeneratedEntityCodeFormat(normalizedCode, normalizedType)) return true;
+  return entityCodeExists(db, normalizedType, normalizedCode, exceptId);
 };
 
-const ensureClientCodeForRow = (db, row = {}) => {
-  if (!db || !row || normalizeClientEntityType(row.type) !== "client") return row;
+const ensureEntityCodeForRow = (db, row = {}) => {
+  if (!db || !row) return row;
+  const normalizedType = normalizeClientEntityType(row.type);
+  if (!CODE_MANAGED_ENTITY_TYPES.has(normalizedType)) return row;
   const rowId = String(row.id || "").trim();
   if (!rowId) return row;
-  if (!shouldRepairClientCodeValue(db, row.code_client, rowId)) return row;
-
-  const generatedCode = generateNextClientCode(db, { exceptId: rowId });
-  const updatedAt = new Date().toISOString();
-  db
-    .prepare(
-      "UPDATE clients SET code_client = ?, updated_at = ? WHERE id = ? AND lower(trim(type)) = 'client'"
-    )
-    .run(generatedCode, updatedAt, rowId);
-  return {
-    ...row,
-    code_client: generatedCode,
-    updated_at: updatedAt
-  };
+  const codeColumn = getEntityCodeColumnName(normalizedType);
+  if (!shouldRepairEntityCodeValue(db, normalizedType, row?.[codeColumn], rowId)) return row;
+  const maxAttempts = 48;
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const generatedCode =
+      attempt >= Math.floor(maxAttempts / 2)
+        ? generateEntityCodeWithDbGuard(db, {
+            entityType: normalizedType,
+            exceptId: rowId
+          })
+        : generateNextEntityCode(db, {
+            entityType: normalizedType,
+            exceptId: rowId
+          });
+    const updatedAt = new Date().toISOString();
+    try {
+      db
+        .prepare(
+          `UPDATE clients SET ${codeColumn} = ?, updated_at = ? WHERE id = ? AND lower(trim(type)) = ?`
+        )
+        .run(generatedCode, updatedAt, rowId, normalizedType);
+      return {
+        ...row,
+        [codeColumn]: generatedCode,
+        updated_at: updatedAt
+      };
+    } catch (error) {
+      if (isEntityCodeConstraintError(error, normalizedType) && attempt < maxAttempts - 1) {
+        console.warn(
+          "[entity-code] collision detected during code repair",
+          JSON.stringify({
+            entityType: normalizedType,
+            rowId,
+            attempt: attempt + 1,
+            maxAttempts,
+            candidate: generatedCode
+          })
+        );
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw new Error(`Impossible de reparer le code ${normalizedType} pour ${rowId}.`);
 };
 
-const resolveClientCodeForPersist = ({
+const resolveEntityCodeForPersist = ({
   db,
   entityType = "client",
   id = "",
@@ -1214,43 +1342,75 @@ const resolveClientCodeForPersist = ({
   existingCode = "",
   fallbackToGenerate = true
 } = {}) => {
-  if (normalizeClientEntityType(entityType) !== "client") return "";
+  const normalizedType = normalizeClientEntityType(entityType);
+  if (!CODE_MANAGED_ENTITY_TYPES.has(normalizedType)) return "";
   const normalizedId = String(id || "").trim();
-  const requested = normalizeClientCodeValue(requestedCode);
-  const existing = normalizeClientCodeValue(existingCode);
+  const requested = normalizeEntityCodeValue(requestedCode, normalizedType);
+  const existing = normalizeEntityCodeValue(existingCode, normalizedType);
   if (
     existing &&
-    isGeneratedClientCodeFormat(existing) &&
-    !clientCodeExists(db, existing, normalizedId)
+    isGeneratedEntityCodeFormat(existing, normalizedType) &&
+    !entityCodeExists(db, normalizedType, existing, normalizedId)
   ) {
     return existing;
   }
   if (
     requested &&
-    isGeneratedClientCodeFormat(requested) &&
-    !clientCodeExists(db, requested, normalizedId)
+    isGeneratedEntityCodeFormat(requested, normalizedType) &&
+    !entityCodeExists(db, normalizedType, requested, normalizedId)
   ) {
     return requested;
   }
   if (!fallbackToGenerate) return "";
-  return generateNextClientCode(db, { exceptId: normalizedId });
+  return generateNextEntityCode(db, { entityType: normalizedType, exceptId: normalizedId });
 };
 
-const isClientCodeConstraintError = (error) => {
+const isEntityCodeConstraintError = (error, entityType = "client") => {
   const message = String(error?.message || error || "");
   if (!message) return false;
+  const config = resolveEntityCodeRuntimeConfig(entityType);
   return (
-    message.includes("idx_clients_code_client_unique") ||
-    message.includes("clients.code_client") ||
-    (/UNIQUE constraint failed/i.test(message) && /code_client/i.test(message))
+    message.includes(config.uniqueIndex) ||
+    message.includes(`clients.${config.column}`) ||
+    (/UNIQUE constraint failed/i.test(message) && message.toLowerCase().includes(config.column))
   );
 };
 
-const previewClientCode = ({ id } = {}) => {
+const ensureClientCodeForRow = (db, row = {}) => ensureEntityCodeForRow(db, row);
+
+const resolveClientCodeForPersist = (options = {}) =>
+  resolveEntityCodeForPersist({ ...options, entityType: "client" });
+
+const generateNextClientCode = (db, options = {}) =>
+  generateNextEntityCode(db, { ...options, entityType: "client" });
+
+const generateClientCodeWithDbGuard = (db, options = {}) =>
+  generateEntityCodeWithDbGuard(db, { ...options, entityType: "client" });
+
+const shouldRepairClientCodeValue = (db, codeClient, exceptId = "") =>
+  shouldRepairEntityCodeValue(db, "client", codeClient, exceptId);
+
+const isClientCodeConstraintError = (error) =>
+  isEntityCodeConstraintError(error, "client");
+
+const previewClientCode = ({ id, entityType = "client" } = {}) => {
   const db = initDatabase();
   const normalizedId = parseClientIdFromPath(id) || String(id || "").trim();
-  const codeClient = generateNextClientCode(db, { exceptId: normalizedId });
-  return { codeClient };
+  const normalizedType = normalizeClientEntityType(entityType);
+  const generatedCode = generateNextEntityCode(db, {
+    entityType: normalizedType,
+    exceptId: normalizedId
+  });
+  const result = {
+    code: generatedCode,
+    codeClient: normalizedType === "client" ? generatedCode : "",
+    codeFournisseur: normalizedType === "vendor" ? generatedCode : "",
+    codeTransporteur: normalizedType === "transporter" ? generatedCode : ""
+  };
+  if (!result.codeClient && generatedCode) {
+    result.codeClient = generatedCode;
+  }
+  return result;
 };
 
 const parseBalanceValue = (value) => {
@@ -1317,6 +1477,10 @@ const applyClientFactureCounts = (records = [], dbInstance) => {
 
 const buildClientIdentifier = (client = {}) => {
   const candidate =
+    client.codeFournisseur ||
+    client.code_fournisseur ||
+    client.codeTransporteur ||
+    client.code_transporteur ||
     client.codeClient ||
     client.code_client ||
     client.code ||
@@ -1338,11 +1502,22 @@ const isTransporterEntityType = (value) => normalizeClientEntityType(value) === 
 const normalizeClientRecord = (client = {}, entityType = "client") => {
   const normalizedEntityType = normalizeClientEntityType(entityType || client.entityType || client.typeEntity);
   const isTransporter = normalizedEntityType === "transporter";
+  const isVendor = normalizedEntityType === "vendor";
   const isClient = normalizedEntityType === "client";
   if (isTransporter) {
+    const codeTransporteur = normalizeEntityCodeValue(
+      client.codeTransporteur ||
+        client.code_transporteur ||
+        client.codeClient ||
+        client.code_client ||
+        client.code,
+      "transporter"
+    );
     return {
       clientType: "",
-      codeClient: "",
+      codeClient: codeTransporteur,
+      codeFournisseur: "",
+      codeTransporteur,
       name: normalizeTextValue(client.name || client.company || client.transporter),
       benefit: normalizeTextValue(client.driverName || client.driver || client.chauffeur || client.benefit),
       account: normalizeTextValue(
@@ -1373,11 +1548,23 @@ const normalizeClientRecord = (client = {}, entityType = "client") => {
       soldClient: ""
     };
   }
+  const codeFournisseur = isVendor
+    ? normalizeEntityCodeValue(
+        client.codeFournisseur ||
+          client.code_fournisseur ||
+          client.codeClient ||
+          client.code_client ||
+          client.code,
+        "vendor"
+      )
+    : "";
   return {
     clientType: normalizeClientProfileType(client.type),
     codeClient: isClient
       ? normalizeClientCodeValue(client.codeClient || client.code_client || client.code)
-      : "",
+      : codeFournisseur,
+    codeFournisseur,
+    codeTransporteur: "",
     name: normalizeTextValue(client.name || client.company),
     benefit: normalizeTextValue(client.benefit),
     account: normalizeTextValue(client.account || client.accountOf),
@@ -1395,9 +1582,20 @@ const normalizeClientRecord = (client = {}, entityType = "client") => {
 
 const hydrateClientFromRow = (row = {}) => {
   const entityType = normalizeClientEntityType(row.type);
+  const codeClient = normalizeClientCodeValue(row.code_client || "");
+  const codeFournisseur = normalizeEntityCodeValue(row.code_fournisseur || "", "vendor");
+  const codeTransporteur = normalizeEntityCodeValue(row.code_transporteur || "", "transporter");
+  const codeForEntity =
+    entityType === "vendor"
+      ? codeFournisseur
+      : entityType === "transporter"
+        ? codeTransporteur
+        : codeClient;
   const base = {
     type: row.client_type || "",
-    codeClient: row.code_client || "",
+    codeClient: codeForEntity,
+    codeFournisseur,
+    codeTransporteur,
     name: row.name || "",
     benefit: row.benefit || "",
     account: row.account || "",
@@ -3516,6 +3714,8 @@ const persistClientRecord = ({
   type,
   name,
   codeClient,
+  codeFournisseur,
+  codeTransporteur,
   clientType,
   benefit,
   account,
@@ -3543,6 +3743,8 @@ const persistClientRecord = ({
         type,
         name,
         code_client,
+        code_fournisseur,
+        code_transporteur,
         client_type,
         benefit,
         account,
@@ -3561,11 +3763,13 @@ const persistClientRecord = ({
         created_at,
         updated_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         type = excluded.type,
         name = excluded.name,
         code_client = COALESCE(excluded.code_client, clients.code_client),
+        code_fournisseur = COALESCE(excluded.code_fournisseur, clients.code_fournisseur),
+        code_transporteur = COALESCE(excluded.code_transporteur, clients.code_transporteur),
         client_type = excluded.client_type,
         benefit = excluded.benefit,
         account = excluded.account,
@@ -3589,6 +3793,8 @@ const persistClientRecord = ({
       type,
       name,
       codeClient || null,
+      codeFournisseur || null,
+      codeTransporteur || null,
       clientType || null,
       benefit || null,
       account || null,
@@ -3636,22 +3842,65 @@ const saveClient = ({ client = {}, entityType = "client", suggestedName = "", id
     }
   }
   const now = new Date().toISOString();
-  let persistedCodeClient =
-    normalizedType === "client"
-      ? resolveClientCodeForPersist({
-          db,
-          entityType: normalizedType,
-          id: assignedId,
-          requestedCode: normalizedClient.codeClient,
-          existingCode: existingRecord?.client?.codeClient
-        })
-      : "";
-  const maxPersistAttempts = normalizedType === "client" ? 48 : 1;
+  let persistedCodeClient = normalizeClientCodeValue(existingRecord?.client?.codeClient || "");
+  let persistedCodeFournisseur = normalizeEntityCodeValue(
+    existingRecord?.client?.codeFournisseur || "",
+    "vendor"
+  );
+  let persistedCodeTransporteur = normalizeEntityCodeValue(
+    existingRecord?.client?.codeTransporteur || "",
+    "transporter"
+  );
+  const codeManagedEntity = CODE_MANAGED_ENTITY_TYPES.has(normalizedType);
+  if (codeManagedEntity) {
+    const codeFieldKey = getEntityCodeResultKey(normalizedType);
+    const requestedCode =
+      codeFieldKey === "codeFournisseur"
+        ? normalizedClient.codeFournisseur
+        : codeFieldKey === "codeTransporteur"
+          ? normalizedClient.codeTransporteur
+          : normalizedClient.codeClient;
+    const existingCode =
+      codeFieldKey === "codeFournisseur"
+        ? existingRecord?.client?.codeFournisseur
+        : codeFieldKey === "codeTransporteur"
+          ? existingRecord?.client?.codeTransporteur
+          : existingRecord?.client?.codeClient;
+    const resolvedCode = resolveEntityCodeForPersist({
+      db,
+      entityType: normalizedType,
+      id: assignedId,
+      requestedCode,
+      existingCode
+    });
+    if (normalizedType === "vendor") {
+      persistedCodeFournisseur = resolvedCode;
+      persistedCodeClient = resolvedCode;
+    } else if (normalizedType === "transporter") {
+      persistedCodeTransporteur = resolvedCode;
+      persistedCodeClient = resolvedCode;
+    } else {
+      persistedCodeClient = resolvedCode;
+      persistedCodeFournisseur = "";
+      persistedCodeTransporteur = "";
+    }
+  } else {
+    persistedCodeClient = "";
+    persistedCodeFournisseur = "";
+    persistedCodeTransporteur = "";
+  }
+  const maxPersistAttempts = codeManagedEntity ? 48 : 1;
   let persisted = false;
   let lastPersistError = null;
   for (let attempt = 0; attempt < maxPersistAttempts && !persisted; attempt += 1) {
+    const persistedCodePrimary =
+      normalizedType === "vendor"
+        ? persistedCodeFournisseur
+        : normalizedType === "transporter"
+          ? persistedCodeTransporteur
+          : persistedCodeClient;
     const searchText = buildSearchText([
-      persistedCodeClient,
+      persistedCodePrimary,
       normalizedClient.name,
       normalizedClient.benefit,
       normalizedClient.account,
@@ -3671,6 +3920,8 @@ const saveClient = ({ client = {}, entityType = "client", suggestedName = "", id
         type: normalizedType,
         name: baseName,
         codeClient: persistedCodeClient,
+        codeFournisseur: persistedCodeFournisseur,
+        codeTransporteur: persistedCodeTransporteur,
         clientType: normalizedClient.clientType,
         benefit: normalizedClient.benefit,
         account: normalizedClient.account,
@@ -3694,23 +3945,38 @@ const saveClient = ({ client = {}, entityType = "client", suggestedName = "", id
     } catch (error) {
       lastPersistError = error;
       if (
-        normalizedType === "client" &&
-        isClientCodeConstraintError(error) &&
+        codeManagedEntity &&
+        isEntityCodeConstraintError(error, normalizedType) &&
         attempt < maxPersistAttempts - 1
       ) {
         console.warn(
-          "[client-code] collision detected during client save",
+          "[entity-code] collision detected during entity save",
           JSON.stringify({
             clientId: assignedId,
+            entityType: normalizedType,
             attempt: attempt + 1,
             maxAttempts: maxPersistAttempts,
-            candidate: persistedCodeClient || ""
+            candidate:
+              normalizedType === "vendor"
+                ? persistedCodeFournisseur || ""
+                : normalizedType === "transporter"
+                  ? persistedCodeTransporteur || ""
+                  : persistedCodeClient || ""
           })
         );
-        persistedCodeClient =
+        const regeneratedCode =
           attempt >= Math.floor(maxPersistAttempts / 2)
-            ? generateClientCodeWithDbGuard(db, { exceptId: assignedId })
-            : generateNextClientCode(db, { exceptId: assignedId });
+            ? generateEntityCodeWithDbGuard(db, { entityType: normalizedType, exceptId: assignedId })
+            : generateNextEntityCode(db, { entityType: normalizedType, exceptId: assignedId });
+        if (normalizedType === "vendor") {
+          persistedCodeFournisseur = regeneratedCode;
+          persistedCodeClient = regeneratedCode;
+        } else if (normalizedType === "transporter") {
+          persistedCodeTransporteur = regeneratedCode;
+          persistedCodeClient = regeneratedCode;
+        } else {
+          persistedCodeClient = regeneratedCode;
+        }
         continue;
       }
       throw error;
@@ -3736,7 +4002,9 @@ const saveClient = ({ client = {}, entityType = "client", suggestedName = "", id
     id: assignedId,
     path: formatClientPath(assignedId),
     name: baseName,
-    codeClient: persistedCodeClient || ""
+    codeClient: persistedCodeClient || "",
+    codeFournisseur: persistedCodeFournisseur || "",
+    codeTransporteur: persistedCodeTransporteur || ""
   };
 };
 
@@ -3930,6 +4198,7 @@ const searchClients = ({ query = "", limit, offset, entityType } = {}) => {
     if (normalizedEntityType === "transporter") {
       const likeValue = `%${normalizedQuery}%`;
       const transportSearchColumns = [
+        "LOWER(COALESCE(code_transporteur, ''))",
         "LOWER(COALESCE(name, ''))",
         "LOWER(COALESCE(benefit, ''))",
         "LOWER(COALESCE(account, ''))",
@@ -3943,6 +4212,7 @@ const searchClients = ({ query = "", limit, offset, entityType } = {}) => {
     } else if (normalizedEntityType === "vendor") {
       const likeValue = `%${normalizedQuery}%`;
       const vendorSearchColumns = [
+        "LOWER(COALESCE(code_fournisseur, ''))",
         "LOWER(COALESCE(name, ''))",
         "LOWER(COALESCE(vat, ''))",
         "LOWER(COALESCE(identifiant_fiscal, ''))",
@@ -3966,7 +4236,7 @@ const searchClients = ({ query = "", limit, offset, entityType } = {}) => {
   const countSql = `SELECT COUNT(*) as total FROM clients ${whereClause}`;
   const total = db.prepare(countSql).get(...params)?.total || 0;
   const parts = [
-    "SELECT id, type, name, code_client, client_type, benefit, account, vat, identifiant_fiscal, cin, passport, steg_ref, phone, email, address, sold_client, updated_at, created_at FROM clients",
+    "SELECT id, type, name, code_client, code_fournisseur, code_transporteur, client_type, benefit, account, vat, identifiant_fiscal, cin, passport, steg_ref, phone, email, address, sold_client, updated_at, created_at FROM clients",
     whereClause,
     "ORDER BY updated_at DESC"
   ];
@@ -3982,12 +4252,14 @@ const searchClients = ({ query = "", limit, offset, entityType } = {}) => {
     const results = rows.map((rawRow) => {
       const row = ensureClientCodeForRow(db, rawRow);
       const data = hydrateClientFromRow(row);
-    return {
+      return {
       id: row.id,
       name: row.name || data.name || "",
       entityType: row.type,
       identifier: buildClientIdentifier(data),
       codeClient: data.codeClient || "",
+      codeFournisseur: data.codeFournisseur || "",
+      codeTransporteur: data.codeTransporteur || "",
       email: data.email || "",
       phone: data.phone || data.telephone || data.tel || "",
       path: formatClientPath(row.id),

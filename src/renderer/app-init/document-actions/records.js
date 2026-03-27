@@ -290,6 +290,31 @@
 
           const res = await w.electronAPI.saveClientDirect({ client, suggestedName: suggested, entityType });
           if (res?.ok) {
+          const returnedCode = String(
+            entityType === "vendor"
+              ? res.codeFournisseur || res.codeClient || res.code || ""
+              : entityType === "transporter"
+                ? res.codeTransporteur || res.codeClient || res.code || ""
+                : res.codeClient || res.code || ""
+          ).trim();
+          if (returnedCode) {
+            const codeInputId =
+              entityType === "vendor"
+                ? "fournisseurCode"
+                : entityType === "transporter"
+                  ? "transporteurCode"
+                  : "clientCode";
+            const codeInput =
+              trigger.closest?.("#clientFormPopover, #fournisseurFormPopover, #transporteurFormPopover")?.querySelector?.(
+                `#${codeInputId}`
+              ) || document.getElementById(codeInputId);
+            if (codeInput) codeInput.value = returnedCode;
+            if (client && typeof client === "object") {
+              client.codeClient = returnedCode;
+              client.codeFournisseur = entityType === "vendor" ? returnedCode : "";
+              client.codeTransporteur = entityType === "transporter" ? returnedCode : "";
+            }
+          }
           const successMessage =
             entityType === "vendor"
               ? getMessage("SUPPLIER_SAVE_SUCCESS", {
@@ -313,6 +338,11 @@
                   ? SEM.getClientFormSnapshot()
                   : { ...client }) || {};
               const path = res.path || snapshot.__path || SEM.state?.client?.__path || "";
+              if (returnedCode) {
+                snapshot.codeClient = returnedCode;
+                snapshot.codeFournisseur = entityType === "vendor" ? returnedCode : "";
+                snapshot.codeTransporteur = entityType === "transporter" ? returnedCode : "";
+              }
               if (path && SEM.state?.client) SEM.state.client.__path = path;
               if (path) snapshot.__path = path;
               if (typeof SEM.setClientFormBaseline === "function") {
