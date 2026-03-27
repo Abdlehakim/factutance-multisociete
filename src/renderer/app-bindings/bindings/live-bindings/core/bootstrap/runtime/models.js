@@ -884,6 +884,56 @@
                 ? "Destinataire"
                 : (isPurchaseDocType ? "Fournisseur" : "Client");
             }
+            const party = state()?.client || {};
+            const partySection =
+              previewPartyLegend?.closest?.("fieldset") ||
+              previewRoot.querySelector(".doc-design1__grid fieldset.doc-design1__section");
+            const partyNameEl = partySection?.querySelector(".doc-design1__client-name");
+            if (partyNameEl) {
+              const partyNameText = String(party.name || "").trim();
+              partyNameEl.textContent = partyNameText || "-";
+            }
+            const partyCodeLine = partySection?.querySelector?.('.doc-design1__meta-line[data-party-field="code"]');
+            const partyCodeLabelEl = partyCodeLine?.querySelector?.(".doc-design1__meta-label");
+            if (partyCodeLabelEl) {
+              partyCodeLabelEl.textContent = isPurchaseDocType ? "Code fournisseur :" : "Code client :";
+            }
+            const resolvePartyCodeValue = () => {
+              if (isPurchaseDocType) {
+                return (
+                  party.codeFournisseur ||
+                  party.code_fournisseur ||
+                  party.codeClient ||
+                  party.code_client ||
+                  party.code ||
+                  ""
+                );
+              }
+              return (
+                party.codeClient ||
+                party.code_client ||
+                party.code ||
+                ""
+              );
+            };
+            const partyFieldValues = {
+              code: resolvePartyCodeValue(),
+              vat: party.vat || party.mf || "",
+              phone: normalizeContactLinesForPreview(party.phone || ""),
+              email: party.email || "",
+              address: party.address || ""
+            };
+            partySection?.querySelectorAll?.(".doc-design1__meta-line[data-party-field]")?.forEach?.((line) => {
+              const field = String(line.dataset?.partyField || "").trim().toLowerCase();
+              if (!field) return;
+              const valueEl = line.querySelector(".doc-design1__meta-value");
+              if (!valueEl) return;
+              const rawValue = Object.prototype.hasOwnProperty.call(partyFieldValues, field)
+                ? partyFieldValues[field]
+                : "";
+              const textValue = String(rawValue || "").trim();
+              valueEl.textContent = textValue || "-";
+            });
             const prefixMap = {
               facture: "Fact",
               fa: "FA",
