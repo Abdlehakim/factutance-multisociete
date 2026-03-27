@@ -338,6 +338,92 @@
     if (!refs.length) return label;
     return `${label} : ${refs.join(", ")}`;
   };
+  const BON_SORTIE_SOURCE_DOC_TYPE_LABELS = {
+    facture: "Facture",
+    bl: "Bon de livraison"
+  };
+  const normalizeBonSortieSourceDocType = (value) => {
+    const raw = String(value || "").trim().toLowerCase();
+    const aliases = {
+      facture: "facture",
+      fact: "facture",
+      bl: "bl",
+      bonlivraison: "bl",
+      bondelivraison: "bl",
+      bon_livraison: "bl",
+      "bon-livraison": "bl",
+      "bon de livraison": "bl"
+    };
+    return aliases[raw] || "";
+  };
+  const normalizeBonSortieSourceSelection = (value) => {
+    const raw = value && typeof value === "object" ? value : {};
+    const rawParty = (() => {
+      if (raw.party && typeof raw.party === "object") return raw.party;
+      if (raw.client && typeof raw.client === "object") return raw.client;
+      if (raw.supplier && typeof raw.supplier === "object") return raw.supplier;
+      return {};
+    })();
+    const rawItems = Array.isArray(raw.items)
+      ? raw.items
+      : Array.isArray(raw.documents)
+        ? raw.documents
+        : [];
+    const items = rawItems
+      .map((entry, index) => {
+        const item = entry && typeof entry === "object" ? entry : {};
+        const id = String(item.id || "").trim();
+        const path = String(item.path || "").trim();
+        const number = String(item.number || "").trim();
+        const date = String(item.date || "").trim();
+        const clientName = String(item.clientName || "").trim();
+        const clientPath = String(item.clientPath || "").trim();
+        const displayName = String(item.displayName || item.name || number || "").trim() || `Document ${index + 1}`;
+        const docType = normalizeBonSortieSourceDocType(
+          item.docType || item.type || raw.docType || raw.type || ""
+        );
+        const key =
+          String(item.key || "").trim() ||
+          (id ? `id:${id}` : path ? `path:${path}` : number ? `number:${number}:${index}` : `idx:${index}`);
+        if (!id && !path && !number && !displayName) return null;
+        return { key, id, path, number, date, displayName, docType, clientName, clientPath };
+      })
+      .filter(Boolean);
+    const docType = normalizeBonSortieSourceDocType(
+      raw.docType || raw.type || items[0]?.docType || ""
+    );
+    if (!items.length || !docType) return null;
+    const partyPath = String(rawParty.path || items[0]?.clientPath || "").trim();
+    const partyName = String(rawParty.name || items[0]?.clientName || "").trim();
+    const partyLabel = String(rawParty.label || partyName || "").trim();
+    const partyIdentifier = String(rawParty.identifier || "").trim();
+    return {
+      docType,
+      party:
+        partyPath || partyName || partyLabel || partyIdentifier
+          ? {
+              path: partyPath,
+              name: partyName,
+              label: partyLabel || partyName,
+              identifier: partyIdentifier
+            }
+          : null,
+      items: items.map((item) => ({
+        ...item,
+        docType: item.docType || docType
+      }))
+    };
+  };
+  const formatBonSortieSourceSelectionText = (selection) => {
+    const normalized = normalizeBonSortieSourceSelection(selection);
+    if (!normalized) return "";
+    const label = BON_SORTIE_SOURCE_DOC_TYPE_LABELS[normalized.docType] || "Document";
+    const refs = normalized.items
+      .map((item) => String(item.number || item.displayName || "").trim())
+      .filter(Boolean);
+    if (!refs.length) return label;
+    return `${label} : ${refs.join(", ")}`;
+  };
   const normalizeBonEntreeDestinationIds = (value = []) => {
     const source = Array.isArray(value) ? value : [value];
     const seen = new Set();
@@ -462,6 +548,9 @@
   const normalizeBonSortieMeta = (rawValue = {}, meta = {}) => {
     const raw = rawValue && typeof rawValue === "object" ? rawValue : {};
     const docType = String(meta?.docType || "").trim().toLowerCase();
+    const normalizedSourceSelection = normalizeBonSortieSourceSelection(
+      raw.sourceSelection ?? raw.sourceDocuments ?? raw.sourceDocs ?? meta?.bsSourceSelection ?? null
+    );
     const normalized = {
       depot: String(raw.depot ?? raw.depotName ?? raw.magasin ?? meta?.bsDepot ?? "").trim(),
       depotId: String(
@@ -485,15 +574,22 @@
       )
         .trim()
         .replace(/^sqlite:\/\/emplacements\//i, ""),
+      sourceDocType: normalizeBonSortieSourceDocType(
+        raw.sourceDocType ?? raw.sourceType ?? normalizedSourceSelection?.docType ?? meta?.bsSourceDocType ?? ""
+      ),
       date: String(raw.date ?? raw.sortieDate ?? raw.movementDate ?? meta?.bsSortieDate ?? "").trim(),
       time: String(raw.time ?? raw.sortieTime ?? raw.movementTime ?? meta?.bsSortieTime ?? "").trim(),
       sourceRef: String(raw.sourceRef ?? raw.referenceSource ?? raw.source ?? meta?.bsSourceRef ?? "").trim(),
+      sourceSelection: normalizedSourceSelection,
       transporter: String(raw.transporter ?? raw.transporteur ?? meta?.bsTransporter ?? "").trim(),
       driverName: String(raw.driverName ?? raw.chauffeur ?? meta?.bsDriverName ?? "").trim(),
       vehiclePlate: String(raw.vehiclePlate ?? raw.vehicle ?? raw.matriculeVehicule ?? meta?.bsVehiclePlate ?? "").trim(),
       transportMode: String(raw.transportMode ?? raw.modeTransport ?? meta?.bsTransportMode ?? "").trim(),
       exitReason: String(raw.exitReason ?? raw.reason ?? raw.motifSortie ?? meta?.bsExitReason ?? "").trim()
     };
+    if (!normalized.sourceRef && normalized.sourceSelection) {
+      normalized.sourceRef = formatBonSortieSourceSelectionText(normalized.sourceSelection);
+    }
     if (docType === "bs") {
       if (!normalized.date) {
         normalized.date = String(meta?.date || "").trim() || new Date().toISOString().slice(0, 10);
@@ -610,6 +706,8 @@
     meta.bsDepotId = meta.bsSortie.depotId;
     meta.bsLocation = meta.bsSortie.location;
     meta.bsLocationId = meta.bsSortie.locationId;
+    meta.bsSourceDocType = meta.bsSortie.sourceDocType;
+    meta.bsSourceSelection = meta.bsSortie.sourceSelection;
     meta.bsSortieDate = meta.bsSortie.date;
     meta.bsSortieTime = meta.bsSortie.time;
     meta.bsSourceRef = meta.bsSortie.sourceRef;
@@ -1326,6 +1424,13 @@
           "bsSortieSourceInput",
           st.meta.bsSortie?.sourceRef ?? st.meta.bsSourceRef ?? ""
         ),
+        sourceDocType: String(
+          st.meta.bsSortie?.sourceDocType ?? st.meta.bsSourceDocType ?? ""
+        ).trim(),
+        sourceSelection:
+          st.meta.bsSortie?.sourceSelection ??
+          st.meta.bsSourceSelection ??
+          null,
         transporter: getStr(
           "bsTransporterInput",
           st.meta.bsSortie?.transporter ?? st.meta.bsTransporter ?? ""
@@ -1353,6 +1458,8 @@
     st.meta.bsDepotId = st.meta.bsSortie.depotId;
     st.meta.bsLocation = st.meta.bsSortie.location;
     st.meta.bsLocationId = st.meta.bsSortie.locationId;
+    st.meta.bsSourceDocType = st.meta.bsSortie.sourceDocType;
+    st.meta.bsSourceSelection = st.meta.bsSortie.sourceSelection;
     st.meta.bsSortieDate = st.meta.bsSortie.date;
     st.meta.bsSortieTime = st.meta.bsSortie.time;
     st.meta.bsSourceRef = st.meta.bsSortie.sourceRef;

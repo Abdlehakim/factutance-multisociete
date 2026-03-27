@@ -732,9 +732,26 @@
       locationPanel: "bsSortieLocationPanel",
       locationDisplay: "bsSortieLocationDisplay"
     };
+    const ITEMS_BS_SORTIE_SOURCE_PICKER_ID = "bsSortieSourcePickerBtn";
+    const ITEMS_BS_SORTIE_SOURCE_REVIEW_ID = "bsSortieSourceReviewBtn";
+    const ITEMS_BS_SORTIE_SOURCE_MANAGER_ID = "bsSortieSourceManager";
+    const ITEMS_BS_SORTIE_SOURCE_MANAGER_COUNT_ID = "bsSortieSourceManagerCount";
+    const ITEMS_BS_SORTIE_SOURCE_MANAGER_LIST_ID = "bsSortieSourceManagerList";
     const ITEMS_BS_SORTIE_DEPOT_PLACEHOLDER = "Selectionner un depot";
     const ITEMS_BS_SORTIE_LOCATION_PLACEHOLDER = "Aucun emplacement";
     const ITEMS_BS_SORTIE_LOCATION_DEPOT_REQUIRED = "Selectionnez d'abord un depot";
+    const ITEMS_BS_SORTIE_SOURCE_TYPE_DIALOG_ID = "bsSortieSourceTypeDialog";
+    const ITEMS_BS_SORTIE_SOURCE_TYPE_TITLE_ID = "bsSortieSourceTypeDialogTitle";
+    const ITEMS_BS_SORTIE_SOURCE_TYPE_MESSAGE_ID = "bsSortieSourceTypeDialogMessage";
+    const ITEMS_BS_SORTIE_SOURCE_TYPE_OPTIONS_ID = "bsSortieSourceTypeDialogOptions";
+    const ITEMS_BS_SORTIE_SOURCE_TYPE_CLOSE_ID = "bsSortieSourceTypeDialogClose";
+    const ITEMS_BS_SORTIE_SOURCE_TYPE_CANCEL_ID = "bsSortieSourceTypeDialogCancel";
+    const ITEMS_BS_SORTIE_SOURCE_DOC_TYPE_CHOICES = [
+      { docType: "facture", label: "Facture" },
+      { docType: "bl", label: "Bon de livraison" }
+    ];
+    const ITEMS_BS_SORTIE_SOURCE_REF_PLACEHOLDER_DEFAULT =
+      "ex : Bon de commande interne / Demande de sortie";
     const ITEMS_BE_RECEPTION_SOURCE_DOC_TYPE_LABELS = {
       fa: "Facture d'achat",
       bc: "Bon de commande"
@@ -758,6 +775,95 @@
         "bon-de-commande": "bc"
       };
       return aliases[raw] || "";
+    };
+    const normalizeItemsModalBsSortieSourceDocType = (value) => {
+      const raw = String(value || "").trim().toLowerCase();
+      const aliases = {
+        facture: "facture",
+        fact: "facture",
+        "bon de livraison": "bl",
+        "bonde livraison": "bl",
+        bondelivraison: "bl",
+        bonlivraison: "bl",
+        bon_livraison: "bl",
+        "bon-livraison": "bl",
+        bl: "bl"
+      };
+      return aliases[raw] || "";
+    };
+    const getItemsModalBsSortieSourceDocTypeLabel = (value) => {
+      const normalized = normalizeItemsModalBsSortieSourceDocType(value);
+      if (normalized === "facture") return "Facture";
+      if (normalized === "bl") return "Bon de livraison";
+      return "";
+    };
+    const normalizeItemsModalBsSortieSourceSelection = (value) => {
+      const raw = value && typeof value === "object" ? value : {};
+      const rawParty = (() => {
+        if (raw.party && typeof raw.party === "object") return raw.party;
+        if (raw.client && typeof raw.client === "object") return raw.client;
+        if (raw.supplier && typeof raw.supplier === "object") return raw.supplier;
+        return {};
+      })();
+      const rawItems = Array.isArray(raw.items)
+        ? raw.items
+        : Array.isArray(raw.documents)
+          ? raw.documents
+          : [];
+      const normalizedItems = rawItems
+        .map((entry, index) => {
+          const item = entry && typeof entry === "object" ? entry : {};
+          const id = String(item.id || "").trim();
+          const path = String(item.path || "").trim();
+          const number = String(item.number || "").trim();
+          const date = String(item.date || "").trim();
+          const clientName = String(item.clientName || "").trim();
+          const clientPath = String(item.clientPath || "").trim();
+          const displayName = String(item.displayName || item.name || number || "").trim() || `Document ${index + 1}`;
+          const docType = normalizeItemsModalBsSortieSourceDocType(
+            item.docType || item.type || raw.docType || raw.type || ""
+          );
+          const key =
+            String(item.key || "").trim() ||
+            (id ? `id:${id}` : path ? `path:${path}` : number ? `number:${number}:${index}` : `idx:${index}`);
+          if (!id && !path && !number && !displayName) return null;
+          return { key, id, path, number, date, displayName, docType, clientName, clientPath };
+        })
+        .filter(Boolean);
+      const docType = normalizeItemsModalBsSortieSourceDocType(
+        raw.docType || raw.type || normalizedItems[0]?.docType || ""
+      );
+      if (!normalizedItems.length || !docType) return null;
+      const partyPath = String(rawParty.path || normalizedItems[0]?.clientPath || "").trim();
+      const partyName = String(rawParty.name || normalizedItems[0]?.clientName || "").trim();
+      const partyLabel = String(rawParty.label || partyName || "").trim();
+      const partyIdentifier = String(rawParty.identifier || "").trim();
+      return {
+        docType,
+        party:
+          partyPath || partyName || partyLabel || partyIdentifier
+            ? {
+                path: partyPath,
+                name: partyName,
+                label: partyLabel || partyName,
+                identifier: partyIdentifier
+              }
+            : null,
+        items: normalizedItems.map((item) => ({
+          ...item,
+          docType: item.docType || docType
+        }))
+      };
+    };
+    const formatItemsModalBsSortieSourceSelectionText = (selection) => {
+      const normalized = normalizeItemsModalBsSortieSourceSelection(selection);
+      if (!normalized) return "";
+      const label = getItemsModalBsSortieSourceDocTypeLabel(normalized.docType) || "Document";
+      const refs = normalized.items
+        .map((item) => String(item.number || item.displayName || "").trim())
+        .filter(Boolean);
+      if (!refs.length) return label;
+      return `${label} : ${refs.join(", ")}`;
     };
     const normalizeItemsModalBeReceptionSourceSelection = (value) => {
       const raw = value && typeof value === "object" ? value : {};
@@ -1890,6 +1996,9 @@
           : (getInvoiceMeta() || {});
       const raw = meta.bsSortie && typeof meta.bsSortie === "object" ? meta.bsSortie : {};
       const docType = String(meta.docType || "").trim().toLowerCase();
+      const normalizedSourceSelection = normalizeItemsModalBsSortieSourceSelection(
+        raw.sourceSelection ?? raw.sourceDocuments ?? raw.sourceDocs ?? meta.bsSourceSelection ?? null
+      );
       const normalized = {
         depot: String(raw.depot ?? raw.depotName ?? raw.magasin ?? meta.bsDepot ?? "").trim(),
         depotId: normalizeItemsModalBeReceptionDepotId(
@@ -1899,15 +2008,26 @@
         locationId: normalizeItemsModalBeReceptionLocationId(
           raw.locationId ?? raw.destinationId ?? raw.emplacementId ?? raw.emplacement_id ?? meta.bsLocationId ?? ""
         ),
+        sourceDocType: normalizeItemsModalBsSortieSourceDocType(
+          raw.sourceDocType ??
+            raw.sourceType ??
+            normalizedSourceSelection?.docType ??
+            meta.bsSourceDocType ??
+            ""
+        ),
         date: String(raw.date ?? raw.sortieDate ?? raw.movementDate ?? meta.bsSortieDate ?? "").trim(),
         time: String(raw.time ?? raw.sortieTime ?? raw.movementTime ?? meta.bsSortieTime ?? "").trim(),
         sourceRef: String(raw.sourceRef ?? raw.referenceSource ?? raw.source ?? meta.bsSourceRef ?? "").trim(),
+        sourceSelection: normalizedSourceSelection,
         transporter: String(raw.transporter ?? raw.transporteur ?? meta.bsTransporter ?? "").trim(),
         driverName: String(raw.driverName ?? raw.chauffeur ?? meta.bsDriverName ?? "").trim(),
         vehiclePlate: String(raw.vehiclePlate ?? raw.vehicle ?? raw.matriculeVehicule ?? meta.bsVehiclePlate ?? "").trim(),
         transportMode: String(raw.transportMode ?? raw.modeTransport ?? meta.bsTransportMode ?? "").trim(),
         exitReason: String(raw.exitReason ?? raw.reason ?? raw.motifSortie ?? meta.bsExitReason ?? "").trim()
       };
+      if (!normalized.sourceRef && normalized.sourceSelection) {
+        normalized.sourceRef = formatItemsModalBsSortieSourceSelectionText(normalized.sourceSelection);
+      }
       if (docType === "bs") {
         if (!normalized.date) {
           normalized.date = String(meta.date || "").trim() || new Date().toISOString().slice(0, 10);
@@ -1921,6 +2041,8 @@
       meta.bsDepotId = normalized.depotId;
       meta.bsLocation = normalized.location;
       meta.bsLocationId = normalized.locationId;
+      meta.bsSourceDocType = normalized.sourceDocType;
+      meta.bsSourceSelection = normalized.sourceSelection;
       meta.bsSortieDate = normalized.date;
       meta.bsSortieTime = normalized.time;
       meta.bsSourceRef = normalized.sourceRef;
@@ -2604,6 +2726,16 @@
               placeholder: ITEMS_BS_SORTIE_DEPOT_PLACEHOLDER,
               fieldId: ITEMS_BS_SORTIE_FIELDS.depot
             })}
+            ${renderItemsModalBeReceptionSelectField({
+              labelText: "Emplacement de sortie",
+              labelId: ITEMS_BS_SORTIE_PICKERS.locationLabel,
+              menuId: ITEMS_BS_SORTIE_PICKERS.locationMenu,
+              panelId: ITEMS_BS_SORTIE_PICKERS.locationPanel,
+              displayId: ITEMS_BS_SORTIE_PICKERS.locationDisplay,
+              placeholder: ITEMS_BS_SORTIE_LOCATION_PLACEHOLDER,
+              useLocationStyle: true,
+              fieldId: ITEMS_BS_SORTIE_FIELDS.location
+            })}
             <label class="items-be-reception-form__field" for="${ITEMS_BS_SORTIE_FIELDS.date}">
               <span>Date de sortie</span>
               <div class="swb-date-picker" data-date-picker="">
@@ -2653,25 +2785,68 @@
                 ></div>
               </div>
             </label>
-            ${renderItemsModalBeReceptionSelectField({
-              labelText: "Emplacement de sortie",
-              labelId: ITEMS_BS_SORTIE_PICKERS.locationLabel,
-              menuId: ITEMS_BS_SORTIE_PICKERS.locationMenu,
-              panelId: ITEMS_BS_SORTIE_PICKERS.locationPanel,
-              displayId: ITEMS_BS_SORTIE_PICKERS.locationDisplay,
-              placeholder: ITEMS_BS_SORTIE_LOCATION_PLACEHOLDER,
-              useLocationStyle: true,
-              fieldId: ITEMS_BS_SORTIE_FIELDS.location
-            })}
             ${renderItemsModalBsSortieTimeField()}
-            <label class="items-be-reception-form__field items-be-reception-form__field--wide" for="${ITEMS_BS_SORTIE_FIELDS.sourceRef}">
+            <label class="items-be-reception-form__field items-be-reception-form__field--wide items-be-reception-form__field--source" for="${ITEMS_BS_SORTIE_FIELDS.sourceRef}">
               <span>R&eacute;f&eacute;rence source</span>
-              <input
-                id="${ITEMS_BS_SORTIE_FIELDS.sourceRef}"
-                type="text"
-                placeholder="ex : Bon de commande interne / Demande de sortie"
-                autocomplete="off"
-              />
+              <div class="items-be-reception-form__input-group items-be-reception-form__input-group--source">
+                <input
+                  id="${ITEMS_BS_SORTIE_FIELDS.sourceRef}"
+                  type="text"
+                  placeholder="${ITEMS_BS_SORTIE_SOURCE_REF_PLACEHOLDER_DEFAULT}"
+                  autocomplete="off"
+                />
+                <button
+                  id="${ITEMS_BS_SORTIE_SOURCE_PICKER_ID}"
+                  type="button"
+                  class="client-search__saved items-be-reception-form__picker-btn"
+                  aria-label="Selectionner le type de document source"
+                  aria-haspopup="dialog"
+                  title="Selectionner le type de document source"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
+                    <circle cx="5" cy="6" r="1.5"></circle>
+                    <circle cx="5" cy="12" r="1.5"></circle>
+                    <circle cx="5" cy="18" r="1.5"></circle>
+                    <line x1="9" y1="6" x2="20" y2="6" stroke-linecap="round"></line>
+                    <line x1="9" y1="12" x2="20" y2="12" stroke-linecap="round"></line>
+                    <line x1="9" y1="18" x2="20" y2="18" stroke-linecap="round"></line>
+                  </svg>
+                </button>
+                <button
+                  id="${ITEMS_BS_SORTIE_SOURCE_REVIEW_ID}"
+                  type="button"
+                  class="client-search__saved items-be-reception-form__picker-btn"
+                  aria-label="Voir les documents source selectionnes"
+                  aria-haspopup="dialog"
+                  aria-expanded="false"
+                  aria-controls="${ITEMS_BS_SORTIE_SOURCE_MANAGER_ID}"
+                  title="Voir les documents source selectionnes"
+                  disabled
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true" focusable="false">
+                    <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                </button>
+              </div>
+              <div
+                id="${ITEMS_BS_SORTIE_SOURCE_MANAGER_ID}"
+                class="items-be-reception-form__source-manager"
+                hidden
+                aria-live="polite"
+                role="dialog"
+                aria-modal="false"
+                aria-label="Documents source selectionnes"
+              >
+                <div class="items-be-reception-form__source-manager-header">
+                  <strong>Documents source selectionnes</strong>
+                  <span id="${ITEMS_BS_SORTIE_SOURCE_MANAGER_COUNT_ID}" class="items-be-reception-form__source-manager-count">0 document</span>
+                </div>
+                <div
+                  id="${ITEMS_BS_SORTIE_SOURCE_MANAGER_LIST_ID}"
+                  class="items-be-reception-form__source-manager-list"
+                ></div>
+              </div>
             </label>
           </div>
         </fieldset>
@@ -3420,6 +3595,475 @@
         items: res.items
       });
     };
+    let itemsModalBsSortieSourceTypeDialogController = null;
+    const buildItemsModalBsSortieSourceTypeDialogMarkup = () => `
+      <div id="${ITEMS_BS_SORTIE_SOURCE_TYPE_DIALOG_ID}" class="swbDialog be-reception-source-type-dialog" hidden aria-hidden="true">
+        <div
+          class="swbDialog__panel be-reception-source-type-dialog__panel"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="${ITEMS_BS_SORTIE_SOURCE_TYPE_TITLE_ID}"
+          aria-describedby="${ITEMS_BS_SORTIE_SOURCE_TYPE_MESSAGE_ID}"
+        >
+          <div class="swbDialog__header">
+            <div id="${ITEMS_BS_SORTIE_SOURCE_TYPE_TITLE_ID}" class="swbDialog__title">Selectionner un document</div>
+            <button id="${ITEMS_BS_SORTIE_SOURCE_TYPE_CLOSE_ID}" type="button" class="swbDialog__close" aria-label="Fermer">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="swbDialog__msg be-reception-source-type-dialog__body">
+            <p id="${ITEMS_BS_SORTIE_SOURCE_TYPE_MESSAGE_ID}" class="be-reception-source-type-dialog__message">
+              Choisissez le type de document source :
+            </p>
+            <div
+              id="${ITEMS_BS_SORTIE_SOURCE_TYPE_OPTIONS_ID}"
+              class="swbDialog__options be-reception-source-type-dialog__options"
+              role="group"
+              aria-labelledby="${ITEMS_BS_SORTIE_SOURCE_TYPE_TITLE_ID}"
+            ></div>
+          </div>
+          <div class="swbDialog__actions">
+            <div class="swbDialog__group swbDialog__group--left">
+              <button id="${ITEMS_BS_SORTIE_SOURCE_TYPE_CANCEL_ID}" type="button" class="swbDialog__cancel">Annuler</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    const ensureItemsModalBsSortieSourceTypeDialog = () => {
+      let modal = getEl(ITEMS_BS_SORTIE_SOURCE_TYPE_DIALOG_ID);
+      if (modal) return modal;
+      const template = document.createElement("template");
+      template.innerHTML = buildItemsModalBsSortieSourceTypeDialogMarkup().trim();
+      modal = template.content.firstElementChild;
+      document.body.appendChild(modal);
+      return modal;
+    };
+    const createItemsModalBsSortieSourceTypeDialogController = () => {
+      if (itemsModalBsSortieSourceTypeDialogController) return itemsModalBsSortieSourceTypeDialogController;
+      const modal = ensureItemsModalBsSortieSourceTypeDialog();
+      if (!modal) return null;
+      const titleEl = modal.querySelector(`#${ITEMS_BS_SORTIE_SOURCE_TYPE_TITLE_ID}`);
+      const messageEl = modal.querySelector(`#${ITEMS_BS_SORTIE_SOURCE_TYPE_MESSAGE_ID}`);
+      const optionsEl = modal.querySelector(`#${ITEMS_BS_SORTIE_SOURCE_TYPE_OPTIONS_ID}`);
+      const closeBtn = modal.querySelector(`#${ITEMS_BS_SORTIE_SOURCE_TYPE_CLOSE_ID}`);
+      const cancelBtn = modal.querySelector(`#${ITEMS_BS_SORTIE_SOURCE_TYPE_CANCEL_ID}`);
+      let resolveSelection = null;
+      let restoreFocusTarget = null;
+
+      const closeDialog = (value = "") => {
+        if (typeof resolveSelection !== "function") return;
+        const resolve = resolveSelection;
+        resolveSelection = null;
+        modal.classList.remove("is-open");
+        modal.hidden = true;
+        modal.setAttribute("hidden", "");
+        modal.setAttribute("aria-hidden", "true");
+        optionsEl?.replaceChildren();
+        if (restoreFocusTarget && typeof restoreFocusTarget.focus === "function") {
+          try {
+            restoreFocusTarget.focus();
+          } catch {}
+        }
+        restoreFocusTarget = null;
+        resolve(value);
+      };
+
+      const renderChoices = (choices = [], fallbackDocType = "") => {
+        if (!(optionsEl instanceof HTMLElement)) return;
+        optionsEl.replaceChildren();
+        const sourceChoices = Array.isArray(choices) && choices.length
+          ? choices
+          : ITEMS_BS_SORTIE_SOURCE_DOC_TYPE_CHOICES;
+        const preferredDocType =
+          normalizeItemsModalBsSortieSourceDocType(fallbackDocType) ||
+          normalizeItemsModalBsSortieSourceDocType(sourceChoices[0]?.docType) ||
+          "facture";
+        let preferredButton = null;
+        sourceChoices.forEach((entry) => {
+          const docType = normalizeItemsModalBsSortieSourceDocType(entry?.docType || entry?.value || entry);
+          if (!docType) return;
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "btn better-style-v2";
+          button.dataset.docType = docType;
+          button.textContent =
+            String(entry?.label || getItemsModalBsSortieSourceDocTypeLabel(docType) || "Document").trim() ||
+            "Document";
+          if (docType === preferredDocType && !preferredButton) preferredButton = button;
+          button.addEventListener("click", () => closeDialog(docType));
+          optionsEl.appendChild(button);
+        });
+        const focusTarget = preferredButton || optionsEl.querySelector("button");
+        if (focusTarget && typeof focusTarget.focus === "function") {
+          setTimeout(() => {
+            try {
+              focusTarget.focus({ preventScroll: true });
+            } catch {
+              focusTarget.focus();
+            }
+          }, 0);
+        }
+      };
+
+      closeBtn?.addEventListener("click", () => closeDialog(""));
+      cancelBtn?.addEventListener("click", () => closeDialog(""));
+      modal.addEventListener("click", (event) => {
+        if (event.target === modal) event.stopPropagation();
+      });
+      document.addEventListener("keydown", (event) => {
+        if (modal.hidden || modal.getAttribute("aria-hidden") === "true") return;
+        if (event.key !== "Escape") return;
+        event.preventDefault();
+        event.stopPropagation();
+        closeDialog("");
+      });
+
+      itemsModalBsSortieSourceTypeDialogController = {
+        open: ({
+          choices = ITEMS_BS_SORTIE_SOURCE_DOC_TYPE_CHOICES,
+          fallbackDocType = "facture",
+          title = "Selectionner un document",
+          message = "Choisissez le type de document source :",
+          trigger = null
+        } = {}) =>
+          new Promise((resolve) => {
+            if (typeof resolveSelection === "function") {
+              const previousResolve = resolveSelection;
+              resolveSelection = null;
+              previousResolve("");
+            }
+            resolveSelection = resolve;
+            restoreFocusTarget = trigger || document.activeElement;
+            if (titleEl) {
+              titleEl.textContent = String(title || "Selectionner un document").trim() || "Selectionner un document";
+            }
+            if (messageEl) {
+              messageEl.textContent =
+                String(message || "Choisissez le type de document source :").trim() ||
+                "Choisissez le type de document source :";
+            }
+            renderChoices(choices, fallbackDocType);
+            modal.hidden = false;
+            modal.removeAttribute("hidden");
+            modal.setAttribute("aria-hidden", "false");
+            modal.classList.add("is-open");
+          })
+      };
+      return itemsModalBsSortieSourceTypeDialogController;
+    };
+    const getItemsModalBsSortieSourceRefPlaceholder = (sourceDocType = "") => {
+      const normalized = normalizeItemsModalBsSortieSourceDocType(sourceDocType);
+      if (normalized === "facture") return "ex : Reference facture";
+      if (normalized === "bl") return "ex : Reference bon de livraison";
+      return ITEMS_BS_SORTIE_SOURCE_REF_PLACEHOLDER_DEFAULT;
+    };
+    const setItemsModalBsSortieSourceManagerOpen = (section, open) => {
+      const panel =
+        section?.querySelector?.(`#${ITEMS_BS_SORTIE_SOURCE_MANAGER_ID}`) || null;
+      const reviewBtn =
+        section?.querySelector?.(`#${ITEMS_BS_SORTIE_SOURCE_REVIEW_ID}`) || null;
+      const shouldOpen = !!open;
+      if (panel instanceof HTMLElement) {
+        panel.hidden = !shouldOpen;
+        panel.style.display = shouldOpen ? "" : "none";
+      }
+      if (reviewBtn instanceof HTMLElement) {
+        reviewBtn.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
+      }
+    };
+    const renderItemsModalBsSortieSourceSelectionList = (section, selection = null) => {
+      const panel =
+        section?.querySelector?.(`#${ITEMS_BS_SORTIE_SOURCE_MANAGER_ID}`) || null;
+      const list =
+        section?.querySelector?.(`#${ITEMS_BS_SORTIE_SOURCE_MANAGER_LIST_ID}`) || null;
+      const count =
+        section?.querySelector?.(`#${ITEMS_BS_SORTIE_SOURCE_MANAGER_COUNT_ID}`) || null;
+      const reviewBtn =
+        section?.querySelector?.(`#${ITEMS_BS_SORTIE_SOURCE_REVIEW_ID}`) || null;
+      if (!(list instanceof HTMLElement)) return;
+      const normalizedSelection = normalizeItemsModalBsSortieSourceSelection(selection);
+      const items = Array.isArray(normalizedSelection?.items) ? normalizedSelection.items : [];
+      list.innerHTML = "";
+      if (count instanceof HTMLElement) {
+        count.textContent = `${items.length} document${items.length > 1 ? "s" : ""}`;
+      }
+      if (reviewBtn instanceof HTMLButtonElement) {
+        reviewBtn.disabled = items.length < 1;
+        reviewBtn.title =
+          items.length > 0
+            ? "Voir ou gerer les documents source selectionnes"
+            : "Aucun document source selectionne";
+      }
+      if (!items.length) {
+        setItemsModalBsSortieSourceManagerOpen(section, false);
+        return;
+      }
+      const fragment = document.createDocumentFragment();
+      items.forEach((entry) => {
+        const row = document.createElement("div");
+        row.className = "items-be-reception-form__source-manager-item";
+        row.dataset.sourceKey = String(entry?.key || "").trim();
+        const meta = document.createElement("div");
+        meta.className = "items-be-reception-form__source-manager-meta";
+        const type = document.createElement("span");
+        type.className = "items-be-reception-form__source-manager-type";
+        type.textContent =
+          getItemsModalBsSortieSourceDocTypeLabel(
+            normalizeItemsModalBsSortieSourceDocType(entry?.docType || normalizedSelection?.docType || "")
+          ) || "Document";
+        meta.appendChild(type);
+        const text = document.createElement("span");
+        text.className = "items-be-reception-form__source-manager-text";
+        text.textContent = String(entry?.number || entry?.displayName || "Document").trim();
+        meta.appendChild(text);
+        row.appendChild(meta);
+        const removeBtn = document.createElement("button");
+        removeBtn.type = "button";
+        removeBtn.className = "items-be-reception-form__source-manager-remove";
+        removeBtn.dataset.sourceRemoveKey = String(entry?.key || "").trim();
+        removeBtn.setAttribute(
+          "aria-label",
+          `Retirer ${String(entry?.displayName || entry?.number || "ce document").trim()}`
+        );
+        removeBtn.textContent = "Retirer";
+        row.appendChild(removeBtn);
+        fragment.appendChild(row);
+      });
+      list.appendChild(fragment);
+      if (panel instanceof HTMLElement && panel.hidden !== true) {
+        panel.style.display = "";
+      }
+    };
+    const normalizeItemsModalBsSortieSourceKeys = (value = []) => {
+      const source = Array.isArray(value)
+        ? value
+        : typeof value === "string"
+          ? value.split(",")
+          : [];
+      const seen = new Set();
+      return source
+        .map((entry) => String(entry || "").trim())
+        .filter((entry) => {
+          if (!entry) return false;
+          const key = entry.toLowerCase();
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+    };
+    const removeItemsModalBsSortieSourceEntries = (section, sourceKeys = []) => {
+      const meta = getInvoiceMeta() || {};
+      const sortie = ensureItemsModalBsSortieMeta(meta);
+      const normalizedKeys = normalizeItemsModalBsSortieSourceKeys(sourceKeys);
+      if (!normalizedKeys.length) return false;
+      const keySet = new Set(normalizedKeys.map((entry) => entry.toLowerCase()));
+      const previousSelection = normalizeItemsModalBsSortieSourceSelection(sortie.sourceSelection);
+      const nextSelectionItems = (previousSelection?.items || []).filter(
+        (entry) => !keySet.has(String(entry?.key || "").trim().toLowerCase())
+      );
+      const nextSelection =
+        nextSelectionItems.length && previousSelection?.docType
+          ? {
+              docType: previousSelection.docType,
+              party: previousSelection.party || null,
+              items: nextSelectionItems
+            }
+          : null;
+      sortie.sourceSelection = nextSelection;
+      sortie.sourceDocType = nextSelection
+        ? normalizeItemsModalBsSortieSourceDocType(nextSelection.docType || "")
+        : "";
+      sortie.sourceRef = nextSelection
+        ? formatItemsModalBsSortieSourceSelectionText(nextSelection)
+        : "";
+      meta.bsSortie = sortie;
+      meta.bsSourceSelection = nextSelection;
+      meta.bsSourceDocType = sortie.sourceDocType;
+      meta.bsSourceRef = sortie.sourceRef;
+      const sourceInput = section?.querySelector?.(`#${ITEMS_BS_SORTIE_FIELDS.sourceRef}`);
+      if (sourceInput && sourceInput.value !== sortie.sourceRef) {
+        sourceInput.value = sortie.sourceRef;
+      }
+      renderItemsModalBsSortieSourceSelectionList(section, nextSelection);
+      syncItemsModalBsSortieSourcePickerUi(section, sortie);
+      if (typeof SEM.refreshInvoiceSummary === "function") {
+        SEM.refreshInvoiceSummary();
+      }
+      if (typeof SEM.updateAmountWordsBlock === "function") {
+        SEM.updateAmountWordsBlock();
+      }
+      if (typeof SEM.markDocumentDirty === "function") {
+        SEM.markDocumentDirty(true);
+      }
+      return true;
+    };
+    const syncItemsModalBsSortieSourcePickerUi = (section, sortieInput = null) => {
+      if (!section) return;
+      const sortie =
+        sortieInput && typeof sortieInput === "object"
+          ? sortieInput
+          : ensureItemsModalBsSortieMeta(getInvoiceMeta() || {});
+      const sourceInput = section.querySelector(`#${ITEMS_BS_SORTIE_FIELDS.sourceRef}`);
+      const sourcePickerBtn = section.querySelector(`#${ITEMS_BS_SORTIE_SOURCE_PICKER_ID}`);
+      const sourceReviewBtn = section.querySelector(`#${ITEMS_BS_SORTIE_SOURCE_REVIEW_ID}`);
+      const linkedSelection = normalizeItemsModalBsSortieSourceSelection(sortie?.sourceSelection);
+      const hasLinkedSource = !!linkedSelection?.items?.length;
+      const sourceDocType = normalizeItemsModalBsSortieSourceDocType(sortie?.sourceDocType || "");
+      const sourceLabel = getItemsModalBsSortieSourceDocTypeLabel(sourceDocType);
+      const placeholder = getItemsModalBsSortieSourceRefPlaceholder(sourceDocType);
+      if (sourceInput instanceof HTMLElement) {
+        sourceInput.placeholder = placeholder;
+        sourceInput.dataset.sourceDocType = sourceDocType;
+      }
+      if (sourcePickerBtn instanceof HTMLElement) {
+        sourcePickerBtn.dataset.sourceDocType = sourceDocType;
+        sourcePickerBtn.title = sourceLabel
+          ? `Type source selectionne: ${sourceLabel}`
+          : "Selectionner le type de document source";
+        sourcePickerBtn.setAttribute(
+          "aria-label",
+          sourceLabel
+            ? `Type source selectionne: ${sourceLabel}. Changer le type de document source`
+            : "Selectionner le type de document source"
+        );
+      }
+      if (sourceReviewBtn instanceof HTMLElement) {
+        sourceReviewBtn.disabled = !hasLinkedSource;
+        sourceReviewBtn.title = hasLinkedSource
+          ? "Voir ou gerer les documents source selectionnes"
+          : "Aucun document source selectionne";
+        sourceReviewBtn.setAttribute(
+          "aria-label",
+          hasLinkedSource
+            ? "Voir ou gerer les documents source selectionnes"
+            : "Aucun document source selectionne"
+        );
+      }
+    };
+    const openItemsModalBsSortieSourcePicker = async (trigger, section) => {
+      const controller = createItemsModalBsSortieSourceTypeDialogController();
+      if (!controller || typeof controller.open !== "function") {
+        await w.showDialog?.("Selection de document indisponible.", { title: "Erreur" });
+        return;
+      }
+      const pickerApi = w.AppInit?.BonSortieSourceDocumentPicker?.open;
+      if (typeof pickerApi !== "function") {
+        await w.showDialog?.("Fenetre de selection indisponible.", { title: "Erreur" });
+        return;
+      }
+      const meta = getInvoiceMeta() || {};
+      const sortie = ensureItemsModalBsSortieMeta(meta);
+      const initialStateSignature = JSON.stringify({
+        sourceDocType: normalizeItemsModalBsSortieSourceDocType(sortie?.sourceDocType || ""),
+        sourceRef: String(sortie?.sourceRef || ""),
+        sourceSelection: normalizeItemsModalBsSortieSourceSelection(sortie?.sourceSelection) || null
+      });
+      const fallbackDocType =
+        normalizeItemsModalBsSortieSourceDocType(sortie?.sourceDocType || "") || "facture";
+      let selectedDocType = "";
+      try {
+        selectedDocType = await controller.open({
+          choices: ITEMS_BS_SORTIE_SOURCE_DOC_TYPE_CHOICES,
+          fallbackDocType,
+          title: "Selectionner un document source",
+          message: "Choisissez le type de document source pour la reference de sortie :",
+          trigger
+        });
+      } catch (err) {
+        console.warn("bs source type chooser failed", err);
+        selectedDocType = "";
+      }
+      const normalizedDocType = normalizeItemsModalBsSortieSourceDocType(selectedDocType);
+      if (!normalizedDocType) return;
+      const previousSelection = normalizeItemsModalBsSortieSourceSelection(sortie.sourceSelection);
+      const previousSelectionText = formatItemsModalBsSortieSourceSelectionText(previousSelection);
+      sortie.sourceDocType = normalizedDocType;
+      if (
+        previousSelection &&
+        normalizeItemsModalBsSortieSourceDocType(previousSelection.docType || "") !== normalizedDocType
+      ) {
+        sortie.sourceSelection = null;
+        if (!sortie.sourceRef || sortie.sourceRef === previousSelectionText) {
+          sortie.sourceRef = "";
+        }
+      }
+      meta.bsSortie = sortie;
+      meta.bsSourceDocType = normalizedDocType;
+      meta.bsSourceSelection = sortie.sourceSelection || null;
+      meta.bsSourceRef = sortie.sourceRef || "";
+      const sourceInput = section?.querySelector?.(`#${ITEMS_BS_SORTIE_FIELDS.sourceRef}`);
+      if (sourceInput && sourceInput.value !== String(sortie.sourceRef || "")) {
+        sourceInput.value = String(sortie.sourceRef || "");
+      }
+      syncItemsModalBsSortieSourcePickerUi(section, sortie);
+      renderItemsModalBsSortieSourceSelectionList(section, sortie.sourceSelection);
+      let pickerResult = null;
+      try {
+        pickerResult = await pickerApi(trigger, {
+          docType: normalizedDocType,
+          choices: ITEMS_BS_SORTIE_SOURCE_DOC_TYPE_CHOICES,
+          fallbackDocType: normalizedDocType,
+          initialSelection: sortie?.sourceSelection || null,
+          initialSupplier:
+            sortie?.sourceSelection?.party ||
+            sortie?.sourceSelection?.client ||
+            sortie?.sourceSelection?.supplier ||
+            null,
+          sourceChooserTitle: "Selectionner un document source",
+          sourceChooserMessage:
+            "Choisissez le type de document source pour la reference de sortie :",
+          searchPlaceholder: "Rechercher par numero"
+        });
+      } catch (err) {
+        console.warn("bs source document picker failed", err);
+        pickerResult = null;
+      }
+      if (pickerResult?.ok && Array.isArray(pickerResult.items) && pickerResult.items.length) {
+        const normalizedSelection = normalizeItemsModalBsSortieSourceSelection({
+          docType: pickerResult.docType || normalizedDocType,
+          items: pickerResult.items,
+          party:
+            pickerResult.party ||
+            pickerResult.client ||
+            pickerResult.supplier ||
+            null
+        });
+        sortie.sourceSelection = normalizedSelection;
+        sortie.sourceDocType =
+          normalizeItemsModalBsSortieSourceDocType(normalizedSelection?.docType || normalizedDocType) ||
+          normalizedDocType;
+        sortie.sourceRef = normalizedSelection
+          ? formatItemsModalBsSortieSourceSelectionText(normalizedSelection)
+          : "";
+        meta.bsSortie = sortie;
+        meta.bsSourceDocType = sortie.sourceDocType;
+        meta.bsSourceSelection = normalizedSelection;
+        meta.bsSourceRef = sortie.sourceRef;
+        if (sourceInput && sourceInput.value !== sortie.sourceRef) {
+          sourceInput.value = sortie.sourceRef;
+        }
+        syncItemsModalBsSortieSourcePickerUi(section, sortie);
+        renderItemsModalBsSortieSourceSelectionList(section, normalizedSelection);
+      }
+      if (typeof SEM.refreshInvoiceSummary === "function") {
+        SEM.refreshInvoiceSummary();
+      }
+      const finalStateSignature = JSON.stringify({
+        sourceDocType: normalizeItemsModalBsSortieSourceDocType(sortie?.sourceDocType || ""),
+        sourceRef: String(sortie?.sourceRef || ""),
+        sourceSelection: normalizeItemsModalBsSortieSourceSelection(sortie?.sourceSelection) || null
+      });
+      if (
+        finalStateSignature !== initialStateSignature &&
+        typeof SEM.markDocumentDirty === "function"
+      ) {
+        SEM.markDocumentDirty(true);
+      }
+      try {
+        sourceInput?.focus?.();
+      } catch {}
+    };
     const syncItemsModalBeReceptionBoxFromState = (section = getItemsModalBeReceptionBox()) => {
       if (!section) return false;
       const meta = getInvoiceMeta() || {};
@@ -3667,6 +4311,10 @@
         section.setAttribute("aria-hidden", isBonSortie ? "false" : "true");
         section.style.display = isBonSortie ? "" : "none";
       });
+      if (sortieSection) {
+        syncItemsModalBsSortieSourcePickerUi(sortieSection, sortie);
+        renderItemsModalBsSortieSourceSelectionList(sortieSection, sortie.sourceSelection);
+      }
       if (isBonSortie && sortieSection) {
         void syncItemsModalBsSortieSelectors(sortieSection);
       } else if (sortieSection) {
@@ -3676,6 +4324,7 @@
         const refs = getItemsModalBsSortiePickerRefs(sortieSection);
         closeItemsModalBeReceptionPickerMenu(refs.depotMenu);
         closeItemsModalBeReceptionPickerMenu(refs.locationMenu);
+        setItemsModalBsSortieSourceManagerOpen(sortieSection, false);
       }
       if (typeof SEM.refreshInvoiceSummary === "function") {
         SEM.refreshInvoiceSummary();
@@ -3696,7 +4345,33 @@
           const meta = getInvoiceMeta() || {};
           const sortie = ensureItemsModalBsSortieMeta(meta);
           sortie[key] = String(input.value || "").trim();
+          if (key === "sourceRef") {
+            const selectedText = formatItemsModalBsSortieSourceSelectionText(sortie.sourceSelection);
+            if (!sortie[key] || sortie[key] !== selectedText) {
+              sortie.sourceSelection = null;
+            }
+            meta.bsSourceRef = sortie[key];
+            meta.bsSourceSelection = sortie.sourceSelection || null;
+            renderItemsModalBsSortieSourceSelectionList(section, sortie.sourceSelection);
+          } else if (key === "date") {
+            meta.bsSortieDate = sortie[key];
+          } else if (key === "time") {
+            meta.bsSortieTime = sortie[key];
+          } else if (key === "transporter") {
+            meta.bsTransporter = sortie[key];
+          } else if (key === "driverName") {
+            meta.bsDriverName = sortie[key];
+          } else if (key === "vehiclePlate") {
+            meta.bsVehiclePlate = sortie[key];
+          } else if (key === "transportMode") {
+            meta.bsTransportMode = sortie[key];
+          } else if (key === "exitReason") {
+            meta.bsExitReason = sortie[key];
+          }
           meta.bsSortie = sortie;
+          if (key === "sourceRef") {
+            syncItemsModalBsSortieSourcePickerUi(section, sortie);
+          }
           if (typeof SEM.refreshInvoiceSummary === "function") {
             SEM.refreshInvoiceSummary();
           }
@@ -3733,6 +4408,13 @@
                 if (!(menu instanceof HTMLElement)) return;
                 if (menu.contains(event.target)) return;
                 closeItemsModalBeReceptionPickerMenu(menu);
+              });
+            document
+              .querySelectorAll?.(`#${ITEMS_BS_SORTIE_BOX_ID}`)
+              ?.forEach?.((box) => {
+                if (!(box instanceof HTMLElement)) return;
+                if (box.contains(event.target)) return;
+                setItemsModalBsSortieSourceManagerOpen(box, false);
               });
           },
           true
@@ -3795,6 +4477,44 @@
         void syncItemsModalBsSortieSelectors(section);
       });
       bindItemsModalBsSortieFields(section, ["date", "time", "sourceRef"]);
+      const sourcePickerBtn = section.querySelector(`#${ITEMS_BS_SORTIE_SOURCE_PICKER_ID}`);
+      const sourceReviewBtn = section.querySelector(`#${ITEMS_BS_SORTIE_SOURCE_REVIEW_ID}`);
+      sourcePickerBtn?.addEventListener("click", () => {
+        void openItemsModalBsSortieSourcePicker(sourcePickerBtn, section);
+      });
+      sourceReviewBtn?.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (sourceReviewBtn.disabled) return;
+        const panel =
+          section.querySelector?.(`#${ITEMS_BS_SORTIE_SOURCE_MANAGER_ID}`) || null;
+        const isOpen = panel instanceof HTMLElement && !panel.hidden;
+        setItemsModalBsSortieSourceManagerOpen(section, !isOpen);
+      });
+      section.addEventListener("keydown", (event) => {
+        if (event.key !== "Escape") return;
+        const panel =
+          section.querySelector?.(`#${ITEMS_BS_SORTIE_SOURCE_MANAGER_ID}`) || null;
+        if (!(panel instanceof HTMLElement) || panel.hidden) return;
+        event.preventDefault();
+        event.stopPropagation();
+        setItemsModalBsSortieSourceManagerOpen(section, false);
+        sourceReviewBtn?.focus?.();
+      });
+      section.addEventListener("click", (event) => {
+        const removeBtn = event.target?.closest?.("[data-source-remove-key]");
+        if (!(removeBtn instanceof HTMLElement)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const sourceKey = String(removeBtn.dataset.sourceRemoveKey || "").trim();
+        if (!sourceKey) return;
+        removeItemsModalBsSortieSourceEntries(section, [sourceKey]);
+      });
+      renderItemsModalBsSortieSourceSelectionList(
+        section,
+        ensureItemsModalBsSortieMeta(getInvoiceMeta() || {}).sourceSelection
+      );
+      syncItemsModalBsSortieSourcePickerUi(section);
     };
     const wireItemsModalBsTransportBox = (section) => {
       if (!section || section.dataset.wired === "1") return;
