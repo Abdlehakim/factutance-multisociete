@@ -245,12 +245,14 @@
   min-height: var(--article-search-list-height, 360px);
   max-height: var(--article-search-list-height, 360px);
 }
+#articleSearchResults.article-search--paged,
 #clientSearchResults.client-search--paged,
 #fournisseurSearchResults.client-search--paged,
 #transporteurSearchResults.client-search--paged {
   max-height: none;
   overflow: visible;
 }
+#articleSearchResults.article-search--paged .article-search__list,
 #clientSearchResults.client-search--paged .article-search__list,
 #fournisseurSearchResults.client-search--paged .article-search__list,
 #transporteurSearchResults.client-search--paged .article-search__list {
@@ -259,6 +261,7 @@
   max-height: none;
   overflow: visible;
 }
+#articleSearchResults.article-search--paged .client-search__select,
 #clientSearchResults.client-search--paged .client-search__select,
 #fournisseurSearchResults.client-search--paged .client-search__select,
 #transporteurSearchResults.client-search--paged .client-search__select {

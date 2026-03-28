@@ -724,7 +724,7 @@
           articleSearchInput = getEl("articleSearch");
           articleSearchButton = getEl("articleSearchBtn");
           articleSearchResults = getEl("articleSearchResults");
-          ARTICLE_SEARCH_PAGE_SIZE = 3;
+          ARTICLE_SEARCH_PAGE_SIZE = 2;
           MIN_ARTICLE_SEARCH_LENGTH = 2;
           articleSearchTimer = null;
           articleSearchData = [];
@@ -1358,62 +1358,10 @@
                 item.name ||
                 "Article";
 
-              const priceValue = Number(article.price);
-              const tvaValue = Number(article.tva);
-              const stockQtyValue = Number(article.stockQty);
-              const hasPrice = Number.isFinite(priceValue) && priceValue >= 0;
-              const hasTva = Number.isFinite(tvaValue) && tvaValue >= 0;
-              const resolveFodec = (src = {}) => {
-                const f = src.fodec && typeof src.fodec === "object" ? src.fodec : {};
-                const rate = Number(
-                  f.rate ?? src.fodecRate ?? src.fodec_rate ?? src.fodec_rate_pct ?? src.fodecRatePct
-                );
-                const tva = Number(f.tva ?? src.fodecTva ?? src.fodec_tva ?? src.fodecTvaPct ?? src.fodec_tva_pct);
-                const enabledFlag = f.enabled ?? src.fodecEnabled ?? src.fodec_enabled;
-                const hasValue = (Number.isFinite(rate) && Math.abs(rate) > 0) || (Number.isFinite(tva) && Math.abs(tva) > 0);
-                const enabled = enabledFlag !== undefined ? !!enabledFlag : hasValue;
-                return { rate, tva, enabled, hasValue };
-              };
-              const fodecResolved = resolveFodec(article);
-              const fodecRateValue = fodecResolved.rate;
-              const fodecTvaValue = fodecResolved.tva;
-              const hasFodecEnabled = fodecResolved.enabled;
-              const totalTtcValue = (() => {
-                if (!hasPrice) return null;
-                const tax = hasTva ? priceValue * (tvaValue / 100) : 0;
-                const fodec = hasFodecEnabled && Number.isFinite(fodecRateValue) ? priceValue * (fodecRateValue / 100) : 0;
-                const fodecTax = hasFodecEnabled && Number.isFinite(fodecTvaValue) ? fodec * (fodecTvaValue / 100) : 0;
-                return priceValue + tax + fodec + fodecTax;
-              })();
-              const DESCRIPTION_MAX_LENGTH = 60;
-              const rawDesc = typeof article.desc === "string" ? article.desc.trim() : "";
-              const truncatedDesc =
-                rawDesc && rawDesc.length > DESCRIPTION_MAX_LENGTH
-                  ? `${rawDesc.slice(0, DESCRIPTION_MAX_LENGTH - 3).trimEnd()}...`
-                  : rawDesc;
               const formatValue = (value) => {
                 const hasContent = value !== undefined && value !== null && String(value).trim() !== "";
                 if (!hasContent) return '<span class="client-search__empty">N.R.</span>';
                 return escapeHTML(String(value).trim());
-              };
-              const formatPriceValue = (value) => {
-                if (!Number.isFinite(value) || value < 0) return '<span class="client-search__empty">N.R.</span>';
-                return escapeHTML(value.toFixed(2));
-              };
-              const formatStockValue = (value) => {
-                if (!Number.isFinite(value) || value < 0) return '<span class="client-search__empty">N.R.</span>';
-                const normalized = normalizeStockQtyValue(value);
-                const str = normalized.toFixed(3).replace(/\.?0+$/, "");
-                return escapeHTML(str);
-              };
-              const formatTvaValue = (value) => {
-                if (!Number.isFinite(value) || value < 0) return '<span class="client-search__empty">N.R.</span>';
-                const formatted = Number.isInteger(value) ? value.toFixed(0) : value.toFixed(2);
-                return escapeHTML(`${formatted}%`);
-              };
-              const formatFodecValue = (value, enabled) => {
-                if (!enabled) return '<span class="client-search__empty">N.R.</span>';
-                return formatTvaValue(value);
               };
 
               const addButtonHtml = isMainscreenScope
@@ -1422,7 +1370,7 @@
               option.innerHTML = `
                 <button type="button" class="client-search__select client-search__select--detailed" data-article-apply="${actualIndex}">
                   <div class="client-search__details-grid">
-
+                    <div class="client-search__details-row">
                       <div class="client-search__detail client-search__detail--inline client-search__detail--name">
                         <span class="client-search__detail-label">Désignation</span>
                         <span class="client-search__detail-value">${formatValue(title)}</span>
@@ -1431,30 +1379,12 @@
                         <span class="client-search__detail-label">R\u00E9f.</span>
                         <span class="client-search__detail-value">${formatValue(article.ref)}</span>
                       </div>
-                      <div class="client-search__detail client-search__detail--inline">
-                        <span class="client-search__detail-label">Stock disponible</span>
-                        <span
-                          class="client-search__detail-value"
-                          data-stock-qty-value="${Number.isFinite(stockQtyValue) && stockQtyValue >= 0 ? stockQtyValue : ""}"
-                        >
-                          ${formatStockValue(stockQtyValue)}
-                        </span>
-                      </div>
-              
-                    <div class="client-search__detail client-search__detail--inline client-search__detail--full client-search__detail--description">
-                      <span class="client-search__detail-label">Description</span>
-                      <span class="client-search__detail-value">${formatValue(truncatedDesc)}</span>
-                    </div>
-                    <div class="client-search__detail client-search__detail--inline">
-                      <span class="client-search__detail-label">P.U. HT</span>
-                      <span class="client-search__detail-value">${formatPriceValue(priceValue)}</span>
                     </div>
                   </div>
                 </button>
                 <div class="client-search__actions">
                   ${addButtonHtml}
                   <button type="button" class="client-search__edit" data-article-saved-load="${actualIndex}">Mettre a jour</button>
-                  <button type="button" class="client-search__delete" data-article-delete="${actualIndex}">Supprimer</button>
                 </div>`;
               list.appendChild(option);
             });
