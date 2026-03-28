@@ -2187,6 +2187,26 @@
             SEM.showSavedArticleButtons?.();
           };
 
+          openArticleRecordInPopover = (triggerEl, record, index, options = {}) => {
+            if (!record) return false;
+            const requestedMode = String(options?.mode || "edit").trim().toLowerCase();
+            const mode = requestedMode === "view" ? "view" : "edit";
+            const fallbackContextEl = options?.fallbackContextEl || null;
+            const ctx =
+              SEM.getArticleFormPopoverContext?.(triggerEl) ||
+              SEM.getArticleFormPopoverContext?.(fallbackContextEl) ||
+              SEM.getArticleFormPopoverContext?.(getEl("articleCreateBtn")) ||
+              SEM.getArticleFormPopoverContext?.(getEl("articleFormToggleBtn"));
+            if (!ctx?.popover || !ctx?.scope) return false;
+            setTimeout(() => {
+              SEM.setArticlePopoverSelectedRecord?.(ctx.popover, record, index);
+              SEM.setArticleFormPopoverMode?.(ctx, mode);
+              SEM.setArticleFormPopoverOpen?.(ctx, true);
+              loadArticleRecordIntoForm(record, { formScope: ctx.scope, forceFullLoad: true });
+            }, 0);
+            return true;
+          };
+
           normalizeArticleFodecForItem = (src = {}) => {
             const fodec = src.fodec && typeof src.fodec === "object" ? src.fodec : {};
             const resolveNum = (value, fallback = 0) => {
@@ -3997,33 +4017,23 @@
                 if (!selected) return;
                 const isEditAction = loadBtn.classList?.contains("client-search__edit");
                 const isSelectAction = loadBtn.classList?.contains("client-search__select");
-                if (isEditAction) {
-                  const ctx =
-                    SEM.getArticleFormPopoverContext?.(loadBtn) ||
-                    SEM.getArticleFormPopoverContext?.(articleSavedModal);
-                  if (ctx) {
-                    setTimeout(() => {
-                      SEM.setArticlePopoverSelectedRecord?.(ctx.popover, selected, idx);
-                      SEM.setArticleFormPopoverMode?.(ctx, "edit");
-                      SEM.setArticleFormPopoverOpen?.(ctx, true);
-                      loadArticleRecordIntoForm(selected, { formScope: ctx.scope, forceFullLoad: true });
-                    }, 0);
-                    return;
-                  }
+                if (
+                  isEditAction &&
+                  openArticleRecordInPopover(loadBtn, selected, idx, {
+                    mode: "edit",
+                    fallbackContextEl: articleSavedModal
+                  })
+                ) {
+                  return;
                 }
-                if (isSelectAction) {
-                  const ctx =
-                    SEM.getArticleFormPopoverContext?.(loadBtn) ||
-                    SEM.getArticleFormPopoverContext?.(articleSavedModal);
-                  if (ctx) {
-                    setTimeout(() => {
-                      SEM.setArticlePopoverSelectedRecord?.(ctx.popover, selected, idx);
-                      SEM.setArticleFormPopoverMode?.(ctx, "view");
-                      SEM.setArticleFormPopoverOpen?.(ctx, true);
-                      loadArticleRecordIntoForm(selected, { formScope: ctx.scope, forceFullLoad: true });
-                    }, 0);
-                    return;
-                  }
+                if (
+                  isSelectAction &&
+                  openArticleRecordInPopover(loadBtn, selected, idx, {
+                    mode: "view",
+                    fallbackContextEl: articleSavedModal
+                  })
+                ) {
+                  return;
                 }
                 const scope = articleSavedModalFormScopeId
                   ? normalizeAddFormScope(articleSavedModalFormScope) ||
@@ -4253,9 +4263,29 @@
               const idx = Number(loadBtn.dataset.articleSavedLoad);
               const selected = articleSearchData[idx];
               if (!selected) return;
-              const scope = resolveAddFormScope(loadBtn);
-              if (scope) setActiveAddFormScope(scope);
-              loadArticleRecordIntoForm(selected, { formScope: scope });
+              const isEditAction = loadBtn.classList?.contains("client-search__edit");
+              const isSelectAction = loadBtn.classList?.contains("client-search__select");
+              if (
+                isEditAction &&
+                openArticleRecordInPopover(loadBtn, selected, idx, {
+                  mode: "edit",
+                  fallbackContextEl: resultsEl || scope
+                })
+              ) {
+                return;
+              }
+              if (
+                isSelectAction &&
+                openArticleRecordInPopover(loadBtn, selected, idx, {
+                  mode: "view",
+                  fallbackContextEl: resultsEl || scope
+                })
+              ) {
+                return;
+              }
+              const targetScope = resolveAddFormScope(loadBtn) || scope;
+              if (targetScope) setActiveAddFormScope(targetScope);
+              loadArticleRecordIntoForm(selected, { formScope: targetScope });
               return;
             }
 

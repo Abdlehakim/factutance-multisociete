@@ -6,12 +6,15 @@
   const RESULTS_ID = "depotMagasinSearchResults";
   const SEARCH_INPUT_ID = "depotMagasinSearch";
   const SEARCH_LIMIT = 120;
+  const SEARCH_PAGE_SIZE = 2;
   const MIN_SEARCH_LENGTH = 2;
   const SEARCH_DEBOUNCE_MS = 220;
 
   let depotsCache = [];
   let activeDepotPath = "";
   let searchTimer = null;
+  let depotSearchPage = 1;
+  let depotSearchQuery = "";
   let draftEmplacements = [];
   let depotCodeRequestId = 0;
 
@@ -92,6 +95,9 @@
     const results = getEl(RESULTS_ID);
     if (!results) return;
     results.hidden = !!hidden;
+    if (hidden) {
+      results.classList.remove("client-search--paged");
+    }
     if (hidden) results.setAttribute("hidden", "");
     else results.removeAttribute("hidden");
   };
@@ -368,6 +374,7 @@
     const results = getEl(RESULTS_ID);
     if (!results) return;
     results.replaceChildren();
+    results.classList.remove("client-search--paged");
 
     if (!records.length) {
       const empty = document.createElement("div");
@@ -378,14 +385,23 @@
       return;
     }
 
-    records.forEach((rawRecord) => {
+    const total = records.length;
+    const totalPages = Math.max(1, Math.ceil(total / SEARCH_PAGE_SIZE));
+    if (depotSearchPage > totalPages) depotSearchPage = totalPages;
+    if (depotSearchPage < 1) depotSearchPage = 1;
+    const startIndex = (depotSearchPage - 1) * SEARCH_PAGE_SIZE;
+    const pageItems = records.slice(startIndex, startIndex + SEARCH_PAGE_SIZE);
+
+    const list = document.createElement("div");
+    list.className = "article-search__list";
+
+    pageItems.forEach((rawRecord) => {
       const record = normalizeDepotRecord(rawRecord);
       const row = document.createElement("div");
       row.className = "client-search__option depot-magasin-search__option";
       const safePath = escapeHtml(record.path);
       const safeName = escapeHtml(record.name || "-");
       const safeCode = escapeHtml(record.codeDepot || "N.R.");
-      const safeAddress = escapeHtml(record.address || "N.R.");
       row.innerHTML = `
         <button
           type="button"
@@ -395,22 +411,12 @@
           <span class="client-search__details-grid">
             <span class="client-search__details-row">
               <span class="client-search__detail client-search__detail--inline">
-                <span class="client-search__detail-label">Depot/Magasin</span>
-                <span class="client-search__detail-value">${safeName}</span>
-              </span>
-              <span class="client-search__detail client-search__detail--inline">
                 <span class="client-search__detail-label">Code depot</span>
                 <span class="client-search__detail-value">${safeCode}</span>
               </span>
-              <span class="client-search__detail client-search__detail--inline">
-                <span class="client-search__detail-label">Emplacements</span>
-                <span class="client-search__detail-value">${record.emplacementCount || 0}</span>
-              </span>
-            </span>
-            <span class="client-search__details-row">
-              <span class="client-search__detail client-search__detail--description">
-                <span class="client-search__detail-label">Adresse</span>
-                <span class="client-search__detail-value">${safeAddress}</span>
+              <span class="client-search__detail client-search__detail--inline client-search__detail--name">
+                <span class="client-search__detail-label">Nom du depot/magasin</span>
+                <span class="client-search__detail-value">${safeName}</span>
               </span>
             </span>
           </span>
@@ -423,17 +429,34 @@
           >
             Modifier
           </button>
-          <button
-            type="button"
-            class="client-search__delete"
-            data-depot-delete-path="${safePath}"
-          >
-            Supprimer
-          </button>
         </div>
       `;
-      results.appendChild(row);
+      list.appendChild(row);
     });
+    results.appendChild(list);
+
+    const disablePrev = depotSearchPage <= 1;
+    const disableNext = depotSearchPage >= totalPages;
+    const pager = document.createElement("div");
+    pager.className = "article-search__pager";
+    pager.innerHTML = `
+      <div class="article-search__pager-left">
+        <button type="button" class="client-search__edit article-search__close" data-depot-close="true">
+          Fermer
+        </button>
+      </div>
+      <div class="article-search__pager-controls">
+        <button type="button" class="client-search__edit" data-depot-page="prev" ${disablePrev ? "disabled" : ""}>
+          Precedent
+        </button>
+        <span class="article-search__page">Page ${depotSearchPage} / ${totalPages}</span>
+        <button type="button" class="client-search__addSTK" data-depot-page="next" ${disableNext ? "disabled" : ""}>
+          Suivant
+        </button>
+      </div>
+    `;
+    results.appendChild(pager);
+    results.classList.add("client-search--paged");
     setResultsHidden(false);
   };
 
@@ -448,8 +471,12 @@
     });
   };
 
-  const refreshDepots = async ({ query = "", showDropdown = false } = {}) => {
-    const response = await fetchDepots(query);
+  const refreshDepots = async ({ query = "", showDropdown = false, resetPage = true } = {}) => {
+    const normalizedQuery = normalizeText(query);
+    const queryChanged = normalizedQuery !== depotSearchQuery;
+    depotSearchQuery = normalizedQuery;
+    if (resetPage || queryChanged) depotSearchPage = 1;
+    const response = await fetchDepots(normalizedQuery);
     if (!response?.ok) {
       if (showDropdown) {
         renderSearchResults([]);
@@ -478,7 +505,7 @@
       return;
     }
     const query = normalizeText(getEl(SEARCH_INPUT_ID)?.value);
-    await refreshDepots({ query, showDropdown: true });
+    await refreshDepots({ query, showDropdown: true, resetPage: false });
     if (normalizeText(activeDepotPath) === path) {
       closePopover();
     }
@@ -489,10 +516,12 @@
   const runSearch = async ({ showDropdown = true } = {}) => {
     const query = normalizeText(getEl(SEARCH_INPUT_ID)?.value);
     if (!canSearchQuery(query)) {
+      depotSearchPage = 1;
+      depotSearchQuery = "";
       setResultsHidden(true);
       return;
     }
-    await refreshDepots({ query, showDropdown });
+    await refreshDepots({ query, showDropdown, resetPage: true });
   };
 
   const saveDepot = async ({ forceCreate = false } = {}) => {
@@ -559,24 +588,28 @@
     }
     const query = normalizeText(getEl(SEARCH_INPUT_ID)?.value);
     if (!canSearchQuery(query)) {
+      depotSearchPage = 1;
+      depotSearchQuery = "";
       setResultsHidden(true);
       return;
     }
     searchTimer = setTimeout(() => {
-      refreshDepots({ query, showDropdown: true });
+      refreshDepots({ query, showDropdown: true, resetPage: true });
     }, SEARCH_DEBOUNCE_MS);
   };
 
   const handleSearchFocus = async () => {
     const query = normalizeText(getEl(SEARCH_INPUT_ID)?.value);
     if (!canSearchQuery(query)) {
+      depotSearchPage = 1;
+      depotSearchQuery = "";
       setResultsHidden(true);
       return;
     }
     if (depotsCache.length) {
       renderSearchResults(depotsCache);
     }
-    await refreshDepots({ query, showDropdown: true });
+    await refreshDepots({ query, showDropdown: true, resetPage: false });
   };
 
   const bindEvents = () => {
@@ -626,6 +659,27 @@
       }
       if (target.closest("#depotMagasinSettingsBtn")) {
         await showMessage("Cette action sera disponible dans une prochaine mise a jour.");
+        return;
+      }
+
+      const closeSearchBtn = target.closest("[data-depot-close]");
+      if (closeSearchBtn) {
+        depotSearchPage = 1;
+        setResultsHidden(true);
+        return;
+      }
+
+      const pageBtn = target.closest("[data-depot-page]");
+      if (pageBtn) {
+        const direction = normalizeText(pageBtn.getAttribute("data-depot-page")).toLowerCase();
+        const totalPages = Math.max(1, Math.ceil(depotsCache.length / SEARCH_PAGE_SIZE));
+        if (direction === "prev" && depotSearchPage > 1) {
+          depotSearchPage -= 1;
+          renderSearchResults(depotsCache);
+        } else if (direction === "next" && depotSearchPage < totalPages) {
+          depotSearchPage += 1;
+          renderSearchResults(depotsCache);
+        }
         return;
       }
 

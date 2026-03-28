@@ -640,14 +640,25 @@
       list.className = "article-search__list";
       pageSlice.forEach((entry, offset) => {
         const index = startIdx + offset;
-        const typeValue = String(entry?.docType || "").toLowerCase();
-        const partyLabels = getHistoryPartyLabels(typeValue);
-        const partyValue = String(entry?.clientName || entry?.clientAccount || "").trim();
-        const dateText = formatDocHistoryDate(entry) || "N.R.";
-        const totalValue = resolveHistoryEntryTotal(entry);
-        const totalText = formatDocMetaSearchMoney(totalValue, entry?.currency || "");
         const numberValue = String(entry?.number || "").trim() || "N.R.";
-        const typeLabel = docHistoryDisplayLabel(typeValue) || typeValue || "Document";
+        const codeClientRaw = String(
+          entry?.codeClient ||
+            entry?.code_client ||
+            entry?.clientCode ||
+            entry?.meta?.clientCode ||
+            entry?.meta?.codeClient ||
+            entry?.meta?.client?.codeClient ||
+            (entry?.client && typeof entry.client === "object"
+              ? entry.client.codeClient || entry.client.code_client || entry.client.code || ""
+              : "") ||
+            (entry?.clientSnapshot && typeof entry.clientSnapshot === "object"
+              ? entry.clientSnapshot.codeClient ||
+                entry.clientSnapshot.code_client ||
+                entry.clientSnapshot.code ||
+                ""
+              : "")
+        ).trim();
+        const codeClientValue = codeClientRaw || "N.R.";
         const option = document.createElement("div");
         option.className = "client-search__option doc-meta-search__option";
         option.dataset.docMetaSearchIndex = String(index);
@@ -660,29 +671,14 @@
                   <span class="client-search__detail-value">${safeHtml(numberValue)}</span>
                 </div>
                 <div class="client-search__detail client-search__detail--inline">
-                  <span class="client-search__detail-label">Type</span>
-                  <span class="client-search__detail-value">${safeHtml(typeLabel)}</span>
-                </div>
-              </div>
-              <div class="client-search__details-row">
-                <div class="client-search__detail client-search__detail--inline">
-                  <span class="client-search__detail-label">${safeHtml(partyLabels.label)}</span>
-                  <span class="client-search__detail-value">${safeHtml(partyValue || "N.R.")}</span>
-                </div>
-                <div class="client-search__detail client-search__detail--inline">
-                  <span class="client-search__detail-label">Date</span>
-                  <span class="client-search__detail-value">${safeHtml(dateText)}</span>
-                </div>
-                <div class="client-search__detail client-search__detail--inline">
-                  <span class="client-search__detail-label">Total</span>
-                  <span class="client-search__detail-value">${safeHtml(totalText)}</span>
+                  <span class="client-search__detail-label">Code client</span>
+                  <span class="client-search__detail-value">${safeHtml(codeClientValue)}</span>
                 </div>
               </div>
             </div>
           </button>
           <div class="client-search__actions">
             <button type="button" class="client-search__edit" data-doc-meta-search-open="${index}">Ouvrir</button>
-            <button type="button" class="client-search__delete" data-doc-meta-search-delete="${index}">Supprimer</button>
           </div>`;
         list.appendChild(option);
       });

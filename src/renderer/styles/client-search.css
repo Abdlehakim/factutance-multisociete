@@ -248,14 +248,18 @@
 #articleSearchResults.article-search--paged,
 #clientSearchResults.client-search--paged,
 #fournisseurSearchResults.client-search--paged,
-#transporteurSearchResults.client-search--paged {
+#transporteurSearchResults.client-search--paged,
+#depotMagasinSearchResults.client-search--paged,
+#docMetaSearchResults.client-search--paged {
   max-height: none;
   overflow: visible;
 }
 #articleSearchResults.article-search--paged .article-search__list,
 #clientSearchResults.client-search--paged .article-search__list,
 #fournisseurSearchResults.client-search--paged .article-search__list,
-#transporteurSearchResults.client-search--paged .article-search__list {
+#transporteurSearchResults.client-search--paged .article-search__list,
+#depotMagasinSearchResults.client-search--paged .article-search__list,
+#docMetaSearchResults.client-search--paged .article-search__list {
   flex: 0 0 auto;
   min-height: 0;
   max-height: none;
@@ -264,7 +268,9 @@
 #articleSearchResults.article-search--paged .client-search__select,
 #clientSearchResults.client-search--paged .client-search__select,
 #fournisseurSearchResults.client-search--paged .client-search__select,
-#transporteurSearchResults.client-search--paged .client-search__select {
+#transporteurSearchResults.client-search--paged .client-search__select,
+#depotMagasinSearchResults.client-search--paged .client-search__select,
+#docMetaSearchResults.client-search--paged .client-search__select {
   min-height: 0;
 }
 .article-search__list .client-search__option {
