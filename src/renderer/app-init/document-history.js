@@ -505,6 +505,14 @@
     const normalizeDocMetaSearchEntry = (entry, docTypeHint = "facture") => {
       const normalizedEntry =
         entry && typeof entry === "object" ? { ...entry } : {};
+      const entryClient =
+        normalizedEntry.client && typeof normalizedEntry.client === "object"
+          ? normalizedEntry.client
+          : {};
+      const entryClientSnapshot =
+        normalizedEntry.clientSnapshot && typeof normalizedEntry.clientSnapshot === "object"
+          ? normalizedEntry.clientSnapshot
+          : {};
       const docTypeRaw = String(
         normalizedEntry.docType || docTypeHint || "facture"
       )
@@ -520,6 +528,18 @@
         ).trim() || "";
       normalizedEntry.clientName = String(normalizedEntry.clientName || "").trim();
       normalizedEntry.clientAccount = String(normalizedEntry.clientAccount || "").trim();
+      normalizedEntry.codeClient = String(
+        normalizedEntry.codeClient ||
+          normalizedEntry.code_client ||
+          normalizedEntry.clientCode ||
+          entryClient.codeClient ||
+          entryClient.code_client ||
+          entryClient.code ||
+          entryClientSnapshot.codeClient ||
+          entryClientSnapshot.code_client ||
+          entryClientSnapshot.code ||
+          ""
+      ).trim();
       normalizedEntry.name = String(normalizedEntry.name || "").trim();
       normalizedEntry.status = String(normalizedEntry.status || "").trim().toLowerCase();
       normalizedEntry.currency = String(normalizedEntry.currency || "").trim();
@@ -598,6 +618,9 @@
           DOC_HISTORY_TYPE_LABELS[normalizedDocType] || docHistoryDisplayLabel(normalizedDocType);
         const haystack = [
           entry?.number,
+          entry?.codeClient,
+          entry?.code_client,
+          entry?.clientCode,
           docTypeLabel,
           normalizedDocType,
           entry?.clientName,
@@ -921,21 +944,10 @@
                   <span class="client-search__detail-value">${safeHtml(entry.templateLabel || "N.R.")}</span>
                 </div>
               </div>
-              <div class="client-search__details-row">
-                <div class="client-search__detail client-search__detail--inline">
-                  <span class="client-search__detail-label">Type</span>
-                  <span class="client-search__detail-value">${safeHtml(entry.docTypesLabel || "N.R.")}</span>
-                </div>
-                <div class="client-search__detail client-search__detail--inline">
-                  <span class="client-search__detail-label">Numerotation</span>
-                  <span class="client-search__detail-value">${safeHtml(entry.numberingLabel || "N.R.")}</span>
-                </div>
-              </div>
             </div>
           </button>
           <div class="client-search__actions">
             <button type="button" class="client-search__addSTK" data-doc-modele-search-edit="${index}">Modifier</button>
-            <button type="button" class="client-search__delete" data-doc-modele-search-delete="${index}">Supprimer</button>
           </div>`;
         list.appendChild(option);
       });

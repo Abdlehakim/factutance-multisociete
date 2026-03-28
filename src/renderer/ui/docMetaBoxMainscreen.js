@@ -10,7 +10,7 @@ export function renderDocMetaBoxMainscreen() {
                 <input
                   id="docMetaSearch"
                   type="search"
-                  placeholder="Numero, type, client/fournisseur, date..."
+                  placeholder="Numero ou Code client..."
                   autocomplete="off"
                 />
                 <button id="docMetaSearchBtn" type="button" class="client-search__action" aria-label="Rechercher un document">

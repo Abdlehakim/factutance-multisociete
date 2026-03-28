@@ -250,7 +250,8 @@
 #fournisseurSearchResults.client-search--paged,
 #transporteurSearchResults.client-search--paged,
 #depotMagasinSearchResults.client-search--paged,
-#docMetaSearchResults.client-search--paged {
+#docMetaSearchResults.client-search--paged,
+#docModeleSearchResults.client-search--paged {
   max-height: none;
   overflow: visible;
 }
@@ -259,7 +260,8 @@
 #fournisseurSearchResults.client-search--paged .article-search__list,
 #transporteurSearchResults.client-search--paged .article-search__list,
 #depotMagasinSearchResults.client-search--paged .article-search__list,
-#docMetaSearchResults.client-search--paged .article-search__list {
+#docMetaSearchResults.client-search--paged .article-search__list,
+#docModeleSearchResults.client-search--paged .article-search__list {
   flex: 0 0 auto;
   min-height: 0;
   max-height: none;
@@ -270,7 +272,8 @@
 #fournisseurSearchResults.client-search--paged .client-search__select,
 #transporteurSearchResults.client-search--paged .client-search__select,
 #depotMagasinSearchResults.client-search--paged .client-search__select,
-#docMetaSearchResults.client-search--paged .client-search__select {
+#docMetaSearchResults.client-search--paged .client-search__select,
+#docModeleSearchResults.client-search--paged .client-search__select {
   min-height: 0;
 }
 .article-search__list .client-search__option {
