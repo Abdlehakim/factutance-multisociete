@@ -37,6 +37,7 @@
   const SUPPLIER_FETCH_LIMIT = 200;
 
   const DOC_TYPE_LABELS = {
+    devis: "Devis",
     facture: "Facture",
     bl: "Bon de livraison"
   };
@@ -72,6 +73,8 @@
   const normalizeDocType = (value, fallback = "facture") => {
     const raw = String(value || "").trim().toLowerCase();
     const aliases = {
+      devis: "devis",
+      dev: "devis",
       facture: "facture",
       fact: "facture",
       bl: "bl",

@@ -1,0 +1,587 @@
+#convertDocumentWindowModal {
+  --be-source-picker-filter-height: 42px;
+}
+
+#convertDocumentWindowModal .convert-document-window-modal__panel {
+  width: min(980px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 10px);
+}
+
+#convertDocumentWindowModal .convert-document-window-modal__body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1 1 auto;
+  min-height: 560px;
+  max-height: min(78vh, 860px);
+  overflow: hidden;
+}
+
+#convertDocumentWindowModal .convert-document-window-modal__stepper {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 28px;
+  padding: 6px 4px 14px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+#convertDocumentWindowModal .convert-document-window-modal__stepper .model-stepper__step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-width: 150px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #3c4a63;
+}
+
+#convertDocumentWindowModal .convert-document-window-modal__stepper .model-stepper__badge {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 2px solid #c4cbd5;
+  background: #fff;
+  color: #4a5568;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 1;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+#convertDocumentWindowModal .convert-document-window-modal__stepper .model-stepper__title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #3c4a63;
+  text-align: center;
+}
+
+#convertDocumentWindowModal
+  .convert-document-window-modal__stepper
+  .model-stepper__step.is-active
+  .model-stepper__badge {
+  background: #1b355c;
+  border-color: #1b355c;
+  color: #fff;
+  box-shadow: 0 4px 10px rgba(27, 53, 92, 0.25);
+}
+
+#convertDocumentWindowModal
+  .convert-document-window-modal__stepper
+  .model-stepper__step.is-active
+  .model-stepper__title {
+  color: #1b355c;
+}
+
+#convertDocumentWindowModal
+  .convert-document-window-modal__stepper
+  .model-stepper__step.is-complete
+  .model-stepper__badge {
+  background: rgba(27, 53, 92, 0.12);
+  border-color: #1b355c;
+  color: #1b355c;
+}
+
+#convertDocumentWindowModal .convert-document-window-modal__picker-step {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  justify-content: stretch;
+  align-items: stretch;
+  gap: 12px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+#convertDocumentWindowModal .convert-document-window-modal__picker-step[hidden],
+#convertDocumentWindowModal #convertDocumentWindowStep2[hidden] {
+  display: none !important;
+}
+
+#convertDocumentWindowModal #convertDocumentWindowStep2 {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: visible;
+}
+
+#convertDocumentWindowModal .convert-document-window-modal__toolbar {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: stretch;
+  gap: 10px;
+  width: 100%;
+  flex: 0 0 auto;
+}
+
+#convertDocumentWindowModal .convert-document-window-modal__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+#convertDocumentWindowModal .convert-document-window-modal__header-source {
+  display: inline-flex;
+  align-items: center;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: #0b1220;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: min(50vw, 420px);
+}
+
+#convertDocumentWindowModal .convert-document-window-modal__filters {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  align-items: flex-start;
+  align-content: flex-start;
+  gap: 10px;
+  width: 100%;
+}
+
+#convertDocumentWindowModal .be-source-document-picker-modal__search,
+#convertDocumentWindowModal .be-source-document-picker-modal__supplier,
+#convertDocumentWindowModal .be-source-document-picker-modal__year {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+#convertDocumentWindowModal .be-source-document-picker-modal__search {
+  flex: 1 1 250px;
+  min-width: 220px;
+  max-width: 340px;
+}
+
+#convertDocumentWindowModal .be-source-document-picker-modal__supplier {
+  flex: 1 1 280px;
+  min-width: 240px;
+  max-width: 360px;
+}
+
+#convertDocumentWindowModal .be-source-document-picker-modal__supplier-field {
+  position: relative;
+}
+
+#convertDocumentWindowModal .be-source-document-picker-modal__year {
+  flex: 0 0 130px;
+  min-width: 120px;
+}
+
+#convertDocumentWindowModal .be-source-document-picker-modal__year .doc-dialog-model-picker__field {
+  width: 100%;
+}
+
+#convertDocumentWindowModal .be-source-document-picker-modal__search-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+#convertDocumentWindowModal .be-source-document-picker-modal__search-input {
+  min-height: var(--be-source-picker-filter-height);
+  border: 1px solid #caddff;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: #0f172a;
+  background: #ffffff;
+  box-sizing: border-box;
+}
+
+#convertDocumentWindowModal .be-source-document-picker-modal__search-input:focus {
+  outline: none;
+  border-color: #93b6ed;
+  box-shadow: 0 0 0 2px rgba(20, 70, 160, 0.12);
+}
+
+#convertDocumentWindowModal .be-source-document-picker-modal__supplier-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  max-height: 250px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border-radius: 8px;
+}
+
+#convertDocumentWindowModal .be-source-document-picker-modal__supplier-panel[hidden] {
+  display: none !important;
+}
+
+#convertDocumentWindowModal .be-source-document-picker-modal__supplier-panel .model-select-option {
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
+}
+
+#convertDocumentWindowModal .be-source-document-picker-modal__year .doc-history-model-menu .field-toggle-trigger {
+  min-height: var(--be-source-picker-filter-height);
+  box-sizing: border-box;
+}
+
+#convertDocumentWindowModal .convert-document-window-modal__list.doc-history-modal__list {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  align-content: start;
+  margin: 0;
+  padding: 2px;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  overflow: auto;
+}
+
+#convertDocumentWindowModal .convert-document-window-modal__item {
+  border: 1px solid #cfe0ff;
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  height: fit-content;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+#convertDocumentWindowModal .convert-document-window-modal__item:hover {
+  border-color: #9ab7eb;
+  box-shadow: 0 4px 14px rgba(21, 51, 94, 0.14);
+  background: #f9fcff;
+}
+
+#convertDocumentWindowModal .be-source-document-picker-modal__checkbox {
+  margin: 0;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+#convertDocumentWindowModal .be-source-document-picker-modal__card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+#convertDocumentWindowModal .be-source-document-picker-modal__card-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+#convertDocumentWindowModal .be-source-document-picker-modal__card-title {
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: #15335e;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+#convertDocumentWindowModal .be-source-document-picker-modal__card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-left: 26px;
+}
+
+#convertDocumentWindowModal .be-source-document-picker-modal__meta-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #eef4ff;
+  color: #2c4a76;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+#convertDocumentWindowModal .convert-document-window-modal__bottom-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: nowrap;
+  width: 100%;
+  min-height: 20px;
+  flex: 0 0 auto;
+}
+
+#convertDocumentWindowModal .convert-document-window-modal__content-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  align-self: auto;
+  width: auto;
+  gap: 0;
+  flex: 0 0 auto;
+}
+
+#convertDocumentWindowModal .convert-document-window-modal__content-actions .doc-history-modal__pager {
+  grid-column: auto;
+  justify-self: auto;
+  margin: 0;
+  justify-content: flex-start;
+  flex: 0 0 auto;
+}
+
+#convertDocumentWindowModal .convert-document-window-modal__status {
+  min-height: 20px;
+  width: auto;
+  margin: 0 0 0 auto;
+  text-align: right;
+  flex: 0 0 auto;
+  padding: 0;
+}
+
+#convertDocumentWindowModal .convert-document-window-modal__options-form {
+  width: 100%;
+  overflow: visible;
+}
+
+#convertDocumentWindowModal .convert-document-window-modal__options-form .doc-history-convert__field {
+  min-width: 0;
+}
+
+#convertDocumentWindowModal #convertDocumentWindowStep2 .doc-dialog-model-picker__field {
+  position: relative;
+  overflow: visible;
+}
+
+#convertDocumentWindowModal #convertDocumentWindowStep2 .doc-dialog-model-menu[open] {
+  position: relative;
+  z-index: 60;
+}
+
+#convertDocumentWindowModal #convertDocumentWindowStep2 .doc-dialog-model-menu[open] > .field-toggle-panel {
+  position: absolute !important;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  display: flex;
+  max-height: 220px;
+  overflow-y: auto;
+  z-index: 80;
+}
+
+#convertDocumentWindowModal #convertDocumentWindowPaymentWrap {
+  grid-column: 1 / -1;
+}
+
+#convertDocumentWindowModal #convertDocumentWindowPaymentWrap[hidden] {
+  display: none !important;
+}
+
+#convertDocumentWindowModal #convertDocumentWindowAcompteWrap {
+  grid-column: 1 / -1;
+}
+
+#convertDocumentWindowModal #convertDocumentWindowAcompteWrap[hidden] {
+  display: none !important;
+}
+
+#convertDocumentWindowModal #convertDocumentWindowTargetPanel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+#convertDocumentWindowModal #convertDocumentWindowTargetPanel .currency-toggle {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 120px;
+  max-width: 220px;
+}
+
+#convertDocumentWindowModal .convert-document-window-modal__options-form .doc-history-convert__input {
+  min-height: 42px;
+}
+
+#convertDocumentWindowModal .convert-document-window-modal__step-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  width: 100%;
+  margin-top: auto;
+  flex: 0 0 auto;
+  padding-top: 10px;
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+#convertDocumentWindowModal .convert-document-window-modal__step-actions.model-stepper__actions-right {
+  justify-content: center;
+  gap: 8px;
+}
+
+#convertDocumentWindowModal .convert-document-window-modal__step-actions .model-stepper__nav {
+  appearance: none;
+  background: #fff;
+  color: #0b1220;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 5px;
+  padding: 8px 14px;
+  font-weight: 600;
+  font-size: 10px;
+  line-height: 1.2;
+  cursor: pointer;
+  white-space: nowrap;
+  min-width: 80px;
+  min-height: auto;
+  height: auto;
+  justify-content: center;
+}
+
+#convertDocumentWindowModal .convert-document-window-modal__step-actions .model-stepper__nav:hover:not(:disabled):not([disabled]) {
+  background: #15335e;
+  color: #fff;
+  border-color: #15335e;
+}
+
+#convertDocumentWindowModal .convert-document-window-modal__step-actions .model-stepper__nav:active:not(:disabled):not([disabled]) {
+  background: #15335e;
+  color: #fff;
+  border-color: #15335e;
+}
+
+#convertDocumentWindowModal .convert-document-window-modal__step-actions .model-stepper__nav[disabled],
+#convertDocumentWindowModal .convert-document-window-modal__step-actions .model-stepper__nav:disabled {
+  background: #f1f5f9;
+  color: #94a3b8;
+  border-color: #e2e8f0;
+  opacity: 1;
+  cursor: not-allowed;
+}
+
+#convertDocumentWindowModal .convert-document-window-modal__step-actions .model-stepper__nav[disabled]:hover,
+#convertDocumentWindowModal .convert-document-window-modal__step-actions .model-stepper__nav:disabled:hover {
+  background: #f1f5f9;
+  color: #94a3b8;
+  border-color: #e2e8f0;
+}
+
+#convertDocumentWindowModal .convert-document-window-modal__actions {
+  align-items: center;
+}
+
+#convertDocumentWindowModal .convert-document-window-modal__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+#convertDocumentWindowModal .convert-document-window-modal__grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: #15335e;
+}
+
+#convertDocumentWindowModal .convert-document-window-modal__grid select,
+#convertDocumentWindowModal .convert-document-window-modal__grid input[type="text"],
+#convertDocumentWindowModal .convert-document-window-modal__grid input[type="date"],
+#convertDocumentWindowModal .convert-document-window-modal__grid input[type="number"] {
+  min-height: 36px;
+}
+
+@media (max-width: 1200px) {
+  #convertDocumentWindowModal .convert-document-window-modal__list.doc-history-modal__list {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1100px) {
+  #convertDocumentWindowModal .convert-document-window-modal__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 960px) {
+  #convertDocumentWindowModal .convert-document-window-modal__list.doc-history-modal__list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  #convertDocumentWindowModal .convert-document-window-modal__stepper {
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  #convertDocumentWindowModal .convert-document-window-modal__stepper .model-stepper__step {
+    min-width: 128px;
+  }
+
+  #convertDocumentWindowModal .convert-document-window-modal__filters {
+    min-width: 0;
+  }
+
+  #convertDocumentWindowModal .convert-document-window-modal__content-actions {
+    display: flex;
+    justify-content: center;
+  }
+
+  #convertDocumentWindowModal .convert-document-window-modal__content-actions .doc-history-modal__pager {
+    justify-content: center;
+  }
+
+  #convertDocumentWindowModal .convert-document-window-modal__bottom-row {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  #convertDocumentWindowModal .convert-document-window-modal__status {
+    width: 100%;
+    margin-left: 0;
+    text-align: center;
+  }
+
+  #convertDocumentWindowModal .convert-document-window-modal__list.doc-history-modal__list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #convertDocumentWindowModal .convert-document-window-modal__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  #convertDocumentWindowModal .convert-document-window-modal__panel {
+    width: min(100vw - 12px, 980px);
+  }
+
+  #convertDocumentWindowModal .convert-document-window-modal__list.doc-history-modal__list {
+    grid-template-columns: 1fr;
+  }
+}

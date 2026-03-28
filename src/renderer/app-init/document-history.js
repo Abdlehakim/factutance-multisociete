@@ -75,6 +75,7 @@
     const docTypeSelect = getEl("docType");
     const docTypeDisplay = getEl("docTypeDisplay");
     const docTypeActionOpen = getEl("docTypeActionOpen");
+    const docTypeActionConvert = getEl("docTypeActionConvert");
     const docMetaSearchInput = getEl("docMetaSearch");
     const docMetaSearchBtn = getEl("docMetaSearchBtn");
     const docMetaSearchResults = getEl("docMetaSearchResults");
@@ -5960,6 +5961,84 @@
       const targetType = normalizeHistoryTypeValue(rawDocType, "facture");
       openHistoryModal({ docType: targetType });
       refreshHistoryFromDisk(targetType);
+    });
+    let convertActionInFlight = false;
+    const ensureConvertWindowApi = async () => {
+      let api = w.AppInit?.ConvertDocumentWindow;
+      if (api?.open) return api;
+      const waitForApi = async (timeoutMs = 2500) => {
+        const start = Date.now();
+        while (Date.now() - start < timeoutMs) {
+          const current = w.AppInit?.ConvertDocumentWindow;
+          if (current?.open) return current;
+          await new Promise((resolve) => setTimeout(resolve, 30));
+        }
+        return w.AppInit?.ConvertDocumentWindow?.open
+          ? w.AppInit.ConvertDocumentWindow
+          : null;
+      };
+      if (!w.__convertDocumentWindowLoadPromise) {
+        w.__convertDocumentWindowLoadPromise = new Promise((resolve) => {
+          const existingScript = document.querySelector(
+            'script[src="./app-init/document-actions/convert-document-window.js"]'
+          );
+          if (existingScript) {
+            let done = false;
+            const finish = () => {
+              if (done) return;
+              done = true;
+              existingScript.removeEventListener("load", finish);
+              existingScript.removeEventListener("error", finish);
+              resolve();
+            };
+            existingScript.addEventListener("load", finish, { once: true });
+            existingScript.addEventListener("error", finish, { once: true });
+            setTimeout(finish, 1200);
+            return;
+          }
+          const script = document.createElement("script");
+          script.src = "./app-init/document-actions/convert-document-window.js";
+          script.defer = true;
+          script.onload = () => resolve();
+          script.onerror = () => resolve();
+          document.head.appendChild(script);
+        });
+      }
+      try {
+        await w.__convertDocumentWindowLoadPromise;
+      } catch {}
+      api = (await waitForApi()) || w.AppInit?.ConvertDocumentWindow;
+      return api?.open ? api : null;
+    };
+    const runDocTypeConvertAction = async (trigger) => {
+      const btn = trigger && trigger.nodeType === 1 ? trigger : getEl("docTypeActionConvert");
+      if (!btn) return;
+      if (btn.disabled || btn.getAttribute("aria-disabled") === "true") return;
+      if (convertActionInFlight) return;
+      convertActionInFlight = true;
+      try {
+        const convertWindow = (await ensureConvertWindowApi()) || w.AppInit?.ConvertDocumentWindow;
+        if (convertWindow?.open) {
+          await convertWindow.open(btn);
+          return;
+        }
+        await w.showDialog?.("Conversion indisponible.", { title: "Erreur" });
+      } catch (err) {
+        console.error("docTypeActionConvert click failed", err);
+        await w.showDialog?.("Conversion indisponible.", { title: "Erreur" });
+      } finally {
+        convertActionInFlight = false;
+      }
+    };
+    docTypeActionConvert?.addEventListener("click", () => {
+      void runDocTypeConvertAction(docTypeActionConvert);
+    });
+    document.addEventListener("click", (evt) => {
+      const trigger = evt.target?.closest?.("#docTypeActionConvert");
+      if (!trigger) return;
+      if (trigger === docTypeActionConvert) return;
+      evt.preventDefault();
+      void runDocTypeConvertAction(trigger);
     });
     historyModalRefresh?.addEventListener("click", () => {
       refreshHistoryFromDisk(historyModalState.docType);

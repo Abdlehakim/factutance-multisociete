@@ -238,6 +238,174 @@
     return models;
   }
 
+  const MAIN_CONVERSION_SOURCE_TYPE_CONFIGS = [
+    {
+      docType: "devis",
+      label: "Devis",
+      partyType: "client",
+      promptOptions: {
+        titleText: "Convertir le devis",
+        targetDocTypes: ["facture", "bl"],
+        defaultTarget: "facture"
+      }
+    },
+    {
+      docType: "bl",
+      label: "Bon de livraison",
+      partyType: "client",
+      promptOptions: {
+        titleText: "Convertir le bon de livraison",
+        targetDocTypes: ["facture"],
+        defaultTarget: "facture"
+      }
+    },
+    {
+      docType: "facture",
+      label: "Facture",
+      partyType: "client",
+      promptOptions: {
+        titleText: "Convertir la facture",
+        targetDocTypes: ["avoir"],
+        defaultTarget: "avoir",
+        showTargetChoice: true,
+        allowedModelDocTypes: ["avoir"]
+      }
+    },
+    {
+      docType: "fa",
+      label: "Facture d'achat",
+      partyType: "vendor",
+      promptOptions: {
+        titleText: "Convertir la facture d'achat",
+        targetDocTypes: ["be"],
+        defaultTarget: "be"
+      }
+    },
+    {
+      docType: "bc",
+      label: "Bon de commande",
+      partyType: "vendor",
+      promptOptions: {
+        titleText: "Convertir le bon de commande",
+        targetDocTypes: ["be"],
+        defaultTarget: "be"
+      }
+    }
+  ];
+
+  const normalizeMainSourceDocType = (value) => String(value || "").trim().toLowerCase();
+  const getMainSourceTypeConfig = (value) => {
+    const normalized = normalizeMainSourceDocType(value);
+    return (
+      MAIN_CONVERSION_SOURCE_TYPE_CONFIGS.find(
+        (entry) => normalizeMainSourceDocType(entry?.docType) === normalized
+      ) || null
+    );
+  };
+
+  const pickMainSourceTypeDialog = async (trigger = null) => {
+    if (typeof showConfirm !== "function") {
+      return MAIN_CONVERSION_SOURCE_TYPE_CONFIGS[0] || null;
+    }
+    let selectedDocType = normalizeMainSourceDocType(
+      MAIN_CONVERSION_SOURCE_TYPE_CONFIGS[0]?.docType || "devis"
+    );
+    const confirmed = await showConfirm("Selectionner un document", {
+      title: "Selectionner un document",
+      okText: "Continuer",
+      cancelText: "Annuler",
+      trigger,
+      onOk: () => !!selectedDocType,
+      renderMessage(container) {
+        if (!container) return;
+        container.innerHTML = "";
+        const panel = document.createElement("div");
+        panel.className = "doc-convert-source-dialog";
+
+        const message = document.createElement("p");
+        message.className = "be-reception-source-type-dialog__message";
+        message.textContent = "Choisissez le type de document source :";
+        panel.appendChild(message);
+
+        const options = document.createElement("div");
+        options.className = "swbDialog__options be-reception-source-type-dialog__options";
+        options.setAttribute("role", "group");
+        panel.appendChild(options);
+
+        const okBtn = document.getElementById("swbDialogOk");
+        const setOkEnabled = (enabled) => {
+          if (!okBtn) return;
+          okBtn.disabled = !enabled;
+          okBtn.setAttribute("aria-disabled", enabled ? "false" : "true");
+        };
+        const syncActiveButtons = () => {
+          const activeDocType = normalizeMainSourceDocType(selectedDocType);
+          options.querySelectorAll("button[data-convert-source-doc-type]").forEach((btn) => {
+            const isActive =
+              normalizeMainSourceDocType(btn.dataset.convertSourceDocType) === activeDocType;
+            btn.classList.toggle("is-active", isActive);
+            btn.setAttribute("aria-pressed", isActive ? "true" : "false");
+          });
+          setOkEnabled(!!activeDocType);
+        };
+
+        MAIN_CONVERSION_SOURCE_TYPE_CONFIGS.forEach((entry) => {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "btn better-style-v2";
+          btn.dataset.convertSourceDocType = entry.docType;
+          btn.setAttribute("aria-pressed", "false");
+          btn.textContent = String(entry.label || entry.docType).trim() || entry.docType;
+          btn.addEventListener("click", () => {
+            selectedDocType = normalizeMainSourceDocType(entry.docType);
+            syncActiveButtons();
+          });
+          options.appendChild(btn);
+        });
+
+        container.appendChild(panel);
+        syncActiveButtons();
+      }
+    });
+
+    if (!confirmed) return null;
+    return getMainSourceTypeConfig(selectedDocType);
+  };
+
+  const openMainSourceDocumentPicker = async (sourceConfig, trigger = null) => {
+    if (!sourceConfig || !sourceConfig.docType) return { ok: false, canceled: true };
+    const docType = normalizeMainSourceDocType(sourceConfig.docType);
+    const picker =
+      sourceConfig.partyType === "vendor"
+        ? w.AppInit?.BonEntreeSourceDocumentPicker
+        : w.AppInit?.BonSortieSourceDocumentPicker;
+    if (!picker || typeof picker.open !== "function") {
+      await w.showDialog?.("Fenetre de selection indisponible.", { title: "Erreur" });
+      return { ok: false, canceled: false };
+    }
+    return picker.open(trigger, {
+      docType,
+      docTypeChoices: [{ docType, label: sourceConfig.label || docType }],
+      sourceChooserTitle: "Selectionner un document",
+      sourceChooserMessage: "Choisissez le type de document source :"
+    });
+  };
+
+  const toConversionEntryFromPickerItem = (item, sourceDocType) => {
+    const raw = item && typeof item === "object" ? item : {};
+    return {
+      id: String(raw.id || "").trim(),
+      path: String(raw.path || "").trim(),
+      number: String(raw.number || raw.displayName || "").trim(),
+      name: String(raw.displayName || raw.number || "").trim(),
+      docType: normalizeMainSourceDocType(sourceDocType || raw.docType || ""),
+      date: String(raw.date || "").trim(),
+      clientName: String(raw.clientName || "").trim(),
+      clientPath: String(raw.clientPath || "").trim(),
+      clientAccount: String(raw.clientAccount || "").trim()
+    };
+  };
+
   async function promptDevisConversion(entry, options = {}) {
     if (!entry) return null;
     let selectedModel = "";
@@ -256,7 +424,33 @@
       return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
     };
     const promptOptions = options && typeof options === "object" ? options : {};
-    const SELECTABLE_DOC_TYPES = new Set(["facture", "fa", "bc", "avoir", "devis", "bl"]);
+    const showTwoStepWizard = !!promptOptions.showTwoStepWizard;
+    const wizardStep1Label =
+      String(promptOptions.wizardStep1Label || "S\u00E9lection du document source").trim() ||
+      "S\u00E9lection du document source";
+    const wizardStep2Label =
+      String(promptOptions.wizardStep2Label || "Param\u00E8tres du document converti").trim() ||
+      "Param\u00E8tres du document converti";
+    const wizardSourceTypeLabel = String(promptOptions.wizardSourceTypeLabel || "").trim();
+    const wizardSourceDocLabel =
+      String(
+        promptOptions.wizardSourceDocLabel ||
+          entry?.number ||
+          entry?.invNumber ||
+          entry?.name ||
+          entry?.label ||
+          ""
+      ).trim();
+    const SELECTABLE_DOC_TYPES = new Set([
+      "facture",
+      "fa",
+      "bc",
+      "be",
+      "bs",
+      "avoir",
+      "devis",
+      "bl"
+    ]);
     const targetDocTypesRaw = Array.isArray(promptOptions.targetDocTypes)
       ? promptOptions.targetDocTypes
       : ["facture", "bl"];
@@ -440,6 +634,52 @@
         container.style.overflow = "visible";
         const wrapper = document.createElement("div");
         wrapper.className = "doc-history-convert-form";
+        if (showTwoStepWizard) {
+          const wizard = document.createElement("div");
+          wizard.className = "doc-history-convert-wizard";
+
+          const stepper = document.createElement("div");
+          stepper.className = "model-stepper__labels";
+          stepper.setAttribute("role", "list");
+          stepper.setAttribute("aria-label", "Etapes de conversion");
+
+          const step1 = document.createElement("div");
+          step1.className = "model-stepper__step is-complete";
+          step1.setAttribute("role", "listitem");
+          const step1Badge = document.createElement("span");
+          step1Badge.className = "model-stepper__badge";
+          step1Badge.textContent = "1";
+          const step1Title = document.createElement("span");
+          step1Title.className = "model-stepper__title";
+          step1Title.textContent = wizardStep1Label;
+          step1.append(step1Badge, step1Title);
+
+          const step2 = document.createElement("div");
+          step2.className = "model-stepper__step is-active";
+          step2.setAttribute("role", "listitem");
+          const step2Badge = document.createElement("span");
+          step2Badge.className = "model-stepper__badge";
+          step2Badge.textContent = "2";
+          const step2Title = document.createElement("span");
+          step2Title.className = "model-stepper__title";
+          step2Title.textContent = wizardStep2Label;
+          step2.append(step2Badge, step2Title);
+
+          stepper.append(step1, step2);
+          wizard.appendChild(stepper);
+
+          if (wizardSourceTypeLabel || wizardSourceDocLabel) {
+            const summary = document.createElement("p");
+            summary.className = "doc-history-convert-wizard__source";
+            const parts = [];
+            if (wizardSourceTypeLabel) parts.push(wizardSourceTypeLabel);
+            if (wizardSourceDocLabel) parts.push(wizardSourceDocLabel);
+            summary.textContent = `Source : ${parts.join(" - ")}`;
+            wizard.appendChild(summary);
+          }
+
+          container.appendChild(wizard);
+        }
 
         const modelGroup = document.createElement("div");
         modelGroup.className = "doc-history-convert__field";
@@ -2096,7 +2336,10 @@
     return false;
   }
 
-  async function convertHistoryEntry(entry, { onClose, sourceDocType, promptOptions } = {}) {
+  async function convertHistoryEntry(
+    entry,
+    { onClose, sourceDocType, promptOptions, directChoices } = {}
+  ) {
     if (!entry || !entry.path) return false;
     const normalizedSource = String(sourceDocType || "").trim().toLowerCase();
     const entryDocType = String(entry.docType || "").trim().toLowerCase();
@@ -2297,6 +2540,14 @@
       }
       return { ok: true };
     };
+    if (directChoices && typeof directChoices === "object") {
+      const directSubmit = await performConversion(directChoices);
+      if (directSubmit && typeof directSubmit === "object") {
+        return directSubmit.ok !== false;
+      }
+      return directSubmit !== false;
+    }
+
     const promptConfig =
       promptOptions && typeof promptOptions === "object" ? { ...promptOptions } : {};
     promptConfig.onSubmit = performConversion;
@@ -2329,6 +2580,71 @@
     return fallbackSubmit !== false;
   }
 
+  async function openMainScreenConversionWizard({ trigger = null } = {}) {
+    const sourceConfig = await pickMainSourceTypeDialog(trigger);
+    if (!sourceConfig) return false;
+
+    const pickerResult = await openMainSourceDocumentPicker(sourceConfig, trigger);
+    if (!pickerResult?.ok) return false;
+
+    const pickedItems = Array.isArray(pickerResult?.items) ? pickerResult.items : [];
+    if (!pickedItems.length) {
+      await w.showDialog?.("Aucun document source selectionne.", { title: "Conversion" });
+      return false;
+    }
+
+    const firstPicked = pickedItems[0];
+    if (pickedItems.length > 1) {
+      await w.showDialog?.(
+        "Plusieurs documents ont ete selectionnes. Seul le premier document sera converti.",
+        { title: "Conversion" }
+      );
+    }
+
+    const entry = toConversionEntryFromPickerItem(firstPicked, sourceConfig.docType);
+    if (!entry?.path) {
+      await w.showDialog?.("Document source invalide.", { title: "Conversion" });
+      return false;
+    }
+
+    const sourceDisplayLabel =
+      String(entry.number || firstPicked?.displayName || extractDocumentLabel(entry.path) || "").trim();
+    const promptOptions = {
+      ...(sourceConfig.promptOptions || {}),
+      showTwoStepWizard: true,
+      wizardStep1Label: "S\u00E9lection du document source",
+      wizardStep2Label: "Param\u00E8tres du document converti",
+      wizardSourceTypeLabel: String(sourceConfig.label || sourceConfig.docType || "").trim(),
+      wizardSourceDocLabel: sourceDisplayLabel
+    };
+
+    return convertHistoryEntry(entry, {
+      sourceDocType: sourceConfig.docType,
+      promptOptions
+    });
+  }
+
+  const getMainScreenSourceTypeConfigs = () =>
+    MAIN_CONVERSION_SOURCE_TYPE_CONFIGS.map((entry) => ({
+      ...entry,
+      promptOptions:
+        entry?.promptOptions && typeof entry.promptOptions === "object"
+          ? { ...entry.promptOptions }
+          : {}
+    }));
+
+  async function convertSourceEntryWithChoices(
+    entry,
+    { sourceDocType, choices, promptOptions, onClose } = {}
+  ) {
+    return convertHistoryEntry(entry, {
+      onClose,
+      sourceDocType,
+      promptOptions,
+      directChoices: choices && typeof choices === "object" ? { ...choices } : {}
+    });
+  }
+
   async function convertDevisEntry(entry, { onClose } = {}) {
     return convertHistoryEntry(entry, { onClose, sourceDocType: "devis" });
   }
@@ -2359,6 +2675,9 @@
   }
 
   AppInit.DocConversion = {
+    openMainScreenConversionWizard,
+    getMainScreenSourceTypeConfigs,
+    convertSourceEntryWithChoices,
     convertDevisEntry,
     convertBlEntry,
     convertFactureEntry
