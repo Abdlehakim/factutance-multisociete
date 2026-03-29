@@ -4127,6 +4127,24 @@ async function listInvoiceFiles(payload = {}) {
       if (["fa", "be"].includes(normalizedDocType)) return "fournisseur";
       return normalizedDocType ? "client" : "";
     };
+    const normalizeConvertedFromNumbers = (value) => {
+      const list = Array.isArray(value) ? value : [];
+      const seen = new Set();
+      const normalized = [];
+      list.forEach((entry) => {
+        const raw = String(entry || "").trim();
+        if (!raw) return;
+        const parsed = typeof FactDb.parseDocumentNumberFromPath === "function"
+          ? String(FactDb.parseDocumentNumberFromPath(raw) || "").trim()
+          : "";
+        const number = parsed || raw;
+        const key = number.toLowerCase();
+        if (!number || seen.has(key)) return;
+        seen.add(key);
+        normalized.push(number);
+      });
+      return normalized;
+    };
     const buildDocumentItem = ({
       id,
       payload,
@@ -4317,7 +4335,12 @@ async function listInvoiceFiles(payload = {}) {
           ? String(convertedFrom.docType || convertedFrom.type).toLowerCase()
           : "";
         const convertedFromId = convertedFrom.id ? String(convertedFrom.id) : "";
-        const convertedFromNumber = convertedFrom.number ? String(convertedFrom.number) : "";
+        const convertedFromNumbers = normalizeConvertedFromNumbers(
+          convertedFrom.numbers || convertedFrom.sourceNumbers
+        );
+        const convertedFromNumber = convertedFrom.number
+          ? String(convertedFrom.number)
+          : convertedFromNumbers[0] || "";
         const convertedFromPath = convertedFrom.path ? String(convertedFrom.path) : "";
         const convertedFromDate = convertedFrom.date ? String(convertedFrom.date) : "";
         const normalizedConvertedFrom = {};
@@ -4327,6 +4350,7 @@ async function listInvoiceFiles(payload = {}) {
         }
         if (convertedFromId) normalizedConvertedFrom.id = convertedFromId;
         if (convertedFromNumber) normalizedConvertedFrom.number = convertedFromNumber;
+        if (convertedFromNumbers.length) normalizedConvertedFrom.numbers = convertedFromNumbers;
         if (convertedFromPath) normalizedConvertedFrom.path = convertedFromPath;
         if (convertedFromDate) normalizedConvertedFrom.date = convertedFromDate;
         if (Object.keys(normalizedConvertedFrom).length) {

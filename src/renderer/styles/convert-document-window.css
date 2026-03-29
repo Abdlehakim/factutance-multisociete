@@ -276,6 +276,12 @@
   background: #f9fcff;
 }
 
+#convertDocumentWindowModal .convert-document-window-modal__item.is-selected {
+  border-color: #3f69d8;
+  box-shadow: 0 0 0 1px rgba(63, 105, 216, 0.22), 0 6px 16px rgba(23, 57, 122, 0.16);
+  background: #f5f9ff;
+}
+
 #convertDocumentWindowModal .be-source-document-picker-modal__checkbox {
   margin: 0;
   width: 16px;

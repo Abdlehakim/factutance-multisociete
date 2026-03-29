@@ -535,6 +535,25 @@ background: #f3f8ff;
   grid-column: 1 / -1;
 }
 
+#modelActionsModal #modelActionsPreview .doc-design1__converted-sources {
+  margin: 8px 0;
+  padding: 6px 10px;
+  border: 1px solid rgba(21, 51, 94, 0.24);
+  border-radius: 6px;
+  background: rgba(21, 51, 94, 0.03);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+#modelActionsModal #modelActionsPreview .doc-design1__converted-sources-label {
+  font-weight: 700;
+  color: var(--items-head-bg, var(--primary));
+}
+
+#modelActionsModal #modelActionsPreview .doc-design1__converted-sources-value {
+  font-weight: 500;
+}
+
 #modelActionsModal #modelActionsPreview .doc-design1__table-wrap {
   margin-top: 0;
   border-radius: 5px;

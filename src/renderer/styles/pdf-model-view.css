@@ -97,3 +97,11 @@ body.exporting-pdf .pdf-model-template .pdf-model-preview-page {
   border-radius: 0 !important;
   box-shadow: none !important;
 }
+
+.pdf-model-template .pdf-model-preview-page.doc-design1 {
+  gap: 12px !important;
+}
+
+.pdf-model-template .pdf-model-preview-page .doc-design1__converted-sources {
+  margin: 0 !important;
+}

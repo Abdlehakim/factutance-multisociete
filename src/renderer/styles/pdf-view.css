@@ -222,6 +222,22 @@ body.exporting-pdf .pdf-preview-modal__content .pdf-page {
   gap: 18px;
   font-size: 14px;
 }
+.pdf-converted-sources {
+  margin: 8px 0 8px;
+  padding: 6px 10px;
+  border: 1px solid rgba(21, 51, 94, 0.24);
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.35;
+  background: rgba(21, 51, 94, 0.03);
+}
+.pdf-converted-sources__label {
+  font-weight: 700;
+  color: var(--items-head-bg, var(--primary, #15335e));
+}
+.pdf-converted-sources__value {
+  font-weight: 500;
+}
 .pdf-small {
   font-size: 12px;
   line-height: 1.35;

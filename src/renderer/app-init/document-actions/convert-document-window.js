@@ -478,7 +478,8 @@
       step: 1,
       models: [],
       modelsLoaded: false,
-      selectedDoc: null,
+      selectedDocPaths: [],
+      step2PrimaryDoc: null,
       step2Menus: {},
       step2BehaviorBound: false,
       lastPaymentMethod: "",
@@ -529,28 +530,39 @@
       }
       e[ID.list]
         ?.querySelectorAll('input[name="convertDocumentWindowPick"]')
-        ?.forEach((radio) => {
-          radio.disabled = state.busy;
+        ?.forEach((input) => {
+          input.disabled = state.busy;
         });
       syncStepActions();
     };
 
-    const resolveSelectedDocFromStep1 = () => {
-      if (state.selectedDoc?.path) return state.selectedDoc;
-      const checkedPath = String(
-        e[ID.list]?.querySelector('input[name="convertDocumentWindowPick"]:checked')?.value || ""
-      ).trim();
-      if (checkedPath) {
-        state.selectedDoc =
-          state.docs.find((doc) => doc.path === checkedPath) ||
-          getFilteredDocs().find((doc) => doc.path === checkedPath) ||
-          null;
+    const clearSelectedDocs = () => {
+      state.selectedDocPaths = [];
+      state.step2PrimaryDoc = null;
+    };
+
+    const getSelectedDocPathSet = () => new Set(state.selectedDocPaths || []);
+
+    const setSelectedDocPaths = (paths = []) => {
+      const unique = [];
+      const seen = new Set();
+      paths.forEach((path) => {
+        const value = String(path || "").trim();
+        if (!value || seen.has(value)) return;
+        seen.add(value);
+        unique.push(value);
+      });
+      state.selectedDocPaths = unique;
+      if (!state.selectedDocPaths.length) {
+        state.step2PrimaryDoc = null;
       }
-      if (!state.selectedDoc) {
-        const filtered = getFilteredDocs();
-        if (filtered.length === 1) state.selectedDoc = filtered[0];
-      }
-      return state.selectedDoc;
+    };
+
+    const resolveSelectedDocsFromStep1 = () => {
+      const paths = getSelectedDocPathSet();
+      if (!paths.size) return [];
+      const byPath = new Map((state.docs || []).map((doc) => [doc.path, doc]));
+      return state.selectedDocPaths.map((path) => byPath.get(path)).filter(Boolean);
     };
 
     const getSelectedTargetValue = () => normalize(e[ID.target]?.value || "");
@@ -565,14 +577,14 @@
       );
     };
     const resolveAcompteBase = () => {
-      const totalTTC = Number(state.selectedDoc?.totalTTC);
+      const totalTTC = Number(state.step2PrimaryDoc?.totalTTC);
       if (Number.isFinite(totalTTC)) return totalTTC;
-      const totalHT = Number(state.selectedDoc?.totalHT);
+      const totalHT = Number(state.step2PrimaryDoc?.totalHT);
       if (Number.isFinite(totalHT)) return totalHT;
       return null;
     };
     const resolveCurrency = () =>
-      String(state.selectedDoc?.currency || SEM?.state?.meta?.currency || "").trim();
+      String(state.step2PrimaryDoc?.currency || SEM?.state?.meta?.currency || "").trim();
     const formatMoneyValue =
       typeof w.formatMoney === "function"
         ? w.formatMoney
@@ -627,13 +639,13 @@
 
     const syncStepActions = () => {
       const step = Number(state.step || 1);
-      const hasSelectedSourceDoc = !!resolveSelectedDocFromStep1();
+      const hasSelectedSourceDoc = resolveSelectedDocsFromStep1().length > 0;
       e[ID.back].hidden = false;
       e[ID.next].hidden = step !== 1;
       e[ID.confirm].hidden = step !== 2;
       e[ID.back].disabled = state.busy || step <= 1;
       e[ID.next].disabled = state.busy || step !== 1 || !hasSelectedSourceDoc;
-      e[ID.confirm].disabled = state.busy || step !== 2 || !state.step2CanConvert;
+      e[ID.confirm].disabled = state.busy || step !== 2 || !state.step2CanConvert || !hasSelectedSourceDoc;
     };
 
     const setStep = (step) => {
@@ -1220,8 +1232,12 @@
 
     const renderList = () => {
       const filteredDocs = getFilteredDocs();
-      if (state.selectedDoc && !filteredDocs.some((doc) => doc.path === state.selectedDoc.path)) {
-        state.selectedDoc = null;
+      const availablePaths = new Set((state.docs || []).map((doc) => String(doc.path || "").trim()));
+      if (state.selectedDocPaths.length) {
+        const nextPaths = state.selectedDocPaths.filter((path) => availablePaths.has(path));
+        if (nextPaths.length !== state.selectedDocPaths.length) {
+          setSelectedDocPaths(nextPaths);
+        }
       }
 
       e[ID.list].innerHTML = "";
@@ -1246,7 +1262,12 @@
       if (!filteredDocs.length) {
         renderStep1Empty("Aucun document trouve.");
         syncStep1Pager(0);
-        setStatus1("Aucun document trouve.");
+        const selectedCount = resolveSelectedDocsFromStep1().length;
+        setStatus1(
+          selectedCount
+            ? `${selectedCount} document(s) selectionne(s). Aucun document trouve pour les filtres actuels.`
+            : "Aucun document trouve."
+        );
         syncStepActions();
         return;
       }
@@ -1254,17 +1275,20 @@
       syncStep1Pager(filteredDocs.length);
       const startIndex = (state.page - 1) * state.pageSize;
       const visibleDocs = filteredDocs.slice(startIndex, startIndex + state.pageSize);
+      const selectedPaths = getSelectedDocPathSet();
 
       visibleDocs.forEach((doc) => {
-        const checked = !!(state.selectedDoc && state.selectedDoc.path === doc.path);
+        const checked = selectedPaths.has(doc.path);
         const row = document.createElement("label");
-        row.className = "convert-document-window-modal__item be-source-document-picker-modal__card";
+        row.className = `convert-document-window-modal__item be-source-document-picker-modal__card${
+          checked ? " is-selected" : ""
+        }`;
         row.setAttribute("role", "listitem");
         row.innerHTML = `
           <span class="be-source-document-picker-modal__card-content">
             <span class="be-source-document-picker-modal__card-main">
               <input
-                type="radio"
+                type="checkbox"
                 class="be-source-document-picker-modal__checkbox"
                 name="convertDocumentWindowPick"
                 value="${escapeHtml(doc.path)}"
@@ -1284,8 +1308,11 @@
       });
 
       const endIndex = Math.min(startIndex + visibleDocs.length, filteredDocs.length);
+      const selectedCount = resolveSelectedDocsFromStep1().length;
       setStatus1(
-        `${filteredDocs.length} document(s) trouve(s) - Affichage ${startIndex + 1}-${endIndex}.`
+        `${selectedCount} document(s) selectionne(s) sur ${filteredDocs.length} document(s) - Affichage ${
+          startIndex + 1
+        }-${endIndex}.`
       );
       syncStepActions();
     };
@@ -1344,7 +1371,7 @@
 
     const fetchDocs = async () => {
       state.docs = [];
-      state.selectedDoc = null;
+      clearSelectedDocs();
       state.page = 1;
       if (!state.source || !state.selectedPath) {
         syncYearChoices();
@@ -1505,7 +1532,7 @@
       rebuildPartyPanel("");
       setPartyPanelOpen(false);
       state.docs = [];
-      state.selectedDoc = null;
+      clearSelectedDocs();
       state.year = "";
       state.page = 1;
       e[ID.year].innerHTML = '<option value="">Toutes</option>';
@@ -1523,7 +1550,7 @@
         null;
       state.parties = [];
       state.docs = [];
-      state.selectedDoc = null;
+      clearSelectedDocs();
       state.selectedPath = "";
       state.partyQuery = "";
       state.search = "";
@@ -1606,12 +1633,32 @@
 
     const openOptionsStepFromSelection = async () => {
       if (!state.source || state.busy) return;
-      const selectedDoc = resolveSelectedDocFromStep1();
-      if (!selectedDoc) {
-        setStatus1("Selectionnez un document source avant de passer a l'etape suivante.");
+      const selectedDocs = resolveSelectedDocsFromStep1();
+      if (!selectedDocs.length) {
+        setStatus1("Selectionnez au moins un document source avant de passer a l'etape suivante.");
         syncStepActions();
         return;
       }
+      const primaryDoc = selectedDocs[0] || null;
+      const aggregatedDoc =
+        selectedDocs.length > 1
+          ? {
+              ...primaryDoc,
+              totalTTC: selectedDocs.reduce((sum, doc) => {
+                const value = Number(doc?.totalTTC);
+                return Number.isFinite(value) ? sum + value : sum;
+              }, 0),
+              totalHT: selectedDocs.reduce((sum, doc) => {
+                const value = Number(doc?.totalHT);
+                return Number.isFinite(value) ? sum + value : sum;
+              }, 0),
+              paid: selectedDocs.reduce((sum, doc) => {
+                const value = Number(doc?.paid);
+                return Number.isFinite(value) ? sum + value : sum;
+              }, 0)
+            }
+          : primaryDoc;
+      state.step2PrimaryDoc = aggregatedDoc;
       setStatus2("");
       e[ID.summary].textContent = "";
       state.step2CanConvert = false;
@@ -1620,9 +1667,11 @@
       e[ID.paymentStatus].value = "";
       e[ID.paymentMethod].value = "";
       e[ID.paymentRef].value = String(
-        selectedDoc?.paymentReference || selectedDoc?.paymentRef || ""
+        selectedDocs.length > 1
+          ? ""
+          : primaryDoc?.paymentReference || primaryDoc?.paymentRef || ""
       ).trim();
-      const initialPaid = Number(selectedDoc?.paid);
+      const initialPaid = Number(aggregatedDoc?.paid);
       if (e[ID.acomptePaid]) {
         e[ID.acomptePaid].value = String(Number.isFinite(initialPaid) ? initialPaid : 0);
       }
@@ -1681,8 +1730,9 @@
         choiceTarget === "facture" && isPartialPaymentStatus
           ? normalizePaidValue(e[ID.acomptePaid]?.value || "")
           : null;
-      if (!state.selectedDoc || !state.source) {
-        setStatus2("Document source invalide.");
+      const selectedDocs = resolveSelectedDocsFromStep1();
+      if (!selectedDocs.length || !state.source) {
+        setStatus2("Documents source invalides.");
         return;
       }
       if (!choiceTarget) {
@@ -1709,46 +1759,60 @@
         setStatus2("Conversion indisponible.");
         return;
       }
+      if (selectedDocs.length > 1 && !convertApi?.convertSourceEntriesWithChoices) {
+        setStatus2("Conversion multiple indisponible.");
+        return;
+      }
 
       setBusy(true);
-      setStatus2("Conversion en cours...");
+      setStatus2(
+        selectedDocs.length > 1
+          ? `Fusion et conversion de ${selectedDocs.length} document(s)...`
+          : "Conversion en cours..."
+      );
       try {
-        const ok = await convertApi.convertSourceEntryWithChoices(
-          {
-            path: state.selectedDoc.path,
-            number: state.selectedDoc.number || state.selectedDoc.display,
-            name: state.selectedDoc.display,
-            docType: state.source.docType,
-            date: state.selectedDoc.date,
-            clientName: state.selectedDoc.clientName,
-            clientPath: state.selectedDoc.clientPath,
-            paymentReference: state.selectedDoc.paymentReference || "",
-            paid: state.selectedDoc.paid,
-            totalTTC: state.selectedDoc.totalTTC,
-            totalHT: state.selectedDoc.totalHT,
-            currency: state.selectedDoc.currency
+        const conversionEntries = selectedDocs.map((selectedDoc) => ({
+          path: selectedDoc.path,
+          number: selectedDoc.number || selectedDoc.display,
+          name: selectedDoc.display,
+          docType: state.source.docType,
+          date: selectedDoc.date,
+          clientName: selectedDoc.clientName,
+          clientPath: selectedDoc.clientPath,
+          paymentReference: selectedDoc.paymentReference || "",
+          paid: selectedDoc.paid,
+          totalTTC: selectedDoc.totalTTC,
+          totalHT: selectedDoc.totalHT,
+          currency: selectedDoc.currency
+        }));
+        const conversionOptions = {
+          sourceDocType: state.source.docType,
+          choices: {
+            target: choiceTarget,
+            model: choiceModel,
+            date: choiceDate,
+            paymentMethod: choicePaymentMethod,
+            status: choiceTarget === "facture" ? choiceStatus : "",
+            paymentReference: choicePaymentReference,
+            paidAmount: choicePaidAmount
           },
-          {
-            sourceDocType: state.source.docType,
-            choices: {
-              target: choiceTarget,
-              model: choiceModel,
-              date: choiceDate,
-              paymentMethod: choicePaymentMethod,
-              status: choiceTarget === "facture" ? choiceStatus : "",
-              paymentReference: choicePaymentReference,
-              paidAmount: choicePaidAmount
-            },
-            promptOptions: state.source.promptOptions || {}
-          }
-        );
+          promptOptions: state.source.promptOptions || {}
+        };
+        const ok =
+          conversionEntries.length > 1
+            ? await convertApi.convertSourceEntriesWithChoices(conversionEntries, conversionOptions)
+            : await convertApi.convertSourceEntryWithChoices(conversionEntries[0], conversionOptions);
         if (ok) {
           close(true);
           return;
         }
-        setStatus2("Impossible de convertir le document.");
+        setStatus2(
+          conversionEntries.length > 1
+            ? "Impossible de convertir les documents selectionnes."
+            : "Impossible de convertir le document."
+        );
       } catch (err) {
-        setStatus2(String(err?.message || "Impossible de convertir le document."));
+        setStatus2(String(err?.message || "Impossible de convertir les documents."));
       } finally {
         setBusy(false);
       }
@@ -1767,7 +1831,7 @@
       state.partyQuery = getSelectedPartyLabel();
       syncPartyInputValue(state.partyQuery);
       rebuildPartyPanel(state.partyQuery);
-      state.selectedDoc = null;
+      clearSelectedDocs();
       state.page = 1;
       void fetchDocs();
     });
@@ -1797,7 +1861,7 @@
       if (state.selectedPath && normalize(query) !== selectedLabel) {
         e[ID.party].value = "";
         state.selectedPath = "";
-        state.selectedDoc = null;
+        clearSelectedDocs();
         state.docs = [];
         state.page = 1;
       }
@@ -1852,11 +1916,21 @@
     });
     e[ID.list]?.addEventListener("change", (evt) => {
       if (state.busy) return;
-      const radio = evt.target.closest('input[name="convertDocumentWindowPick"]');
-      if (!radio) return;
-      const selectedPath = String(radio.value || "");
-      state.selectedDoc = state.docs.find((doc) => doc.path === selectedPath) || null;
-      syncStepActions();
+      const input = evt.target.closest('input[name="convertDocumentWindowPick"]');
+      if (!input) return;
+      const selectedPath = String(input.value || "").trim();
+      if (!selectedPath) return;
+      const selectedSet = getSelectedDocPathSet();
+      if (input.checked) {
+        selectedSet.add(selectedPath);
+      } else {
+        selectedSet.delete(selectedPath);
+      }
+      setSelectedDocPaths(Array.from(selectedSet));
+      if (state.step2PrimaryDoc && !selectedSet.has(state.step2PrimaryDoc.path)) {
+        state.step2PrimaryDoc = resolveSelectedDocsFromStep1()[0] || null;
+      }
+      renderList();
     });
     e[ID.targetPanel]?.addEventListener("change", (evt) => {
       if (state.busy) return;

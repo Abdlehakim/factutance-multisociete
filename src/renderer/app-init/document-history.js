@@ -131,6 +131,9 @@
     let historyEmailLoadToken = 0;
     let historyRenderToken = 0;
     const historyPaymentMetaCache = new Map();
+    let docHistoryConvertedSourcesActiveToggle = null;
+    let docHistoryConvertedSourcesActivePopover = null;
+    const docHistoryConvertedSourcesPopoverOrigins = new WeakMap();
  
     const safeHtml = typeof escapeHTML === "function" ? escapeHTML : (value) => String(value ?? "");
     const escapeAttr = (value) =>
@@ -1066,6 +1069,29 @@
       const dotIndex = filename.lastIndexOf(".");
       return dotIndex > 0 ? filename.slice(0, dotIndex).trim() : filename.trim();
     };
+    const resolveConvertedFromNumbers = (convertedFrom) => {
+      if (!convertedFrom || typeof convertedFrom !== "object") return [];
+      const seen = new Set();
+      const ordered = [];
+      const append = (value) => {
+        const raw = String(value || "").trim();
+        if (!raw) return;
+        const normalized = extractDocNumberFromPath(raw) || raw;
+        const key = normalized.toLowerCase();
+        if (!normalized || seen.has(key)) return;
+        seen.add(key);
+        ordered.push(normalized);
+      };
+      const numbers = Array.isArray(convertedFrom.numbers)
+        ? convertedFrom.numbers
+        : Array.isArray(convertedFrom.sourceNumbers)
+          ? convertedFrom.sourceNumbers
+          : [];
+      numbers.forEach((entry) => append(entry));
+      append(convertedFrom.number);
+      if (!ordered.length) append(convertedFrom.path);
+      return ordered;
+    };
     const normalizeDocHistoryStatusValue = (value) => {
       const normalized = String(value || "").trim().toLowerCase();
       if (!normalized) return "";
@@ -1469,6 +1495,7 @@
       try {
         const raw = await w.openInvoiceFromFilePicker({ path: entry.path, docType });
         if (!raw || token !== historyEmailLoadToken) return;
+        injectHistoryConvertedFromIntoRawData(raw, entry?.convertedFrom);
         historyEmailRawData = raw;
         const data =
           raw && typeof raw === "object" && raw.data && typeof raw.data === "object" ? raw.data : raw;
@@ -1560,6 +1587,7 @@
       }
       if (!raw) return "";
       try {
+        injectHistoryConvertedFromIntoRawData(raw, entry?.convertedFrom);
         if (entryType === "facture" && entry?.status) {
           injectHistoryStatusIntoRawData(raw, entry.status);
         }
@@ -2257,6 +2285,65 @@
 
     function injectHistoryStatusIntoRawData(rawData, statusValue) {
       return;
+    }
+
+    function normalizeConvertedSourceNumbers(value) {
+      const list = Array.isArray(value) ? value : [];
+      const seen = new Set();
+      const normalized = [];
+      list.forEach((entry) => {
+        const number = String(entry || "").trim();
+        if (!number || seen.has(number)) return;
+        seen.add(number);
+        normalized.push(number);
+      });
+      return normalized;
+    }
+
+    function injectHistoryConvertedFromIntoRawData(rawData, convertedFromValue) {
+      if (!rawData || typeof rawData !== "object") return;
+      if (!convertedFromValue || typeof convertedFromValue !== "object") return;
+      const data =
+        rawData && typeof rawData === "object" && rawData.data && typeof rawData.data === "object"
+          ? rawData.data
+          : rawData;
+      if (!data || typeof data !== "object") return;
+      const meta = data.meta && typeof data.meta === "object" ? data.meta : (data.meta = {});
+      const incoming = convertedFromValue;
+      const incomingDocType = String(incoming.docType || incoming.type || "").trim().toLowerCase();
+      const incomingNumber = String(incoming.number || "").trim();
+      const incomingPath = String(incoming.path || "").trim();
+      const incomingDate = String(incoming.date || "").trim();
+      const incomingNumbers = normalizeConvertedSourceNumbers(
+        incoming.numbers || incoming.sourceNumbers
+      );
+      const target =
+        meta.convertedFrom && typeof meta.convertedFrom === "object"
+          ? meta.convertedFrom
+          : (meta.convertedFrom = {});
+      if (incomingDocType) {
+        if (!target.docType) target.docType = incomingDocType;
+        if (!target.type) target.type = incomingDocType;
+      }
+      if (incomingNumber && !target.number) target.number = incomingNumber;
+      if (incomingPath && !target.path) target.path = incomingPath;
+      if (incomingDate && !target.date) target.date = incomingDate;
+      const existingNumbers = normalizeConvertedSourceNumbers(
+        target.numbers || target.sourceNumbers
+      );
+      const nextNumbers = existingNumbers.length ? existingNumbers : incomingNumbers;
+      if (nextNumbers.length) {
+        target.numbers = nextNumbers;
+        if (!target.number) target.number = nextNumbers[0];
+      }
+      const rootMeta = rawData.meta && typeof rawData.meta === "object" ? rawData.meta : null;
+      if (rootMeta && (!rootMeta.convertedFrom || typeof rootMeta.convertedFrom !== "object")) {
+        try {
+          rootMeta.convertedFrom = JSON.parse(JSON.stringify(target));
+        } catch {
+          rootMeta.convertedFrom = { ...target };
+        }
+      }
     }
 
     const parsePaidAmountInput = (value) => {
@@ -3636,6 +3723,7 @@
       closeDocHistoryStatusMenu();
       closeDocHistoryActionsMenu();
       closeDocHistoryExportMenu();
+      closeDocHistoryConvertedSourcesPopover();
       if (!historyModalList) return;
       const renderToken = ++historyRenderToken;
       const filteredEntries = getFilteredHistoryModalEntries();
@@ -3954,10 +4042,9 @@
           const convertedFromDocType = convertedFrom?.docType || convertedFrom?.type
             ? String(convertedFrom.docType || convertedFrom.type).toLowerCase()
             : "";
-          const convertedFromPath = convertedFrom?.path ? String(convertedFrom.path).trim() : "";
-          const convertedFromNumberRaw = convertedFrom?.number ? String(convertedFrom.number).trim() : "";
-          const convertedFromNumber =
-            convertedFromNumberRaw || extractDocNumberFromPath(convertedFromPath);
+          const convertedFromNumbers = resolveConvertedFromNumbers(convertedFrom);
+          const convertedFromNumber = convertedFromNumbers[0] || "";
+          const hasMultipleConvertedFromNumbers = convertedFromNumbers.length > 1;
           const isDevisOrBlOrigin =
             ["devis", "bl"].includes(convertedFromDocType) ||
             (!convertedFromDocType && !!convertedFromNumber);
@@ -3994,9 +4081,62 @@
           const paymentReferenceDisplay = showPaymentBlock
             ? paymentReferenceRaw || "N.R."
             : "";
+          const convertedFromPopoverId = `docHistoryConvertedSourcesPopover-${actualIndex}`;
+          const convertedFromListHtml = convertedFromNumbers
+            .map((number) => `<li class="doc-history__converted-sources-item">${safeHtml(number)}</li>`)
+            .join("");
+          const convertedFromControlHtml =
+            hasMultipleConvertedFromNumbers && showConvertedFrom
+              ? `<span class="doc-history__converted-sources-control">
+                    <button
+                      type="button"
+                      class="doc-history__converted-sources-toggle"
+                      data-doc-history-converted-sources-toggle="${actualIndex}"
+                      aria-label="Afficher les documents sources (${convertedFromNumbers.length})"
+                      aria-haspopup="dialog"
+                      aria-expanded="false"
+                      aria-controls="${escapeAttr(convertedFromPopoverId)}"
+                    >
+                      <svg class="doc-history__converted-sources-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true" focusable="false">
+                        <circle cx="5" cy="7" r="1.2" fill="currentColor" stroke="none"></circle>
+                        <circle cx="5" cy="12" r="1.2" fill="currentColor" stroke="none"></circle>
+                        <circle cx="5" cy="17" r="1.2" fill="currentColor" stroke="none"></circle>
+                        <path d="M8 7h11M8 12h11M8 17h11" stroke-linecap="round"></path>
+                      </svg>
+                    </button>
+                    <div
+                      id="${escapeAttr(convertedFromPopoverId)}"
+                      class="doc-history__converted-sources-popover"
+                      role="dialog"
+                      aria-modal="false"
+                      hidden
+                    >
+                      <div class="doc-history__converted-sources-popover-header">
+                        <span class="doc-history__converted-sources-popover-title">Converti de</span>
+                        <button
+                          type="button"
+                          class="swbDialog__close doc-history__converted-sources-popover-close"
+                          data-doc-history-converted-sources-close
+                          aria-label="Fermer la liste des documents sources"
+                        >
+                          <svg stroke="currentColor" fill="none" stroke-width="0" viewBox="0 0 24 24" height="200px" width="200px" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M16.3394 9.32245C16.7434 8.94589 16.7657 8.31312 16.3891 7.90911C16.0126 7.50509 15.3798 7.48283 14.9758 7.85938L12.0497 10.5866L9.32245 7.66048C8.94589 7.25647 8.31312 7.23421 7.90911 7.61076C7.50509 7.98731 7.48283 8.62008 7.85938 9.0241L10.5866 11.9502L7.66048 14.6775C7.25647 15.054 7.23421 15.6868 7.61076 16.0908C7.98731 16.4948 8.62008 16.5171 9.0241 16.1405L11.9502 13.4133L14.6775 16.3394C15.054 16.7434 15.6868 16.7657 16.0908 16.3891C16.4948 16.0126 16.5171 15.3798 16.1405 14.9758L13.4133 12.0497L16.3394 9.32245Z" fill="currentColor"></path>
+                            <path fill-rule="evenodd" clip-rule="evenodd" d="M1 12C1 5.92487 5.92487 1 12 1C18.0751 1 23 5.92487 23 12C23 18.0751 18.0751 23 12 23C5.92487 23 1 18.0751 1 12ZM12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12C21 16.9706 16.9706 21 12 21Z" fill="currentColor"></path>
+                          </svg>
+                        </button>
+                      </div>
+                      <ul class="doc-history__converted-sources-list">${convertedFromListHtml}</ul>
+                    </div>
+                  </span>`
+              : `<span class="doc-history__converted-number">${safeHtml(convertedFromNumber)}</span>`;
           const convertedFromHtml = showConvertedFrom
-            ? `<span class="doc-history__converted-label">Converti de :</span>
-                  <span class="doc-history__converted-number">${safeHtml(convertedFromNumber)}</span>`
+            ? hasMultipleConvertedFromNumbers
+              ? `<span class="doc-history__converted-source-row">
+                  <span class="doc-history__converted-label">Converti de :</span>
+                  ${convertedFromControlHtml}
+                </span>`
+              : `<span class="doc-history__converted-label">Converti de :</span>
+                  ${convertedFromControlHtml}`
             : "";
           const paymentMethodHtml = showPaymentBlock
             ? `<span class="doc-history__converted-label">Mode de paiement :</span>
@@ -4008,12 +4148,10 @@
             : "";
           const convertedFromRowHtml =
             showConvertedFrom || showPaymentBlock
-              ? `<div class="client-search__details-row">
-                <div class="doc-history__converted-badge">
+              ? `<div class="doc-history__converted-badge">
                   ${convertedFromHtml}
                   ${paymentMethodHtml}
                   ${paymentReferenceHtml}
-                </div>
               </div>`
               : "";
           const showStatusSelect = historyModalState.docType === "facture";
@@ -4269,6 +4407,179 @@
       }
     }
 
+    function getOpenDocHistoryConvertedSourcesPopover() {
+      if (
+        docHistoryConvertedSourcesActivePopover instanceof HTMLElement &&
+        !docHistoryConvertedSourcesActivePopover.hidden &&
+        docHistoryConvertedSourcesActivePopover.classList.contains("is-open")
+      ) {
+        return docHistoryConvertedSourcesActivePopover;
+      }
+      return null;
+    }
+
+    function restoreDocHistoryConvertedSourcesPopover(popover) {
+      if (!(popover instanceof HTMLElement)) return;
+      const origin = docHistoryConvertedSourcesPopoverOrigins.get(popover);
+      if (!origin || !(origin.parent instanceof HTMLElement)) {
+        if (popover.parentElement === document.body) popover.remove();
+        docHistoryConvertedSourcesPopoverOrigins.delete(popover);
+        return;
+      }
+      const { parent, nextSibling } = origin;
+      if (!parent.isConnected) {
+        if (popover.parentElement === document.body) popover.remove();
+        docHistoryConvertedSourcesPopoverOrigins.delete(popover);
+        return;
+      }
+      if (nextSibling && nextSibling.parentNode === parent) {
+        parent.insertBefore(popover, nextSibling);
+      } else {
+        parent.appendChild(popover);
+      }
+      docHistoryConvertedSourcesPopoverOrigins.delete(popover);
+    }
+
+    function clearDocHistoryConvertedSourcesPopoverPosition(popover) {
+      if (!(popover instanceof HTMLElement)) return;
+      popover.style.removeProperty("left");
+      popover.style.removeProperty("top");
+      popover.style.removeProperty("visibility");
+      popover.style.removeProperty("z-index");
+      popover.removeAttribute("data-placement");
+    }
+
+    function closeDocHistoryConvertedSourcesPopover({ exceptToggle = null } = {}) {
+      const activePopover = getOpenDocHistoryConvertedSourcesPopover();
+      const activeToggle = docHistoryConvertedSourcesActiveToggle;
+      if (
+        exceptToggle &&
+        activePopover &&
+        activeToggle instanceof HTMLElement &&
+        activeToggle === exceptToggle
+      ) {
+        return;
+      }
+      if (activePopover) {
+        activePopover.hidden = true;
+        activePopover.classList.remove("is-open");
+        clearDocHistoryConvertedSourcesPopoverPosition(activePopover);
+        restoreDocHistoryConvertedSourcesPopover(activePopover);
+      }
+      if (activeToggle instanceof HTMLElement) {
+        activeToggle.setAttribute("aria-expanded", "false");
+      }
+      docHistoryConvertedSourcesActivePopover = null;
+      docHistoryConvertedSourcesActiveToggle = null;
+      if (!historyModalList) return;
+      const toggles = historyModalList.querySelectorAll("[data-doc-history-converted-sources-toggle]");
+      toggles.forEach((toggle) => {
+        if (!(toggle instanceof HTMLElement)) return;
+        if (exceptToggle && toggle === exceptToggle) return;
+        toggle.setAttribute("aria-expanded", "false");
+      });
+    }
+
+    function positionDocHistoryConvertedSourcesPopover(toggleBtn, popover) {
+      if (!(toggleBtn instanceof HTMLElement) || !(popover instanceof HTMLElement)) return;
+      const gap = 6;
+      const viewportMargin = 8;
+      const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+      const toggleRect = toggleBtn.getBoundingClientRect();
+      const popoverRect = popover.getBoundingClientRect();
+      if (!popoverRect.width || !popoverRect.height) return;
+      const minLeft = viewportMargin;
+      const maxLeft = Math.max(viewportMargin, viewportWidth - popoverRect.width - viewportMargin);
+      const preferredLeft = toggleRect.left - popoverRect.width - gap;
+      const fallbackRight = toggleRect.right + gap;
+      const canPlaceLeft = preferredLeft >= viewportMargin;
+      const canPlaceRight = fallbackRight + popoverRect.width <= viewportWidth - viewportMargin;
+      let placement = "left";
+      let left = preferredLeft;
+      if (!canPlaceLeft && canPlaceRight) {
+        placement = "right";
+        left = fallbackRight;
+      } else if (!canPlaceLeft && !canPlaceRight) {
+        const availableLeftSpace = toggleRect.left - viewportMargin;
+        const availableRightSpace = viewportWidth - toggleRect.right - viewportMargin;
+        if (availableRightSpace > availableLeftSpace) {
+          placement = "right";
+          left = fallbackRight;
+        }
+      }
+      left = Math.min(Math.max(left, minLeft), maxLeft);
+      let top = toggleRect.top + toggleRect.height / 2 - popoverRect.height / 2;
+      const minTop = viewportMargin;
+      const maxTop = Math.max(viewportMargin, viewportHeight - popoverRect.height - viewportMargin);
+      top = Math.min(Math.max(top, minTop), maxTop);
+      popover.style.left = `${Math.round(left)}px`;
+      popover.style.top = `${Math.round(top)}px`;
+      popover.style.zIndex = "100260";
+      popover.setAttribute("data-placement", placement);
+    }
+
+    function repositionOpenDocHistoryConvertedSourcesPopover() {
+      const popover = getOpenDocHistoryConvertedSourcesPopover();
+      if (!popover) return;
+      const toggle = docHistoryConvertedSourcesActiveToggle;
+      if (!(toggle instanceof HTMLElement) || !toggle.isConnected) {
+        closeDocHistoryConvertedSourcesPopover();
+        return;
+      }
+      positionDocHistoryConvertedSourcesPopover(toggle, popover);
+    }
+
+    function toggleDocHistoryConvertedSourcesPopover(toggleBtn) {
+      if (!toggleBtn || !(toggleBtn instanceof HTMLElement)) return;
+      const popoverId = String(toggleBtn.getAttribute("aria-controls") || "").trim();
+      if (!popoverId) return;
+      const popover = document.getElementById(popoverId);
+      if (!(popover instanceof HTMLElement)) return;
+      const isAlreadyOpen =
+        getOpenDocHistoryConvertedSourcesPopover() === popover &&
+        docHistoryConvertedSourcesActiveToggle === toggleBtn;
+      if (isAlreadyOpen) {
+        closeDocHistoryConvertedSourcesPopover();
+        return;
+      }
+      closeDocHistoryConvertedSourcesPopover();
+      const currentParent = popover.parentElement;
+      if (
+        currentParent instanceof HTMLElement &&
+        currentParent !== document.body &&
+        !docHistoryConvertedSourcesPopoverOrigins.has(popover)
+      ) {
+        docHistoryConvertedSourcesPopoverOrigins.set(popover, {
+          parent: currentParent,
+          nextSibling: popover.nextSibling || null
+        });
+      }
+      if (popover.parentElement !== document.body) {
+        document.body.appendChild(popover);
+      }
+      popover.hidden = false;
+      popover.classList.add("is-open");
+      popover.style.visibility = "hidden";
+      popover.style.left = "-10000px";
+      popover.style.top = "-10000px";
+      popover.style.zIndex = "100260";
+      docHistoryConvertedSourcesActivePopover = popover;
+      docHistoryConvertedSourcesActiveToggle = toggleBtn;
+      toggleBtn.setAttribute("aria-expanded", "true");
+      requestAnimationFrame(() => {
+        if (
+          docHistoryConvertedSourcesActivePopover !== popover ||
+          docHistoryConvertedSourcesActiveToggle !== toggleBtn ||
+          popover.hidden
+        ) {
+          return;
+        }
+        positionDocHistoryConvertedSourcesPopover(toggleBtn, popover);
+        popover.style.visibility = "";
+      });
+    }
+
     function openHistoryModal({ docType, focusPath, focusNumber } = {}) {
       if (!historyModal) return false;
       historyModalRestoreFocus =
@@ -4286,6 +4597,7 @@
       updateHistoryModalData(targetType);
       renderHistoryModal();
       closeHistoryRecapPopover();
+      closeDocHistoryConvertedSourcesPopover();
       historyModal.hidden = false;
       historyModal.removeAttribute("hidden");
       historyModal.setAttribute("aria-hidden", "false");
@@ -4302,6 +4614,7 @@
       closeDocHistoryExportMenu();
       setHistoryYearMenuState(false);
       closeHistoryRecapPopover();
+      closeDocHistoryConvertedSourcesPopover();
       docHistoryStartDatePickerController?.close();
       docHistoryEndDatePickerController?.close();
       historyModal.classList.remove("is-open");
@@ -4347,6 +4660,12 @@
         if (historyModalRecapPopover && !historyModalRecapPopover.hidden) {
           evt.preventDefault();
           closeHistoryRecapPopover();
+          return;
+        }
+        const hasOpenConvertedSourcesPopover = !!getOpenDocHistoryConvertedSourcesPopover();
+        if (hasOpenConvertedSourcesPopover) {
+          evt.preventDefault();
+          closeDocHistoryConvertedSourcesPopover();
           return;
         }
         evt.preventDefault();
@@ -6304,6 +6623,7 @@
           await w.showDialog?.(docLoadError.text, { title: docLoadError.title });
           return;
         }
+        injectHistoryConvertedFromIntoRawData(raw, entry?.convertedFrom);
         if (entryType === "facture" && entry.status) {
           injectHistoryStatusIntoRawData(raw, entry.status);
         }
@@ -6521,6 +6841,7 @@
           await w.showDialog?.(docLoadError.text, { title: docLoadError.title });
           return;
         }
+        injectHistoryConvertedFromIntoRawData(raw, entry?.convertedFrom);
         if (entryType === "facture" && entry.status) {
           injectHistoryStatusIntoRawData(raw, entry.status);
         }
@@ -6686,6 +7007,7 @@
           await w.showDialog?.(docLoadError.text, { title: docLoadError.title });
           return;
         }
+        injectHistoryConvertedFromIntoRawData(raw, entry?.convertedFrom);
         if (entryType === "facture" && entry.status) {
           injectHistoryStatusIntoRawData(raw, entry.status);
         }
@@ -7587,6 +7909,20 @@
         if (copyValue) await copyTextToClipboard(copyValue);
         return;
       }
+      const convertedSourcesToggleBtn = evt.target.closest("[data-doc-history-converted-sources-toggle]");
+      if (convertedSourcesToggleBtn) {
+        evt.preventDefault();
+        evt.stopPropagation();
+        toggleDocHistoryConvertedSourcesPopover(convertedSourcesToggleBtn);
+        return;
+      }
+      const convertedSourcesCloseBtn = evt.target.closest("[data-doc-history-converted-sources-close]");
+      if (convertedSourcesCloseBtn) {
+        evt.preventDefault();
+        evt.stopPropagation();
+        closeDocHistoryConvertedSourcesPopover();
+        return;
+      }
       const convertBtn = evt.target.closest("[data-doc-history-convert]");
       if (convertBtn) {
         evt.preventDefault();
@@ -7866,6 +8202,11 @@
     });
 
     document.addEventListener("click", (evt) => {
+      const convertedSourcesCloseBtn = evt.target.closest("[data-doc-history-converted-sources-close]");
+      if (convertedSourcesCloseBtn) {
+        evt.preventDefault();
+        closeDocHistoryConvertedSourcesPopover();
+      }
       if (
         historyModalRecapPopover &&
         !historyModalRecapPopover.hidden &&
@@ -7873,6 +8214,14 @@
         !historyModalRecapPopover.contains(evt.target)
       ) {
         closeHistoryRecapPopover();
+      }
+      const openConvertedSourcesPopover = getOpenDocHistoryConvertedSourcesPopover();
+      if (
+        openConvertedSourcesPopover &&
+        !evt.target.closest("[data-doc-history-converted-sources-toggle]") &&
+        !openConvertedSourcesPopover.contains(evt.target)
+      ) {
+        closeDocHistoryConvertedSourcesPopover();
       }
       if (docHistoryActionsPopover && !docHistoryActionsPopover.hidden) {
         if (
@@ -7905,17 +8254,26 @@
       closeDocHistoryActionsMenu();
       closeDocHistoryExportMenu();
       closeDocHistoryStatusMenu();
+      repositionOpenDocHistoryConvertedSourcesPopover();
     });
     window.addEventListener(
       "scroll",
       () => {
         closeDocHistoryActionsMenu();
         closeDocHistoryExportMenu();
-        if (!docHistoryStatusPopover || docHistoryStatusPopover.hidden) return;
-        closeDocHistoryStatusMenu();
+        if (docHistoryStatusPopover && !docHistoryStatusPopover.hidden) {
+          closeDocHistoryStatusMenu();
+        }
+        closeDocHistoryConvertedSourcesPopover();
       },
       true
     );
+    historyModalList?.addEventListener("scroll", () => {
+      closeDocHistoryConvertedSourcesPopover();
+    });
+    historyModal?.addEventListener("scroll", () => {
+      closeDocHistoryConvertedSourcesPopover();
+    });
 
     docTypeSelect?.addEventListener("change", () => {
       syncHistoryTypeWithDocSelection({ forceRender: true });

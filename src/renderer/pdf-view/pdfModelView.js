@@ -669,6 +669,68 @@
     };
   }
 
+  function normalizeConvertedSourceNumbers(value) {
+    const list = Array.isArray(value) ? value : [];
+    const seen = new Set();
+    const normalized = [];
+    list.forEach((entry) => {
+      const number = String(entry || "").trim();
+      if (!number || seen.has(number)) return;
+      seen.add(number);
+      normalized.push(number);
+    });
+    return normalized;
+  }
+
+  function resolveConvertedSourceNumbers(meta = {}) {
+    const convertedFrom =
+      meta && typeof meta.convertedFrom === "object" ? meta.convertedFrom : null;
+    if (!convertedFrom) return [];
+    const numbers = normalizeConvertedSourceNumbers(
+      convertedFrom.numbers || convertedFrom.sourceNumbers
+    );
+    if (numbers.length) return numbers;
+    const single = String(convertedFrom.number || "").trim();
+    return single ? [single] : [];
+  }
+
+  function applyConvertedSourcesLine(page, state, docType) {
+    if (!page) return;
+    const tableWrap = page.querySelector(".doc-design1__table-wrap");
+    const parent = tableWrap?.parentNode;
+    let node = page.querySelector("#modelPreviewConvertedSources");
+    if (!tableWrap || !parent) {
+      if (node) node.remove();
+      return;
+    }
+    const numbers =
+      docType === "facture"
+        ? resolveConvertedSourceNumbers(state?.meta && typeof state.meta === "object" ? state.meta : {})
+        : [];
+    if (!numbers.length) {
+      if (node) node.remove();
+      return;
+    }
+    if (!node) {
+      node = document.createElement("div");
+      node.id = "modelPreviewConvertedSources";
+      node.className = "doc-design1__converted-sources";
+    }
+    if (node.parentNode !== parent || node.nextSibling !== tableWrap) {
+      parent.insertBefore(node, tableWrap);
+    }
+    node.innerHTML = "";
+    const label = document.createElement("span");
+    label.className = "doc-design1__converted-sources-label";
+    label.textContent = "Documents sources :";
+    const value = document.createElement("span");
+    value.className = "doc-design1__converted-sources-value";
+    value.textContent = numbers.join(", ");
+    node.appendChild(label);
+    node.appendChild(document.createTextNode(" "));
+    node.appendChild(value);
+  }
+
   function setApprovalName(page, nodeId, value) {
     const node = page.querySelector(`#${nodeId}`);
     if (!node) return;
@@ -1354,6 +1416,7 @@
 
     applyHeader(page, st, assets || {}, docType);
     applyCompanyAndParty(page, st, docType);
+    applyConvertedSourcesLine(page, st, docType);
     applyTable(page, st, visibility, labels, docType, currency, taxesEnabled);
     applyBonEntreeSections(page, st, visibility, docType, pdfOptions);
     applyBonSortieSections(page, st, visibility, docType, pdfOptions);

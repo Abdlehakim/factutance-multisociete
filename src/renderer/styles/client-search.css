@@ -378,6 +378,13 @@
   border-color: #caddff;
   box-shadow: 0 6px 14px rgba(21, 51, 94, 0.12);
 }
+.doc-history-modal__list .doc-history-item.doc-history-item--focus .client-search__select,
+.doc-history-modal__list .doc-history-item.doc-history-item--focus .client-search__select.client-search__select--detailed {
+  background: #ecfdf3;
+  border-color: #86efac;
+  box-shadow: 0 6px 14px rgba(22, 163, 74, 0.18);
+  outline: none;
+}
 /* Keep article result rows neutral inside document/item modals */
 #itemsDocOptionsModal .client-search__select,
 #itemsDocOptionsModal .client-search__select.client-search__select--detailed,

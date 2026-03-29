@@ -1125,6 +1125,27 @@
     const logo = hasVal(company.logo) ? company.logo : "";
     const type  = getDocType(meta);
     const usePurchasePricing = type === "fa";
+    const convertedFromMeta =
+      meta?.convertedFrom && typeof meta.convertedFrom === "object" ? meta.convertedFrom : null;
+    const convertedSourceNumbers = (() => {
+      if (!convertedFromMeta) return [];
+      const ordered = [];
+      const seen = new Set();
+      const append = (value) => {
+        const next = String(value || "").trim();
+        if (!next || seen.has(next)) return;
+        seen.add(next);
+        ordered.push(next);
+      };
+      const numbers = Array.isArray(convertedFromMeta.numbers)
+        ? convertedFromMeta.numbers
+        : Array.isArray(convertedFromMeta.sourceNumbers)
+          ? convertedFromMeta.sourceNumbers
+          : [];
+      numbers.forEach((entry) => append(entry));
+      if (!ordered.length) append(convertedFromMeta.number);
+      return ordered;
+    })();
     const pdfOptions = ex?.pdf && typeof ex.pdf === "object" ? ex.pdf : {};
     const showSeal = pdfOptions.showSeal !== false;
     const showSignature = pdfOptions.showSignature !== false;
@@ -1872,6 +1893,13 @@
             ${clientAddressHTML}
           </fieldset>
         </div>`;
+    const convertedSourcesLineHTML =
+      type === "facture" && convertedSourceNumbers.length
+        ? `<div class="pdf-converted-sources">
+            <span class="pdf-converted-sources__label">Documents sources :</span>
+            <span class="pdf-converted-sources__value">${esc(convertedSourceNumbers.join(", "))}</span>
+          </div>`
+        : "";
 
     const buildSummaryBlock = () => `
         <div class="pdf-summary-row">
@@ -2043,7 +2071,7 @@
       if (isFirstPage) pageClasses.push("first-page");
       if (includeSummary) pageClasses.push("last-page");
       const pageClass = pageClasses.join(" ");
-      const topSection = isFirstPage ? `${docHeadHTML}${partiesBlockHTML}` : "";
+      const topSection = isFirstPage ? `${docHeadHTML}${partiesBlockHTML}${convertedSourcesLineHTML}` : "";
       const footerHTML = includeFooter ? footerBlockHTML : "";
       const bottomSection = includeSummary
         ? `<div class="pdf-bottom-wrap">${summarySection}${footerHTML}</div>`

@@ -30,6 +30,20 @@
     const match = String(value ?? "").match(/(\d{4})/);
     return match ? match[1] : null;
   };
+  const normalizeSourceNumbers = (value) => {
+    const list = Array.isArray(value) ? value : [];
+    const seen = new Set();
+    const normalized = [];
+    list.forEach((entry) => {
+      const raw = String(entry ?? "").trim();
+      if (!raw) return;
+      const number = extractDocNumberFromPath(raw);
+      if (!number || seen.has(number)) return;
+      seen.add(number);
+      normalized.push(number);
+    });
+    return normalized;
+  };
   const getConvertedFromInfo = (entry, raw, sourceDocType = "devis") => {
     if (!entry) return null;
     const candidates = [
@@ -50,11 +64,22 @@
     if (!number) {
       number = extractDocNumberFromPath(entry.path);
     }
+    const sourceNumbers = normalizeSourceNumbers(
+      entry.sourceNumbers ||
+        entry.sourceDocs ||
+        entry.convertedFrom?.numbers ||
+        raw?.data?.meta?.convertedFrom?.numbers ||
+        raw?.meta?.convertedFrom?.numbers
+    );
+    if (!number && sourceNumbers.length) {
+      number = sourceNumbers[0];
+    }
     const normalizedDocType = String(sourceDocType || "devis").trim().toLowerCase() || "devis";
     const convertedFrom = { docType: normalizedDocType, type: normalizedDocType };
     const sourceId = String(entry.id || raw?.id || raw?.meta?.id || raw?.data?.meta?.id || "").trim();
     if (sourceId) convertedFrom.id = sourceId;
     if (number) convertedFrom.number = number;
+    if (sourceNumbers.length) convertedFrom.numbers = sourceNumbers;
     if (entry.path) convertedFrom.path = String(entry.path);
     return convertedFrom;
   };
@@ -62,10 +87,12 @@
     if (!value || typeof value !== "object") return null;
     const docType = String(value.docType || value.type || "").trim().toLowerCase();
     const id = String(value.id || value.documentId || value.rowid || "").trim();
-    const number = String(value.number || "").trim();
+    let number = String(value.number || "").trim();
+    const numbers = normalizeSourceNumbers(value.numbers || value.sourceNumbers);
+    if (!number && numbers.length) number = numbers[0];
     const path = String(value.path || "").trim();
     const date = String(value.date || "").trim();
-    if (!docType && !id && !number && !path && !date) return null;
+    if (!docType && !id && !number && !path && !date && !numbers.length) return null;
     const normalized = {};
     if (docType) {
       normalized.docType = docType;
@@ -73,6 +100,7 @@
     }
     if (id) normalized.id = id;
     if (number) normalized.number = number;
+    if (numbers.length) normalized.numbers = numbers;
     if (path) normalized.path = path;
     if (date) normalized.date = date;
     return normalized;
@@ -2336,11 +2364,105 @@
     return false;
   }
 
+  const SOURCE_ITEM_REF_FIELDS = ["ref", "reference", "code", "sku"];
+  const SOURCE_ITEM_DESIGNATION_FIELDS = [
+    "designation",
+    "product",
+    "name",
+    "label",
+    "article",
+    "description",
+    "desc"
+  ];
+  const SOURCE_ITEM_UNIT_FIELDS = ["unit", "unite"];
+  const SOURCE_ITEM_QTY_FIELDS = ["qty", "quantity", "qte", "quantite"];
+  const normalizeMergeText = (value) => String(value || "").trim().toLowerCase();
+  const deepCloneValue = (value) => {
+    try {
+      return JSON.parse(JSON.stringify(value));
+    } catch {
+      return value;
+    }
+  };
+  const toQuantityNumber = (value) => {
+    if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+    if (value === undefined || value === null) return 0;
+    const raw = String(value).replace(/\u00A0/g, " ").trim();
+    if (!raw) return 0;
+    const parsed = Number(raw.replace(/\s+/g, "").replace(/,/g, "."));
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
+  const pickFirstItemValue = (item, keys = []) => {
+    const source = item && typeof item === "object" ? item : {};
+    for (const key of keys) {
+      const value = source?.[key];
+      if (value !== undefined && value !== null && String(value).trim() !== "") {
+        return value;
+      }
+    }
+    return "";
+  };
+  const getInvoiceSourcePayload = (raw) => {
+    const sourceLevel1 = raw && raw.data && typeof raw.data === "object" ? raw.data : raw;
+    const source =
+      sourceLevel1 && sourceLevel1.data && typeof sourceLevel1.data === "object"
+        ? sourceLevel1.data
+        : sourceLevel1;
+    return source && typeof source === "object" ? source : null;
+  };
+  const getSourceItemReference = (item) =>
+    String(pickFirstItemValue(item, SOURCE_ITEM_REF_FIELDS) || "").trim();
+  const getSourceItemDesignation = (item) =>
+    String(pickFirstItemValue(item, SOURCE_ITEM_DESIGNATION_FIELDS) || "").trim();
+  const getSourceItemUnit = (item) =>
+    String(pickFirstItemValue(item, SOURCE_ITEM_UNIT_FIELDS) || "").trim();
+  const getSourceItemQuantity = (item) =>
+    toQuantityNumber(pickFirstItemValue(item, SOURCE_ITEM_QTY_FIELDS));
+  const setSourceItemQuantity = (item, quantity) => {
+    const nextQuantity = toQuantityNumber(quantity);
+    item.qty = nextQuantity;
+    SOURCE_ITEM_QTY_FIELDS.forEach((key) => {
+      if (Object.prototype.hasOwnProperty.call(item, key)) {
+        item[key] = nextQuantity;
+      }
+    });
+  };
+  const buildSourceItemMergeKey = (item, index) => {
+    const reference = normalizeMergeText(getSourceItemReference(item));
+    if (reference) return `ref:${reference}`;
+    const designation = normalizeMergeText(getSourceItemDesignation(item));
+    if (!designation) return `row:${index}`;
+    const unit = normalizeMergeText(getSourceItemUnit(item));
+    return `designation:${designation}|unit:${unit}`;
+  };
+  const mergeSourceItemsFromRawDocuments = (rawDocuments = []) => {
+    const mergedItems = [];
+    const mergeIndexByKey = new Map();
+    rawDocuments.forEach((rawDoc) => {
+      const payload = getInvoiceSourcePayload(rawDoc);
+      const sourceItems = Array.isArray(payload?.items) ? payload.items : [];
+      sourceItems.forEach((sourceItem) => {
+        const clonedItem = deepCloneValue(sourceItem && typeof sourceItem === "object" ? sourceItem : {});
+        const mergeKey = buildSourceItemMergeKey(clonedItem, mergedItems.length);
+        const existingIndex = mergeIndexByKey.get(mergeKey);
+        if (existingIndex === undefined) {
+          mergeIndexByKey.set(mergeKey, mergedItems.length);
+          mergedItems.push(clonedItem);
+          return;
+        }
+        const existingItem = mergedItems[existingIndex];
+        const mergedQty = getSourceItemQuantity(existingItem) + getSourceItemQuantity(clonedItem);
+        setSourceItemQuantity(existingItem, mergedQty);
+      });
+    });
+    return mergedItems;
+  };
+
   async function convertHistoryEntry(
     entry,
-    { onClose, sourceDocType, promptOptions, directChoices } = {}
+    { onClose, sourceDocType, promptOptions, directChoices, rawOverride } = {}
   ) {
-    if (!entry || !entry.path) return false;
+    if (!entry || (!entry.path && !rawOverride)) return false;
     const normalizedSource = String(sourceDocType || "").trim().toLowerCase();
     const entryDocType = String(entry.docType || "").trim().toLowerCase();
     if (entryDocType && normalizedSource && entryDocType !== normalizedSource) return false;
@@ -2350,11 +2472,13 @@
       sourcePath: String(entry.path || ""),
       sourceNumber: String(entry.number || entry.invNumber || "")
     });
-    let raw = null;
-    try {
-      raw = await w.openInvoiceFromFilePicker({ path: entry.path, docType: resolvedSourceDocType });
-    } catch (err) {
-      console.error("convert document open failed", err);
+    let raw = rawOverride || null;
+    if (!raw) {
+      try {
+        raw = await w.openInvoiceFromFilePicker({ path: entry.path, docType: resolvedSourceDocType });
+      } catch (err) {
+        console.error("convert document open failed", err);
+      }
     }
     if (!raw) {
       const sourceLabel =
@@ -2645,6 +2769,97 @@
     });
   }
 
+  async function convertSourceEntriesWithChoices(
+    entries,
+    { sourceDocType, choices, promptOptions, onClose } = {}
+  ) {
+    const sourceEntries = Array.isArray(entries)
+      ? entries.filter((entry) => entry && typeof entry === "object")
+      : [];
+    if (!sourceEntries.length) return false;
+    if (sourceEntries.length === 1) {
+      return convertSourceEntryWithChoices(sourceEntries[0], {
+        sourceDocType,
+        choices,
+        promptOptions,
+        onClose
+      });
+    }
+
+    const clientPathSet = new Set(
+      sourceEntries
+        .map((entry) => String(entry?.clientPath || "").trim())
+        .filter(Boolean)
+    );
+    if (clientPathSet.size > 1) {
+      await w.showDialog?.("Les documents selectionnes doivent appartenir au meme client.", {
+        title: "Conversion"
+      });
+      return false;
+    }
+
+    const normalizedSourceDocType = String(
+      sourceDocType || sourceEntries[0]?.docType || ""
+    ).trim().toLowerCase();
+    const loadedEntries = [];
+    for (const entry of sourceEntries) {
+      const path = String(entry?.path || "").trim();
+      if (!path) return false;
+      let raw = null;
+      try {
+        raw = await w.openInvoiceFromFilePicker({
+          path,
+          docType: normalizedSourceDocType || String(entry?.docType || "").trim().toLowerCase()
+        });
+      } catch (err) {
+        console.error("convert multi-source open failed", err);
+      }
+      if (!raw) {
+        await w.showDialog?.("Impossible de charger un des documents sources selectionnes.", {
+          title: "Conversion"
+        });
+        return false;
+      }
+      loadedEntries.push({
+        entry,
+        raw
+      });
+    }
+    if (!loadedEntries.length) return false;
+
+    const mergedRaw = deepCloneValue(loadedEntries[0].raw);
+    const mergedPayload = getInvoiceSourcePayload(mergedRaw);
+    if (!mergedPayload) return false;
+    mergedPayload.items = mergeSourceItemsFromRawDocuments(
+      loadedEntries.map(({ raw }) => raw)
+    );
+    const sourceNumbers = normalizeSourceNumbers(
+      sourceEntries.map((entry) => entry?.number || entry?.name || entry?.path || "")
+    );
+
+    const primaryEntry = loadedEntries[0].entry || {};
+    const mergedEntry = {
+      ...primaryEntry,
+      docType:
+        normalizedSourceDocType || String(primaryEntry?.docType || "").trim().toLowerCase(),
+      sourceNumbers,
+      number:
+        String(primaryEntry?.number || primaryEntry?.name || "").trim() ||
+        `${sourceEntries.length} document(s)`,
+      name:
+        String(primaryEntry?.name || primaryEntry?.number || "").trim() ||
+        `${sourceEntries.length} document(s)`
+    };
+
+    return convertHistoryEntry(mergedEntry, {
+      onClose,
+      sourceDocType: normalizedSourceDocType || mergedEntry.docType,
+      promptOptions,
+      directChoices: choices && typeof choices === "object" ? { ...choices } : {},
+      rawOverride: mergedRaw
+    });
+  }
+
   async function convertDevisEntry(entry, { onClose } = {}) {
     return convertHistoryEntry(entry, { onClose, sourceDocType: "devis" });
   }
@@ -2678,6 +2893,7 @@
     openMainScreenConversionWizard,
     getMainScreenSourceTypeConfigs,
     convertSourceEntryWithChoices,
+    convertSourceEntriesWithChoices,
     convertDevisEntry,
     convertBlEntry,
     convertFactureEntry

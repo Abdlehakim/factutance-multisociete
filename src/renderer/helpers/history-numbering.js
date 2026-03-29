@@ -191,14 +191,27 @@
     if (str === "annule") return "brouillon";
     return str;
   }
+  function normalizeSourceNumbers(value) {
+    const list = Array.isArray(value) ? value : [];
+    const seen = new Set();
+    const normalized = [];
+    list.forEach((entry) => {
+      const number = String(entry ?? "").trim();
+      if (!number || seen.has(number)) return;
+      seen.add(number);
+      normalized.push(number);
+    });
+    return normalized;
+  }
   function normalizeConvertedFrom(value) {
     if (!value || typeof value !== "object") return null;
     const docType = String(value.docType || value.type || "").trim().toLowerCase();
     const id = String(value.id || value.documentId || value.rowid || "").trim();
-    const number = String(value.number || "").trim();
+    const numbers = normalizeSourceNumbers(value.numbers || value.sourceNumbers);
+    const number = String(value.number || numbers[0] || "").trim();
     const path = String(value.path || "").trim();
     const date = String(value.date || "").trim();
-    if (!docType && !id && !number && !path && !date) return null;
+    if (!docType && !id && !number && !path && !date && !numbers.length) return null;
     const normalized = {};
     if (docType) {
       normalized.docType = docType;
@@ -206,6 +219,7 @@
     }
     if (id) normalized.id = id;
     if (number) normalized.number = number;
+    if (numbers.length) normalized.numbers = numbers;
     if (path) normalized.path = path;
     if (date) normalized.date = date;
     return normalized;

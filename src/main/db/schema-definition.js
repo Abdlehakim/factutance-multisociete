@@ -595,6 +595,7 @@ const BASE_TABLE_DEFINITIONS = {
       ["converted_from_type", "TEXT"],
       ["converted_from_id", "TEXT"],
       ["converted_from_number", "TEXT"],
+      ["converted_from_numbers_json", "TEXT"],
       ["pdf_path", "TEXT"],
       ["pdf_exported_at", "TEXT"],
       ["created_at", "TEXT"],

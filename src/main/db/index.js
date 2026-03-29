@@ -618,10 +618,11 @@ const migrateLegacyDocuments = (db) => {
       converted_from_type,
       converted_from_id,
       converted_from_number,
+      converted_from_numbers_json,
       created_at,
       updated_at
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `
   );
   const tx = db.transaction(() => {
@@ -649,6 +650,7 @@ const migrateLegacyDocuments = (db) => {
         convertedFromStorage.type,
         convertedFromStorage.id,
         convertedFromStorage.number,
+        convertedFromStorage.numbersJson,
         row.created_at,
         row.updated_at
       );
@@ -937,12 +939,13 @@ const migrateDocumentFieldsToColumns = (db) => {
       }
       db
         .prepare(
-          "UPDATE documents SET converted_from_type = ?, converted_from_id = ?, converted_from_number = ? WHERE id = ?"
+          "UPDATE documents SET converted_from_type = ?, converted_from_id = ?, converted_from_number = ?, converted_from_numbers_json = ? WHERE id = ?"
         )
         .run(
           convertedFromStorage.type,
           convertedFromStorage.id,
           convertedFromStorage.number,
+          convertedFromStorage.numbersJson,
           row.id
         );
       saveDocumentData(db, docType, row.id, data);
@@ -1710,6 +1713,24 @@ const normalizeDocumentStatus = (value) => {
   return trimmed || null;
 };
 
+const normalizeConvertedFromNumbers = (value) => {
+  const list = Array.isArray(value) ? value : [];
+  const seen = new Set();
+  const normalized = [];
+  list.forEach((entry) => {
+    const raw = normalizeOptionalText(entry);
+    if (!raw) return;
+    const fromPath = parseDocumentNumberFromPath(raw);
+    const number = normalizeOptionalText(fromPath || raw);
+    if (!number) return;
+    const key = number.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    normalized.push(number);
+  });
+  return normalized;
+};
+
 const normalizeConvertedFromPayload = (value) => {
   if (!value || typeof value !== "object") return null;
   const rawType = value.docType ?? value.type;
@@ -1728,8 +1749,9 @@ const normalizeConvertedFromPayload = (value) => {
     const base = dotIndex > 0 ? filename.slice(0, dotIndex) : filename;
     return normalizeOptionalText(base);
   })();
-  const number = numberRaw || numberFromPath;
-  if (!type && !id && !number && !path && !date) return null;
+  const numbers = normalizeConvertedFromNumbers(value.numbers || value.sourceNumbers);
+  const number = numberRaw || numbers[0] || numberFromPath;
+  if (!type && !id && !number && !path && !date && !numbers.length) return null;
   const normalized = {};
   if (type) {
     normalized.type = type;
@@ -1737,20 +1759,50 @@ const normalizeConvertedFromPayload = (value) => {
   }
   if (id) normalized.id = id;
   if (number) normalized.number = number;
+  if (numbers.length) normalized.numbers = numbers;
   if (path) normalized.path = path;
   if (date) normalized.date = date;
   return normalized;
+};
+
+const mergeConvertedFromPayloads = (primaryValue, secondaryValue) => {
+  const primary = normalizeConvertedFromPayload(primaryValue);
+  const secondary = normalizeConvertedFromPayload(secondaryValue);
+  if (!primary) return secondary;
+  if (!secondary) return primary;
+  const merged = {};
+  const type = primary.type || primary.docType || secondary.type || secondary.docType;
+  const id = primary.id || secondary.id;
+  const path = primary.path || secondary.path;
+  const date = primary.date || secondary.date;
+  const numbers = normalizeConvertedFromNumbers([
+    ...(Array.isArray(primary.numbers) ? primary.numbers : []),
+    ...(Array.isArray(secondary.numbers) ? secondary.numbers : [])
+  ]);
+  const number = primary.number || secondary.number || numbers[0] || "";
+  if (type) {
+    merged.type = type;
+    merged.docType = type;
+  }
+  if (id) merged.id = id;
+  if (number) merged.number = number;
+  if (numbers.length) merged.numbers = numbers;
+  if (path) merged.path = path;
+  if (date) merged.date = date;
+  return normalizeConvertedFromPayload(merged);
 };
 
 const resolveConvertedFromForStorage = (payload = {}) => {
   const target = payload && typeof payload === "object" ? payload : {};
   const meta = target.meta && typeof target.meta === "object" ? target.meta : {};
   const normalized = normalizeConvertedFromPayload(meta.convertedFrom || target.convertedFrom);
+  const numbersJson = serializeOptionalJsonValue(normalized?.numbers || null);
   return {
     convertedFrom: normalized,
     type: normalized?.type || null,
     id: normalized?.id || null,
-    number: normalized?.number || null
+    number: normalized?.number || null,
+    numbersJson
   };
 };
 
@@ -6118,6 +6170,7 @@ const saveDocumentWithNumber = ({
                 converted_from_type = ?,
                 converted_from_id = ?,
                 converted_from_number = ?,
+                converted_from_numbers_json = ?,
                 updated_at = ?
               WHERE number = ?
             `
@@ -6131,6 +6184,7 @@ const saveDocumentWithNumber = ({
               convertedFromStorage.type,
               convertedFromStorage.id,
               convertedFromStorage.number,
+              convertedFromStorage.numbersJson,
               now,
               providedNumber
             );
@@ -6161,10 +6215,11 @@ const saveDocumentWithNumber = ({
                 converted_from_type,
                 converted_from_id,
                 converted_from_number,
+                converted_from_numbers_json,
                 created_at,
                 updated_at
               )
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `
           )
           .run(
@@ -6178,6 +6233,7 @@ const saveDocumentWithNumber = ({
             convertedFromStorage.type,
             convertedFromStorage.id,
             convertedFromStorage.number,
+            convertedFromStorage.numbersJson,
             now,
             now
           );
@@ -6208,10 +6264,11 @@ const saveDocumentWithNumber = ({
                 converted_from_type,
                 converted_from_id,
                 converted_from_number,
+                converted_from_numbers_json,
                 created_at,
                 updated_at
               )
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `
             )
             .run(
@@ -6225,6 +6282,7 @@ const saveDocumentWithNumber = ({
               convertedFromStorage.type,
               convertedFromStorage.id,
               convertedFromStorage.number,
+              convertedFromStorage.numbersJson,
               now,
               now
           );
@@ -6350,7 +6408,7 @@ const getDocumentByNumber = (rawNumber) => {
   const db = initDatabase();
   const row = db
     .prepare(
-      "SELECT id, doc_type, period, number, status, note_interne, converted_from_type, converted_from_id, converted_from_number, pdf_path, pdf_exported_at, created_at, updated_at FROM documents WHERE number = ?"
+      "SELECT id, doc_type, period, number, status, note_interne, converted_from_type, converted_from_id, converted_from_number, converted_from_numbers_json, pdf_path, pdf_exported_at, created_at, updated_at FROM documents WHERE number = ?"
     )
     .get(safeNumber);
   if (!row) return null;
@@ -6377,9 +6435,10 @@ const getDocumentByNumber = (rawNumber) => {
   const convertedFromRow = normalizeConvertedFromPayload({
     type: row.converted_from_type,
     id: row.converted_from_id,
-    number: row.converted_from_number
+    number: row.converted_from_number,
+    numbers: parseOptionalJsonValue(row.converted_from_numbers_json, { expect: "array" })
   });
-  const convertedFromResolved = convertedFromMeta || convertedFromRow;
+  const convertedFromResolved = mergeConvertedFromPayloads(convertedFromMeta, convertedFromRow);
   if (convertedFromResolved) {
     if (!data.meta || typeof data.meta !== "object") data.meta = {};
     data.meta.convertedFrom = convertedFromResolved;
@@ -6554,7 +6613,7 @@ const listDocuments = ({ docType, limit, offset } = {}) => {
   const countSql = `SELECT COUNT(*) as total FROM documents ${whereClause}`;
   const total = db.prepare(countSql).get(...params)?.total || 0;
   const parts = [
-    "SELECT id, doc_type, period, number, status, note_interne, converted_from_type, converted_from_id, converted_from_number, pdf_path, pdf_exported_at, created_at, updated_at,",
+    "SELECT id, doc_type, period, number, status, note_interne, converted_from_type, converted_from_id, converted_from_number, converted_from_numbers_json, pdf_path, pdf_exported_at, created_at, updated_at,",
     "CASE WHEN note_interne IS NOT NULL AND LENGTH(TRIM(note_interne)) > 0 THEN 1 ELSE 0 END AS has_comment",
     "FROM documents",
     whereClause,
@@ -6593,9 +6652,10 @@ const listDocuments = ({ docType, limit, offset } = {}) => {
     const convertedFromRow = normalizeConvertedFromPayload({
       type: row.converted_from_type,
       id: row.converted_from_id,
-      number: row.converted_from_number
+      number: row.converted_from_number,
+      numbers: parseOptionalJsonValue(row.converted_from_numbers_json, { expect: "array" })
     });
-    const convertedFromResolved = convertedFromMeta || convertedFromRow;
+    const convertedFromResolved = mergeConvertedFromPayloads(convertedFromMeta, convertedFromRow);
     if (convertedFromResolved) {
       if (!data.meta || typeof data.meta !== "object") data.meta = {};
       data.meta.convertedFrom = convertedFromResolved;
