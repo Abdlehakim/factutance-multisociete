@@ -2182,6 +2182,46 @@ const normalizeBeReceptionDestinationLabels = (value = []) => {
 const formatBeReceptionDestinationText = (labels = []) =>
   normalizeBeReceptionDestinationLabels(labels).join(", ");
 
+const normalizeBsSortieDepotId = (value = "") => normalizeBeReceptionDepotId(value);
+
+const normalizeBsSortieLocationId = (value = "") => normalizeBeReceptionLocationId(value);
+
+const normalizeBsSortieLocationIds = (value = []) => {
+  const source = Array.isArray(value)
+    ? value
+    : typeof value === "string"
+      ? value.split(",")
+      : [value];
+  const seen = new Set();
+  return source
+    .map((entry) => normalizeBsSortieLocationId(entry))
+    .filter((entry) => {
+      if (!entry) return false;
+      const key = entry.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+};
+
+const normalizeBsSortieLocationLabels = (value = []) => {
+  const source = Array.isArray(value)
+    ? value
+    : typeof value === "string"
+      ? value.split(",")
+      : [value];
+  return source
+    .map((entry) =>
+      String(entry || "")
+        .replace(/\s+/g, " ")
+        .trim()
+    )
+    .filter(Boolean);
+};
+
+const formatBsSortieLocationText = (labels = []) =>
+  normalizeBsSortieLocationLabels(labels).join(", ");
+
 const normalizeBeReceptionSourceSelection = (value) => {
   const raw = value && typeof value === "object" ? value : {};
   const rawSupplier = raw.supplier && typeof raw.supplier === "object" ? raw.supplier : {};
@@ -2358,9 +2398,48 @@ const normalizeBonEntreeReceptionMetaForStorage = (meta = {}, normalizedDocType 
 const normalizeBonSortieMetaForStorage = (meta = {}, normalizedDocType = "") => {
   const safeMeta = meta && typeof meta === "object" ? meta : {};
   const raw = safeMeta.bsSortie && typeof safeMeta.bsSortie === "object" ? safeMeta.bsSortie : {};
+  const locationIds = normalizeBsSortieLocationIds(
+    raw.locationIds ??
+      raw.locationIdList ??
+      raw.locationSelection?.ids ??
+      raw.locationSelection ??
+      raw.locationId ??
+      raw.destinationId ??
+      raw.emplacementId ??
+      raw.emplacement_id ??
+      safeMeta.bsLocationIds ??
+      safeMeta.bsLocationId ??
+      []
+  );
+  const locationLabels = normalizeBsSortieLocationLabels(
+    raw.locationLabels ??
+      raw.locationLabelList ??
+      raw.locationSelection?.labels ??
+      safeMeta.bsLocationLabels ??
+      []
+  );
   const normalized = {
     depot: String(raw.depot ?? raw.depotName ?? raw.magasin ?? safeMeta.bsDepot ?? "").trim(),
+    depotId: normalizeBsSortieDepotId(
+      raw.depotId ??
+        raw.depotDbId ??
+        raw.magasinId ??
+        raw.magasin_id ??
+        safeMeta.bsDepotId ??
+        ""
+    ),
     location: String(raw.location ?? raw.emplacement ?? raw.destination ?? safeMeta.bsLocation ?? "").trim(),
+    locationId: normalizeBsSortieLocationId(
+      locationIds[0] ??
+        raw.locationId ??
+        raw.destinationId ??
+        raw.emplacementId ??
+        raw.emplacement_id ??
+        safeMeta.bsLocationId ??
+        ""
+    ),
+    locationIds,
+    locationLabels,
     date: String(raw.date ?? raw.sortieDate ?? raw.movementDate ?? safeMeta.bsSortieDate ?? "").trim(),
     time: String(raw.time ?? raw.sortieTime ?? raw.movementTime ?? safeMeta.bsSortieTime ?? "").trim(),
     sourceRef: String(raw.sourceRef ?? raw.referenceSource ?? raw.source ?? safeMeta.bsSourceRef ?? "").trim(),
@@ -2370,6 +2449,12 @@ const normalizeBonSortieMetaForStorage = (meta = {}, normalizedDocType = "") => 
     transportMode: String(raw.transportMode ?? raw.modeTransport ?? safeMeta.bsTransportMode ?? "").trim(),
     exitReason: String(raw.exitReason ?? raw.reason ?? raw.motifSortie ?? safeMeta.bsExitReason ?? "").trim()
   };
+  if (normalized.locationLabels.length && !normalized.location) {
+    normalized.location = formatBsSortieLocationText(normalized.locationLabels);
+  }
+  if (normalized.location && !normalized.locationLabels.length) {
+    normalized.locationLabels = normalizeBsSortieLocationLabels(normalized.location);
+  }
   if (String(normalizedDocType || "").trim().toLowerCase() === "bs") {
     if (!normalized.date) {
       normalized.date = String(safeMeta.date || "").trim();
@@ -2673,7 +2758,15 @@ const normalizeDocumentPayload = (payload = {}, { docType = "" } = {}) => {
         )
       : undefined,
     meta_bs_sortie_depot: isBonSortieDoc ? normalizeOptionalText(bsSortie.depot) : undefined,
+    meta_bs_sortie_depot_id: isBonSortieDoc ? normalizeOptionalText(bsSortie.depotId) : undefined,
     meta_bs_sortie_location: isBonSortieDoc ? normalizeOptionalText(bsSortie.location) : undefined,
+    meta_bs_sortie_location_id: isBonSortieDoc ? normalizeOptionalText(bsSortie.locationId) : undefined,
+    meta_bs_sortie_location_ids_json: isBonSortieDoc
+      ? serializeOptionalJsonValue(bsSortie.locationIds)
+      : undefined,
+    meta_bs_sortie_location_labels_json: isBonSortieDoc
+      ? serializeOptionalJsonValue(bsSortie.locationLabels)
+      : undefined,
     meta_bs_sortie_date: isBonSortieDoc ? normalizeOptionalText(bsSortie.date) : undefined,
     meta_bs_sortie_time: isBonSortieDoc ? normalizeOptionalText(bsSortie.time) : undefined,
     meta_bs_sortie_source_ref: isBonSortieDoc ? normalizeOptionalText(bsSortie.sourceRef) : undefined,
@@ -2910,6 +3003,14 @@ const buildDocumentPayloadFromRow = (row = {}, items = [], taxRows = []) => {
     parseOptionalJsonValue(row.meta_be_reception_source_imported_keys_json, { expect: "array" }),
     beSourceSelection
   );
+  const bsLocationIds = normalizeBsSortieLocationIds(
+    parseOptionalJsonValue(row.meta_bs_sortie_location_ids_json, { expect: "array" }) ??
+      readTextValue(row.meta_bs_sortie_location_id) ??
+      []
+  );
+  const bsLocationLabels = normalizeBsSortieLocationLabels(
+    parseOptionalJsonValue(row.meta_bs_sortie_location_labels_json, { expect: "array" }) || []
+  );
   const rawColumns = {
     ref: readBoolValue(row.meta_col_ref),
     product: readBoolValue(row.meta_col_product),
@@ -3131,7 +3232,13 @@ const buildDocumentPayloadFromRow = (row = {}, items = [], taxRows = []) => {
   }
   const bsSortie = {
     depot: readTextValue(row.meta_bs_sortie_depot),
+    depotId: normalizeBsSortieDepotId(readTextValue(row.meta_bs_sortie_depot_id)),
     location: readTextValue(row.meta_bs_sortie_location),
+    locationId: normalizeBsSortieLocationId(
+      readTextValue(row.meta_bs_sortie_location_id) || bsLocationIds[0] || ""
+    ),
+    locationIds: bsLocationIds,
+    locationLabels: bsLocationLabels,
     date: readTextValue(row.meta_bs_sortie_date),
     time: readTextValue(row.meta_bs_sortie_time),
     sourceRef: readTextValue(row.meta_bs_sortie_source_ref),
@@ -3144,9 +3251,19 @@ const buildDocumentPayloadFromRow = (row = {}, items = [], taxRows = []) => {
   if (normalizedDocType === "bs" && !bsSortie.date) {
     bsSortie.date = readTextValue(row.meta_date);
   }
+  if (bsSortie.locationLabels.length && !bsSortie.location) {
+    bsSortie.location = formatBsSortieLocationText(bsSortie.locationLabels);
+  }
+  if (bsSortie.location && !bsSortie.locationLabels.length) {
+    bsSortie.locationLabels = normalizeBsSortieLocationLabels(bsSortie.location);
+  }
   const hasBsSortieData = !!(
     bsSortie.depot ||
+    bsSortie.depotId ||
     bsSortie.location ||
+    bsSortie.locationId ||
+    bsSortie.locationIds.length ||
+    bsSortie.locationLabels.length ||
     bsSortie.date ||
     bsSortie.time ||
     bsSortie.sourceRef ||
@@ -3159,7 +3276,11 @@ const buildDocumentPayloadFromRow = (row = {}, items = [], taxRows = []) => {
   if (normalizedDocType === "bs" || hasBsSortieData) {
     meta.bsSortie = bsSortie;
     meta.bsDepot = bsSortie.depot;
+    meta.bsDepotId = bsSortie.depotId;
     meta.bsLocation = bsSortie.location;
+    meta.bsLocationId = bsSortie.locationId;
+    meta.bsLocationIds = [...bsSortie.locationIds];
+    meta.bsLocationLabels = [...bsSortie.locationLabels];
     meta.bsSortieDate = bsSortie.date;
     meta.bsSortieTime = bsSortie.time;
     meta.bsSourceRef = bsSortie.sourceRef;
@@ -4596,8 +4717,7 @@ const normalizeStockNumber = (value) => {
 };
 
 const clampStockQuantity = (value) => {
-  const normalized = normalizeStockNumber(value);
-  return normalized < 0 ? 0 : normalized;
+  return normalizeStockNumber(value);
 };
 
 const persistArticleRecord = ({
@@ -5838,6 +5958,1012 @@ const findDuplicateArticle = (article = {}, { excludeId } = {}) => {
   return null;
 };
 
+const STOCK_MOVEMENT_DOC_TYPES = new Set(["be", "bs"]);
+const STOCK_MOVEMENT_APPLIED_STATUS = "applied";
+const STOCK_MOVEMENT_REVERSED_STATUS = "reversed";
+
+const isStockMovementDocType = (docType = "") =>
+  STOCK_MOVEMENT_DOC_TYPES.has(normalizeDocType(docType));
+
+const isStockMovementActiveStatus = (status) =>
+  normalizeDocumentStatus(status) !== "brouillon";
+
+const normalizeStockMovementKeyPart = (value = "") => normalizeTextValue(value).toLowerCase();
+
+const normalizeStockMovementIdValue = (value = "") => normalizeTextValue(value);
+
+const normalizeStockMovementLineIdentityPart = (value = "") => {
+  const normalized = normalizeTextValue(value);
+  return normalized || "_";
+};
+
+const buildStockMovementLineIdentity = ({
+  linePosition = 0,
+  articleId = "",
+  depotId = "",
+  emplacementId = "",
+  allocationIndex = 0
+} = {}) => {
+  return [
+    normalizeStockMovementLineIdentityPart(String(linePosition)),
+    normalizeStockMovementLineIdentityPart(articleId),
+    normalizeStockMovementLineIdentityPart(depotId),
+    normalizeStockMovementLineIdentityPart(emplacementId),
+    normalizeStockMovementLineIdentityPart(String(allocationIndex))
+  ].join("::");
+};
+
+const parseStockMovementJsonArray = (value) => {
+  const parsed = parseOptionalJsonValue(value, { expect: "array" });
+  return Array.isArray(parsed) ? parsed : [];
+};
+
+const computeStockMovementBatchHash = (lines = []) => {
+  const hash = crypto.createHash("sha256");
+  const normalized = Array.isArray(lines)
+    ? lines
+        .map((entry) => ({
+          lineIdentity: normalizeTextValue(entry?.lineIdentity),
+          articleId: normalizeTextValue(entry?.articleId),
+          depotId: normalizeTextValue(entry?.depotId),
+          emplacementId: normalizeTextValue(entry?.emplacementId),
+          qtyDelta: normalizeStockNumber(entry?.qtyDelta)
+        }))
+        .sort((left, right) => left.lineIdentity.localeCompare(right.lineIdentity))
+    : [];
+  hash.update(JSON.stringify(normalized));
+  return hash.digest("hex");
+};
+
+const listAppliedStockMovementsByDocument = (db, documentId = "") => {
+  const safeDocumentId = normalizeTextValue(documentId);
+  if (!db || !safeDocumentId) return [];
+  return db
+    .prepare(
+      `
+      SELECT
+        id,
+        document_type,
+        document_id,
+        line_identity,
+        article_id,
+        depot_id,
+        emplacement_id,
+        qty_delta,
+        batch_hash
+      FROM stock_movements
+      WHERE document_id = ? AND status = ?
+      ORDER BY line_identity ASC, id ASC
+    `
+    )
+    .all(safeDocumentId, STOCK_MOVEMENT_APPLIED_STATUS);
+};
+
+const stockMovementRowsMatchPlan = (rows = [], planLines = []) => {
+  if (!Array.isArray(rows) || !Array.isArray(planLines)) return false;
+  if (rows.length !== planLines.length) return false;
+  const rowByLine = new Map();
+  rows.forEach((row) => {
+    const lineIdentity = normalizeTextValue(row?.line_identity);
+    if (!lineIdentity) return;
+    rowByLine.set(lineIdentity, normalizeStockNumber(row?.qty_delta));
+  });
+  if (rowByLine.size !== planLines.length) return false;
+  return planLines.every((line) => {
+    const lineIdentity = normalizeTextValue(line?.lineIdentity);
+    if (!lineIdentity || !rowByLine.has(lineIdentity)) return false;
+    return normalizeStockNumber(rowByLine.get(lineIdentity)) === normalizeStockNumber(line?.qtyDelta);
+  });
+};
+
+const resolveDepotIdForStockMovement = (db, depotId = "", depotLabel = "") => {
+  const normalizedDepotId = normalizeStockMovementIdValue(depotId);
+  if (normalizedDepotId) return normalizeArticleDepotLinkedId(normalizedDepotId);
+  const label = normalizeTextValue(depotLabel);
+  if (!db || !label) return "";
+  const row = db
+    .prepare(
+      `
+      SELECT id
+      FROM depot_magasin
+      WHERE lower(trim(COALESCE(name, ''))) = lower(trim(?))
+         OR upper(trim(COALESCE(code_depot, ''))) = upper(trim(?))
+      LIMIT 1
+    `
+    )
+    .get(label, label);
+  return normalizeArticleDepotLinkedId(row?.id || "");
+};
+
+const listEmplacementsForDepot = (db, depotId = "") => {
+  const safeDepotId = normalizeStockMovementIdValue(depotId);
+  if (!db || !safeDepotId) return [];
+  return db
+    .prepare(
+      `
+      SELECT id, code
+      FROM depot_magasin_emplacement
+      WHERE depot_id = ?
+      ORDER BY code COLLATE NOCASE ASC, id ASC
+    `
+    )
+    .all(safeDepotId);
+};
+
+const resolveEmplacementIdsForStockMovement = (
+  db,
+  { depotId = "", emplacementIds = [], emplacementLabels = [] } = {}
+) => {
+  const normalizedIds = normalizeArticleScopedIds(emplacementIds);
+  const normalizedLabels = normalizeArticleScopedIds(
+    Array.isArray(emplacementLabels) ? emplacementLabels : String(emplacementLabels || "").split(",")
+  );
+  if (!db || !depotId) {
+    return normalizedIds.length ? normalizedIds : normalizedLabels;
+  }
+  const emplacements = listEmplacementsForDepot(db, depotId);
+  if (!emplacements.length) {
+    return normalizedIds.length ? normalizedIds : normalizedLabels;
+  }
+  const idById = new Map();
+  const idByCode = new Map();
+  emplacements.forEach((entry) => {
+    const id = normalizeTextValue(entry?.id);
+    const code = normalizeTextValue(entry?.code);
+    if (id) {
+      idById.set(id.toLowerCase(), id);
+    }
+    if (code && id) {
+      idByCode.set(code.toLowerCase(), id);
+    }
+  });
+  const resolved = [];
+  const seen = new Set();
+  const pushResolved = (value = "") => {
+    const normalizedValue = normalizeTextValue(value);
+    if (!normalizedValue) return;
+    const key = normalizedValue.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    resolved.push(normalizedValue);
+  };
+  normalizedIds.forEach((entry) => {
+    const key = entry.toLowerCase();
+    if (idById.has(key)) {
+      pushResolved(idById.get(key));
+      return;
+    }
+    if (idByCode.has(key)) {
+      pushResolved(idByCode.get(key));
+      return;
+    }
+    pushResolved(entry);
+  });
+  normalizedLabels.forEach((entry) => {
+    const key = entry.toLowerCase();
+    if (idByCode.has(key)) {
+      pushResolved(idByCode.get(key));
+    }
+  });
+  return resolved;
+};
+
+const resolveDepotLabelById = (db, depotId = "", fallback = "") => {
+  const safeDepotId = normalizeTextValue(depotId);
+  if (!db || !safeDepotId) return normalizeTextValue(fallback);
+  const row = db
+    .prepare("SELECT name, code_depot FROM depot_magasin WHERE id = ? LIMIT 1")
+    .get(safeDepotId);
+  return normalizeTextValue(row?.name || row?.code_depot || fallback);
+};
+
+const resolveEmplacementLabelById = (db, emplacementId = "", fallback = "") => {
+  const safeEmplacementId = normalizeTextValue(emplacementId);
+  if (!db || !safeEmplacementId) return normalizeTextValue(fallback);
+  const row = db
+    .prepare("SELECT code FROM depot_magasin_emplacement WHERE id = ? LIMIT 1")
+    .get(safeEmplacementId);
+  return normalizeTextValue(row?.code || fallback);
+};
+
+const resolveStockMovementMeta = (db, docType = "", row = {}) => {
+  const normalizedDocType = normalizeDocType(docType);
+  if (normalizedDocType === "be") {
+    const depotLabel = normalizeTextValue(row?.meta_be_reception_depot);
+    const depotId = resolveDepotIdForStockMovement(db, row?.meta_be_reception_depot_id, depotLabel);
+    const rawIds = normalizeBeReceptionDestinationIds(
+      parseStockMovementJsonArray(row?.meta_be_reception_destination_ids_json).length
+        ? parseStockMovementJsonArray(row?.meta_be_reception_destination_ids_json)
+        : (row?.meta_be_reception_destination_id || "")
+    );
+    const rawLabels = normalizeBeReceptionDestinationLabels(
+      parseStockMovementJsonArray(row?.meta_be_reception_destination_labels_json).length
+        ? parseStockMovementJsonArray(row?.meta_be_reception_destination_labels_json)
+        : (row?.meta_be_reception_destination || "")
+    );
+    const resolvedIds = resolveEmplacementIdsForStockMovement(db, {
+      depotId,
+      emplacementIds: rawIds,
+      emplacementLabels: rawLabels
+    });
+    const singleLocationId = normalizeTextValue(resolvedIds[0] || "");
+    const locationIds = singleLocationId ? [singleLocationId] : [];
+    const locationLabel = normalizeTextValue(rawLabels[0] || row?.meta_be_reception_destination || "");
+    return {
+      depotId,
+      depotLabel,
+      locationIds,
+      locationLabel
+    };
+  }
+
+  if (normalizedDocType === "bs") {
+    const depotLabel = normalizeTextValue(row?.meta_bs_sortie_depot);
+    const depotId = resolveDepotIdForStockMovement(db, row?.meta_bs_sortie_depot_id, depotLabel);
+    const rawIds = normalizeBsSortieLocationIds(
+      parseStockMovementJsonArray(row?.meta_bs_sortie_location_ids_json).length
+        ? parseStockMovementJsonArray(row?.meta_bs_sortie_location_ids_json)
+        : (row?.meta_bs_sortie_location_id || "")
+    );
+    const rawLabels = normalizeBsSortieLocationLabels(
+      parseStockMovementJsonArray(row?.meta_bs_sortie_location_labels_json).length
+        ? parseStockMovementJsonArray(row?.meta_bs_sortie_location_labels_json)
+        : (row?.meta_bs_sortie_location || "")
+    );
+    const resolvedIds = resolveEmplacementIdsForStockMovement(db, {
+      depotId,
+      emplacementIds: rawIds,
+      emplacementLabels: rawLabels
+    });
+    const locationIds = normalizeArticleScopedIds(resolvedIds);
+    const locationLabel = normalizeTextValue(rawLabels[0] || row?.meta_bs_sortie_location || "");
+    if (locationIds.length > 1) {
+      throw new Error(
+        "Bon de sortie: allocation source ambiguë. Selectionnez un seul emplacement source par ligne."
+      );
+    }
+    return {
+      depotId,
+      depotLabel,
+      locationIds,
+      locationLabel
+    };
+  }
+
+  return {
+    depotId: "",
+    depotLabel: "",
+    locationIds: [],
+    locationLabel: ""
+  };
+};
+
+const resolveArticleIdFromDocumentItem = (item = {}) => {
+  const articlePath = normalizeTextValue(
+    item?.articlePath ?? item?.path ?? item?.__articlePath ?? ""
+  );
+  return parseArticleIdFromPath(articlePath) || "";
+};
+
+const buildStockDocumentMovementPlan = ({
+  db,
+  documentType = "",
+  documentId = "",
+  documentNumber = "",
+  payload = {}
+} = {}) => {
+  const normalizedDocType = normalizeDocType(documentType);
+  if (!isStockMovementDocType(normalizedDocType)) {
+    return {
+      docType: normalizedDocType,
+      documentId: normalizeTextValue(documentId),
+      documentNumber: normalizeTextValue(documentNumber),
+      lines: [],
+      batchHash: null
+    };
+  }
+  const normalizedPayload = normalizeDocumentPayload(payload, { docType: normalizedDocType });
+  const row = normalizedPayload?.row || {};
+  const movementMeta = resolveStockMovementMeta(db, normalizedDocType, row);
+  if (!movementMeta.depotId) {
+    if (normalizedDocType === "be") {
+      throw new Error("Bon d'entree: depot de destination requis.");
+    }
+    throw new Error("Bon de sortie: depot source requis.");
+  }
+  const direction = normalizedDocType === "be" ? 1 : -1;
+  const lines = [];
+  normalizedPayload.items.forEach((item, index) => {
+    const quantity = normalizeStockNumber(item?.qty);
+    if (!(quantity > 0)) return;
+    const articleId = resolveArticleIdFromDocumentItem(item);
+    if (!articleId) return;
+    const linePosition = Number.isFinite(Number(item?.position)) ? Number(item.position) : index;
+    const locationTargets = movementMeta.locationIds.length ? movementMeta.locationIds : [""];
+    locationTargets.forEach((locationId, allocationIndex) => {
+      const normalizedLocationId = normalizeTextValue(locationId);
+      const lineIdentity = buildStockMovementLineIdentity({
+        linePosition,
+        articleId,
+        depotId: movementMeta.depotId,
+        emplacementId: normalizedLocationId,
+        allocationIndex
+      });
+      const qtyDelta = normalizeStockNumber(quantity * direction);
+      if (!qtyDelta) return;
+      lines.push({
+        lineIdentity,
+        articleId,
+        depotId: movementMeta.depotId,
+        emplacementId: normalizedLocationId,
+        qtyDelta,
+        linePosition,
+        articleRef: normalizeTextValue(item?.ref),
+        articleLabel: normalizeTextValue(item?.product || item?.desc || ""),
+        depotLabel: movementMeta.depotLabel,
+        emplacementLabel: movementMeta.locationLabel
+      });
+    });
+  });
+  const batchHash = lines.length ? computeStockMovementBatchHash(lines) : null;
+  return {
+    docType: normalizedDocType,
+    documentId: normalizeTextValue(documentId),
+    documentNumber: normalizeTextValue(documentNumber),
+    lines,
+    batchHash
+  };
+};
+
+const findArticleDepotEntryIndex = (depots = [], depotId = "") => {
+  const safeDepotId = normalizeArticleDepotLinkedId(depotId);
+  if (!safeDepotId) return -1;
+  const key = safeDepotId.toLowerCase();
+  return depots.findIndex((entry) => {
+    const linked = normalizeArticleDepotLinkedId(
+      entry?.linkedDepotId ?? entry?.depotDbId ?? entry?.magasinId ?? entry?.magasin_id ?? ""
+    );
+    if (linked && linked.toLowerCase() === key) return true;
+    const rawId = normalizeTextValue(entry?.id || "");
+    return rawId && rawId.toLowerCase() === key;
+  });
+};
+
+const resolveNextArticleDepotTabId = (depots = []) => {
+  for (let index = 1; index <= MAX_ARTICLE_DEPOT_COUNT; index += 1) {
+    const candidate = toArticleDepotTabId(`depot-${index}`, index);
+    const exists = depots.some((entry, entryIndex) => {
+      const current = toArticleDepotTabId(entry?.id || "", entryIndex + 1);
+      return current === candidate;
+    });
+    if (!exists) return { id: candidate, number: index };
+  }
+  return null;
+};
+
+const ensureArticleDepotEntryForMovement = (article = {}, depotId = "") => {
+  const safeDepotId = normalizeArticleDepotLinkedId(depotId);
+  if (!safeDepotId) return null;
+  const depots = Array.isArray(article.depots) ? article.depots : normalizeArticleDepots(article.depots ?? []);
+  if (!Array.isArray(article.depots)) article.depots = depots;
+  const existingIndex = findArticleDepotEntryIndex(depots, safeDepotId);
+  if (existingIndex >= 0) return depots[existingIndex];
+  const reusableIndex = depots.findIndex(
+    (entry) => !normalizeArticleDepotLinkedId(entry?.linkedDepotId || "")
+  );
+  if (reusableIndex >= 0) {
+    depots[reusableIndex] = {
+      ...(depots[reusableIndex] || {}),
+      linkedDepotId: safeDepotId
+    };
+    return depots[reusableIndex];
+  }
+  const nextTab = resolveNextArticleDepotTabId(depots);
+  if (!nextTab) {
+    throw new Error(
+      `Depot source non configure pour cet article (id depot: ${safeDepotId}).`
+    );
+  }
+  const entry = {
+    id: nextTab.id,
+    name: `Depot ${nextTab.number}`,
+    linkedDepotId: safeDepotId,
+    stockQty: 0,
+    stockQtyCustomized: true,
+    selectedLocationIds: [],
+    selectedEmplacementIds: [],
+    createdAt: new Date().toISOString()
+  };
+  depots.push(entry);
+  return entry;
+};
+
+const collectStockMovementDeltaByArticle = (rows = [], { invert = false } = {}) => {
+  const byArticle = new Map();
+  rows.forEach((row) => {
+    const articleId = normalizeTextValue(row?.articleId ?? row?.article_id);
+    if (!articleId) return;
+    const depotId = normalizeArticleDepotLinkedId(
+      row?.depotId ?? row?.depot_id ?? ""
+    );
+    const emplacementId = normalizeTextValue(
+      row?.emplacementId ?? row?.emplacement_id ?? ""
+    );
+    const baseDelta = normalizeStockNumber(row?.qtyDelta ?? row?.qty_delta);
+    if (!baseDelta) return;
+    const qtyDelta = invert ? normalizeStockNumber(-baseDelta) : baseDelta;
+    if (!qtyDelta) return;
+    if (!byArticle.has(articleId)) {
+      byArticle.set(articleId, {
+        totalDelta: 0,
+        depotDeltas: new Map(),
+        emplacementsByDepot: new Map()
+      });
+    }
+    const target = byArticle.get(articleId);
+    target.totalDelta = normalizeStockNumber(target.totalDelta + qtyDelta);
+    if (depotId) {
+      target.depotDeltas.set(
+        depotId,
+        normalizeStockNumber((target.depotDeltas.get(depotId) || 0) + qtyDelta)
+      );
+      if (emplacementId) {
+        if (!target.emplacementsByDepot.has(depotId)) {
+          target.emplacementsByDepot.set(depotId, new Set());
+        }
+        target.emplacementsByDepot.get(depotId).add(emplacementId);
+      }
+    }
+  });
+  return byArticle;
+};
+
+const applyArticleStockDeltaMap = (db, deltaByArticle = new Map()) => {
+  const affectedArticles = [];
+  for (const [articleId, aggregate] of deltaByArticle.entries()) {
+    if (!aggregate || !articleId) continue;
+    const record = getArticleById(articleId);
+    if (!record || !record.article) {
+      throw new Error(`Article introuvable pour mouvement de stock (${articleId}).`);
+    }
+    const article = {
+      ...(record.article || {})
+    };
+    const rawDepots = Array.isArray(article.depots)
+      ? article.depots
+      : normalizeArticleDepots(article.depots ?? []);
+    article.depots = rawDepots.map((entry) => ({
+      ...(entry || {})
+    }));
+    article.stockQty = clampStockQuantity(
+      normalizeStockNumber((article.stockQty ?? 0) + normalizeStockNumber(aggregate.totalDelta))
+    );
+    for (const [depotId, depotDelta] of aggregate.depotDeltas.entries()) {
+      if (!depotId) continue;
+      const depotEntry = ensureArticleDepotEntryForMovement(article, depotId);
+      if (!depotEntry) continue;
+      depotEntry.stockQty = clampStockQuantity(
+        normalizeStockNumber((depotEntry.stockQty ?? 0) + normalizeStockNumber(depotDelta))
+      );
+      const touched = aggregate.emplacementsByDepot.get(depotId);
+      if (touched && touched.size) {
+        const ids = Array.from(touched.values());
+        depotEntry.selectedLocationIds = normalizeArticleScopedIds([
+          ...(Array.isArray(depotEntry.selectedLocationIds) ? depotEntry.selectedLocationIds : []),
+          ...ids
+        ]);
+        depotEntry.selectedEmplacementIds = normalizeArticleScopedIds([
+          ...(Array.isArray(depotEntry.selectedEmplacementIds)
+            ? depotEntry.selectedEmplacementIds
+            : []),
+          ...ids
+        ]);
+      }
+    }
+    saveArticle({
+      article,
+      suggestedName: record.name,
+      id: record.id,
+      legacyPath: record.legacyPath
+    });
+    affectedArticles.push(articleId);
+  }
+  return affectedArticles;
+};
+
+const resolveArticleStockRuleFlags = (article = {}) => {
+  const allowNegative = normalizeArticleDepotBool(
+    article?.allowNegative ??
+      article?.stockAllowNegative ??
+      article?.stockManagement?.allowNegative ??
+      false
+  );
+  const blockInsufficientRaw =
+    article?.blockInsufficient ??
+    article?.stockBlockInsufficient ??
+    article?.stockManagement?.blockInsufficient;
+  const blockInsufficient = allowNegative
+    ? false
+    : blockInsufficientRaw === undefined || blockInsufficientRaw === null
+    ? true
+    : normalizeArticleDepotBool(blockInsufficientRaw);
+  return {
+    allowNegative,
+    blockInsufficient
+  };
+};
+
+const computeArticleStockByLocation = ({
+  db: dbInput,
+  articleId = "",
+  depotId = "",
+  emplacementId = ""
+} = {}) => {
+  const db = dbInput || initDatabase();
+  const safeArticleId = normalizeTextValue(articleId);
+  const safeDepotId = normalizeArticleDepotLinkedId(depotId);
+  const safeEmplacementId = normalizeTextValue(emplacementId);
+  if (!safeArticleId) {
+    return {
+      articleId: "",
+      depotId: safeDepotId,
+      emplacementId: safeEmplacementId,
+      articleStock: 0,
+      depotStock: 0,
+      movementDepotStock: 0,
+      movementEmplacementStock: 0,
+      depotUnallocatedBaseline: 0,
+      availableQty: 0,
+      article: null
+    };
+  }
+  const record = getArticleById(safeArticleId);
+  const article = record?.article || null;
+  const articleStock = clampStockQuantity(article?.stockQty ?? 0);
+  const depots = Array.isArray(article?.depots) ? article.depots : [];
+  const depotEntryIndex = findArticleDepotEntryIndex(depots, safeDepotId);
+  const depotStock =
+    safeDepotId && depotEntryIndex >= 0
+      ? clampStockQuantity(depots[depotEntryIndex]?.stockQty ?? 0)
+      : (safeDepotId ? 0 : articleStock);
+  const movementDepotStock = safeDepotId
+    ? normalizeStockNumber(
+        db
+          .prepare(
+            `
+            SELECT COALESCE(SUM(qty_delta), 0) AS qty
+            FROM stock_movements
+            WHERE status = ?
+              AND article_id = ?
+              AND COALESCE(depot_id, '') = ?
+          `
+          )
+          .get(STOCK_MOVEMENT_APPLIED_STATUS, safeArticleId, safeDepotId)?.qty || 0
+      )
+    : normalizeStockNumber(
+        db
+          .prepare(
+            `
+            SELECT COALESCE(SUM(qty_delta), 0) AS qty
+            FROM stock_movements
+            WHERE status = ?
+              AND article_id = ?
+          `
+          )
+          .get(STOCK_MOVEMENT_APPLIED_STATUS, safeArticleId)?.qty || 0
+      );
+  const movementEmplacementStock =
+    safeDepotId && safeEmplacementId
+      ? normalizeStockNumber(
+          db
+            .prepare(
+              `
+              SELECT COALESCE(SUM(qty_delta), 0) AS qty
+              FROM stock_movements
+              WHERE status = ?
+                AND article_id = ?
+                AND COALESCE(depot_id, '') = ?
+                AND COALESCE(emplacement_id, '') = ?
+            `
+            )
+            .get(
+              STOCK_MOVEMENT_APPLIED_STATUS,
+              safeArticleId,
+              safeDepotId,
+              safeEmplacementId
+            )?.qty || 0
+        )
+      : 0;
+  const depotUnallocatedBaseline = normalizeStockNumber(depotStock - movementDepotStock);
+  const availableQty = safeEmplacementId
+    ? movementEmplacementStock
+    : depotStock;
+  return {
+    articleId: safeArticleId,
+    depotId: safeDepotId,
+    emplacementId: safeEmplacementId,
+    articleStock,
+    depotStock,
+    movementDepotStock,
+    movementEmplacementStock,
+    depotUnallocatedBaseline,
+    availableQty: normalizeStockNumber(availableQty),
+    article
+  };
+};
+
+const validateOutgoingStockAvailability = ({
+  db: dbInput,
+  lines = [],
+  documentType = "",
+  documentNumber = ""
+} = {}) => {
+  const db = dbInput || initDatabase();
+  const normalizedDocType = normalizeDocType(documentType);
+  if (normalizedDocType !== "bs") return { ok: true };
+  const grouped = new Map();
+  (Array.isArray(lines) ? lines : []).forEach((line) => {
+    const qtyDelta = normalizeStockNumber(line?.qtyDelta);
+    if (!(qtyDelta < 0)) return;
+    const articleId = normalizeTextValue(line?.articleId);
+    if (!articleId) return;
+    const depotId = normalizeArticleDepotLinkedId(line?.depotId || "");
+    const emplacementId = normalizeTextValue(line?.emplacementId || "");
+    const key = `${normalizeStockMovementKeyPart(articleId)}|${normalizeStockMovementKeyPart(
+      depotId
+    )}|${normalizeStockMovementKeyPart(emplacementId)}`;
+    if (!grouped.has(key)) {
+      grouped.set(key, {
+        articleId,
+        depotId,
+        emplacementId,
+        requestedQty: 0,
+        articleRef: normalizeTextValue(line?.articleRef),
+        articleLabel: normalizeTextValue(line?.articleLabel),
+        depotLabel: normalizeTextValue(line?.depotLabel),
+        emplacementLabel: normalizeTextValue(line?.emplacementLabel)
+      });
+    }
+    const entry = grouped.get(key);
+    entry.requestedQty = normalizeStockNumber(entry.requestedQty + Math.abs(qtyDelta));
+  });
+
+  for (const request of grouped.values()) {
+    const record = getArticleById(request.articleId);
+    if (!record || !record.article) {
+      throw new Error(`Article introuvable pour validation de stock (${request.articleId}).`);
+    }
+    const rules = resolveArticleStockRuleFlags(record.article);
+    if (rules.allowNegative) continue;
+    if (!rules.blockInsufficient) continue;
+    const stockSnapshot = computeArticleStockByLocation({
+      db,
+      articleId: request.articleId,
+      depotId: request.depotId,
+      emplacementId: request.emplacementId
+    });
+    const availableQty = normalizeStockNumber(stockSnapshot.availableQty);
+    const remainingQty = normalizeStockNumber(availableQty - request.requestedQty);
+    if (remainingQty >= 0) continue;
+    const articleRef = normalizeTextValue(record.article?.ref || request.articleRef);
+    const articleLabel = normalizeTextValue(
+      record.article?.product || record.article?.desc || request.articleLabel || record.name
+    );
+    const depotLabel = resolveDepotLabelById(
+      db,
+      request.depotId,
+      request.depotLabel || request.depotId
+    );
+    const emplacementLabel = resolveEmplacementLabelById(
+      db,
+      request.emplacementId,
+      request.emplacementLabel || request.emplacementId
+    );
+    const articleToken = articleRef
+      ? `${articleRef}${articleLabel ? ` - ${articleLabel}` : ""}`
+      : (articleLabel || record.name || request.articleId);
+    const locationToken = emplacementLabel
+      ? `${depotLabel || request.depotId || "Depot"} / ${emplacementLabel}`
+      : (depotLabel || request.depotId || "Depot");
+    const numberToken = normalizeTextValue(documentNumber);
+    const docToken = numberToken ? ` (${numberToken})` : "";
+    const message =
+      `Stock insuffisant pour l'article ${articleToken} sur ${locationToken}` +
+      `: disponible ${availableQty}, sortie demandee ${request.requestedQty}${docToken}.`;
+    const error = new Error(message);
+    error.code = "INSUFFICIENT_STOCK";
+    error.details = {
+      articleId: request.articleId,
+      articleRef,
+      articleLabel,
+      depotId: request.depotId,
+      depotLabel,
+      emplacementId: request.emplacementId,
+      emplacementLabel,
+      availableQty,
+      requestedQty: request.requestedQty
+    };
+    throw error;
+  }
+  return { ok: true };
+};
+
+const applyStockDocumentMovement = ({
+  db: dbInput,
+  documentId = "",
+  documentType = "",
+  documentNumber = "",
+  payload = {},
+  status = "",
+  preparedPlan = null
+} = {}) => {
+  const db = dbInput || initDatabase();
+  const safeDocumentId = normalizeTextValue(documentId);
+  if (!safeDocumentId) {
+    throw new Error("Identifiant document requis pour appliquer le stock.");
+  }
+  const normalizedDocType = normalizeDocType(documentType);
+  if (!isStockMovementDocType(normalizedDocType)) {
+    return { ok: true, applied: false, appliedCount: 0, batchHash: null, affectedArticles: [] };
+  }
+  if (!isStockMovementActiveStatus(status)) {
+    return { ok: true, applied: false, appliedCount: 0, batchHash: null, affectedArticles: [] };
+  }
+  const plan =
+    preparedPlan && typeof preparedPlan === "object"
+      ? preparedPlan
+      : buildStockDocumentMovementPlan({
+          db,
+          documentType: normalizedDocType,
+          documentId: safeDocumentId,
+          documentNumber,
+          payload
+        });
+  if (!plan.lines.length) {
+    return {
+      ok: true,
+      applied: false,
+      appliedCount: 0,
+      batchHash: plan.batchHash || null,
+      affectedArticles: []
+    };
+  }
+  const existingApplied = listAppliedStockMovementsByDocument(db, safeDocumentId);
+  if (existingApplied.length) {
+    if (stockMovementRowsMatchPlan(existingApplied, plan.lines)) {
+      return {
+        ok: true,
+        applied: false,
+        idempotent: true,
+        appliedCount: 0,
+        batchHash: plan.batchHash || null,
+        affectedArticles: Array.from(new Set(plan.lines.map((entry) => entry.articleId)))
+      };
+    }
+    throw new Error(
+      "Mouvements de stock deja appliques pour ce document. Annulez-les avant une nouvelle application."
+    );
+  }
+  validateOutgoingStockAvailability({
+    db,
+    lines: plan.lines,
+    documentType: normalizedDocType,
+    documentNumber
+  });
+  const now = new Date().toISOString();
+  const insertMovement = db.prepare(
+    `
+      INSERT INTO stock_movements (
+        id,
+        document_type,
+        document_id,
+        document_number,
+        line_identity,
+        article_id,
+        depot_id,
+        emplacement_id,
+        qty_delta,
+        status,
+        movement_timestamp,
+        batch_hash,
+        created_at,
+        updated_at,
+        reversed_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `
+  );
+  plan.lines.forEach((line) => {
+    insertMovement.run(
+      generateId("stockmv"),
+      normalizedDocType,
+      safeDocumentId,
+      normalizeTextValue(documentNumber) || null,
+      line.lineIdentity,
+      line.articleId,
+      line.depotId || null,
+      line.emplacementId || null,
+      normalizeStockNumber(line.qtyDelta),
+      STOCK_MOVEMENT_APPLIED_STATUS,
+      now,
+      plan.batchHash || null,
+      now,
+      now,
+      null
+    );
+  });
+  const deltaByArticle = collectStockMovementDeltaByArticle(plan.lines, { invert: false });
+  const affectedArticles = applyArticleStockDeltaMap(db, deltaByArticle);
+  return {
+    ok: true,
+    applied: true,
+    appliedCount: plan.lines.length,
+    batchHash: plan.batchHash || null,
+    affectedArticles
+  };
+};
+
+const reverseStockDocumentMovement = ({ db: dbInput, documentId = "" } = {}) => {
+  const db = dbInput || initDatabase();
+  const safeDocumentId = normalizeTextValue(documentId);
+  if (!safeDocumentId) {
+    throw new Error("Identifiant document requis pour annuler un mouvement de stock.");
+  }
+  const rows = listAppliedStockMovementsByDocument(db, safeDocumentId);
+  if (!rows.length) {
+    return {
+      ok: true,
+      reversed: false,
+      reversedCount: 0,
+      restoredStock: false,
+      affectedArticles: []
+    };
+  }
+  const deltaByArticle = collectStockMovementDeltaByArticle(rows, { invert: true });
+  const affectedArticles = applyArticleStockDeltaMap(db, deltaByArticle);
+  const now = new Date().toISOString();
+  db
+    .prepare(
+      `
+      UPDATE stock_movements
+      SET
+        status = ?,
+        updated_at = ?,
+        reversed_at = ?
+      WHERE document_id = ? AND status = ?
+    `
+    )
+    .run(
+      STOCK_MOVEMENT_REVERSED_STATUS,
+      now,
+      now,
+      safeDocumentId,
+      STOCK_MOVEMENT_APPLIED_STATUS
+    );
+  return {
+    ok: true,
+    reversed: true,
+    reversedCount: rows.length,
+    restoredStock: true,
+    affectedArticles
+  };
+};
+
+const syncStockMovementsForDocument = ({
+  db: dbInput,
+  documentId = "",
+  documentType = "",
+  documentNumber = "",
+  payload = {},
+  status = ""
+} = {}) => {
+  const db = dbInput || initDatabase();
+  const safeDocumentId = normalizeTextValue(documentId);
+  if (!safeDocumentId) {
+    return {
+      ok: true,
+      applied: false,
+      reversed: false,
+      restoredStock: false,
+      affectedArticles: []
+    };
+  }
+  const normalizedDocType = normalizeDocType(documentType);
+  const existingApplied = listAppliedStockMovementsByDocument(db, safeDocumentId);
+
+  if (!isStockMovementDocType(normalizedDocType) || !isStockMovementActiveStatus(status)) {
+    const reverseResult = reverseStockDocumentMovement({ db, documentId: safeDocumentId });
+    return {
+      ok: true,
+      applied: false,
+      reversed: !!reverseResult.reversed,
+      reversedCount: reverseResult.reversedCount || 0,
+      restoredStock: !!reverseResult.restoredStock,
+      affectedArticles: reverseResult.affectedArticles || [],
+      batchHash: null
+    };
+  }
+
+  const plan = buildStockDocumentMovementPlan({
+    db,
+    documentType: normalizedDocType,
+    documentId: safeDocumentId,
+    documentNumber,
+    payload
+  });
+  if (!plan.lines.length) {
+    const reverseResult = reverseStockDocumentMovement({ db, documentId: safeDocumentId });
+    return {
+      ok: true,
+      applied: false,
+      reversed: !!reverseResult.reversed,
+      reversedCount: reverseResult.reversedCount || 0,
+      restoredStock: !!reverseResult.restoredStock,
+      affectedArticles: reverseResult.affectedArticles || [],
+      batchHash: plan.batchHash || null
+    };
+  }
+
+  if (existingApplied.length && stockMovementRowsMatchPlan(existingApplied, plan.lines)) {
+    return {
+      ok: true,
+      applied: false,
+      reversed: false,
+      restoredStock: false,
+      idempotent: true,
+      affectedArticles: Array.from(new Set(plan.lines.map((entry) => entry.articleId))),
+      batchHash: plan.batchHash || null
+    };
+  }
+
+  const reverseResult = existingApplied.length
+    ? reverseStockDocumentMovement({ db, documentId: safeDocumentId })
+    : {
+        ok: true,
+        reversed: false,
+        reversedCount: 0,
+        restoredStock: false,
+        affectedArticles: []
+      };
+  const applyResult = applyStockDocumentMovement({
+    db,
+    documentId: safeDocumentId,
+    documentType: normalizedDocType,
+    documentNumber,
+    payload,
+    status,
+    preparedPlan: plan
+  });
+  return {
+    ok: true,
+    applied: !!applyResult.applied,
+    appliedCount: applyResult.appliedCount || 0,
+    reversed: !!reverseResult.reversed,
+    reversedCount: reverseResult.reversedCount || 0,
+    restoredStock: !!reverseResult.restoredStock,
+    affectedArticles: Array.from(
+      new Set([...(reverseResult.affectedArticles || []), ...(applyResult.affectedArticles || [])])
+    ),
+    batchHash: applyResult.batchHash || plan.batchHash || null
+  };
+};
+
+const loadDocumentPayloadByDocumentId = (db, { documentId = "", docType = "" } = {}) => {
+  const safeDocumentId = normalizeTextValue(documentId);
+  if (!db || !safeDocumentId) return null;
+  const table = resolveDocTableName(docType);
+  const itemsTable = resolveDocItemsTableName(docType);
+  const dataRow = db.prepare(`SELECT * FROM ${table} WHERE document_id = ?`).get(safeDocumentId) || {};
+  const itemsRows = db
+    .prepare(`SELECT * FROM ${itemsTable} WHERE document_id = ? ORDER BY position ASC`)
+    .all(safeDocumentId);
+  const taxRows = db
+    .prepare("SELECT * FROM document_tax_breakdown WHERE document_id = ? ORDER BY kind, position ASC")
+    .all(safeDocumentId);
+  const items = buildDocumentItemsFromRows(itemsRows, { docType });
+  return buildDocumentPayloadFromRow(dataRow, items, taxRows);
+};
+
 const adjustArticleStockById = (id, deltaRaw) => {
   const record = getArticleById(id);
   if (!record) return { ok: false, error: "Article introuvable." };
@@ -6332,7 +7458,27 @@ const saveDocumentWithNumber = ({
       }
       if (!finalNumber) throw new Error("Numero indisponible.");
     }
+    let stockSync = {
+      ok: true,
+      applied: false,
+      reversed: false,
+      restoredStock: false,
+      affectedArticles: []
+    };
     if (documentId) {
+      const documentRow = db
+        .prepare("SELECT doc_type, status FROM documents WHERE id = ?")
+        .get(documentId);
+      const effectiveDocType = normalizeDocType(documentRow?.doc_type || normalizedDocType);
+      const effectiveStatus = normalizeDocumentStatus(documentRow?.status);
+      stockSync = syncStockMovementsForDocument({
+        db,
+        documentId,
+        documentType: effectiveDocType,
+        documentNumber: finalNumber,
+        payload,
+        status: effectiveStatus
+      });
       saveDocumentData(db, normalizedDocType, documentId, payload);
     }
     const numberBehindSequence =
@@ -6347,6 +7493,8 @@ const saveDocumentWithNumber = ({
       prefix: normalizedPrefix,
       previewNumber: preview,
       numberChanged: preview ? preview !== finalNumber : false,
+      stockAdjusted: !!(stockSync.applied || stockSync.reversed),
+      stockRestored: !!stockSync.restoredStock,
       ...(numberBehindSequence
         ? {
             reason: "number_behind_sequence",
@@ -6356,23 +7504,57 @@ const saveDocumentWithNumber = ({
     };
   });
 
-  return runTx();
+  try {
+    return runTx();
+  } catch (err) {
+    const message = String(err?.message || err);
+    const failure = { ok: false, error: message };
+    if (err?.code === "INSUFFICIENT_STOCK") {
+      failure.reason = "insufficient_stock";
+      if (err?.details && typeof err.details === "object") {
+        failure.details = err.details;
+      }
+    }
+    return failure;
+  }
 };
 
 const deleteDocumentByNumber = (rawNumber) => {
   const safeNumber = String(rawNumber || "").trim();
   if (!safeNumber) return { ok: false, error: "Numero requis." };
   const db = initDatabase();
-  const docRow = db.prepare("SELECT id, doc_type FROM documents WHERE number = ?").get(safeNumber);
-  const result = db.prepare("DELETE FROM documents WHERE number = ?").run(safeNumber);
-  if (docRow?.id) {
+  const runTx = db.transaction(() => {
+    const docRow = db
+      .prepare("SELECT id, doc_type FROM documents WHERE number = ?")
+      .get(safeNumber);
+    if (!docRow?.id) {
+      return { ok: true, missing: true, restoredStock: false };
+    }
+    const reverseResult = reverseStockDocumentMovement({
+      db,
+      documentId: docRow.id
+    });
+    const result = db.prepare("DELETE FROM documents WHERE number = ?").run(safeNumber);
     const docTable = resolveDocTableName(docRow.doc_type);
     const itemsTable = resolveDocItemsTableName(docRow.doc_type);
     db.prepare(`DELETE FROM ${docTable} WHERE document_id = ?`).run(docRow.id);
     db.prepare(`DELETE FROM ${itemsTable} WHERE document_id = ?`).run(docRow.id);
     db.prepare("DELETE FROM document_tax_breakdown WHERE document_id = ?").run(docRow.id);
+    return {
+      ok: true,
+      missing: result.changes === 0,
+      restoredStock: !!reverseResult.restoredStock
+    };
+  });
+  try {
+    return runTx();
+  } catch (err) {
+    return {
+      ok: false,
+      error: String(err?.message || err),
+      restoredStock: false
+    };
   }
-  return { ok: true, missing: result.changes === 0 };
 };
 
 const getDocumentById = (rawId) => {
@@ -6396,16 +7578,45 @@ const deleteDocumentById = (rawId) => {
 const clearDocumentsByDocType = (docType) => {
   const normalizedDocType = normalizeDocType(docType);
   const db = initDatabase();
-  const rows = db.prepare("SELECT id FROM documents WHERE doc_type = ?").all(normalizedDocType);
-  const result = db.prepare("DELETE FROM documents WHERE doc_type = ?").run(normalizedDocType);
-  rows.forEach((row) => {
-    const docTable = resolveDocTableName(normalizedDocType);
-    const itemsTable = resolveDocItemsTableName(normalizedDocType);
-    db.prepare(`DELETE FROM ${docTable} WHERE document_id = ?`).run(row.id);
-    db.prepare(`DELETE FROM ${itemsTable} WHERE document_id = ?`).run(row.id);
-    db.prepare("DELETE FROM document_tax_breakdown WHERE document_id = ?").run(row.id);
+  const runTx = db.transaction(() => {
+    const rows = db
+      .prepare("SELECT id FROM documents WHERE doc_type = ?")
+      .all(normalizedDocType);
+    let restoredStock = false;
+    rows.forEach((row) => {
+      const reverseResult = reverseStockDocumentMovement({
+        db,
+        documentId: row.id
+      });
+      if (reverseResult?.restoredStock) restoredStock = true;
+    });
+    const result = db
+      .prepare("DELETE FROM documents WHERE doc_type = ?")
+      .run(normalizedDocType);
+    rows.forEach((row) => {
+      const docTable = resolveDocTableName(normalizedDocType);
+      const itemsTable = resolveDocItemsTableName(normalizedDocType);
+      db.prepare(`DELETE FROM ${docTable} WHERE document_id = ?`).run(row.id);
+      db.prepare(`DELETE FROM ${itemsTable} WHERE document_id = ?`).run(row.id);
+      db.prepare("DELETE FROM document_tax_breakdown WHERE document_id = ?").run(row.id);
+    });
+    return {
+      ok: true,
+      removed: result.changes || 0,
+      docType: normalizedDocType,
+      restoredStock
+    };
   });
-  return { ok: true, removed: result.changes || 0, docType: normalizedDocType };
+  try {
+    return runTx();
+  } catch (err) {
+    return {
+      ok: false,
+      error: String(err?.message || err),
+      docType: normalizedDocType,
+      restoredStock: false
+    };
+  }
 };
 
 const clearDocumentsByDocTypePeriod = (docType, period) => {
@@ -6413,25 +7624,47 @@ const clearDocumentsByDocTypePeriod = (docType, period) => {
   const normalizedPeriod = normalizeDocPeriod(period);
   if (!normalizedPeriod) return { ok: false, error: "Periode requise." };
   const db = initDatabase();
-  const rows = db
-    .prepare("SELECT id FROM documents WHERE doc_type = ? AND period = ?")
-    .all(normalizedDocType, normalizedPeriod);
-  const result = db
-    .prepare("DELETE FROM documents WHERE doc_type = ? AND period = ?")
-    .run(normalizedDocType, normalizedPeriod);
-  rows.forEach((row) => {
-    const docTable = resolveDocTableName(normalizedDocType);
-    const itemsTable = resolveDocItemsTableName(normalizedDocType);
-    db.prepare(`DELETE FROM ${docTable} WHERE document_id = ?`).run(row.id);
-    db.prepare(`DELETE FROM ${itemsTable} WHERE document_id = ?`).run(row.id);
-    db.prepare("DELETE FROM document_tax_breakdown WHERE document_id = ?").run(row.id);
+  const runTx = db.transaction(() => {
+    const rows = db
+      .prepare("SELECT id FROM documents WHERE doc_type = ? AND period = ?")
+      .all(normalizedDocType, normalizedPeriod);
+    let restoredStock = false;
+    rows.forEach((row) => {
+      const reverseResult = reverseStockDocumentMovement({
+        db,
+        documentId: row.id
+      });
+      if (reverseResult?.restoredStock) restoredStock = true;
+    });
+    const result = db
+      .prepare("DELETE FROM documents WHERE doc_type = ? AND period = ?")
+      .run(normalizedDocType, normalizedPeriod);
+    rows.forEach((row) => {
+      const docTable = resolveDocTableName(normalizedDocType);
+      const itemsTable = resolveDocItemsTableName(normalizedDocType);
+      db.prepare(`DELETE FROM ${docTable} WHERE document_id = ?`).run(row.id);
+      db.prepare(`DELETE FROM ${itemsTable} WHERE document_id = ?`).run(row.id);
+      db.prepare("DELETE FROM document_tax_breakdown WHERE document_id = ?").run(row.id);
+    });
+    return {
+      ok: true,
+      removed: result.changes || 0,
+      docType: normalizedDocType,
+      period: normalizedPeriod,
+      restoredStock
+    };
   });
-  return {
-    ok: true,
-    removed: result.changes || 0,
-    docType: normalizedDocType,
-    period: normalizedPeriod
-  };
+  try {
+    return runTx();
+  } catch (err) {
+    return {
+      ok: false,
+      error: String(err?.message || err),
+      docType: normalizedDocType,
+      period: normalizedPeriod,
+      restoredStock: false
+    };
+  }
 };
 
 const getDocumentByNumber = (rawNumber) => {
@@ -6728,11 +7961,40 @@ const updateDocumentStatus = (number, status) => {
   const normalizedStatus = normalizeDocumentStatus(status);
   if (!normalizedStatus) return { ok: false, error: "Statut requis." };
   const db = initDatabase();
-  const now = new Date().toISOString();
-  const result = db
-    .prepare("UPDATE documents SET status = ?, updated_at = ? WHERE number = ?")
-    .run(normalizedStatus, now, safeNumber);
-  return { ok: result.changes > 0 };
+  const runTx = db.transaction(() => {
+    const row = db
+      .prepare("SELECT id, doc_type FROM documents WHERE number = ?")
+      .get(safeNumber);
+    if (!row?.id) {
+      return { ok: false, missing: true, error: "Document introuvable." };
+    }
+    const now = new Date().toISOString();
+    db
+      .prepare("UPDATE documents SET status = ?, updated_at = ? WHERE id = ?")
+      .run(normalizedStatus, now, row.id);
+    const payload = loadDocumentPayloadByDocumentId(db, {
+      documentId: row.id,
+      docType: row.doc_type
+    });
+    const stockSync = syncStockMovementsForDocument({
+      db,
+      documentId: row.id,
+      documentType: row.doc_type,
+      documentNumber: safeNumber,
+      payload: payload || {},
+      status: normalizedStatus
+    });
+    return {
+      ok: true,
+      restoredStock: !!stockSync.restoredStock,
+      stockAdjusted: !!(stockSync.applied || stockSync.reversed)
+    };
+  });
+  try {
+    return runTx();
+  } catch (err) {
+    return { ok: false, error: String(err?.message || err) };
+  }
 };
 
 const updateDocumentPdfPath = ({ number, path, pdfPath, pdfExportedAt } = {}) => {
@@ -7287,6 +8549,10 @@ module.exports = {
   parseDocumentNumberFromPath,
   findDuplicateArticle,
   adjustArticleStockById,
+  applyStockDocumentMovement,
+  reverseStockDocumentMovement,
+  validateOutgoingStockAvailability,
+  computeArticleStockByLocation,
   getArticleById,
   getArticleIdByLegacyPath,
   previewDocumentNumber,

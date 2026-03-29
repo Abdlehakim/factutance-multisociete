@@ -4552,7 +4552,7 @@ async function deleteInvoiceFile(payload = {}, options = {}) {
       return { ok: false, missing: true, error: "Document introuvable." };
     }
 
-    const restoredStock = false;
+    let restoredStock = false;
     let documentNumber = resolvedNumber;
     const invoicePayload = record?.data || null;
     if (invoicePayload) {
@@ -4594,6 +4594,7 @@ async function deleteInvoiceFile(payload = {}, options = {}) {
         return { ok: false, error: String(deleteResult.error || "Suppression impossible."), restoredStock };
       }
       if (deleteResult && !deleteResult.missing) {
+        restoredStock = !!deleteResult.restoredStock;
         return { ok: true, restoredStock };
       }
     }
@@ -4608,6 +4609,7 @@ async function deleteInvoiceFile(payload = {}, options = {}) {
         return { ok: false, error: String(deleteResult.error || "Suppression impossible."), restoredStock };
       }
       if (deleteResult && !deleteResult.missing) {
+        restoredStock = !!deleteResult.restoredStock;
         break;
       }
     }

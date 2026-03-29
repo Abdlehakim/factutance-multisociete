@@ -11,6 +11,7 @@
     "dev:renderer": "http-server ./src/renderer -p 8081 -c-1",
     "start": "electron .",
     "test:company-sync": "node scripts/run-electron-node-test.cjs --test scripts/tests/company-context-guards.test.cjs",
+    "test:stock-movements": "node scripts/run-electron-node-test.cjs --test scripts/tests/stock-movements.test.cjs",
     "dist:win:ia32": "node scripts/sync-version.cjs && electron-builder --win nsis --ia32",
     "dist:win:both": "node scripts/sync-version.cjs && electron-builder --win nsis --x64 --ia32",
     "dist:mac": "node scripts/sync-version.cjs && electron-builder --mac dmg,zip",

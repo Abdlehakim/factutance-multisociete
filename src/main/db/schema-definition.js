@@ -158,7 +158,11 @@ const DOC_COLUMNS = [
   ["meta_be_reception_source_selection_json", "TEXT"],
   ["meta_be_reception_source_imported_keys_json", "TEXT"],
   ["meta_bs_sortie_depot", "TEXT"],
+  ["meta_bs_sortie_depot_id", "TEXT"],
   ["meta_bs_sortie_location", "TEXT"],
+  ["meta_bs_sortie_location_id", "TEXT"],
+  ["meta_bs_sortie_location_ids_json", "TEXT"],
+  ["meta_bs_sortie_location_labels_json", "TEXT"],
   ["meta_bs_sortie_date", "TEXT"],
   ["meta_bs_sortie_time", "TEXT"],
   ["meta_bs_sortie_source_ref", "TEXT"],
@@ -292,6 +296,7 @@ const BASE_TABLE_ORDER = [
   "depot_magasin",
   "depot_magasin_emplacement",
   "documents",
+  "stock_movements",
   "document_fields",
   "models",
   "model_fields",
@@ -610,6 +615,42 @@ const BASE_TABLE_DEFINITIONS = {
       {
         sql: "CREATE UNIQUE INDEX IF NOT EXISTS idx_documents_doc_type_period_key_idx ON documents (doc_type, period_key, idx)",
         ignoreErrors: true
+      }
+    ]
+  },
+  stock_movements: {
+    columns: [
+      ["id", "TEXT PRIMARY KEY"],
+      ["document_type", "TEXT NOT NULL"],
+      ["document_id", "TEXT NOT NULL"],
+      ["document_number", "TEXT"],
+      ["line_identity", "TEXT NOT NULL"],
+      ["article_id", "TEXT NOT NULL"],
+      ["depot_id", "TEXT"],
+      ["emplacement_id", "TEXT"],
+      ["qty_delta", "REAL NOT NULL"],
+      ["status", "TEXT NOT NULL DEFAULT 'applied'"],
+      ["movement_timestamp", "TEXT NOT NULL"],
+      ["batch_hash", "TEXT"],
+      ["created_at", "TEXT"],
+      ["updated_at", "TEXT"],
+      ["reversed_at", "TEXT"]
+    ],
+    indexes: [
+      {
+        sql: "CREATE INDEX IF NOT EXISTS idx_stock_movements_document ON stock_movements (document_type, document_id)"
+      },
+      {
+        sql: "CREATE INDEX IF NOT EXISTS idx_stock_movements_article ON stock_movements (article_id)"
+      },
+      {
+        sql: "CREATE INDEX IF NOT EXISTS idx_stock_movements_location ON stock_movements (article_id, depot_id, emplacement_id)"
+      },
+      {
+        sql: "CREATE INDEX IF NOT EXISTS idx_stock_movements_status ON stock_movements (status)"
+      },
+      {
+        sql: "CREATE UNIQUE INDEX IF NOT EXISTS idx_stock_movements_active_line_unique ON stock_movements (document_id, line_identity) WHERE status = 'applied'"
       }
     ]
   },
