@@ -109,24 +109,13 @@
   const normalizeFournisseurType = (value) => {
     const key = normalizeImportHeaderKey(value);
     if (!key) return "societe";
-    if (
-      key.includes("personnephysique") ||
-      key.includes("physique") ||
-      key.includes("particulier") ||
-      key === "pp"
-    ) {
+    if (key.includes("personnephysique") || key.includes("physique") || key === "pp") {
       return "personne_physique";
     }
+    if (key.includes("personnemorale") || key.includes("societe") || key === "pm") {
+      return "societe";
+    }
     return "societe";
-  };
-
-  const isLikelyCinValue = (value) => {
-    const trimmed = String(value || "").trim();
-    if (!trimmed) return false;
-    if (/[a-z]/i.test(trimmed)) return false;
-    const digits = trimmed.replace(/\D+/g, "");
-    if (!digits) return false;
-    return digits.length >= 6 && digits.length <= 12;
   };
 
   const resolveFournisseurIdentifier = (supplier = {}) =>
@@ -283,24 +272,7 @@
         email: data.email || "",
         address: data.address || ""
       };
-
-      if (supplierType === "personne_physique") {
-        let cinValue = data.cin || "";
-        let passeportValue = data.passeport || "";
-        if (!cinValue && !passeportValue && data.vat) {
-          const rawIdentifier = String(data.vat || "").trim();
-          if (rawIdentifier) {
-            if (isLikelyCinValue(rawIdentifier)) cinValue = rawIdentifier;
-            else passeportValue = rawIdentifier;
-          }
-        }
-        if (cinValue) supplier.cin = cinValue;
-        if (passeportValue) supplier.passeport = passeportValue;
-      } else {
-        if (identifier) supplier.vat = identifier;
-        if (data.cin) supplier.cin = data.cin;
-        if (data.passeport) supplier.passeport = data.passeport;
-      }
+      if (identifier) supplier.vat = identifier;
 
       const dedupeKey = getFournisseurDedupeKey(supplier);
       if (dedupeKey && seen.has(dedupeKey)) {

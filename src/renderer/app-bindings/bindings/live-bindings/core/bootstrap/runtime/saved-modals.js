@@ -1450,6 +1450,7 @@
 
           syncClientFormFields = (client = {}, formScope = null) => {
             const scopeNode = normalizeClientFormScope(formScope);
+            const resolvedEntityType = resolveClientEntityType(scopeNode);
             const setScopedVal = (id, value = "") => {
               const canonicalId = toCanonicalClientFormId(id);
               const target = queryScopedClientFormElement(scopeNode, canonicalId);
@@ -1471,7 +1472,8 @@
               const rawType = String(typeValue || "").toLowerCase();
               const resolvedType =
                 rawType === "particulier" || rawType === "personne_physique" ? rawType : "societe";
-              const isParticulier = resolvedType === "particulier";
+              const isParticulier =
+                resolvedType === "particulier" && resolvedEntityType === "client";
               const labelText = isParticulier ? "CIN / passeport" : "Matricule fiscal";
               const placeholder = isParticulier ? "CIN ou Passeport" : "ex: 1284118/W/A/M/000";
               const defaultTaxIdLabel = resolveClientFieldLabelDefaults().taxId;
@@ -1485,8 +1487,12 @@
             };
             const norm = (value, fallback = "") => (value ?? fallback).toString();
             const typeRaw = String(client.type || "").toLowerCase();
-            const type =
+            const typeResolved =
               typeRaw === "particulier" || typeRaw === "personne_physique" ? typeRaw : "societe";
+            const type =
+              resolvedEntityType === "vendor" && typeResolved === "particulier"
+                ? "personne_physique"
+                : typeResolved;
             setScopedVal("clientType", type);
             setScopedVal(
               "clientCode",
@@ -1502,6 +1508,7 @@
               client.identifiant ||
               client.tva ||
               client.nif ||
+              (resolvedEntityType === "vendor" ? client.cin || client.passport || client.passeport || "" : "") ||
               "";
             setScopedVal("clientVat", norm(vat));
             setScopedVal("clientStegRef", norm(client.stegRef || client.refSteg || client.steg));
@@ -2610,9 +2617,11 @@
                     : clientFieldLabels?.taxId;
                 const customTaxIdValue = typeof customTaxIdLabel === "string" ? customTaxIdLabel.trim() : "";
                 const useCustomTaxIdLabel = customTaxIdValue && customTaxIdValue !== defaultTaxIdLabel;
+                const useCinPassportTaxLabel =
+                  clientSavedModalEntityType === "client" && clientType === "particulier";
                 const taxIdLabel = useCustomTaxIdLabel
                   ? customTaxIdValue
-                  : clientType === "particulier"
+                  : useCinPassportTaxLabel
                     ? "CIN / passeport"
                     : resolveFieldLabel("taxId");
                 const codeClientLabel = "Code Client";

@@ -1124,8 +1124,13 @@ const normalizeClientEntityType = (value) => {
 const normalizeClientProfileType = (value) => {
   const normalized = String(value || "").trim().toLowerCase();
   if (!normalized) return "";
-  if (normalized === "particulier" || normalized === "personne_physique") return "particulier";
-  if (normalized === "societe" || normalized === "societes") return "societe";
+  if (normalized === "particulier") return "particulier";
+  if (normalized === "personne_physique" || normalized === "personnephysique" || normalized === "pp") {
+    return "personne_physique";
+  }
+  if (normalized === "societe" || normalized === "societes" || normalized === "personnemorale" || normalized === "pm") {
+    return "societe";
+  }
   return normalized;
 };
 
@@ -1562,8 +1567,25 @@ const normalizeClientRecord = (client = {}, entityType = "client") => {
         "vendor"
       )
     : "";
+  const normalizedProfileType = normalizeClientProfileType(client.type);
+  const normalizedClientType =
+    isVendor && normalizedProfileType === "particulier"
+      ? "personne_physique"
+      : normalizedProfileType;
+  const normalizedVat = isVendor
+    ? normalizeTextValue(
+        client.vat ||
+          client.identifiantFiscal ||
+          client.identifiant ||
+          client.tva ||
+          client.nif ||
+          client.cin ||
+          client.passport ||
+          client.passeport
+      )
+    : normalizeTextValue(client.vat);
   return {
-    clientType: normalizeClientProfileType(client.type),
+    clientType: normalizedClientType,
     codeClient: isClient
       ? normalizeClientCodeValue(client.codeClient || client.code_client || client.code)
       : codeFournisseur,
@@ -1572,7 +1594,7 @@ const normalizeClientRecord = (client = {}, entityType = "client") => {
     name: normalizeTextValue(client.name || client.company),
     benefit: normalizeTextValue(client.benefit),
     account: normalizeTextValue(client.account || client.accountOf),
-    vat: normalizeTextValue(client.vat),
+    vat: normalizedVat,
     identifiantFiscal: normalizeTextValue(client.identifiantFiscal),
     cin: normalizeTextValue(client.cin),
     passport: normalizeTextValue(client.passport || client.passeport),
@@ -1589,6 +1611,14 @@ const hydrateClientFromRow = (row = {}) => {
   const codeClient = normalizeClientCodeValue(row.code_client || "");
   const codeFournisseur = normalizeEntityCodeValue(row.code_fournisseur || "", "vendor");
   const codeTransporteur = normalizeEntityCodeValue(row.code_transporteur || "", "transporter");
+  const profileType = normalizeClientProfileType(row.client_type || "");
+  const resolvedType =
+    entityType === "vendor" && profileType === "particulier"
+      ? "personne_physique"
+      : profileType;
+  const resolvedVat = normalizeTextValue(
+    row.vat || row.identifiant_fiscal || (entityType === "vendor" ? row.cin || row.passport || "" : "")
+  );
   const codeForEntity =
     entityType === "vendor"
       ? codeFournisseur
@@ -1596,14 +1626,14 @@ const hydrateClientFromRow = (row = {}) => {
         ? codeTransporteur
         : codeClient;
   const base = {
-    type: row.client_type || "",
+    type: resolvedType || "",
     codeClient: codeForEntity,
     codeFournisseur,
     codeTransporteur,
     name: row.name || "",
     benefit: row.benefit || "",
     account: row.account || "",
-    vat: row.vat || "",
+    vat: resolvedVat,
     identifiantFiscal: row.identifiant_fiscal || "",
     cin: row.cin || "",
     passport: row.passport || "",
@@ -4415,6 +4445,8 @@ const searchClients = ({ query = "", limit, offset, entityType } = {}) => {
         "LOWER(COALESCE(name, ''))",
         "LOWER(COALESCE(vat, ''))",
         "LOWER(COALESCE(identifiant_fiscal, ''))",
+        "LOWER(COALESCE(cin, ''))",
+        "LOWER(COALESCE(passport, ''))",
         "LOWER(COALESCE(phone, ''))",
         "LOWER(COALESCE(email, ''))",
         "LOWER(COALESCE(address, ''))"

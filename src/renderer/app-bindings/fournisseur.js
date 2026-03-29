@@ -11,8 +11,7 @@
   ];
   const TYPE_LABELS = {
     societe: "Societe / personne morale",
-    personne_physique: "Personne physique",
-    particulier: "Particulier"
+    personne_physique: "Personne physique"
   };
 
   const resolvePopover = () => {
@@ -108,6 +107,7 @@
   };
   const normalizeType = (value) => {
     const normalized = String(value || "").trim().toLowerCase();
+    if (normalized === "particulier") return "personne_physique";
     return TYPE_LABELS[normalized] ? normalized : "societe";
   };
   const resolveTypePopover = (target) =>
@@ -181,10 +181,9 @@
     });
     const label = scope.querySelector("#fournisseurIdLabel");
     const vatInput = scope.querySelector("#fournisseurVat");
-    const isParticulier = normalized === "particulier";
-    if (label) label.textContent = isParticulier ? "CIN / passeport" : "Matricule fiscal";
+    if (label) label.textContent = "Matricule fiscal";
     if (vatInput) {
-      vatInput.placeholder = isParticulier ? "CIN ou Passeport" : "ex: 1284118/W/A/M/000";
+      vatInput.placeholder = "ex: 1284118/W/A/M/000";
     }
     syncMenuExpandedState(scope);
     if (persist) persistVendorType(scope, normalized);

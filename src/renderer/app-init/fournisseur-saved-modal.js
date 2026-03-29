@@ -56,6 +56,13 @@
   let mutationEventBound = false;
 
   const normalizeText = (value) => String(value || "").trim();
+  const normalizeFournisseurTypeValue = (value) => {
+    const raw = String(value || "").trim().toLowerCase();
+    if (raw === "personne_physique" || raw === "particulier" || raw === "pp") {
+      return "personne_physique";
+    }
+    return "societe";
+  };
   const escapeHTML = (value) =>
     String(value ?? "")
       .replace(/&/g, "&amp;")
@@ -189,19 +196,39 @@
     const matriculeFiscal = normalizeText(
       raw.matriculeFiscal ||
         raw.matricule_fiscal ||
+        raw.identifiantFiscal ||
+        raw.identifiant_fiscal ||
         raw.vat ||
+        raw.identifiant ||
+        raw.tva ||
+        raw.nif ||
+        raw.cin ||
+        raw.passport ||
+        raw.passeport ||
         client.matriculeFiscal ||
         client.matricule_fiscal ||
         client.vat ||
         client.identifiantFiscal ||
+        client.identifiant_fiscal ||
+        client.identifiant ||
+        client.tva ||
+        client.nif ||
+        client.cin ||
+        client.passport ||
+        client.passeport ||
         ""
     );
     const normalizedCode = normalizeText(codeFournisseur).toUpperCase();
     const normalizedMatricule = normalizeText(matriculeFiscal).toUpperCase();
     const safeMatriculeFiscal =
       normalizedCode && normalizedMatricule === normalizedCode ? "" : matriculeFiscal;
-    const type = normalizeText(
-      raw.typeFournisseur || raw.type_fournisseur || client.typeFournisseur || client.type || raw.type || "societe"
+    const type = normalizeFournisseurTypeValue(
+      raw.typeFournisseur ||
+        raw.type_fournisseur ||
+        client.typeFournisseur ||
+        client.type ||
+        raw.type ||
+        "societe"
     );
     return { id, path, codeFournisseur, name, matriculeFiscal: safeMatriculeFiscal, type, raw };
   };
@@ -231,7 +258,17 @@
       snapshot.nomFournisseur || snapshot.nom_fournisseur || snapshot.name || ""
     );
     const nextVat = normalizeMatchValue(
-      snapshot.matriculeFiscal || snapshot.matricule_fiscal || snapshot.vat || ""
+      snapshot.matriculeFiscal ||
+        snapshot.matricule_fiscal ||
+        snapshot.vat ||
+        snapshot.identifiantFiscal ||
+        snapshot.identifiant ||
+        snapshot.tva ||
+        snapshot.nif ||
+        snapshot.cin ||
+        snapshot.passport ||
+        snapshot.passeport ||
+        ""
     );
     const targetIndex = state.entries.findIndex((entry) => {
       const entryPath = normalizeText(entry?.path || entry?.raw?.path || entry?.raw?.__path || "");
@@ -240,7 +277,16 @@
       if (!entryName || !nextName || entryName !== nextName) return false;
       if (!nextVat) return true;
       const entryVat = normalizeMatchValue(
-        entry?.matriculeFiscal || entry?.raw?.matriculeFiscal || entry?.raw?.vat || ""
+        entry?.matriculeFiscal ||
+          entry?.raw?.matriculeFiscal ||
+          entry?.raw?.matricule_fiscal ||
+          entry?.raw?.vat ||
+          entry?.raw?.identifiantFiscal ||
+          entry?.raw?.identifiant ||
+          entry?.raw?.cin ||
+          entry?.raw?.passport ||
+          entry?.raw?.passeport ||
+          ""
       );
       return !entryVat || entryVat === nextVat;
     });
@@ -337,7 +383,8 @@
         const codeFournisseur = escapeHTML(entry.codeFournisseur || "N.R.");
         const name = escapeHTML(entry.name || "N.R.");
         const matriculeFiscal = escapeHTML(entry.matriculeFiscal || "N.R.");
-        const typeLabel = entry.type === "particulier" ? "Personne physique" : "Societe / personne morale";
+        const typeLabel =
+          entry.type === "personne_physique" ? "Personne physique" : "Societe / personne morale";
         return `
           <div class="client-search__option client-saved-item">
             <button type="button" class="client-search__select client-search__select--detailed" data-fournisseur-saved-load="${idx}">
@@ -522,24 +569,19 @@
 
   const syncFournisseurTypeUi = (popoverNode, payload = {}) => {
     if (!(popoverNode instanceof HTMLElement)) return;
-    const norm = (value) => String(value || "").trim().toLowerCase();
-    const typeRaw = norm(
+    const type = normalizeFournisseurTypeValue(
       payload.typeFournisseur ||
         payload.type_fournisseur ||
         payload.type ||
         popoverNode.querySelector?.("#fournisseurType")?.value ||
         "societe"
     );
-    const type =
-      typeRaw === "personne_physique" || typeRaw === "particulier" ? typeRaw : "societe";
-    const label = type === "particulier" ? "CIN / passeport" : "Matricule fiscal";
-    const placeholder = type === "particulier" ? "CIN ou Passeport" : "ex: 1284118/W/A/M/000";
+    const label = "Matricule fiscal";
+    const placeholder = "ex: 1284118/W/A/M/000";
     const displayText =
       type === "personne_physique"
         ? "Personne physique"
-        : type === "particulier"
-          ? "Particulier"
-          : "Societe / personne morale";
+        : "Societe / personne morale";
     const select = popoverNode.querySelector("#fournisseurType");
     if (select && "value" in select) {
       select.value = type;
@@ -575,10 +617,9 @@
     if (!popoverNode) return false;
     if (typeof w.SEM?.loadClientRecordIntoForm !== "function") {
       const norm = (value) => String(value || "").trim();
-      const typeRaw = norm(
+      const type = normalizeFournisseurTypeValue(
         payload.typeFournisseur || payload.type_fournisseur || payload.type || "societe"
       );
-      const type = typeRaw === "personne_physique" || typeRaw === "particulier" ? typeRaw : "societe";
       const setVal = (selector, value) => {
         const input = popoverNode.querySelector(selector);
         if (!input || !("value" in input)) return;
@@ -594,7 +635,20 @@
       );
       setVal(
         "#fournisseurVat",
-        norm(payload.matriculeFiscal || payload.matricule_fiscal || payload.vat || "")
+        norm(
+          payload.matriculeFiscal ||
+            payload.matricule_fiscal ||
+            payload.vat ||
+            payload.identifiantFiscal ||
+            payload.identifiant_fiscal ||
+            payload.identifiant ||
+            payload.tva ||
+            payload.nif ||
+            payload.cin ||
+            payload.passport ||
+            payload.passeport ||
+            ""
+        )
       );
       setVal("#fournisseurPhone", norm(payload.telephone || payload.phone || payload.tel || ""));
       setVal("#fournisseurEmail", norm(payload.email || ""));
@@ -607,7 +661,7 @@
       const display = popoverNode.querySelector("#fournisseurTypeDisplay");
       if (display) {
         display.textContent =
-          type === "personne_physique" ? "Personne physique" : type === "particulier" ? "Particulier" : "Societe / personne morale";
+          type === "personne_physique" ? "Personne physique" : "Societe / personne morale";
       }
     }
     const ctx =

@@ -720,10 +720,12 @@
             }
             return "";
           };
-          normalizeClientImportType = (value) => {
+          normalizeClientImportType = (value, entityType = clientImportModalState.entityType) => {
             const key = normalizeImportHeaderKey(value);
             if (!key) return "societe";
-            if (key.includes("particulier")) return "particulier";
+            if (key.includes("particulier")) {
+              return entityType === "vendor" ? "personne_physique" : "particulier";
+            }
             if (key.includes("personnephysique") || key.includes("physique") || key === "pp") {
               return "personne_physique";
             }
@@ -1181,7 +1183,10 @@
                 result.errors.push(`Ligne ${i + 1}: nom ou identifiant ou Pour le compte de manquant.`);
                 continue;
               }
-              const clientType = normalizeClientImportType(data.type);
+              const clientType = normalizeClientImportType(
+                data.type,
+                clientImportModalState.entityType
+              );
               const client = {
                 type: clientType,
                 name,
@@ -1192,7 +1197,7 @@
                 account,
                 stegRef: data.stegRef || ""
               };
-              if (clientType === "particulier") {
+              if (clientType === "particulier" && clientImportModalState.entityType !== "vendor") {
                 let cinValue = data.cin || "";
                 let passeportValue = data.passeport || "";
                 if (!cinValue && !passeportValue && data.vat) {
@@ -1209,8 +1214,10 @@
                 if (passeportValue) client.passeport = passeportValue;
               } else {
                 if (identifier) client.vat = identifier;
-                if (data.cin) client.cin = data.cin;
-                if (data.passeport) client.passeport = data.passeport;
+                if (clientImportModalState.entityType !== "vendor") {
+                  if (data.cin) client.cin = data.cin;
+                  if (data.passeport) client.passeport = data.passeport;
+                }
               }
               const dedupeKey = getClientUniqueKey(client);
               if (dedupeKey && seen.has(dedupeKey)) {
