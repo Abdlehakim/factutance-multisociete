@@ -1773,15 +1773,13 @@
       { label: "Bon de livraison", docType: "bl" },
       { label: "Bon de commande", docType: "bc" },
       { label: "Facture d'achat", docType: "fa" },
-      { label: "Bon de commande", docType: "bc" },
-      { label: "Bon d'entrée", docType: "be" },
+      { label: "Bon d'entr\u00E9e", docType: "be" },
       { label: "Bon de sortie", docType: "bs" },
       { label: "Facture d'avoir", docType: "avoir" }
     ];
     const DIALOG_DOC_TYPE_CHOICE_ROWS = [
       DIALOG_DOC_TYPE_CHOICES.slice(0, 4),
-      DIALOG_DOC_TYPE_CHOICES.slice(4, 8),
-      DIALOG_DOC_TYPE_CHOICES.slice(8)
+      DIALOG_DOC_TYPE_CHOICES.slice(4, 8)
     ];
 
     function pathBaseName(fullPath) {

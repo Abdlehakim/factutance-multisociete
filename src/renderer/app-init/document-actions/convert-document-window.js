@@ -74,13 +74,6 @@
       defaultTarget: "facture"
     },
     {
-      docType: "bl",
-      label: "Bon de livraison",
-      partyType: "client",
-      targets: ["facture"],
-      defaultTarget: "facture"
-    },
-    {
       docType: "facture",
       label: "Facture",
       partyType: "client",
@@ -88,11 +81,11 @@
       defaultTarget: "avoir"
     },
     {
-      docType: "fa",
-      label: "Facture d'achat",
-      partyType: "vendor",
-      targets: ["be"],
-      defaultTarget: "be"
+      docType: "bl",
+      label: "Bon de livraison",
+      partyType: "client",
+      targets: ["facture"],
+      defaultTarget: "facture"
     },
     {
       docType: "bc",
@@ -100,7 +93,18 @@
       partyType: "vendor",
       targets: ["be"],
       defaultTarget: "be"
+    },
+    {
+      docType: "fa",
+      label: "Facture d'achat",
+      partyType: "vendor",
+      targets: ["be"],
+      defaultTarget: "be"
     }
+  ];
+  const SOURCE_TYPE_DIALOG_ROW_VALUES = [
+    ["devis", "facture", "bl", "bc"],
+    ["fa"]
   ];
 
   const normalize = (value) => String(value || "").trim().toLowerCase();
@@ -1073,26 +1077,42 @@
       const sources = getSourceTypes();
       if (!sources.length) return null;
       if (typeof w.showOptionsDialog !== "function") return sources[0];
-
-      const chunk = 3;
-      const choiceRows = [];
-      for (let i = 0; i < sources.length; i += chunk) {
-        choiceRows.push(sources.slice(i, i + chunk).map((source) => source.docType));
-      }
+      const sourceByType = new Map();
+      sources.forEach((source) => {
+        const docType = normalize(source?.docType);
+        if (!docType || sourceByType.has(docType)) return;
+        sourceByType.set(docType, source);
+      });
+      const orderedRows = SOURCE_TYPE_DIALOG_ROW_VALUES.map((row) =>
+        row
+          .map((docType) => sourceByType.get(normalize(docType)))
+          .filter(Boolean)
+      ).filter((row) => row.length > 0);
+      const orderedOptions = orderedRows.flat();
+      const optionsForDialog = (orderedOptions.length ? orderedOptions : sources).map((source) => ({
+        label: source.label,
+        value: source.docType
+      }));
+      const choiceRows = orderedRows.length
+        ? orderedRows.map((row) =>
+            row.map((source) => ({
+              label: source.label,
+              value: source.docType
+            }))
+          )
+        : undefined;
 
       const pickedIndex = await w.showOptionsDialog({
         title: "Selectionner un document",
         message: "Choisissez le type de document source :",
-        options: sources.map((source) => ({
-          label: source.label,
-          value: source.docType
-        })),
+        options: optionsForDialog,
         choiceRows,
         trigger
       });
 
       if (pickedIndex === null || pickedIndex === undefined) return null;
-      return sources[pickedIndex] || sources[0];
+      const pool = orderedOptions.length ? orderedOptions : sources;
+      return pool[pickedIndex] || pool[0];
     };
 
     const buildModelDocTypeSet = (value) => {

@@ -159,8 +159,7 @@
     };
     const DOC_HISTORY_DIALOG_TYPE_ROW_VALUES = [
       ["devis", "facture", "bl", "bc"],
-      ["fa", "bc", "be", "bs"],
-      ["avoir"]
+      ["fa", "be", "bs", "avoir"]
     ];
     const DOC_HISTORY_SELECTABLE_TYPES = new Set(Object.keys(DOC_HISTORY_SELECTABLE_TYPE_LABELS));
     const DOC_HISTORY_LEGACY_TYPES = new Set(Object.keys(DOC_HISTORY_LEGACY_TYPE_LABELS));

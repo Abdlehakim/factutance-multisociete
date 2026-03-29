@@ -51,8 +51,7 @@
   ];
   const DOC_TYPE_CHOICE_ROW_VALUES = [
     ["devis", "facture", "bl", "bc"],
-    ["fa", "bc", "be", "bs"],
-    ["avoir"]
+    ["fa", "be", "bs", "avoir"]
   ];
 
   const CLOSE_ICON_SVG = `

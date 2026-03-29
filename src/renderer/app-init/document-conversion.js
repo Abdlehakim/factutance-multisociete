@@ -278,16 +278,6 @@
       }
     },
     {
-      docType: "bl",
-      label: "Bon de livraison",
-      partyType: "client",
-      promptOptions: {
-        titleText: "Convertir le bon de livraison",
-        targetDocTypes: ["facture"],
-        defaultTarget: "facture"
-      }
-    },
-    {
       docType: "facture",
       label: "Facture",
       partyType: "client",
@@ -300,13 +290,13 @@
       }
     },
     {
-      docType: "fa",
-      label: "Facture d'achat",
-      partyType: "vendor",
+      docType: "bl",
+      label: "Bon de livraison",
+      partyType: "client",
       promptOptions: {
-        titleText: "Convertir la facture d'achat",
-        targetDocTypes: ["be"],
-        defaultTarget: "be"
+        titleText: "Convertir le bon de livraison",
+        targetDocTypes: ["facture"],
+        defaultTarget: "facture"
       }
     },
     {
@@ -315,6 +305,16 @@
       partyType: "vendor",
       promptOptions: {
         titleText: "Convertir le bon de commande",
+        targetDocTypes: ["be"],
+        defaultTarget: "be"
+      }
+    },
+    {
+      docType: "fa",
+      label: "Facture d'achat",
+      partyType: "vendor",
+      promptOptions: {
+        titleText: "Convertir la facture d'achat",
         targetDocTypes: ["be"],
         defaultTarget: "be"
       }
