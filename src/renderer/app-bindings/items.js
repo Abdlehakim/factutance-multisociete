@@ -770,7 +770,7 @@
       desc: normalizeArticleSnapshotText(article?.desc),
       stockQty: normalizeArticleSnapshotNumber(article?.stockQty, 0),
       stockAlert: stockAlertResolved ? "1" : "0",
-      stockMin: normalizeArticleSnapshotNumber(stockMinResolved, 1),
+      stockMin: normalizeArticleSnapshotNumber(stockMinResolved, 0),
       stockMax: normalizeArticleSnapshotOptionalNumber(stockMaxResolved),
       stockDefaultDepot: normalizeArticleSnapshotText(stockManagement?.defaultDepot),
       stockDefaultLocation: normalizeArticleSnapshotMultiText(stockDefaultLocationResolved),
@@ -857,7 +857,7 @@
       stockAlert: !!(stockPayload.stockAlert ?? stockManagement.alertEnabled),
       stockMin: Number.isFinite(Number(stockPayload.stockMin))
         ? Number(stockPayload.stockMin)
-        : 1,
+        : 0,
       stockMax: stockPayload.stockMax ?? null,
       purchasePrice: purchasePriceFromForm,
       purchaseTva: purchaseTvaFromForm,

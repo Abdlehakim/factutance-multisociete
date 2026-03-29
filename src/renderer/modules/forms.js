@@ -103,7 +103,7 @@
     const stockAlert = !!(stockPayload.stockAlert ?? stockManagement.alertEnabled);
     const stockMin = Number.isFinite(Number(stockPayload.stockMin))
       ? Number(stockPayload.stockMin)
-      : 1;
+      : 0;
     const stockMax = stockPayload.stockMax ?? null;
     const fodecEnabled = !!getEl("addFodecEnabled")?.checked;
     const fodecRate = getNum("addFodecRate",1);

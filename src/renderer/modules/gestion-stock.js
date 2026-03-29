@@ -18,6 +18,7 @@
   const ARTICLE_MAIN_STOCK_TAB = "stock";
   const MAIN_ARTICLE_DEPOT_ID = "depot-1";
   const MAX_ARTICLE_DEPOT_COUNT = 6;
+  const STOCK_THRESHOLD_CACHE_KEY = "stockThresholdCachedValue";
   const MAX_ARTICLE_DEPOT_MESSAGE = `Maximum ${MAX_ARTICLE_DEPOT_COUNT} dépôts autorisés.`;
   let depotRecords = [];
   let articleDepotState = {
@@ -920,6 +921,28 @@
     if (!raw) return null;
     const num = Number(raw);
     return Number.isFinite(num) ? num : null;
+  };
+
+  const normalizeThresholdFieldValue = (value) => {
+    const parsed = parseOptionalNumber(value);
+    return parsed === null ? "" : String(Math.max(0, parsed));
+  };
+
+  const cacheThresholdValue = (field, value) => {
+    if (!(field instanceof HTMLElement)) return "";
+    const normalized = normalizeThresholdFieldValue(value);
+    field.dataset[STOCK_THRESHOLD_CACHE_KEY] = normalized;
+    return normalized;
+  };
+
+  const getCachedThresholdValue = (field) => {
+    if (!(field instanceof HTMLElement)) return "";
+    return normalizeThresholdFieldValue(field.dataset?.[STOCK_THRESHOLD_CACHE_KEY] ?? "");
+  };
+
+  const stashThresholdValue = (field) => {
+    if (!(field instanceof HTMLElement)) return "";
+    return cacheThresholdValue(field, field.value ?? "");
   };
 
   const setFieldValue = (field, value) => {
@@ -2087,7 +2110,6 @@
     [
       fields.allowNegative,
       fields.alert,
-      fields.max,
       fields.depotStockQty,
     ].forEach((field) => setDisabledState(field, !uiInteractive));
     setDepotPickerDisabled(fields, !uiInteractive);
@@ -2101,8 +2123,30 @@
     syncDepotPicker(scope);
     syncLocationPicker(scope, { forceDisabled: !uiInteractive });
 
-    const alertEnabled = uiInteractive && !!fields.alert?.checked;
+    const alertChecked = !!fields.alert?.checked;
+    const alertWasChecked = String(fields.alert?.dataset?.stockAlertChecked || "").toLowerCase() === "true";
+    if (fields.alert instanceof HTMLElement) {
+      fields.alert.dataset.stockAlertChecked = alertChecked ? "true" : "false";
+    }
+    if (alertChecked) {
+      if (!alertWasChecked) {
+        setFieldValue(fields.min, getCachedThresholdValue(fields.min));
+        setFieldValue(fields.max, getCachedThresholdValue(fields.max));
+      } else {
+        cacheThresholdValue(fields.min, fields.min?.value ?? "");
+        cacheThresholdValue(fields.max, fields.max?.value ?? "");
+      }
+    } else {
+      if (alertWasChecked) {
+        stashThresholdValue(fields.min);
+        stashThresholdValue(fields.max);
+      }
+      setFieldValue(fields.min, "");
+      setFieldValue(fields.max, "");
+    }
+    const alertEnabled = uiInteractive && alertChecked;
     setDisabledState(fields.min, !alertEnabled);
+    setDisabledState(fields.max, !alertEnabled);
 
     setDisabledState(fields.blockInsufficient, !uiInteractive);
 
@@ -2157,7 +2201,10 @@
     if (fields.allowNegative) fields.allowNegative.checked = false;
     if (fields.blockInsufficient) fields.blockInsufficient.checked = true;
     if (fields.alert) fields.alert.checked = false;
-    setFieldValue(fields.min, "1");
+    if (fields.alert instanceof HTMLElement) fields.alert.dataset.stockAlertChecked = "false";
+    cacheThresholdValue(fields.min, "");
+    cacheThresholdValue(fields.max, "");
+    setFieldValue(fields.min, "");
     setFieldValue(fields.max, "");
     syncReadOnlyInfo(scope);
     syncUi(scope);
@@ -2174,8 +2221,8 @@
       article.stockAlert ??
       article.stockMinAlert
     );
-    const stockMinResolved = Number(stockManagement.min ?? article.stockMin);
-    const stockMaxResolved = stockManagement.max ?? article.stockMax;
+    const stockMinResolved = normalizeThresholdFieldValue(stockManagement.min ?? article.stockMin);
+    const stockMaxResolved = normalizeThresholdFieldValue(stockManagement.max ?? article.stockMax);
     const allowNegativeResolved = !!stockManagement.allowNegative;
     const blockInsufficientResolved =
       stockManagement.blockInsufficient === undefined || stockManagement.blockInsufficient === null
@@ -2278,14 +2325,13 @@
       fields.blockInsufficient.checked = blockInsufficientResolved && !allowNegativeResolved;
     }
     if (fields.alert) fields.alert.checked = stockAlertResolved;
-    setFieldValue(
-      fields.min,
-      String(Number.isFinite(stockMinResolved) && stockMinResolved >= 0 ? stockMinResolved : 1)
-    );
-    setFieldValue(
-      fields.max,
-      stockMaxResolved === null || stockMaxResolved === undefined ? "" : String(stockMaxResolved)
-    );
+    if (fields.alert instanceof HTMLElement) {
+      fields.alert.dataset.stockAlertChecked = stockAlertResolved ? "true" : "false";
+    }
+    cacheThresholdValue(fields.min, stockMinResolved);
+    cacheThresholdValue(fields.max, stockMaxResolved);
+    setFieldValue(fields.min, stockAlertResolved ? stockMinResolved : "");
+    setFieldValue(fields.max, stockAlertResolved ? stockMaxResolved : "");
 
     syncReadOnlyInfo(scope, {
       unit: article.unit ?? "",
@@ -2307,9 +2353,16 @@
     const articleScope = isArticleScope(scope);
     const allowNegative = !!fields.allowNegative?.checked;
     const alertEnabled = !!fields.alert?.checked;
-    const min = Math.max(0, getNumValue(fields.min, 1));
+    const minSource = alertEnabled
+      ? cacheThresholdValue(fields.min, fields.min?.value ?? "")
+      : getCachedThresholdValue(fields.min);
+    const minParsed = parseOptionalNumber(minSource);
+    const min = minParsed === null ? 0 : Math.max(0, minParsed);
     const max = (() => {
-      const parsed = parseOptionalNumber(fields.max?.value ?? "");
+      const maxSource = alertEnabled
+        ? cacheThresholdValue(fields.max, fields.max?.value ?? "")
+        : getCachedThresholdValue(fields.max);
+      const parsed = parseOptionalNumber(maxSource);
       return parsed === null ? null : Math.max(0, parsed);
     })();
     const selectedEmplacements = getSelectedLocationIds(fields.defaultLocation);
@@ -2393,7 +2446,7 @@
         ? payload.stockManagement
         : {};
     item.stockAlert = !!payload.stockAlert;
-    item.stockMin = Number.isFinite(Number(payload.stockMin)) ? Number(payload.stockMin) : 1;
+    item.stockMin = Number.isFinite(Number(payload.stockMin)) ? Number(payload.stockMin) : 0;
     item.stockMax = payload.stockMax ?? null;
     if (Object.prototype.hasOwnProperty.call(payload, "depotStockCustomized")) {
       item.depotStockCustomized = toBooleanFlag(payload.depotStockCustomized);

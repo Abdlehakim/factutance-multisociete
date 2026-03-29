@@ -26,7 +26,7 @@ const renderArticleStockAlertsSection = ({ idPrefix = "", preview = false } = {}
       <div class="grid two article-stock-panel__row">
         <div class="add-item-field">
           <label for="${id("addStockMin")}" class="label-text">Stock minimum</label>
-          <input id="${id("addStockMin")}" type="number" min="0" step="1" value="1"${panelNumberDisabledAttr} />
+          <input id="${id("addStockMin")}" type="number" min="0" step="1"${panelNumberDisabledAttr} />
         </div>
         <div class="add-item-field">
           <label for="${id("addStockMax")}" class="label-text">Stock maximum</label>
