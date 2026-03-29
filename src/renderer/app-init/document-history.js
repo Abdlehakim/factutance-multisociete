@@ -4022,13 +4022,16 @@
           const clientValueHtml = clientValueText
             ? `<span class="client-search__detail-value client-search__detail-value--with-copy"><span class="client-search__detail-text">${safeHtml(clientValueText)}</span><span class="client-search__detail-copy" role="button" tabindex="0" aria-label="${partyLabels.copyLabel}" title="${partyLabels.copyLabel}" data-doc-history-copy="client" data-doc-history-copy-value="${escapeAttr(clientCopyValue)}">${copyIconHtml}</span></span>`
             : `<span class="client-search__detail-value client-search__detail-value--with-copy"><span class="client-search__empty">N.R.</span>${disabledCopyButtonHtml}</span>`;
-          const codeClientValueHtml = codeClientRaw
-            ? safeHtml(codeClientRaw)
-            : '<span class="client-search__empty">N.R.</span>';
+          const codeClientCopyLabel = "Copier code client";
+          const codeClientCopyValue = codeClientRaw ? codeClientRaw : "";
+          const disabledCodeClientCopyButtonHtml = `<span class="client-search__detail-copy is-disabled" role="button" tabindex="0" aria-disabled="true" aria-label="${codeClientCopyLabel}" title="${codeClientCopyLabel}" data-doc-history-copy="client-code" data-doc-history-copy-value="">${copyIconHtml}</span>`;
+          const codeClientValueHtml = codeClientCopyValue
+            ? `<span class="client-search__detail-value client-search__detail-value--with-copy"><span class="client-search__detail-text">${safeHtml(codeClientCopyValue)}</span><span class="client-search__detail-copy" role="button" tabindex="0" aria-label="${codeClientCopyLabel}" title="${codeClientCopyLabel}" data-doc-history-copy="client-code" data-doc-history-copy-value="${escapeAttr(codeClientCopyValue)}">${copyIconHtml}</span></span>`
+            : `<span class="client-search__detail-value client-search__detail-value--with-copy"><span class="client-search__empty">N.R.</span>${disabledCodeClientCopyButtonHtml}</span>`;
           const clientHtml = `<div class="client-search__details-row">
                  <div class="client-search__detail client-search__detail--inline">
                    <span class="client-search__detail-label">Code client :</span>
-                   <span class="client-search__detail-value">${codeClientValueHtml}</span>
+                   ${codeClientValueHtml}
                  </div>
                  <div class="client-search__detail client-search__detail--inline">
                    <span class="client-search__detail-label">${clientLabel}</span>
