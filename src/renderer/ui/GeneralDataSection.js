@@ -899,7 +899,7 @@ export function renderGeneralDataSection() {
         <div class="client-import-modal__body swbDialog__msg">
           <p id="clientImportHint" class="client-import-modal__hint">
             Selectionnez un fichier Excel (XLSX) ou CSV contenant plusieurs clients.
-            Colonnes acceptees : Nom, Matricule fiscal (ou CIN / passeport), Type (Societe / personne morale (PM), Personne physique (PP), Particulier), Solde client initial, Telephone, Email, Adresse, Au profit de, Pour le compte de, Ref STEG.
+            Colonnes acceptees : Nom, Matricule fiscal (ou CIN / passeport), Type (Societe / personne morale (PM), Personne physique (PP), Particulier), Taxes (Non exon&eacute;r&eacute;e, Exon&eacute;r&eacute;e), Solde client initial, Telephone, Email, Adresse, Au profit de, Pour le compte de, Ref STEG.
           </p>
           <div class="client-import-modal__example" aria-hidden="true">
             <div class="client-import-modal__example-title">Exemple</div>
@@ -918,6 +918,7 @@ export function renderGeneralDataSection() {
                       <th>Nom</th>
                       <th>Matricule fiscal (ou CIN / passeport)</th>
                       <th>Type</th>
+                      <th>Taxes</th>
                       <th data-client-field="soldClient">
                         <span data-client-field-label="soldClient">Solde client initial</span>
                       </th>
@@ -940,6 +941,7 @@ export function renderGeneralDataSection() {
                       <td>Sarl Demo</td>
                       <td>IF123456</td>
                       <td>Societe / personne morale (PM)</td>
+                      <td>Non exon&eacute;r&eacute;e</td>
                       <td data-client-field="soldClient">1000</td>
                       <td>0612345678</td>
                       <td>demo@exemple.com</td>

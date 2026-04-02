@@ -56,6 +56,9 @@
     if (id === "clientType" && typeof w.syncClientTypeMenuUi === "function") {
       w.syncClientTypeMenuUi(v, { updateSelect: false });
     }
+    if (id === "clientTaxes" && typeof w.syncClientTaxesMenuUi === "function") {
+      w.syncClientTaxesMenuUi(v, { updateSelect: false });
+    }
   };
 
   const getStr = (id, def = "") => {

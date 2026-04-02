@@ -338,13 +338,33 @@
             const clientTypePanel = getEl("clientTypePanel");
             const clientTypeDisplay = getEl("clientTypeDisplay");
             const clientTypeToggle = clientTypeMenu?.querySelector("summary") || null;
+            const clientTaxesSelectEl = getEl("clientTaxes");
+            const clientTaxesMenu = getEl("clientTaxesMenu");
+            const clientTaxesPanel = getEl("clientTaxesPanel");
+            const clientTaxesDisplay = getEl("clientTaxesDisplay");
+            const clientTaxesToggle = clientTaxesMenu?.querySelector("summary") || null;
             const CLIENT_TYPE_LABELS = {
               societe: "Societe / personne morale",
               particulier: "Particulier",
               personne_physique: "Personne physique"
             };
+            const CLIENT_TAXES_LABELS = {
+              non_exonore: "Non exonérée",
+              exonore: "Exonérée"
+            };
             const normalizeClientTypeValue = (value) =>
               CLIENT_TYPE_LABELS[String(value || "").toLowerCase()] ? String(value || "").toLowerCase() : "societe";
+            const normalizeClientTaxesValue = (value) => {
+              const normalized = String(value || "")
+                .trim()
+                .toLowerCase()
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .replace(/[\s-]+/g, "_");
+              if (normalized === "exonoree" || normalized === "exoneree") return "exonore";
+              if (normalized === "non_exonoree" || normalized === "non_exoneree") return "non_exonore";
+              return CLIENT_TAXES_LABELS[normalized] ? normalized : "non_exonore";
+            };
 
             function syncClientTypeMenuUiLocal(value, { updateSelect = false, closeMenu = false } = {}) {
               const normalized = normalizeClientTypeValue(value);
@@ -374,6 +394,34 @@
               w.syncClientTypeMenuUi = syncClientTypeMenuUiLocal;
             }
 
+            function syncClientTaxesMenuUiLocal(value, { updateSelect = false, closeMenu = false } = {}) {
+              const normalized = normalizeClientTaxesValue(value);
+              if (updateSelect && clientTaxesSelectEl) {
+                clientTaxesSelectEl.value = normalized;
+              }
+              if (clientTaxesDisplay) {
+                clientTaxesDisplay.textContent = CLIENT_TAXES_LABELS[normalized];
+              }
+              if (clientTaxesPanel) {
+                clientTaxesPanel.querySelectorAll("[data-client-taxes-option]").forEach((btn) => {
+                  const isMatch = btn.dataset.clientTaxesOption === normalized;
+                  btn.classList.toggle("is-active", isMatch);
+                  btn.setAttribute("aria-selected", isMatch ? "true" : "false");
+                });
+              }
+              if (closeMenu && clientTaxesMenu && clientTaxesMenu.open) {
+                clientTaxesMenu.open = false;
+              }
+              if (clientTaxesToggle) {
+                clientTaxesToggle.setAttribute("aria-expanded", clientTaxesMenu?.open ? "true" : "false");
+              }
+              return normalized;
+            }
+
+            if (typeof w === "object") {
+              w.syncClientTaxesMenuUi = syncClientTaxesMenuUiLocal;
+            }
+
             clientTypeMenu?.addEventListener("toggle", () => {
               if (!clientTypeToggle) return;
               clientTypeToggle.setAttribute("aria-expanded", clientTypeMenu.open ? "true" : "false");
@@ -390,23 +438,57 @@
               clientTypeToggle?.focus();
             });
 
+            clientTaxesMenu?.addEventListener("toggle", () => {
+              if (!clientTaxesToggle) return;
+              clientTaxesToggle.setAttribute("aria-expanded", clientTaxesMenu.open ? "true" : "false");
+            });
+
+            clientTaxesPanel?.addEventListener("click", (evt) => {
+              const btn = evt.target.closest("[data-client-taxes-option]");
+              if (!btn) return;
+              evt.preventDefault();
+              const optionValue = btn.dataset.clientTaxesOption;
+              if (!optionValue) return;
+              syncClientTaxesMenuUiLocal(optionValue, { updateSelect: true, closeMenu: true });
+              clientTaxesSelectEl?.dispatchEvent(new Event("change", { bubbles: true }));
+              clientTaxesToggle?.focus();
+            });
+
             document.addEventListener("click", (evt) => {
               if (!clientTypeMenu?.open) return;
               if (clientTypeMenu.contains(evt.target)) return;
               clientTypeMenu.open = false;
               clientTypeToggle?.setAttribute("aria-expanded", "false");
             });
+            document.addEventListener("click", (evt) => {
+              if (!clientTaxesMenu?.open) return;
+              if (clientTaxesMenu.contains(evt.target)) return;
+              clientTaxesMenu.open = false;
+              clientTaxesToggle?.setAttribute("aria-expanded", "false");
+            });
 
             syncClientTypeMenuUiLocal(clientTypeSelectEl?.value || "societe");
+            syncClientTaxesMenuUiLocal(clientTaxesSelectEl?.value || "non_exonore");
 
-            clientTypeSelectEl?.addEventListener("change", () => {
+            clientTypeSelectEl?.addEventListener("change", (evt) => {
+              const currentTarget = evt.currentTarget instanceof HTMLElement ? evt.currentTarget : null;
               const normalized = normalizeClientTypeValue(
                 getStr("clientType", state().client.type || "societe")
               );
               state().client.type = normalized;
               syncClientTypeMenuUiLocal(normalized, { updateSelect: false });
               SEM.updateClientIdLabel();
-              SEM.evaluateClientDirtyState?.();
+              SEM.evaluateClientDirtyState?.(currentTarget);
+              refreshClientSummary();
+            });
+            clientTaxesSelectEl?.addEventListener("change", (evt) => {
+              const currentTarget = evt.currentTarget instanceof HTMLElement ? evt.currentTarget : null;
+              const normalized = normalizeClientTaxesValue(
+                getStr("clientTaxes", state().client.taxes || "non_exonore")
+              );
+              state().client.taxes = normalized;
+              syncClientTaxesMenuUiLocal(normalized, { updateSelect: false });
+              SEM.evaluateClientDirtyState?.(currentTarget);
               refreshClientSummary();
             });
             getEl("clientName")   ?.addEventListener("input", () => {
@@ -474,6 +556,7 @@
 
             const CLIENT_SNAPSHOT_FIELDS = [
               "type",
+              "taxes",
               "codeClient",
               "codeFournisseur",
               "codeTransporteur",
@@ -490,6 +573,7 @@
             ];
             const CLIENT_FORM_BASE_INPUT_IDS = [
               "clientType",
+              "clientTaxes",
               "clientCode",
               "clientName",
               "clientBeneficiary",
@@ -511,6 +595,7 @@
             const CLIENT_ENTITY_DIRECT_FIELD_IDS = {
               client: {
                 clientType: ["clientType"],
+                clientTaxes: ["clientTaxes"],
                 clientCode: ["clientCode"],
                 clientName: ["clientName"],
                 clientBeneficiary: ["clientBeneficiary"],
@@ -524,6 +609,7 @@
               },
               vendor: {
                 clientType: ["fournisseurType", "clientType"],
+                clientTaxes: ["fournisseurTaxes", "clientTaxes"],
                 clientCode: ["fournisseurCode", "clientCode"],
                 clientName: ["fournisseurName", "clientName"],
                 clientBeneficiary: ["fournisseurBeneficiary", "clientBeneficiary"],
@@ -537,6 +623,7 @@
               },
               transporter: {
                 clientType: ["transporteurType", "clientType"],
+                clientTaxes: ["transporteurTaxes", "clientTaxes"],
                 clientCode: ["transporteurCode", "clientCode"],
                 clientName: ["transporteurName", "clientName"],
                 clientBeneficiary: ["transporteurDriverName", "clientBeneficiary"],
@@ -718,6 +805,29 @@
                 toggle.setAttribute("aria-expanded", menu?.open ? "true" : "false");
               }
             };
+            const updateClientTaxesDisplayScoped = (scopeNode, taxesValue) => {
+              if (!scopeNode) return;
+              const resolvedTaxes = normalizeClientTaxesValue(taxesValue);
+              const displayText = CLIENT_TAXES_LABELS[resolvedTaxes] || CLIENT_TAXES_LABELS.non_exonore;
+              const displayEl = queryScopedClientFormElement(scopeNode, "clientTaxesDisplay");
+              if (displayEl) displayEl.textContent = displayText;
+              const panel = queryScopedClientFormElement(scopeNode, "clientTaxesPanel");
+              if (panel) {
+                panel.querySelectorAll("[data-client-taxes-option]").forEach((btn) => {
+                  const isMatch = btn.dataset.clientTaxesOption === resolvedTaxes;
+                  btn.classList.toggle("is-active", isMatch);
+                  btn.setAttribute("aria-selected", isMatch ? "true" : "false");
+                });
+              }
+              const menu = queryScopedClientFormElement(scopeNode, "clientTaxesMenu");
+              if (menu && menu.open) {
+                menu.open = false;
+              }
+              const toggle = menu?.querySelector("summary");
+              if (toggle) {
+                toggle.setAttribute("aria-expanded", menu?.open ? "true" : "false");
+              }
+            };
             const resolveScopedClientTypeMenu = (scopeOrMenu) => {
               if (
                 scopeOrMenu instanceof HTMLElement &&
@@ -755,6 +865,43 @@
               }
               return true;
             };
+            const resolveScopedClientTaxesMenu = (scopeOrMenu) => {
+              if (
+                scopeOrMenu instanceof HTMLElement &&
+                scopeOrMenu.matches?.("details.client-taxes-menu")
+              ) {
+                return scopeOrMenu;
+              }
+              return queryScopedClientFormElement(scopeOrMenu, "clientTaxesMenu");
+            };
+            const syncScopedClientTaxesMenuExpandedState = (scopeOrMenu) => {
+              const menu = resolveScopedClientTaxesMenu(scopeOrMenu);
+              if (!(menu instanceof HTMLElement)) return false;
+              const toggle = menu.querySelector("summary");
+              if (toggle instanceof HTMLElement) {
+                toggle.setAttribute("aria-expanded", menu.open ? "true" : "false");
+              }
+              return true;
+            };
+            const closeScopedClientTaxesMenu = (scopeOrMenu, { focusToggle = false } = {}) => {
+              const menu = resolveScopedClientTaxesMenu(scopeOrMenu);
+              if (!(menu instanceof HTMLElement)) return false;
+              if (menu.open) {
+                menu.open = false;
+              } else {
+                menu.removeAttribute("open");
+              }
+              const toggle = menu.querySelector("summary");
+              if (toggle instanceof HTMLElement) {
+                syncScopedClientTaxesMenuExpandedState(menu);
+                if (focusToggle) {
+                  try {
+                    toggle.focus();
+                  } catch {}
+                }
+              }
+              return true;
+            };
             const syncScopedClientTypeSelection = (scopeNode, typeValue) => {
               if (!scopeNode) return null;
               const normalized = normalizeClientTypeValue(typeValue);
@@ -776,14 +923,43 @@
               SEM.refreshClientActionButtons?.();
               return { normalized, select, snapshot };
             };
+            const syncScopedClientTaxesSelection = (scopeNode, taxesValue) => {
+              if (!scopeNode) return null;
+              const normalized = normalizeClientTaxesValue(taxesValue);
+              const select = queryScopedClientFormElement(scopeNode, "clientTaxes");
+              if (select) {
+                select.value = normalized;
+                if (select instanceof HTMLSelectElement) {
+                  Array.from(select.options).forEach((option) => {
+                    option.selected = option.value === normalized;
+                  });
+                }
+              }
+              updateClientTaxesDisplayScoped(scopeNode, normalized);
+              const snapshot = captureClientSnapshotFromScope(scopeNode);
+              snapshot.taxes = normalized;
+              applyClientSnapshotToState(snapshot, scopeNode);
+              evaluateClientDirtyFromSnapshot(snapshot, scopeNode);
+              SEM.refreshClientActionButtons?.();
+              return { normalized, select, snapshot };
+            };
             const findOpenClientTypeMenus = (rootNode = document) =>
               Array.from(rootNode?.querySelectorAll?.("details.client-type-menu[open]") || []).filter(
+                (menu) => menu instanceof HTMLElement && !!menu.closest?.(CLIENT_SCOPE_SELECTOR)
+              );
+            const findOpenClientTaxesMenus = (rootNode = document) =>
+              Array.from(rootNode?.querySelectorAll?.("details.client-taxes-menu[open]") || []).filter(
                 (menu) => menu instanceof HTMLElement && !!menu.closest?.(CLIENT_SCOPE_SELECTOR)
               );
             const captureClientSnapshotFromScope = (scopeNode) => {
               const currentState = resolveClientEntityDraft(scopeNode);
               const soldFallback = currentState.soldClient ?? "";
               const typeRaw = getClientFormValue(scopeNode, "clientType", currentState.type || "societe");
+              const taxesRaw = getClientFormValue(
+                scopeNode,
+                "clientTaxes",
+                currentState.taxes || "non_exonore"
+              );
               const entityType = resolveScopedClientEntityType(scopeNode);
               const fallbackCode =
                 entityType === "vendor"
@@ -796,6 +972,7 @@
               ).trim();
               const snapshot = {
                 type: normalizeClientTypeValue(typeRaw),
+                taxes: normalizeClientTaxesValue(taxesRaw),
                 codeClient: resolvedCode,
                 codeFournisseur: entityType === "vendor" ? resolvedCode : "",
                 codeTransporteur: entityType === "transporter" ? resolvedCode : "",
@@ -861,6 +1038,8 @@
               if (canonicalTargetId === "clientType") {
                 updateClientIdLabelScoped(formScope, snapshot.type);
                 updateClientTypeDisplayScoped(formScope, snapshot.type);
+              } else if (canonicalTargetId === "clientTaxes") {
+                updateClientTaxesDisplayScoped(formScope, snapshot.taxes);
               }
               evaluateClientDirtyFromSnapshot(snapshot, formScope);
               SEM.refreshClientActionButtons?.();
@@ -930,6 +1109,7 @@
               const entityType = resolveScopedClientEntityType(scopeNode);
               const blankClient = {
                 type: "societe",
+                taxes: "non_exonore",
                 codeClient: "",
                 codeFournisseur: "",
                 codeTransporteur: "",
@@ -1032,34 +1212,36 @@
                     control.setAttribute("aria-disabled", "false");
                   });
                 }
-                const typeMenu = queryScopedClientFormElement(ctx.popover, "clientTypeMenu");
-                const typeSummary = typeMenu?.querySelector("summary");
-                if (typeMenu?.open && isViewMode) {
-                  typeMenu.open = false;
-                }
-                if (typeSummary instanceof HTMLElement) {
-                  if (isViewMode) {
-                    typeSummary.dataset.clientReadonlyPrevTabIndex = String(typeSummary.tabIndex);
-                    typeSummary.tabIndex = -1;
-                    typeSummary.style.pointerEvents = "none";
-                    typeSummary.setAttribute("aria-disabled", "true");
-                  } else {
-                    const prevTabIndex = typeSummary.dataset.clientReadonlyPrevTabIndex;
-                    if (prevTabIndex !== undefined) {
-                      const parsedTabIndex = Number(prevTabIndex);
-                      if (Number.isFinite(parsedTabIndex)) {
-                        typeSummary.tabIndex = parsedTabIndex;
-                      } else {
-                        typeSummary.removeAttribute("tabindex");
-                      }
-                      delete typeSummary.dataset.clientReadonlyPrevTabIndex;
-                    } else {
-                      typeSummary.removeAttribute("tabindex");
-                    }
-                    typeSummary.style.pointerEvents = "";
-                    typeSummary.setAttribute("aria-disabled", "false");
+                const scopedMenus = ["clientTypeMenu", "clientTaxesMenu"];
+                scopedMenus.forEach((menuId) => {
+                  const menu = queryScopedClientFormElement(ctx.popover, menuId);
+                  const summary = menu?.querySelector("summary");
+                  if (menu?.open && isViewMode) {
+                    menu.open = false;
                   }
-                }
+                  if (!(summary instanceof HTMLElement)) return;
+                  if (isViewMode) {
+                    summary.dataset.clientReadonlyPrevTabIndex = String(summary.tabIndex);
+                    summary.tabIndex = -1;
+                    summary.style.pointerEvents = "none";
+                    summary.setAttribute("aria-disabled", "true");
+                    return;
+                  }
+                  const prevTabIndex = summary.dataset.clientReadonlyPrevTabIndex;
+                  if (prevTabIndex !== undefined) {
+                    const parsedTabIndex = Number(prevTabIndex);
+                    if (Number.isFinite(parsedTabIndex)) {
+                      summary.tabIndex = parsedTabIndex;
+                    } else {
+                      summary.removeAttribute("tabindex");
+                    }
+                    delete summary.dataset.clientReadonlyPrevTabIndex;
+                  } else {
+                    summary.removeAttribute("tabindex");
+                  }
+                  summary.style.pointerEvents = "";
+                  summary.setAttribute("aria-disabled", "false");
+                });
               }
               if (updateBtn) {
                 const hideUpdate =
@@ -1793,6 +1975,16 @@
             });
 
             document.addEventListener("click", (evt) => {
+              const summary = evt.target?.closest?.("details.client-taxes-menu > summary");
+              if (!(summary instanceof HTMLElement)) return;
+              const menu = summary.closest("details.client-taxes-menu");
+              if (!(menu instanceof HTMLElement)) return;
+              requestAnimationFrame(() => {
+                syncScopedClientTaxesMenuExpandedState(menu);
+              });
+            });
+
+            document.addEventListener("click", (evt) => {
               const optionBtn = evt.target?.closest?.("[data-client-type-option]");
               if (!optionBtn) return;
               const menu = optionBtn.closest("details.client-type-menu");
@@ -1811,6 +2003,25 @@
               closeScopedClientTypeMenu(menu, { focusToggle: true });
             });
 
+            document.addEventListener("click", (evt) => {
+              const optionBtn = evt.target?.closest?.("[data-client-taxes-option]");
+              if (!optionBtn) return;
+              const menu = optionBtn.closest("details.client-taxes-menu");
+              const scopeNode = menu?.closest(CLIENT_SCOPE_SELECTOR) || optionBtn.closest(CLIENT_SCOPE_SELECTOR);
+              if (!scopeNode) return;
+              evt.preventDefault();
+              const synced = syncScopedClientTaxesSelection(
+                scopeNode,
+                optionBtn.dataset.clientTaxesOption
+              );
+              const select = synced?.select || null;
+              if (select) {
+                select.dispatchEvent(new Event("input", { bubbles: true }));
+                select.dispatchEvent(new Event("change", { bubbles: true }));
+              }
+              closeScopedClientTaxesMenu(menu, { focusToggle: true });
+            });
+
             document.addEventListener("change", (evt) => {
               const target = evt.target;
               if (!(target instanceof HTMLSelectElement)) return;
@@ -1820,12 +2031,30 @@
               syncScopedClientTypeSelection(scopeNode, target.value);
             });
 
+            document.addEventListener("change", (evt) => {
+              const target = evt.target;
+              if (!(target instanceof HTMLSelectElement)) return;
+              if (toCanonicalClientFormId(target.id) !== "clientTaxes") return;
+              const scopeNode = target.closest(CLIENT_SCOPE_SELECTOR);
+              if (!scopeNode) return;
+              syncScopedClientTaxesSelection(scopeNode, target.value);
+            });
+
             document.addEventListener("click", (evt) => {
               const target = evt.target instanceof Element ? evt.target : null;
               if (!target) return;
               findOpenClientTypeMenus(document).forEach((menu) => {
                 if (menu.contains(target)) return;
                 closeScopedClientTypeMenu(menu);
+              });
+            });
+
+            document.addEventListener("click", (evt) => {
+              const target = evt.target instanceof Element ? evt.target : null;
+              if (!target) return;
+              findOpenClientTaxesMenus(document).forEach((menu) => {
+                if (menu.contains(target)) return;
+                closeScopedClientTaxesMenu(menu);
               });
             });
 
@@ -2044,13 +2273,19 @@
                         field.classList?.remove("is-invalid", "has-error", "input-error");
                       });
                   };
-                  const hardResetScopedInputs = (container, blankType = "societe") => {
+                  const hardResetScopedInputs = (container, blankType = "societe", blankTaxes = "non_exonore") => {
                     if (!container?.querySelectorAll) return;
                     container.querySelectorAll("input, textarea, select").forEach((field) => {
                       if (!(field instanceof HTMLElement)) return;
                       if (field instanceof HTMLSelectElement) {
                         if (field.id === "clientType" || field.id === "fournisseurType") {
                           field.value = blankType;
+                        } else if (
+                          field.id === "clientTaxes" ||
+                          field.id === "fournisseurTaxes" ||
+                          field.id === "transporteurTaxes"
+                        ) {
+                          field.value = blankTaxes;
                         } else if (field.options.length > 0) {
                           field.selectedIndex = 0;
                         } else {
@@ -2064,12 +2299,20 @@
                         field.checked = false;
                         return;
                       }
+                      if (
+                        field.id === "fournisseurTaxes" ||
+                        field.id === "transporteurTaxes"
+                      ) {
+                        field.value = blankTaxes;
+                        return;
+                      }
                       field.value = "";
                     });
                   };
                   const entityType = resolveScopedClientEntityType(targetScope);
                   const blankClient = {
                     type: "societe",
+                    taxes: "non_exonore",
                     codeClient: "",
                     codeFournisseur: "",
                     codeTransporteur: "",
@@ -2085,7 +2328,7 @@
                     __path: "",
                     __entityType: entityType
                   };
-                  hardResetScopedInputs(targetScope, blankClient.type);
+                  hardResetScopedInputs(targetScope, blankClient.type, blankClient.taxes);
                   if (SEM.forms?.fillClientToForm && !useScope) {
                     SEM.forms.fillClientToForm(blankClient);
                   } else {
@@ -2122,7 +2365,7 @@
                   if (SEM.evaluateClientDirtyState) SEM.evaluateClientDirtyState(targetScope);
                   const popoverCtx = getClientFormPopoverContext(targetScope);
                   if (popoverCtx) {
-                    hardResetScopedInputs(popoverCtx.popover, blankClient.type);
+                    hardResetScopedInputs(popoverCtx.popover, blankClient.type, blankClient.taxes);
                     syncClientFormFields(blankClient, popoverCtx.popover);
                     clearValidationState(popoverCtx.popover);
                     setClientFormPopoverMode(popoverCtx, "create");

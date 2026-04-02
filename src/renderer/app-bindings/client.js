@@ -11,6 +11,24 @@
     const normalized = String(value || "").toLowerCase();
     return normalized === "particulier" || normalized === "personne_physique" ? normalized : "societe";
   };
+  const normalizeClientTaxesValue = (value, fallback = "non_exonore") => {
+    const normalized = String(value || "")
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+    if (normalized === "exonore" || normalized === "exonoree" || normalized === "exoneree") {
+      return "exonore";
+    }
+    if (
+      normalized === "non_exonore" ||
+      normalized === "non_exonoree" ||
+      normalized === "non_exoneree"
+    ) {
+      return "non_exonore";
+    }
+    return fallback;
+  };
   const formatSoldClientValue = (value) => {
     const cleaned = String(value ?? "").replace(",", ".").trim();
     if (!cleaned) return "";
@@ -21,6 +39,7 @@
 
   const CLIENT_SNAPSHOT_FIELDS = [
     "type",
+    "taxes",
     "codeClient",
     "codeFournisseur",
     "codeTransporteur",
@@ -52,12 +71,14 @@
   };
   const CLIENT_SNAPSHOT_FIELD_STATE_KEYS = {
     clientType: "type",
+    clientTaxes: "taxes",
     ...CLIENT_CONTENT_FIELD_STATE_KEYS
   };
   const CLIENT_CONTENT_FIELD_IDS = Object.keys(CLIENT_CONTENT_FIELD_STATE_KEYS);
   const CLIENT_ENTITY_FORM_FIELD_IDS = {
     client: {
       clientType: ["clientType"],
+      clientTaxes: ["clientTaxes"],
       clientCode: ["clientCode"],
       clientName: ["clientName"],
       clientBeneficiary: ["clientBeneficiary"],
@@ -71,6 +92,7 @@
     },
     vendor: {
       clientType: ["fournisseurType", "clientType"],
+      clientTaxes: ["fournisseurTaxes", "clientTaxes"],
       clientCode: ["fournisseurCode", "clientCode"],
       clientName: ["fournisseurName", "clientName"],
       clientBeneficiary: ["fournisseurBeneficiary", "clientBeneficiary"],
@@ -84,6 +106,7 @@
     },
     transporter: {
       clientType: ["transporteurType", "clientType"],
+      clientTaxes: ["transporteurTaxes", "clientTaxes"],
       clientCode: ["transporteurCode", "clientCode"],
       clientName: ["transporteurName", "clientName"],
       clientBeneficiary: ["transporteurDriverName", "clientBeneficiary"],
@@ -99,6 +122,7 @@
   const CLIENT_ENTITY_ID_ALIASES = {
     vendor: {
       clientType: "fournisseurType",
+      clientTaxes: "fournisseurTaxes",
       clientCode: "fournisseurCode",
       clientName: "fournisseurName",
       clientBeneficiary: "fournisseurBeneficiary",
@@ -116,6 +140,7 @@
     },
     transporter: {
       clientType: "transporteurType",
+      clientTaxes: "transporteurTaxes",
       clientCode: "transporteurCode",
       clientName: "transporteurName",
       clientBeneficiary: "transporteurDriverName",
@@ -335,9 +360,13 @@
     const target = {};
     CLIENT_SNAPSHOT_FIELDS.forEach((field) => {
       let value = source?.[field];
-      if (value === undefined || value === null) value = "";
-      value = String(value);
-      if (field !== "__path") value = value.trim();
+      if (field === "taxes") {
+        value = normalizeClientTaxesValue(value, "non_exonore");
+      } else {
+        if (value === undefined || value === null) value = "";
+        value = String(value);
+        if (field !== "__path") value = value.trim();
+      }
       target[field] = value;
     });
     return target;
@@ -601,6 +630,10 @@
     const resolvedCode = String(readValue("clientCode") || fallbackCode).trim();
     return {
       type: normalizedType,
+      taxes: normalizeClientTaxesValue(
+        readValue("clientTaxes") || currentState.taxes || "non_exonore",
+        "non_exonore"
+      ),
       codeClient: resolvedCode,
       codeFournisseur: entityType === "vendor" ? resolvedCode : "",
       codeTransporteur: entityType === "transporter" ? resolvedCode : "",
@@ -1217,14 +1250,14 @@
     if (!baseline?.__path) {
       SEM.clientFormDirty = false;
       setEntityFormDirty(baselineEntityType, false);
-      SEM.refreshUpdateClientButton();
+      SEM.refreshUpdateClientButton(scopeHint);
       return;
     }
     const current = getCurrentClientSnapshot(scopeHint);
     const dirty = CLIENT_SNAPSHOT_FIELDS.some((field) => current[field] !== baseline[field]);
     SEM.clientFormDirty = dirty;
     setEntityFormDirty(baselineEntityType, dirty);
-    SEM.refreshUpdateClientButton();
+    SEM.refreshUpdateClientButton(scopeHint);
   };
 
   SEM.updateClientIdLabel = function () {

@@ -27,6 +27,10 @@
     personne_physique: "Personne physique (PP)",
     particulier: "Particulier"
   };
+  const CLIENT_TAXES_LABELS = {
+    non_exonore: "Non exon\u00e9r\u00e9e",
+    exonore: "Exon\u00e9r\u00e9e"
+  };
   const EXPORT_FORMAT_LABELS = {
     xlsx: "XLSX",
     csv: "CSV"
@@ -53,6 +57,25 @@
     return "societe";
   };
   const resolveTypeLabel = (value) => CLIENT_TYPE_LABELS[normalizeType(value)] || CLIENT_TYPE_LABELS.societe;
+  const normalizeTaxes = (value) => {
+    const key = normalizeText(value)
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[\s-]+/g, "_");
+    if (key === "exonore" || key === "exoneree") return "exonore";
+    if (
+      key === "non_exonore" ||
+      key === "non_exonoree" ||
+      key === "nonexonore" ||
+      key === "nonexoneree"
+    ) {
+      return "non_exonore";
+    }
+    return "non_exonore";
+  };
+  const resolveTaxesLabel = (value) =>
+    CLIENT_TAXES_LABELS[normalizeTaxes(value)] || CLIENT_TAXES_LABELS.non_exonore;
 
   const resolveVisibility = () => {
     const current = state().clientFieldVisibility;
@@ -105,7 +128,7 @@
   };
 
   const buildExportRows = (clients, visibility, labels) => {
-    const headers = ["Nom", "Matricule fiscal", "Type"];
+    const headers = ["Nom", "Matricule fiscal", "Type", "Taxes"];
     if (visibility.soldClient !== false) headers.push(labels.soldClient || CLIENT_EXPORT_DEFAULT_LABELS.soldClient);
     headers.push("Telephone", "Email", "Adresse");
     if (visibility.benefit !== false) headers.push(labels.benefit || CLIENT_EXPORT_DEFAULT_LABELS.benefit);
@@ -114,10 +137,12 @@
 
     const rows = clients.map((entry) => {
       const client = entry?.client || {};
+      const taxesValue = client.taxes ?? client.taxesStatus ?? client.taxes_status ?? entry?.taxes;
       const base = [
         normalizeText(client.name || ""),
         resolveIdentifier(client),
-        resolveTypeLabel(client.type)
+        resolveTypeLabel(client.type),
+        resolveTaxesLabel(taxesValue)
       ];
       if (visibility.soldClient !== false) base.push(resolveSoldClient(client));
       base.push(
@@ -352,6 +377,7 @@
                     <th>Nom</th>
                     <th>Matricule fiscal (ou CIN / passeport)</th>
                     <th>Type</th>
+                    <th>Taxes</th>
                     <th data-client-field="soldClient">
                       <span data-client-field-label="soldClient">Solde client initial</span>
                     </th>
@@ -374,6 +400,7 @@
                     <td>Sarl Demo</td>
                     <td>IF123456</td>
                     <td>Societe / personne morale (PM)</td>
+                    <td>Non exon\u00e9r\u00e9e</td>
                     <td data-client-field="soldClient">1000</td>
                     <td>0612345678</td>
                     <td>demo@exemple.com</td>

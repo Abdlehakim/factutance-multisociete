@@ -3052,6 +3052,7 @@
       if (!scope) return;
       const CLIENT_VENDOR_FORM_ID_ALIASES = {
         clientType: "fournisseurType",
+        clientTaxes: "fournisseurTaxes",
         clientTypeLabel: "fournisseurTypeLabel",
         clientTypeMenu: "fournisseurTypeMenu",
         clientTypeDisplay: "fournisseurTypeDisplay",
@@ -3095,9 +3096,22 @@
       const st = SEM?.state || w.state || {};
       const client = st?.client || {};
       const normalize = (value) => (value ?? "").toString();
+      const normalizeClientTaxesValue = (value, fallback = "non_exonore") => {
+        const normalized = String(value || "")
+          .trim()
+          .toLowerCase()
+          .replace(/[éèêë]/g, "e");
+        if (normalized === "exonore" || normalized === "exoneree") return "exonore";
+        if (normalized === "non_exonore" || normalized === "non_exonoree") return "non_exonore";
+        return String(fallback || "").trim().toLowerCase() === "exonore" ? "exonore" : "non_exonore";
+      };
       const typeRaw = String(client.type || "").toLowerCase();
       const type =
         typeRaw === "particulier" || typeRaw === "personne_physique" ? typeRaw : "societe";
+      const taxes = normalizeClientTaxesValue(
+        client.taxes ?? client.taxesStatus ?? client.taxes_status,
+        "non_exonore"
+      );
       const isParticulier = type === "particulier";
       const setScopedVal = (id, value) => {
         const target = queryScopedClientField(id);
@@ -3106,6 +3120,7 @@
         }
       };
       setScopedVal("clientType", type);
+      setScopedVal("clientTaxes", taxes);
       setScopedVal("clientName", normalize(client.name));
       setScopedVal("clientBeneficiary", normalize(client.benefit || client.beneficiary || ""));
       setScopedVal("clientAccount", normalize(client.account || ""));
@@ -3159,6 +3174,27 @@
       const toggle = menu?.querySelector("summary");
       if (toggle) {
         toggle.setAttribute("aria-expanded", menu?.open ? "true" : "false");
+      }
+
+      const taxesDisplayEl = queryScopedClientField("clientTaxesDisplay");
+      if (taxesDisplayEl) {
+        taxesDisplayEl.textContent = taxes === "exonore" ? "Exonérée" : "Non exonérée";
+      }
+      const taxesPanel = queryScopedClientField("clientTaxesPanel");
+      if (taxesPanel) {
+        taxesPanel.querySelectorAll("[data-client-taxes-option]").forEach((btn) => {
+          const isMatch = btn.dataset.clientTaxesOption === taxes;
+          btn.classList.toggle("is-active", isMatch);
+          btn.setAttribute("aria-selected", isMatch ? "true" : "false");
+        });
+      }
+      const taxesMenu = queryScopedClientField("clientTaxesMenu");
+      if (taxesMenu && taxesMenu.open) {
+        taxesMenu.open = false;
+      }
+      const taxesToggle = taxesMenu?.querySelector("summary");
+      if (taxesToggle) {
+        taxesToggle.setAttribute("aria-expanded", taxesMenu?.open ? "true" : "false");
       }
 
       if (typeof SEM?.refreshClientActionButtons === "function") {

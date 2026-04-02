@@ -1451,6 +1451,15 @@
           syncClientFormFields = (client = {}, formScope = null) => {
             const scopeNode = normalizeClientFormScope(formScope);
             const resolvedEntityType = resolveClientEntityType(scopeNode);
+            const normalizeClientTaxesValue = (value, fallback = "non_exonore") => {
+              const normalized = String(value || "")
+                .trim()
+                .toLowerCase()
+                .replace(/[éèêë]/g, "e");
+              if (normalized === "exonore" || normalized === "exoneree") return "exonore";
+              if (normalized === "non_exonore" || normalized === "non_exonoree") return "non_exonore";
+              return String(fallback || "").trim().toLowerCase() === "exonore" ? "exonore" : "non_exonore";
+            };
             const setScopedVal = (id, value = "") => {
               const canonicalId = toCanonicalClientFormId(id);
               const target = queryScopedClientFormElement(scopeNode, canonicalId);
@@ -1493,7 +1502,12 @@
               resolvedEntityType === "vendor" && typeResolved === "particulier"
                 ? "personne_physique"
                 : typeResolved;
+            const taxes = normalizeClientTaxesValue(
+              client.taxes ?? client.taxesStatus ?? client.taxes_status,
+              "non_exonore"
+            );
             setScopedVal("clientType", type);
+            setScopedVal("clientTaxes", taxes);
             setScopedVal(
               "clientCode",
               norm(client.codeClient || client.code_client || client.code)
@@ -1520,6 +1534,9 @@
               if (typeof updateClientTypeDisplayScoped === "function") {
                 updateClientTypeDisplayScoped(scopeNode, type);
               }
+              if (typeof updateClientTaxesDisplayScoped === "function") {
+                updateClientTaxesDisplayScoped(scopeNode, taxes);
+              }
             } else if (SEM.updateClientIdLabel) {
               SEM.updateClientIdLabel();
             }
@@ -1532,10 +1549,23 @@
               resolveClientEntityType(normalizeClientFormScope(options.formScope)) ||
               clientSavedModalEntityType ||
               "client";
+            const normalizeClientTaxesValue = (value, fallback = "non_exonore") => {
+              const normalized = String(value || "")
+                .trim()
+                .toLowerCase()
+                .replace(/[éèêë]/g, "e");
+              if (normalized === "exonore" || normalized === "exoneree") return "exonore";
+              if (normalized === "non_exonore" || normalized === "non_exonoree") return "non_exonore";
+              return String(fallback || "").trim().toLowerCase() === "exonore" ? "exonore" : "non_exonore";
+            };
+            const normalizedTaxes = normalizeClientTaxesValue(
+              client.taxes ?? client.taxesStatus ?? client.taxes_status,
+              "non_exonore"
+            );
             const st = SEM.state || (SEM.state = {});
             const setEntityState = SEM.__bindingHelpers?.setEntityClientFormState;
             if (typeof setEntityState === "function") {
-              setEntityState(entityType, { ...client, __entityType: entityType });
+              setEntityState(entityType, { ...client, taxes: normalizedTaxes, __entityType: entityType });
             }
             const shouldMirrorHelper = SEM.__bindingHelpers?.shouldMirrorEntityClientStateToDocument;
             const shouldMirror =
@@ -1545,7 +1575,7 @@
                   ? !!shouldMirrorHelper(normalizeClientFormScope(options.formScope))
                   : false;
             if (!shouldMirror) return;
-            st.client = { ...(st.client || {}), ...client, __entityType: entityType };
+            st.client = { ...(st.client || {}), ...client, taxes: normalizedTaxes, __entityType: entityType };
             const targetVat =
               client.vat ||
               client.identifiantFiscal ||

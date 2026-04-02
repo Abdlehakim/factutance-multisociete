@@ -1825,6 +1825,7 @@ function buildBonEntreePreviewTitle(stateInput) {
               if (el && value !== undefined && value !== null) el.value = String(value);
             };
             setIfPresent("clientType", clientLoaded.type || "societe");
+            setIfPresent("clientTaxes", clientLoaded.taxes || "non_exonore");
             setIfPresent("clientName", clientLoaded.name || "");
             setIfPresent(
               "clientVat",

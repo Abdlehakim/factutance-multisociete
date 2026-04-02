@@ -128,6 +128,7 @@ ${particulierSelectOption}
         </div>
       </div>
       <div class="client-form-modal__actions swbDialog__actions">
+        <input id="fournisseurTaxes" type="hidden" value="non_exonore" />
         <div class="swbDialog__group swbDialog__group--left">
           <button
             id="fournisseurFormPopoverCancel"

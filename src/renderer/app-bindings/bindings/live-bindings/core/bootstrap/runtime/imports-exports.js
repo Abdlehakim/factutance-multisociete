@@ -143,7 +143,8 @@
                 label: labels.allowParticulier ? "Matricule fiscal (ou CIN / passeport)" : "Matricule fiscal",
                 sample: "IF123456"
               },
-              { key: "type", label: "Type", sample: "Societe / personne morale (PM)" }
+              { key: "type", label: "Type", sample: "Societe / personne morale (PM)" },
+              { key: "taxes", label: "Taxes", sample: "Non exon\u00e9r\u00e9e" }
             ];
             if (scopedVisibility.soldClient !== false) {
               columns.push({
@@ -220,9 +221,10 @@
                 const typeHint = labels.allowParticulier
                   ? "Type (Societe / personne morale (PM), Personne physique (PP), Particulier)"
                   : "Type (Societe / personne morale (PM), Personne physique (PP))";
+                const taxesHint = "Taxes (Non exon\u00e9r\u00e9e, Exon\u00e9r\u00e9e)";
                 clientImportHint.textContent =
                   `Selectionnez un fichier Excel (XLSX) ou CSV contenant plusieurs ${labels.plural}. ` +
-                  `Colonnes acceptees : Nom, Matricule fiscal${labels.allowParticulier ? " (ou CIN / passeport pour Particulier)" : ""}, ${typeHint}, Telephone, Email, Adresse` +
+                  `Colonnes acceptees : Nom, Matricule fiscal${labels.allowParticulier ? " (ou CIN / passeport pour Particulier)" : ""}, ${typeHint}, ${taxesHint}, Telephone, Email, Adresse` +
                   `${extraHint}.`;
               }
             }
@@ -592,6 +594,10 @@
             type: "type",
             typeclient: "type",
             typefournisseur: "type",
+            taxes: "taxes",
+            taxe: "taxes",
+            statustaxes: "taxes",
+            taxstatus: "taxes",
             identifiant: "vat",
             identifiantfiscal: "vat",
             identifiantfiscaltva: "vat",
@@ -711,6 +717,7 @@
             }
             if (key.includes("passeport") || key.includes("passport")) return "passeport";
             if (key.includes("cin")) return "cin";
+            if (key.includes("taxes") || key.includes("taxe") || key.includes("exoner")) return "taxes";
             if (key.includes("type")) return "type";
             if (key.includes("profit") || key.includes("benefic")) return "benefit";
             if (key.includes("compte") || key.includes("account")) return "account";
@@ -730,6 +737,13 @@
               return "personne_physique";
             }
             return "societe";
+          };
+          normalizeClientImportTaxes = (value, fallback = "non_exonore") => {
+            const key = normalizeImportHeaderKey(value);
+            if (!key) return fallback;
+            if (key === "exoneree" || key === "exonore") return "exonore";
+            if (key === "nonexoneree" || key === "nonexonore") return "non_exonore";
+            return "";
           };
           isLikelyCinValue = (value) => {
             const trimmed = String(value || "").trim();
@@ -1132,7 +1146,7 @@
               result.errors.push(
                 clientImportModalState.entityType === "transporter"
                   ? "Colonnes non reconnues. Utilisez: Nom, Nom du chauffeur, Matricule vehicule, Mode de transport, Telephone, Email, Adresse."
-                  : "Colonnes non reconnues. Utilisez: Nom, Matricule fiscal (ou CIN / passeport), Telephone, Email, Adresse, Type, Au profit de, Pour le compte de, Ref STEG."
+                  : "Colonnes non reconnues. Utilisez: Nom, Matricule fiscal (ou CIN / passeport), Type, Taxes (Non exon\u00e9r\u00e9e, Exon\u00e9r\u00e9e), Telephone, Email, Adresse, Au profit de, Pour le compte de, Ref STEG."
               );
               return result;
             }
@@ -1187,8 +1201,20 @@
                 data.type,
                 clientImportModalState.entityType
               );
+              const hasTaxesValue = !!normalizeImportValue(data.taxes);
+              const clientTaxes = normalizeClientImportTaxes(
+                data.taxes,
+                hasTaxesValue ? "" : "non_exonore"
+              );
+              if (hasTaxesValue && !clientTaxes) {
+                result.errors.push(
+                  `Ligne ${i + 1}: Taxes invalide. Utilisez \"Non exon\u00e9r\u00e9e\" ou \"Exon\u00e9r\u00e9e\".`
+                );
+                continue;
+              }
               const client = {
                 type: clientType,
+                taxes: clientTaxes || "non_exonore",
                 name,
                 phone: data.phone || "",
                 email: data.email || "",

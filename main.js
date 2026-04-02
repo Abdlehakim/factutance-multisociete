@@ -2237,6 +2237,15 @@ async function handleLanApiRequest(req, res, url, pathname, requestContext = {})
           const limit = Number.isFinite(limitValue) && limitValue > 0 ? Math.floor(limitValue) : null;
           const offset = Math.max(0, Number(offsetRaw) || 0);
           const results = FactDb.searchClients({ query, entityType, limit, offset });
+          if (results?.error) {
+            sendLanServerJson(res, 200, {
+              ok: false,
+              error: results.error,
+              results: Array.isArray(results.results) ? results.results : [],
+              total: Number(results.total) || 0
+            });
+            return;
+          }
           sendLanServerJson(res, 200, { ok: true, results: results.results, total: results.total });
           return;
         } catch (err) {
@@ -3175,6 +3184,14 @@ ipcMain.handle("clients:search", async (_evt, payload = {}) => {
       limit,
       offset
     });
+    if (results?.error) {
+      return {
+        ok: false,
+        error: results.error,
+        results: Array.isArray(results.results) ? results.results : [],
+        total: Number(results.total) || 0
+      };
+    }
     return { ok: true, results: results.results, total: results.total };
   } catch (e) {
     return { ok: false, error: String(e?.message || e) };

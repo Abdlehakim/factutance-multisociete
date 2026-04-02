@@ -28,6 +28,7 @@ const ARTICLE_DEPOT_GENERIC_NAME_CLEANUP_KEY = "migration_article_depot_generic_
 const MAX_ARTICLE_DEPOT_COUNT = 6;
 const ARTICLE_DEPOTS_JSON_VERSION = 1;
 const CLIENT_PATH_PREFIX = "sqlite://clients/";
+const CLIENT_TAXES_DB_DEFAULT = "non_exoneree";
 const DEPOT_PATH_PREFIX = "sqlite://depots/";
 const ARTICLE_PATH_PREFIX = "sqlite://articles/";
 const DOCUMENT_PATH_PREFIX = "sqlite://documents/";
@@ -163,7 +164,9 @@ const ensureTables = (db) => {
   alignSchema(db, {
     tables: ["articles", "depot_magasin", "depot_magasin_emplacement"]
   });
+  ensureClientTaxesColumnCompatibility(db);
   runLegacyDataMigrations(db);
+  ensureClientTaxesColumnCompatibility(db);
   ensureClientBalanceTriggers(db);
   ensurePaymentHistoryBalanceTriggers(db);
 };
@@ -199,6 +202,14 @@ const getCachedTableColumns = (db, table) => {
   }
   tableCache.set(safeTable, names);
   return names;
+};
+
+const invalidateTableColumnCache = (db, table) => {
+  const safeTable = String(table || "").trim();
+  if (!db || !safeTable) return;
+  const tableCache = dbTableColumnCache.get(db);
+  if (!tableCache) return;
+  tableCache.delete(safeTable);
 };
 
 const filterRowEntriesByTableColumns = (db, table, row = {}) => {
@@ -351,6 +362,7 @@ const migrateLegacyClients = (db) => {
       code_fournisseur,
       code_transporteur,
       client_type,
+      taxes,
       benefit,
       account,
       account_normalized,
@@ -368,7 +380,7 @@ const migrateLegacyClients = (db) => {
       created_at,
       updated_at
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `
   );
   const tx = db.transaction(() => {
@@ -427,6 +439,7 @@ const migrateLegacyClients = (db) => {
         normalizedCodeFournisseur || null,
         normalizedCodeTransporteur || null,
         normalizedClient.clientType || null,
+        normalizedClient.taxes || "non_exonore",
         normalizedClient.benefit || null,
         normalizedClient.account || null,
         accountValue || null,
@@ -666,13 +679,40 @@ const migrateClientFieldsToColumns = (db) => {
   if (!tableExists(db, "client_fields")) return;
   const fieldRowCount = db.prepare("SELECT COUNT(1) AS count FROM client_fields").get()?.count || 0;
   if (fieldRowCount <= 0) return;
+  const hasTaxesColumn = tableHasColumn(db, "clients", "taxes");
+  const taxesSelectSql = hasTaxesColumn ? "taxes" : "NULL AS taxes";
   const rows = db
     .prepare(
-      "SELECT id, type, name, code_client, code_fournisseur, code_transporteur, legacy_path, created_at, updated_at FROM clients"
+      `SELECT id, type, name, code_client, code_fournisseur, code_transporteur, ${taxesSelectSql}, legacy_path, created_at, updated_at FROM clients`
     )
     .all();
   const update = db.prepare(
-    `
+    hasTaxesColumn
+      ? `
+    UPDATE clients SET
+      name = ?,
+      code_client = ?,
+      code_fournisseur = ?,
+      code_transporteur = ?,
+      client_type = ?,
+      taxes = ?,
+      benefit = ?,
+      account = ?,
+      account_normalized = ?,
+      vat = ?,
+      identifiant_fiscal = ?,
+      cin = ?,
+      passport = ?,
+      steg_ref = ?,
+      phone = ?,
+      email = ?,
+      address = ?,
+      sold_client = ?,
+      search_text = ?,
+      updated_at = ?
+    WHERE id = ?
+  `
+      : `
     UPDATE clients SET
       name = ?,
       code_client = ?,
@@ -699,7 +739,7 @@ const migrateClientFieldsToColumns = (db) => {
   const tx = db.transaction(() => {
     rows.forEach((row) => {
       const data = loadFieldRows(db, "client_fields", "client_id", row.id);
-      const normalized = normalizeClientRecord(data, row.type);
+      const normalized = normalizeClientRecord({ ...data, taxes: data.taxes ?? row.taxes }, row.type);
       const normalizedEntityType = normalizeClientEntityType(row.type);
       const accountValue = normalizeAccountValue(normalized.account);
       const normalizedCodeClient = normalizeClientCodeValue(
@@ -751,28 +791,54 @@ const migrateClientFieldsToColumns = (db) => {
         normalized.soldClient
       ]);
       const nameValue = row.name || normalized.name || "client";
-      update.run(
-        nameValue,
-        normalizedCodeClient || null,
-        normalizedCodeFournisseur || null,
-        normalizedCodeTransporteur || null,
-        normalized.clientType || null,
-        normalized.benefit || null,
-        normalized.account || null,
-        accountValue || null,
-        normalized.vat || null,
-        normalized.identifiantFiscal || null,
-        normalized.cin || null,
-        normalized.passport || null,
-        normalized.stegRef || null,
-        normalized.phone || null,
-        normalized.email || null,
-        normalized.address || null,
-        normalized.soldClient || null,
-        searchText || null,
-        row.updated_at || new Date().toISOString(),
-        row.id
-      );
+      if (hasTaxesColumn) {
+        update.run(
+          nameValue,
+          normalizedCodeClient || null,
+          normalizedCodeFournisseur || null,
+          normalizedCodeTransporteur || null,
+          normalized.clientType || null,
+          normalized.taxes || "non_exonore",
+          normalized.benefit || null,
+          normalized.account || null,
+          accountValue || null,
+          normalized.vat || null,
+          normalized.identifiantFiscal || null,
+          normalized.cin || null,
+          normalized.passport || null,
+          normalized.stegRef || null,
+          normalized.phone || null,
+          normalized.email || null,
+          normalized.address || null,
+          normalized.soldClient || null,
+          searchText || null,
+          row.updated_at || new Date().toISOString(),
+          row.id
+        );
+      } else {
+        update.run(
+          nameValue,
+          normalizedCodeClient || null,
+          normalizedCodeFournisseur || null,
+          normalizedCodeTransporteur || null,
+          normalized.clientType || null,
+          normalized.benefit || null,
+          normalized.account || null,
+          accountValue || null,
+          normalized.vat || null,
+          normalized.identifiantFiscal || null,
+          normalized.cin || null,
+          normalized.passport || null,
+          normalized.stegRef || null,
+          normalized.phone || null,
+          normalized.email || null,
+          normalized.address || null,
+          normalized.soldClient || null,
+          searchText || null,
+          row.updated_at || new Date().toISOString(),
+          row.id
+        );
+      }
     });
   });
   tx();
@@ -1080,6 +1146,26 @@ const cleanupStoredGenericArticleDepotNames = (db) => {
   tx(rows);
 };
 
+const ensureClientTaxesColumnCompatibility = (db) => {
+  if (!db || !tableExists(db, "clients")) return false;
+  try {
+    if (!tableHasColumn(db, "clients", "taxes")) {
+      db.exec(
+        `ALTER TABLE ${quoteSqlIdentifier("clients")} ADD COLUMN ${quoteSqlIdentifier("taxes")} TEXT DEFAULT '${CLIENT_TAXES_DB_DEFAULT}'`
+      );
+      invalidateTableColumnCache(db, "clients");
+    }
+    if (!tableHasColumn(db, "clients", "taxes")) return false;
+    db.prepare("UPDATE clients SET taxes = ? WHERE taxes IS NULL OR TRIM(taxes) = ''").run(
+      CLIENT_TAXES_DB_DEFAULT
+    );
+    return true;
+  } catch (err) {
+    console.warn("clients taxes compatibility migration failed", err);
+    return false;
+  }
+};
+
 const runLegacyDataMigrations = (db) => {
   try {
     migrateLegacyClients(db);
@@ -1132,6 +1218,29 @@ const normalizeClientProfileType = (value) => {
     return "societe";
   }
   return normalized;
+};
+
+const normalizeClientTaxesValue = (value, fallback = "non_exonore") => {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[\s-]+/g, "_");
+  if (normalized === "exonore" || normalized === "exonoree" || normalized === "exoneree") {
+    return "exonore";
+  }
+  if (
+    normalized === "non_exonore" ||
+    normalized === "nonexonore" ||
+    normalized === "non_exonoree" ||
+    normalized === "nonexonoree" ||
+    normalized === "non_exoneree" ||
+    normalized === "nonexoneree"
+  ) {
+    return "non_exonore";
+  }
+  return String(fallback || "").trim().toLowerCase() === "exonore" ? "exonore" : "non_exonore";
 };
 
 const buildSearchText = (values = []) =>
@@ -1513,6 +1622,10 @@ const normalizeClientRecord = (client = {}, entityType = "client") => {
   const isTransporter = normalizedEntityType === "transporter";
   const isVendor = normalizedEntityType === "vendor";
   const isClient = normalizedEntityType === "client";
+  const normalizedTaxes = normalizeClientTaxesValue(
+    client.taxes ?? client.taxesStatus ?? client.taxes_status,
+    "non_exonore"
+  );
   if (isTransporter) {
     const codeTransporteur = normalizeEntityCodeValue(
       client.codeTransporteur ||
@@ -1554,7 +1667,8 @@ const normalizeClientRecord = (client = {}, entityType = "client") => {
       phone: normalizeTextValue(client.phone || client.telephone || client.tel),
       email: normalizeTextValue(client.email),
       address: normalizeTextValue(client.address),
-      soldClient: ""
+      soldClient: "",
+      taxes: normalizedTaxes
     };
   }
   const codeFournisseur = isVendor
@@ -1602,7 +1716,8 @@ const normalizeClientRecord = (client = {}, entityType = "client") => {
     phone: normalizeTextValue(client.phone || client.telephone || client.tel),
     email: normalizeTextValue(client.email),
     address: normalizeTextValue(client.address),
-    soldClient: normalizeClientBalanceValue(client.soldClient)
+    soldClient: normalizeClientBalanceValue(client.soldClient),
+    taxes: normalizedTaxes
   };
 };
 
@@ -1641,7 +1756,8 @@ const hydrateClientFromRow = (row = {}) => {
     phone: row.phone || "",
     email: row.email || "",
     address: row.address || "",
-    soldClient: row.sold_client ?? ""
+    soldClient: row.sold_client ?? "",
+    taxes: normalizeClientTaxesValue(row.taxes, "non_exonore")
   };
   if (entityType === "transporter") {
     return {
@@ -2519,6 +2635,10 @@ const normalizeDocumentPayload = (payload = {}, { docType = "" } = {}) => {
         ? (client.codeClient || client.code_client || client.code)
         : "")
   );
+  const clientTaxesSnapshot = normalizeClientTaxesValue(
+    client.taxes ?? client.taxesStatus ?? client.taxes_status,
+    "non_exonore"
+  );
   const reglement = meta.reglement && typeof meta.reglement === "object" ? meta.reglement : {};
   const wh = meta.withholding && typeof meta.withholding === "object" ? meta.withholding : {};
   const financing = meta.financing && typeof meta.financing === "object" ? meta.financing : {};
@@ -2603,6 +2723,7 @@ const normalizeDocumentPayload = (payload = {}, { docType = "" } = {}) => {
     client_path: normalizeOptionalText(clientPath),
     client_id: normalizeOptionalText(clientId),
     client_type: normalizeOptionalText(client.type),
+    client_taxes: normalizeOptionalText(clientTaxesSnapshot),
     client_name: normalizeOptionalText(client.name),
     client_code: isSupplierDoc ? null : clientCodeSnapshot,
     client_code_fournisseur: isSupplierDoc ? supplierCodeSnapshot : null,
@@ -2942,6 +3063,7 @@ const buildDocumentPayloadFromRow = (row = {}, items = [], taxRows = []) => {
   const client = {
     __path: readTextValue(row.client_path),
     type: readTextValue(row.client_type),
+    taxes: normalizeClientTaxesValue(readTextValue(row.client_taxes), "non_exonore"),
     name: readTextValue(row.client_name),
     codeClient: resolvedClientCode,
     codeFournisseur: resolvedSupplierCode,
@@ -4067,6 +4189,7 @@ const persistClientRecord = ({
   codeFournisseur,
   codeTransporteur,
   clientType,
+  taxes,
   benefit,
   account,
   accountNormalized,
@@ -4085,84 +4208,98 @@ const persistClientRecord = ({
   updatedAt
 }) => {
   const db = initDatabase();
-  db
-    .prepare(
-      `
+  const hasTaxesColumn =
+    ensureClientTaxesColumnCompatibility(db) || tableHasColumn(db, "clients", "taxes");
+  const normalizedTaxes = normalizeClientTaxesValue(taxes, "non_exonore");
+  const columns = [
+    "id",
+    "type",
+    "name",
+    "code_client",
+    "code_fournisseur",
+    "code_transporteur",
+    "client_type",
+    "benefit",
+    "account",
+    "account_normalized",
+    "vat",
+    "identifiant_fiscal",
+    "cin",
+    "passport",
+    "steg_ref",
+    "phone",
+    "email",
+    "address",
+    "sold_client",
+    "search_text",
+    "legacy_path",
+    "created_at",
+    "updated_at"
+  ];
+  const values = [
+    id,
+    type,
+    name,
+    codeClient || null,
+    codeFournisseur || null,
+    codeTransporteur || null,
+    clientType || null,
+    benefit || null,
+    account || null,
+    accountNormalized || null,
+    vat || null,
+    identifiantFiscal || null,
+    cin || null,
+    passport || null,
+    stegRef || null,
+    phone || null,
+    email || null,
+    address || null,
+    soldClient || null,
+    searchText,
+    legacyPath || null,
+    createdAt,
+    updatedAt
+  ];
+  const updateAssignments = [
+    "type = excluded.type",
+    "name = excluded.name",
+    "code_client = COALESCE(excluded.code_client, clients.code_client)",
+    "code_fournisseur = COALESCE(excluded.code_fournisseur, clients.code_fournisseur)",
+    "code_transporteur = COALESCE(excluded.code_transporteur, clients.code_transporteur)",
+    "client_type = excluded.client_type",
+    "benefit = excluded.benefit",
+    "account = excluded.account",
+    "account_normalized = excluded.account_normalized",
+    "vat = excluded.vat",
+    "identifiant_fiscal = excluded.identifiant_fiscal",
+    "cin = excluded.cin",
+    "passport = excluded.passport",
+    "steg_ref = excluded.steg_ref",
+    "phone = excluded.phone",
+    "email = excluded.email",
+    "address = excluded.address",
+    "sold_client = excluded.sold_client",
+    "search_text = excluded.search_text",
+    "legacy_path = COALESCE(excluded.legacy_path, clients.legacy_path)",
+    "updated_at = excluded.updated_at"
+  ];
+  if (hasTaxesColumn) {
+    const insertAt = columns.indexOf("client_type") + 1;
+    columns.splice(insertAt, 0, "taxes");
+    values.splice(insertAt, 0, normalizedTaxes);
+    updateAssignments.splice(updateAssignments.indexOf("benefit = excluded.benefit"), 0, "taxes = excluded.taxes");
+  }
+  const placeholders = columns.map(() => "?").join(", ");
+  const sql = `
       INSERT INTO clients (
-        id,
-        type,
-        name,
-        code_client,
-        code_fournisseur,
-        code_transporteur,
-        client_type,
-        benefit,
-        account,
-        account_normalized,
-        vat,
-        identifiant_fiscal,
-        cin,
-        passport,
-        steg_ref,
-        phone,
-        email,
-        address,
-        sold_client,
-        search_text,
-        legacy_path,
-        created_at,
-        updated_at
+        ${columns.join(",\n        ")}
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (${placeholders})
       ON CONFLICT(id) DO UPDATE SET
-        type = excluded.type,
-        name = excluded.name,
-        code_client = COALESCE(excluded.code_client, clients.code_client),
-        code_fournisseur = COALESCE(excluded.code_fournisseur, clients.code_fournisseur),
-        code_transporteur = COALESCE(excluded.code_transporteur, clients.code_transporteur),
-        client_type = excluded.client_type,
-        benefit = excluded.benefit,
-        account = excluded.account,
-        account_normalized = excluded.account_normalized,
-        vat = excluded.vat,
-        identifiant_fiscal = excluded.identifiant_fiscal,
-        cin = excluded.cin,
-        passport = excluded.passport,
-        steg_ref = excluded.steg_ref,
-        phone = excluded.phone,
-        email = excluded.email,
-        address = excluded.address,
-        sold_client = excluded.sold_client,
-        search_text = excluded.search_text,
-        legacy_path = COALESCE(excluded.legacy_path, clients.legacy_path),
-        updated_at = excluded.updated_at
-    `
-    )
-    .run(
-      id,
-      type,
-      name,
-      codeClient || null,
-      codeFournisseur || null,
-      codeTransporteur || null,
-      clientType || null,
-      benefit || null,
-      account || null,
-      accountNormalized || null,
-      vat || null,
-      identifiantFiscal || null,
-      cin || null,
-      passport || null,
-      stegRef || null,
-      phone || null,
-      email || null,
-      address || null,
-      soldClient || null,
-      searchText,
-      legacyPath || null,
-      createdAt,
-      updatedAt
-    );
+        ${updateAssignments.join(",\n        ")}
+    `;
+  db.prepare(sql).run(...values);
 };
 
 const saveClient = ({ client = {}, entityType = "client", suggestedName = "", id, legacyPath } = {}) => {
@@ -4273,6 +4410,7 @@ const saveClient = ({ client = {}, entityType = "client", suggestedName = "", id
         codeFournisseur: persistedCodeFournisseur,
         codeTransporteur: persistedCodeTransporteur,
         clientType: normalizedClient.clientType,
+        taxes: normalizedClient.taxes || "non_exonore",
         benefit: normalizedClient.benefit,
         account: normalizedClient.account,
         accountNormalized: accountValue,
@@ -4370,7 +4508,11 @@ const updateClient = ({
   if (!id) throw new Error("Client ID requis.");
   const record = getClientById(parseClientIdFromPath(id) || id);
   if (!record) throw new Error("Client introuvable.");
-  const merged = { ...record.client, ...client };
+  const mergedTaxes = normalizeClientTaxesValue(
+    client?.taxes ?? client?.taxesStatus ?? client?.taxes_status ?? record.client?.taxes,
+    "non_exonore"
+  );
+  const merged = { ...record.client, ...client, taxes: mergedTaxes };
   const previousSold = parseBalanceValue(record.client?.soldClient ?? 0);
   const nextSold = parseBalanceValue(merged?.soldClient ?? 0);
   const deltaRaw = nextSold - previousSold;
@@ -4511,6 +4653,7 @@ const adjustClientSold = ({
 const getClientById = (id) => {
   if (!id) return null;
   const db = initDatabase();
+  ensureClientTaxesColumnCompatibility(db);
   const loadedRow = db.prepare("SELECT * FROM clients WHERE id = ?").get(id);
   if (!loadedRow) return null;
   const row = ensureClientCodeForRow(db, loadedRow);
@@ -4535,6 +4678,7 @@ const deleteClient = (id) => {
 
 const searchClients = ({ query = "", limit, offset, entityType } = {}) => {
   const db = initDatabase();
+  ensureClientTaxesColumnCompatibility(db);
   const normalizedQuery = String(query || "").trim().toLowerCase();
   const normalizedEntityType = entityType ? normalizeClientEntityType(entityType) : "";
   const params = [];
@@ -4586,43 +4730,65 @@ const searchClients = ({ query = "", limit, offset, entityType } = {}) => {
     whereClause = `WHERE ${clauses.join(" AND ")}`;
   }
   const countSql = `SELECT COUNT(*) as total FROM clients ${whereClause}`;
-  const total = db.prepare(countSql).get(...params)?.total || 0;
-  const parts = [
-    "SELECT id, type, name, code_client, code_fournisseur, code_transporteur, client_type, benefit, account, vat, identifiant_fiscal, cin, passport, steg_ref, phone, email, address, sold_client, updated_at, created_at FROM clients",
-    whereClause,
-    "ORDER BY updated_at DESC"
-  ];
-  if (Number.isFinite(limit) && limit > 0) {
-    parts.push("LIMIT ?");
-    params.push(limit);
-  }
-  if (Number.isFinite(offset) && offset > 0) {
-    parts.push("OFFSET ?");
-    params.push(offset);
-  }
-  const rows = db.prepare(parts.join(" ")).all(...params);
+  try {
+    const total = db.prepare(countSql).get(...params)?.total || 0;
+    const hasTaxesColumn = tableHasColumn(db, "clients", "taxes");
+    const taxesSelectSql = hasTaxesColumn
+      ? "taxes"
+      : `'${CLIENT_TAXES_DB_DEFAULT}' AS taxes`;
+    const buildRows = (taxesProjectionSql) => {
+      const statementParams = [...params];
+      const parts = [
+        `SELECT id, type, name, code_client, code_fournisseur, code_transporteur, client_type, ${taxesProjectionSql}, benefit, account, vat, identifiant_fiscal, cin, passport, steg_ref, phone, email, address, sold_client, updated_at, created_at FROM clients`,
+        whereClause,
+        "ORDER BY updated_at DESC"
+      ];
+      if (Number.isFinite(limit) && limit > 0) {
+        parts.push("LIMIT ?");
+        statementParams.push(limit);
+      }
+      if (Number.isFinite(offset) && offset > 0) {
+        parts.push("OFFSET ?");
+        statementParams.push(offset);
+      }
+      return db.prepare(parts.join(" ")).all(...statementParams);
+    };
+    let rows = [];
+    try {
+      rows = buildRows(taxesSelectSql);
+    } catch (error) {
+      if (!/no such column:\s*taxes/i.test(String(error?.message || error || ""))) {
+        throw error;
+      }
+      console.warn("client search fallback: missing clients.taxes column", error);
+      rows = buildRows(`'${CLIENT_TAXES_DB_DEFAULT}' AS taxes`);
+    }
     const results = rows.map((rawRow) => {
       const row = ensureClientCodeForRow(db, rawRow);
       const data = hydrateClientFromRow(row);
       return {
-      id: row.id,
-      name: row.name || data.name || "",
-      entityType: row.type,
-      identifier: buildClientIdentifier(data),
-      codeClient: data.codeClient || "",
-      codeFournisseur: data.codeFournisseur || "",
-      codeTransporteur: data.codeTransporteur || "",
-      email: data.email || "",
-      phone: data.phone || data.telephone || data.tel || "",
-      path: formatClientPath(row.id),
-      fileName: row.name || data.name || "",
+        id: row.id,
+        name: row.name || data.name || "",
+        entityType: row.type,
+        identifier: buildClientIdentifier(data),
+        codeClient: data.codeClient || "",
+        codeFournisseur: data.codeFournisseur || "",
+        codeTransporteur: data.codeTransporteur || "",
+        email: data.email || "",
+        phone: data.phone || data.telephone || data.tel || "",
+        path: formatClientPath(row.id),
+        fileName: row.name || data.name || "",
         modifiedMs: Date.parse(row.updated_at || row.created_at || "") || 0,
         client: data
       };
     });
     applyClientFactureCounts(results, db);
     return { results, total };
-  };
+  } catch (error) {
+    console.warn("searchClients failed; returning empty result set", error);
+    return { results: [], total: 0, error: String(error?.message || error || "search failed") };
+  }
+};
 
 const getClientIdByLegacyPath = (legacyPath) => {
   if (!legacyPath) return null;

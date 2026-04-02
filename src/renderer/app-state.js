@@ -209,6 +209,15 @@
     }
     return fallback;
   };
+  const normalizeClientTaxesValue = (value, fallback = "non_exonore") => {
+    const normalized = String(value || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[éèêë]/g, "e");
+    if (normalized === "exonore" || normalized === "exoneree") return "exonore";
+    if (normalized === "non_exonore" || normalized === "non_exonoree") return "non_exonore";
+    return fallback;
+  };
   const normalizeDocType = (raw) => {
     const t = String(raw || "").trim().toLowerCase();
     const faAliases = ["fa", "factureachat", "facture-achat", "facture_achat", "facture d'achat", "facture dachat", "facture achat"];
@@ -812,6 +821,7 @@
     const base = jsonCloneOr(BASE_CLIENT_DEFAULT, {}) || {};
     const template = {
       type: "societe",
+      taxes: "non_exonore",
       name: "",
       email: "",
       phone: "",
@@ -825,6 +835,7 @@
     client.phone = String(client.phone || "");
     client.address = String(client.address || "");
     client.vat = String(client.vat || "");
+    client.taxes = normalizeClientTaxesValue(client.taxes, "non_exonore");
     client.__path = "";
     delete client.__dirty;
     return client;
@@ -1292,6 +1303,10 @@
       if (clientSnapshot.__path || st.client.__path) {
         st.client.__path = clientSnapshot.__path || st.client.__path || "";
       }
+      st.client.taxes = normalizeClientTaxesValue(
+        clientSnapshot.taxes ?? st.client.taxes,
+        "non_exonore"
+      );
     } else {
       st.client.type    = getStr("clientType", st.client.type || "societe");
       st.client.name    = getStr("clientName", st.client.name);
@@ -1299,6 +1314,10 @@
       st.client.phone   = getStr("clientPhone", st.client.phone);
       st.client.vat     = getStr("clientVat", st.client.vat);
       st.client.address = getStr("clientAddress", st.client.address);
+      st.client.taxes = normalizeClientTaxesValue(
+        getStr("clientTaxes", st.client.taxes || "non_exonore"),
+        "non_exonore"
+      );
     }
 
     const wh =

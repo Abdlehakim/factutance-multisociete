@@ -22,7 +22,7 @@ export const renderClientFormPopover = () => `
       </div>
       <div class="client-form-modal__body swbDialog__msg">
         <div class="grid two">
-          <label class="full client-type-field doc-type-field">
+          <label class="client-type-field doc-type-field">
             <span id="clientTypeLabel">Type de client</span>
             <div class="client-type-field__controls doc-type-field__controls">
               <details id="clientTypeMenu" class="field-toggle-menu client-type-menu doc-type-menu">
@@ -75,6 +75,52 @@ export const renderClientFormPopover = () => `
                 <option value="societe" selected>Societe / personne morale</option>
                 <option value="personne_physique">Personne physique</option>
                 <option value="particulier">Particulier</option>
+              </select>
+            </div>
+          </label>
+          <label class="client-type-field doc-type-field">
+            <span id="clientTaxesLabel">Taxes</span>
+            <div class="client-type-field__controls doc-type-field__controls">
+              <details id="clientTaxesMenu" class="field-toggle-menu client-taxes-menu doc-type-menu">
+                <summary
+                  class="btn success field-toggle-trigger"
+                  role="button"
+                  aria-haspopup="listbox"
+                  aria-expanded="false"
+                  aria-labelledby="clientTaxesLabel clientTaxesDisplay"
+                >
+                  <span id="clientTaxesDisplay">Non exonérée</span>
+                  <svg class="chevron" aria-hidden="true" focusable="false" stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="none" d="M0 0h24v24H0V0z"></path><path d="M12 4c4.41 0 8 3.59 8 8s-3.59 8-8 8-8-3.59-8-8 3.59-8 8-8m0-2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 13-4-4h8z"></path></svg>
+                </summary>
+                <div
+                  id="clientTaxesPanel"
+                  class="field-toggle-panel model-select-panel client-taxes-panel doc-type-panel"
+                  role="listbox"
+                  aria-labelledby="clientTaxesLabel"
+                >
+                  <button
+                    type="button"
+                    class="model-select-option is-active"
+                    data-client-taxes-option="non_exonore"
+                    role="option"
+                    aria-selected="true"
+                  >
+                    Non exonérée
+                  </button>
+                  <button
+                    type="button"
+                    class="model-select-option"
+                    data-client-taxes-option="exonore"
+                    role="option"
+                    aria-selected="false"
+                  >
+                    Exonérée
+                  </button>
+                </div>
+              </details>
+              <select id="clientTaxes" class="client-type-select doc-type-select" aria-hidden="true" tabindex="-1">
+                <option value="non_exonore" selected>Non exonérée</option>
+                <option value="exonore">Exonérée</option>
               </select>
             </div>
           </label>

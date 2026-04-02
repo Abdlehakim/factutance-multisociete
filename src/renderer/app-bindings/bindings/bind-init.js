@@ -183,6 +183,7 @@
       const skipClientInputs = options?.skipClientInputs === true;
       if (!skipClientInputs) {
         setVal("clientType",  st.client.type || "societe");
+        setVal("clientTaxes", st.client.taxes || "non_exonore");
         setVal("clientCode", st.client.codeClient || "");
         setVal("clientName",  st.client.name);
         setVal("clientBeneficiary", st.client.benefit);

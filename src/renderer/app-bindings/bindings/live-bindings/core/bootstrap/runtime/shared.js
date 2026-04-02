@@ -98,6 +98,7 @@
           CLIENT_ENTITY_ID_ALIASES = {
             vendor: {
               clientType: "fournisseurType",
+              clientTaxes: "fournisseurTaxes",
               clientCode: "fournisseurCode",
               clientTypeLabel: "fournisseurTypeLabel",
               clientTypeMenu: "fournisseurTypeMenu",
@@ -119,6 +120,7 @@
             },
             transporter: {
               clientType: "transporteurType",
+              clientTaxes: "transporteurTaxes",
               clientCode: "transporteurCode",
               clientName: "transporteurName",
               clientBeneficiary: "transporteurDriverName",
@@ -1073,7 +1075,7 @@
                   resolveScopedClientFieldLabel("vehiclePlate", entityType, labels),
                   resolveScopedClientFieldLabel("transportMode", entityType, labels)
                 ]
-              : ["Nom", "Matricule fiscal (ou CIN / passeport)", "Type"];
+              : ["Nom", "Matricule fiscal (ou CIN / passeport)", "Type", "Taxes"];
             if (!isTransporter && visibility?.soldClient !== false) {
               headers.push(resolveScopedClientFieldLabel("soldClient", entityType, labels));
             }

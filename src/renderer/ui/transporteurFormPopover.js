@@ -79,6 +79,7 @@ export const renderTransporteurFormPopover = ({ includeParticulier = false } = {
         <input id="transporteurType" type="hidden" value="societe" />
         <input id="transporteurVat" type="hidden" value="" />
         <input id="transporteurSoldClient" type="hidden" value="" />
+        <input id="transporteurTaxes" type="hidden" value="non_exonore" />
         <div class="swbDialog__group swbDialog__group--left">
           <button
             id="transporteurFormPopoverCancel"

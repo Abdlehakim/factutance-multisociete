@@ -2,7 +2,7 @@
   const w = globalScope || {};
 
   const APP_NAME = "Facturance";
-  const APP_VERSION = "v2.3.3";
+  const APP_VERSION = "v2.3.4";
   const TODAY = new Date().toISOString().slice(0, 10);
   const DUE = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
 
@@ -66,6 +66,7 @@ function getBrandedCompanyName() {
     codeClient: "",
     codeFournisseur: "",
     codeTransporteur: "",
+    taxes: "non_exonore",
     name: "",
     email: "",
     phone: "",

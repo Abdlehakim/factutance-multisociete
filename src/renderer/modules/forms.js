@@ -317,6 +317,15 @@
     }
     return "";
   }
+  function normalizeClientTaxesValue(value, fallback = "non_exonore") {
+    const normalized = String(value || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[éèêë]/g, "e");
+    if (normalized === "exonore" || normalized === "exoneree") return "exonore";
+    if (normalized === "non_exonore" || normalized === "non_exonoree") return "non_exonore";
+    return fallback;
+  }
   function captureClientFromForm(scopeHint = null) {
     const scopeNode = resolveClientFormCaptureScope(scopeHint);
     if (typeof w.SEM?.getClientFormSnapshot === "function") {
@@ -364,6 +373,16 @@
     const currentPath = w.SEM?.state?.client?.__path || "";
     return {
       type: readScopedClientValue(scopeNode, typeIds) || "societe",
+      taxes: normalizeClientTaxesValue(
+        readScopedClientValue(
+          scopeNode,
+          isVendor
+            ? ["fournisseurTaxes", "clientTaxes"]
+            : isTransporter
+              ? ["transporteurTaxes", "clientTaxes"]
+              : ["clientTaxes", "fournisseurTaxes", "transporteurTaxes"]
+        ) || "non_exonore"
+      ),
       codeClient: readScopedClientValue(
         scopeNode,
         isVendor
@@ -418,6 +437,7 @@
   }
   function fillClientToForm(c = {}) {
     setVal("clientType", c.type ?? "societe"); setVal("clientName", c.name ?? "");
+    setVal("clientTaxes", normalizeClientTaxesValue(c.taxes ?? c.taxesStatus ?? "non_exonore"));
     setVal("clientCode", c.codeClient ?? c.code_client ?? c.code ?? "");
     setVal(
       "fournisseurCode",
@@ -426,6 +446,14 @@
     setVal(
       "transporteurCode",
       c.codeTransporteur ?? c.code_transporteur ?? c.codeClient ?? c.code_client ?? c.code ?? ""
+    );
+    setVal(
+      "fournisseurTaxes",
+      normalizeClientTaxesValue(c.taxes ?? c.taxesStatus ?? "non_exonore")
+    );
+    setVal(
+      "transporteurTaxes",
+      normalizeClientTaxesValue(c.taxes ?? c.taxesStatus ?? "non_exonore")
     );
     setVal("clientVat", c.vat ?? ""); setVal("clientPhone", c.phone ?? "");
     setVal("clientEmail", c.email ?? ""); setVal("clientAddress", c.address ?? "");
