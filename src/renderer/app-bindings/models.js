@@ -227,8 +227,20 @@
     return fallback;
   };
   const normalizeTemplateKey = (value) => {
-    const normalized = String(value || "").trim();
-    return normalized || TEMPLATE_DEFAULT_KEY;
+    const raw = String(value || "").trim().toLowerCase();
+    if (!raw) return TEMPLATE_DEFAULT_KEY;
+    const normalized = raw.replace(/[\s_-]+/g, "");
+    if (normalized === "template2" || normalized === "wellcom" || normalized === "welcome") {
+      return "template2";
+    }
+    if (
+      normalized === "template1" ||
+      normalized === "facturence" ||
+      normalized === "facturance"
+    ) {
+      return "template1";
+    }
+    return TEMPLATE_DEFAULT_KEY;
   };
   const readCssHexVar = (name) => {
     try {
@@ -827,14 +839,31 @@
     });
   }
 
+  function applyDocumentTemplate(value, options = {}) {
+    const normalized = normalizeTemplateKey(value);
+    const updateState = options?.updateState !== false;
+    if (updateState) {
+      const st = typeof state === "function" ? state() : null;
+      if (st?.meta && typeof st.meta === "object") {
+        st.meta.template = normalized;
+      }
+      if (st && typeof st === "object") {
+        st.template = normalized;
+      }
+    }
+    syncTemplateStyles(normalized);
+    syncItemsSectionTemplate(normalized);
+    return normalized;
+  }
+  helpers.applyDocumentTemplate = applyDocumentTemplate;
+
   function applyTemplatePreview(value, options = {}) {
     const doc = w?.document;
     if (!doc) return;
     const normalized = normalizeTemplateKey(value);
     const applyToDocument = options?.applyToDocument === true;
     if (applyToDocument) {
-      syncTemplateStyles(normalized);
-      syncItemsSectionTemplate(normalized);
+      applyDocumentTemplate(normalized);
     }
     const currentPreview = doc.querySelector(".model-actions-layout__preview");
     if (!currentPreview) return;

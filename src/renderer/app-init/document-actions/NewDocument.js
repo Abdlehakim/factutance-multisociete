@@ -6466,18 +6466,54 @@
       });
     }
 
-    function resolveItemsModalCurrentModelName(metaBox) {
+    function pickItemsModalModelName(...values) {
+      for (const value of values) {
+        const nextValue = sanitizeModelSeed(value || "");
+        if (nextValue) return nextValue;
+      }
+      return "";
+    }
+
+    function syncItemsModalSavedModelMeta(modelName) {
+      const nextModel = sanitizeModelSeed(modelName || "");
+      if (!nextModel) return "";
       const meta = getInvoiceMeta() || {};
+      if (!meta || typeof meta !== "object") return nextModel;
+      meta.documentModelName = nextModel;
+      meta.docDialogModelName = nextModel;
+      meta.modelName = nextModel;
+      meta.modelKey = nextModel;
+      return nextModel;
+    }
+
+    function resolveItemsModalCurrentModelName(metaBox, { preferredModelName = "" } = {}) {
+      const meta = getInvoiceMeta() || {};
+      const stateMeta =
+        SEM?.state?.meta && typeof SEM.state.meta === "object"
+          ? SEM.state.meta
+          : (w.state?.meta && typeof w.state.meta === "object" ? w.state.meta : {});
       const selectValue = String(
         metaBox?.querySelector?.(`#${ITEMS_MODAL_MODEL_SELECT_ID}`)?.value || ""
       ).trim();
-      return sanitizeModelSeed(
-        meta.documentModelName ||
-          meta.docDialogModelName ||
-          meta.modelName ||
-          meta.modelKey ||
-          selectValue ||
-          ""
+      const activePanelValue = String(
+        metaBox
+          ?.querySelector?.(
+            `#${ITEMS_MODAL_MODEL_PANEL_ID} .model-select-option.is-active, #${ITEMS_MODAL_MODEL_PANEL_ID} .model-select-option[aria-selected='true']`
+          )
+          ?.dataset?.value || ""
+      ).trim();
+      return pickItemsModalModelName(
+        preferredModelName,
+        meta.documentModelName,
+        meta.docDialogModelName,
+        meta.modelName,
+        meta.modelKey,
+        stateMeta.documentModelName,
+        stateMeta.docDialogModelName,
+        stateMeta.modelName,
+        stateMeta.modelKey,
+        selectValue,
+        activePanelValue
       );
     }
 
@@ -6543,16 +6579,25 @@
         available: true
       }));
       const previousModel = sanitizeModelSeed(modelSelect.value || "");
-      const inferred = inferItemsModalModelNameFromState(normalizedDocType);
-      const preferred = sanitizeModelSeed(
-        preferredModelName || resolveItemsModalCurrentModelName(metaBox) || inferred
-      );
-      const preferredKey = normalizeItemsModalModelKey(preferred);
-      const selectedMatch = options.find(
-        (entry) => normalizeItemsModalModelKey(entry?.name || "") === preferredKey
-      );
-      const nextModel = selectedMatch?.name || "";
-      const displayModelName = nextModel || preferred || "";
+      const preferred = resolveItemsModalCurrentModelName(metaBox, { preferredModelName });
+      const inferred = preferred ? "" : inferItemsModalModelNameFromState(normalizedDocType);
+      const resolvedSeed = pickItemsModalModelName(preferred, inferred);
+      const resolvedSeedKey = normalizeItemsModalModelKey(resolvedSeed);
+      const hasSavedModelSeed = !!normalizeItemsModalModelKey(preferred);
+      const selectedMatch = resolvedSeedKey
+        ? options.find((entry) => normalizeItemsModalModelKey(entry?.name || "") === resolvedSeedKey)
+        : null;
+      const previousKey = normalizeItemsModalModelKey(previousModel);
+      const previousMatch =
+        !selectedMatch && previousKey
+          ? options.find((entry) => normalizeItemsModalModelKey(entry?.name || "") === previousKey)
+          : null;
+      const fallbackMatch =
+        !selectedMatch && !resolvedSeed && autoSelectFallback
+          ? previousMatch || options[0] || null
+          : null;
+      const nextModel = sanitizeModelSeed(selectedMatch?.name || fallbackMatch?.name || "");
+      const displayModelName = nextModel;
       const showModelField = syncItemsModalModelFieldVisibility(metaBox);
 
       itemsModalModelSelectSyncing = true;
@@ -6576,6 +6621,9 @@
         modelSelect.disabled = !showModelField || !options.length;
         modelSelect.setAttribute("aria-disabled", modelSelect.disabled ? "true" : "false");
         modelSelect.value = nextModel || "";
+        if (selectedMatch && hasSavedModelSeed) {
+          syncItemsModalSavedModelMeta(selectedMatch.name || nextModel);
+        }
         syncItemsModalModelMenuUi(metaBox, {
           menuOptions: options,
           selectedModel: modelSelect.value || "",
@@ -6590,7 +6638,7 @@
       }
 
       return {
-        selectedModel: sanitizeModelSeed(displayModelName || ""),
+        selectedModel: sanitizeModelSeed(modelSelect.value || ""),
         previousModel,
         docTypeValue: normalizedDocType,
         options

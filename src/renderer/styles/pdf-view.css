@@ -118,14 +118,14 @@ body.exporting-pdf .pdf-preview-modal__content .pdf-page {
   flex: 1 1 auto;
 }
 .pdf-page.first-page .pdf-table {
-  height: 100%;
+  height: auto;
 }
 .pdf-page.first-page .pdf-table tbody {
-  height: 100%;
+  height: auto;
 }
 .pdf-page.first-page .pdf-table tbody tr:last-child,
 .pdf-page.first-page .pdf-table tbody tr:last-child td {
-  height: 100%;
+  height: auto;
 }
 .pdf-page[data-template="template1"] .pdf-table,
 .pdf-page[data-template="template1"] .pdf-table tbody,
@@ -711,17 +711,17 @@ body.exporting-pdf .pdf-preview-modal__content .pdf-page {
 }
 
 .pdf-page[data-template="template2"] .pdf-table {
-  flex: 1 1 auto;
-  height: 100%;
+  flex: 0 0 auto;
+  height: auto;
 }
 
 .pdf-page[data-template="template2"] .pdf-table tbody {
-  height: 100%;
+  height: auto;
 }
 
 .pdf-page[data-template="template2"] .pdf-table tbody tr:last-child,
 .pdf-page[data-template="template2"] .pdf-table tbody tr:last-child td {
-  height: 100%;
+  height: auto;
 }
 
 .pdf-page[data-template="template2"] .pdf-table thead th {

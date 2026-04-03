@@ -399,7 +399,18 @@
 
   const normalizeTemplateKey = (value) => {
     const raw = String(value || "template1").trim().toLowerCase();
-    return raw === "template2" ? "template2" : "template1";
+    const normalized = raw.replace(/[\s_-]+/g, "");
+    if (normalized === "template2" || normalized === "wellcom" || normalized === "welcome") {
+      return "template2";
+    }
+    if (
+      normalized === "template1" ||
+      normalized === "facturence" ||
+      normalized === "facturance"
+    ) {
+      return "template1";
+    }
+    return "template1";
   };
 
   const resolveTemplateKey = (state = {}) =>
@@ -1452,11 +1463,12 @@
 
   function build(state, assets) {
     ensureCssReady();
-    const { page } = buildTemplateBoundPage(state, assets);
+    const { page, templateKey } = buildTemplateBoundPage(state, assets);
     const shell = document.createElement("div");
     shell.className = "pdf-model-template";
     const previewWrap = document.createElement("div");
     previewWrap.className = "model-actions-layout__preview";
+    previewWrap.dataset.templateKey = templateKey;
     const previewScroll = document.createElement("div");
     previewScroll.className = "model-actions-layout__preview-scroll";
     const previewStage = document.createElement("div");
@@ -1475,6 +1487,16 @@
     root.innerHTML = build(state, assets);
   }
 
+  function show(state, assets, options = {}) {
+    render(state, assets, options);
+    document.body.classList.add("printing");
+  }
+
+  function hide(options = {}) {
+    document.body.classList.remove("printing");
+    cleanup(options);
+  }
+
   function cleanup(options = {}) {
     const root = options?.root || document.getElementById("pdfRoot");
     if (root) root.innerHTML = "";
@@ -1483,6 +1505,8 @@
   const PDFModelViewAPI = {
     build,
     render,
+    show,
+    hide,
     cleanup,
     ready: waitForCssReady
   };

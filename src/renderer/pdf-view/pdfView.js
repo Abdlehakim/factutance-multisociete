@@ -113,8 +113,20 @@
     return baseColor || DEFAULT_ITEMS_HEADER_COLOR;
   };
   const normalizeTemplateKey = (value) => {
-    const normalized = String(value || "").trim();
-    return normalized || DEFAULT_TEMPLATE_KEY;
+    const raw = String(value || "").trim().toLowerCase();
+    if (!raw) return DEFAULT_TEMPLATE_KEY;
+    const normalized = raw.replace(/[\s_-]+/g, "");
+    if (normalized === "template2" || normalized === "wellcom" || normalized === "welcome") {
+      return "template2";
+    }
+    if (
+      normalized === "template1" ||
+      normalized === "facturence" ||
+      normalized === "facturance"
+    ) {
+      return "template1";
+    }
+    return DEFAULT_TEMPLATE_KEY;
   };
   const resolveTemplateKey = (state = {}) => {
     const metaTemplate = state?.meta?.template;

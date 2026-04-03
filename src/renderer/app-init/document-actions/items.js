@@ -79,10 +79,12 @@
     });
 
     w.electronAPI?.onEnterPrintMode?.(() => {
-      w.PDFView?.show?.(SEM.state, w.electronAPI?.assets || {});
+      const renderer = w.PDFModelView?.show ? w.PDFModelView : w.PDFView;
+      renderer?.show?.(SEM.state, w.electronAPI?.assets || {});
     });
     w.electronAPI?.onExitPrintMode?.(() => {
-      w.PDFView?.hide?.();
+      const renderer = w.PDFModelView?.hide ? w.PDFModelView : w.PDFView;
+      renderer?.hide?.();
       focusApi.recoverFocus?.();
     });
   };

@@ -170,6 +170,9 @@
       if (SEM.applyItemsHeaderColor) {
         SEM.applyItemsHeaderColor(st.meta?.itemsHeaderColor, { setBaseline: true });
       }
+      if (typeof helpers.applyDocumentTemplate === "function") {
+        helpers.applyDocumentTemplate(st.meta?.template, { updateState: true });
+      }
 
       try {
         const DC = w.DEFAULT_COMPANY_TEMPLATE || w.DEFAULT_COMPANY || {};

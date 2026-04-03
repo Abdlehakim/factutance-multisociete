@@ -969,6 +969,9 @@
         st.meta.reglementEnabled = normalizedReglement.enabled;
         st.meta.reglementType = normalizedReglement.type;
         st.meta.reglementDays = normalizedReglement.days;
+        if (typeof window.SEM?.__bindingHelpers?.applyDocumentTemplate === "function") {
+          window.SEM.__bindingHelpers.applyDocumentTemplate(st.meta?.template, { updateState: true });
+        }
     }
     if (Array.isArray(src.items)) {
       const hintedDocType = normalizeDocTypeKey(

@@ -1121,8 +1121,8 @@ border-collapse: separate;
   .model-actions-layout__preview[data-template-key="template2"]
   #modelActionsPreview
   .doc-design1__table {
-  flex: 1 1 auto;
-  height: 100%;
+  flex: 0 0 auto;
+  height: auto;
 }
 
 #modelActionsModal
@@ -1130,7 +1130,7 @@ border-collapse: separate;
   #modelActionsPreview
   .doc-design1__table
   tbody {
-  height: 100%;
+  height: auto;
 }
 
 #modelActionsModal
@@ -1146,7 +1146,7 @@ border-collapse: separate;
   tbody
   tr:last-child
   td {
-  height: 100%;
+  height: auto;
 }
 
 #modelActionsModal

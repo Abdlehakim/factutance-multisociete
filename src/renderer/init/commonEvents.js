@@ -169,8 +169,15 @@
       }
     });
 
-    w.electronAPI?.onEnterPrintMode?.(() => { w.PDFView?.show?.(SEM.state, w.electronAPI?.assets || {}); });
-    w.electronAPI?.onExitPrintMode?.(() => { w.PDFView?.hide?.(); UI().recoverFocus?.(); });
+    w.electronAPI?.onEnterPrintMode?.(() => {
+      const renderer = w.PDFModelView?.show ? w.PDFModelView : w.PDFView;
+      renderer?.show?.(SEM.state, w.electronAPI?.assets || {});
+    });
+    w.electronAPI?.onExitPrintMode?.(() => {
+      const renderer = w.PDFModelView?.hide ? w.PDFModelView : w.PDFView;
+      renderer?.hide?.();
+      UI().recoverFocus?.();
+    });
 
     document.querySelectorAll("input.col-toggle[data-column-key]").forEach((input) => {
       if (input.closest?.("#modelActionsModal")) return;

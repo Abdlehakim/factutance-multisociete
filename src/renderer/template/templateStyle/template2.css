@@ -167,8 +167,8 @@
 
 .doc-design1__table {
   width: 100%;
-  flex: 1 1 auto;
-  height: 100%;
+  flex: 0 0 auto;
+  height: auto;
   border-spacing: 0;
   font-size: 9px;
   color: #0f172a;
@@ -193,13 +193,10 @@
   border-right: 1px solid var(--items-head-bg, var(--primary, #15335e));
 }
 
-.doc-design1__table tbody {
-  height: 100%;
-}
-
+.doc-design1__table tbody,
 .doc-design1__table tbody tr,
 .doc-design1__table tbody td {
-  height: 100%;
+  height: auto;
 }
 
 .doc-design1__table thead th:last-child,
