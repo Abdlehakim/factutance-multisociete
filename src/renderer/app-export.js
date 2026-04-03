@@ -277,7 +277,6 @@
     if (hasOwn(config, "template") && !hasSavedTemplate) meta.template = config.template;
     if (hasOwn(config, "itemsHeaderColor")) meta.itemsHeaderColor = config.itemsHeaderColor;
     if (hasOwn(config, "currency")) meta.currency = config.currency;
-    if (hasOwn(config, "taxesEnabled")) meta.taxesEnabled = config.taxesEnabled;
     if (hasOwn(config, "numberLength")) meta.numberLength = config.numberLength;
     if (hasOwn(config, "numberFormat")) meta.numberFormat = config.numberFormat;
     if (config.columns && typeof config.columns === "object") {

@@ -312,34 +312,6 @@ export const ModelStepper = `
                                 </div>
                               </label>
 
-                              <label class="currency-field__column">
-                                <span id="modelTaxModeLabelText" class="model-save-dot">Mode taxe</span>
-                                <div class="currency-field__controls">
-                                  <div
-                                    id="modelTaxPanel"
-                                    class="currency-panel currency-panel--inline"
-                                    role="radiogroup"
-                                    aria-labelledby="modelTaxModeLabelText"
-                                  >
-                                    <label
-                                      class="toggle-option currency-toggle is-active"
-                                      data-tax-option="with"
-                                      aria-selected="true"
-                                    >
-                                      <input type="radio" name="modelTaxModeChoice" value="with" class="col-toggle" checked />
-                                      <span class="model-save-dot">Avec taxe</span>
-                                    </label>
-                                    <label class="toggle-option currency-toggle" data-tax-option="without" aria-selected="false">
-                                      <input type="radio" name="modelTaxModeChoice" value="without" class="col-toggle" />
-                                      <span class="model-save-dot">Sans taxe</span>
-                                    </label>
-                                  </div>
-                                  <select id="modelTaxMode" class="currency-select" aria-hidden="true" tabindex="-1">
-                                    <option value="with" selected>Avec taxe</option>
-                                    <option value="without">Sans taxe</option>
-                                  </select>
-                                </div>
-                              </label>
                         <div class="doc-meta-grid__item">
                           <div class="model-field-toggles">
                             <div class="field-toggle-menu__title">Colonnes du tableau</div>

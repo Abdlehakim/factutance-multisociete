@@ -235,7 +235,6 @@
 
     if (hasValue(config.template)) meta.template = String(config.template).trim();
     if (hasValue(config.currency)) meta.currency = String(config.currency).trim().toUpperCase();
-    if (typeof config.taxesEnabled === "boolean") meta.taxesEnabled = config.taxesEnabled;
     if (Number.isFinite(Number(config.numberLength))) {
       meta.numberLength = Number(config.numberLength);
     }

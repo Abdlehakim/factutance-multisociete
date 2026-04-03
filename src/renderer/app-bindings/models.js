@@ -32,14 +32,6 @@
     return raw.toUpperCase();
   };
 
-  const normalizeTaxesEnabled = (value, fallback = true) => {
-    if (value === true || value === false) return !!value;
-    const normalized = String(value || "").trim().toLowerCase();
-    if (["without", "sans", "false", "0", "non", "no"].includes(normalized)) return false;
-    if (["with", "true", "1", "oui", "yes"].includes(normalized)) return true;
-    return fallback;
-  };
-
   const normalizeInvoiceLength = (value, fallback = 4) => {
     if (typeof normalizeInvoiceNumberLength === "function") {
       return normalizeInvoiceNumberLength(value, fallback);
@@ -1038,7 +1030,7 @@
     totalTtc: true
   };
 
-  function normalizeModelColumnState(rawColumns = {}, { docTypes = [], taxesEnabled = true } = {}) {
+  function normalizeModelColumnState(rawColumns = {}, { docTypes = [] } = {}) {
     const source = rawColumns && typeof rawColumns === "object" ? rawColumns : {};
     const normalizedDocTypes = normalizeDocTypeList(docTypes, []);
     const isPurchaseContext = normalizedDocTypes.some((entry) => isModelPurchaseDocType(entry));
@@ -1071,15 +1063,6 @@
       normalized.totalPurchaseHt = false;
       normalized.totalPurchaseTtc = false;
     }
-    if (!taxesEnabled) {
-      normalized.tva = false;
-      normalized.purchaseTva = false;
-      normalized.fodecSale = false;
-      normalized.fodecPurchase = false;
-      normalized.totalPurchaseTtc = false;
-      normalized.totalTtc = false;
-    }
-
     normalized.fodec = isPurchaseContext ? normalized.fodecPurchase : normalized.fodecSale;
     normalized.purchaseDependenciesLocked = !normalized.purchasePrice;
     return normalized;
@@ -1382,17 +1365,6 @@
       const normalizedTemplate = normalizeTemplateKey(templateValue);
       if (normalizedTemplate) cleaned.template = normalizedTemplate;
     }
-    const hasTaxesFlag =
-      hasOwn(src, "taxesEnabled") ||
-      hasOwn(src, "taxMode") ||
-      hasOwn(meta, "taxesEnabled");
-    if (hasTaxesFlag) {
-      const rawTaxFlag = hasOwn(src, "taxesEnabled")
-        ? src.taxesEnabled
-        : (hasOwn(src, "taxMode") ? src.taxMode : meta.taxesEnabled);
-      cleaned.taxesEnabled = normalizeTaxesEnabled(rawTaxFlag, true);
-    }
-
     // Taux de TVA du formulaire d'ajout d'article
     const rawAddTva =
       (src.addForm && src.addForm.tva !== undefined ? src.addForm.tva : undefined) ??
@@ -1629,17 +1601,8 @@
     );
     cleaned.docTypes = Array.isArray(docTypes) && docTypes.length ? docTypes : [DEFAULT_MODEL_DOC_TYPE];
     cleaned.docType = cleaned.docTypes[0] || DEFAULT_MODEL_DOC_TYPE;
-    const resolvedTaxesEnabled = hasOwn(cleaned, "taxesEnabled")
-      ? cleaned.taxesEnabled
-      : normalizeTaxesEnabled(
-          hasOwn(src, "taxesEnabled")
-            ? src.taxesEnabled
-            : (hasOwn(src, "taxMode") ? src.taxMode : meta.taxesEnabled),
-          true
-        );
     cleaned.columns = normalizeModelColumnState(rawColumns, {
-      docTypes: cleaned.docTypes,
-      taxesEnabled: resolvedTaxesEnabled
+      docTypes: cleaned.docTypes
     });
 
     const hasHeaderColor =
@@ -1861,8 +1824,7 @@
       ? !!purchaseFodecToggle.checked
       : !!fallback.use.fodecPurchase;
     fallback.use = normalizeModelColumnState(fallback.use, {
-      docTypes: getSelectedModelDocTypesFromUi(),
-      taxesEnabled: true
+      docTypes: getSelectedModelDocTypesFromUi()
     });
     return normalizeArticleForm(fallback);
   }
@@ -2208,12 +2170,7 @@
       checkedValue(getEl("modelCurrencyPanel"), "modelCurrency") ||
       (typeof getStr === "function" ? getStr("currency", meta.currency || "DT") : meta.currency || "DT");
     const normalizedCurrency = normalizeCurrency(currencyValue, meta.currency || "DT");
-    const taxesEnabledRaw =
-      checkedValue(getEl("modelTaxPanel"), "modelTaxMode") ||
-      (typeof getStr === "function" ? getStr("taxMode") : undefined) ||
-      (meta.taxesEnabled === false ? "without" : "with");
-    const taxesEnabled = normalizeTaxesEnabled(taxesEnabledRaw === "without" ? false : true, true);
-    const normalizedColumns = normalizeModelColumnState(columns, { docTypes, taxesEnabled });
+    const normalizedColumns = normalizeModelColumnState(columns, { docTypes });
     const rawNumberLength =
       (typeof getStr === "function" ? getStr("invNumberLength", meta.numberLength ?? 4) : undefined) ??
       meta.numberLength ??
@@ -2266,7 +2223,6 @@
 
     const rawConfig = {
       currency: normalizedCurrency,
-      taxesEnabled,
       numberLength,
       numberFormat,
       columns: normalizedColumns,
@@ -2410,27 +2366,6 @@
         }
         if (!currencySelect && typeof SEM.renderItems === "function") SEM.renderItems();
       }
-
-    if (!itemsSectionOnly && hasOwn(safeConfig, "taxesEnabled")) {
-      const taxSelect = getEl("taxMode");
-      const taxMode = safeConfig.taxesEnabled === false ? "without" : "with";
-      if (taxSelect) {
-        taxSelect.value = taxMode;
-        try {
-          taxSelect.dispatchEvent(new Event("change", { bubbles: true }));
-        } catch (err) {
-          console.error("model presets: apply tax mode", err);
-        }
-      }
-      if (st?.meta) st.meta.taxesEnabled = taxMode !== "without";
-      if (typeof w.syncTaxMenuUi === "function") {
-        w.syncTaxMenuUi(taxMode, { updateSelect: true });
-      }
-      if (!taxSelect) {
-        SEM.applyColumnHiding?.();
-        SEM.renderItems?.();
-      }
-    }
 
     if (!itemsSectionOnly && hasOwn(safeConfig, "numberLength")) {
       const invNumberLengthSelect = getEl("invNumberLength");

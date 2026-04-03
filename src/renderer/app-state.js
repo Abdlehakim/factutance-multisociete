@@ -916,6 +916,9 @@
   };
 
   SEM.computeTotalsReturn = function () {
+    if (typeof SEM.syncEffectiveDocumentTaxesEnabledState === "function") {
+      SEM.syncEffectiveDocumentTaxesEnabledState();
+    }
     const st = SEM.state;
     const currency = st.meta.currency || "DT";
     const DEC = currency === "DT" ? 3 : 2;

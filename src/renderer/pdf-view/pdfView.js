@@ -1052,7 +1052,7 @@
     );
     const totalHtLabel = resolveArticleLabelHtml(
       "totalHt",
-      taxesEnabled ? (articleLabelDefaults.totalHt || "Total HT") : esc("Total")
+      articleLabelDefaults.totalHt || "Total HT"
     );
     const totalTtcLabel = resolveArticleLabelHtml(
       "totalTtc",
@@ -1198,7 +1198,7 @@
     const hideFodecPurchaseCol = hide.fodecPurchase || !taxesEnabled;
     const hideTotalPurchaseTtcCol = hide.totalPurchaseTtc || !taxesEnabled;
     const hideTotalHtCol = hide.totalHt || hide.price;
-    const hideTTC = hide.ttc || hide.price;
+    const hideTTC = hide.ttc || hide.price || !taxesEnabled;
     const showSalesFinancialColumns =
       !hide.price || !hideFodecSaleCol || !hideTvaCol || !hideTotalHtCol || !hideTTC;
     const showPurchaseFinancialColumns =

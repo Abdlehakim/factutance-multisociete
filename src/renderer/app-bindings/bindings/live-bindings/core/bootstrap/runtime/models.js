@@ -686,7 +686,6 @@
             syncModelPreviewZoomControls();
             const modelPreviewDoc = getEl("modelPreviewDoc");
             const modelPreviewCurrency = getEl("modelPreviewCurrency");
-            const modelPreviewTax = getEl("modelPreviewTax");
             const modelPreviewExtras = getEl("modelPreviewExtras");
             const setTextWithFallback = (id, value) => {
               const el = getEl(id);
@@ -822,8 +821,15 @@
               selectedModelDocTypes.every((docType) => docType === "fa");
             const currency =
               checkedValue(getEl("modelCurrencyPanel")) || getEl("modelCurrency")?.value || "DT";
-            const taxMode =
-              checkedValue(getEl("modelTaxPanel")) || getEl("modelTaxMode")?.value || "with";
+            const taxMode = (() => {
+              const helperMode =
+                typeof SEM.resolveLiveDocumentTaxMode === "function"
+                  ? SEM.resolveLiveDocumentTaxMode()
+                  : "";
+              const selectValue = getEl("taxMode")?.value || "";
+              const fallback = state()?.meta?.taxesEnabled === false ? "without" : "with";
+              return String(helperMode || selectValue || fallback || "with").toLowerCase();
+            })();
             const taxesEnabled = taxMode !== "without";
             const numberFormatRaw =
               checkedValue(getEl("modelNumberFormatPanel")) ||
@@ -997,7 +1003,6 @@
               }
             }
             if (modelPreviewCurrency) modelPreviewCurrency.textContent = currency || "N/A";
-            if (modelPreviewTax) modelPreviewTax.textContent = taxMode === "without" ? "Sans taxe" : "Avec taxe";
             if (modelPreviewExtras) modelPreviewExtras.textContent = extras.length ? extras.join(", ") : "Aucune option active";
             setTextWithFallback("modelPreviewCompanyName", company.name);
             setTextWithFallback("modelPreviewCompanyMf", company.vat || company.mf);
@@ -1252,8 +1257,8 @@
               const totalHtHeader = previewRoot.querySelector('th[data-col="totalHt"]');
               const miniTotalHt = previewRoot.querySelector('[data-mini-key="total-ht"] th:first-child');
               if (priceHeader) priceHeader.textContent = enabled ? "P.U. HT" : "Prix unitaire";
-              if (totalHtHeader) totalHtHeader.textContent = enabled ? "Total HT" : "Total";
-              if (miniTotalHt) miniTotalHt.textContent = enabled ? "Total HT" : "Total";
+              if (totalHtHeader) totalHtHeader.textContent = "Total HT";
+              if (miniTotalHt) miniTotalHt.textContent = "Total HT";
             };
             setPreviewLabels(taxesEnabled);
             previewRoot.classList.toggle("tax-disabled", !taxesEnabled);
@@ -1343,8 +1348,8 @@
             const miniRowVisibility = {
               totalHt: !isPurchaseDocType,
               totalPurchaseHt: isPurchaseDocType,
-              totalPurchaseTtc: isPurchaseDocType,
-              totalTtc: !isPurchaseDocType
+              totalPurchaseTtc: isPurchaseDocType && taxesEnabled,
+              totalTtc: !isPurchaseDocType && taxesEnabled
             };
             setMiniRowVisibility("total-ht", miniRowVisibility.totalHt);
             setMiniRowVisibility("total-purchase-ht", miniRowVisibility.totalPurchaseHt);
@@ -1632,17 +1637,13 @@
             });
           };
           getEffectiveTaxModeForColumnLocks = (scope = "main") => {
-            const readCheckedValue = (container) => {
-              const input = container?.querySelector?.("input:checked");
-              return input?.value || "";
-            };
-            if (scope === "model") {
-              const modelTaxValue = readCheckedValue(getEl("modelTaxPanel")) || getEl("modelTaxMode")?.value || "";
-              return String(modelTaxValue || "with").toLowerCase();
-            }
+            const helperMode =
+              typeof SEM.resolveLiveDocumentTaxMode === "function"
+                ? SEM.resolveLiveDocumentTaxMode()
+                : "";
             const taxValue = getEl("taxMode")?.value || "";
             const fallback = state()?.meta?.taxesEnabled === false ? "without" : "with";
-            return String(taxValue || fallback || "with").toLowerCase();
+            return String(helperMode || taxValue || fallback || "with").toLowerCase();
           };
           syncTaxModeDependentColumnToggles = ({ forceReset = false, scope = "main" } = {}) => {
             if (typeof document === "undefined" || !document.querySelectorAll) return;
@@ -1790,7 +1791,6 @@
               w.syncModelBeOnlySectionsVisibility?.(["facture"]);
             }
             selectRadio("modelCurrencyPanel", "currency", "DT", "modelCurrency");
-            selectRadio("modelTaxPanel", "tax", "with", "modelTaxMode");
             const defaults = resolveModelColumnVisibilityDefaults();
             (modelActionsModal?.querySelectorAll("input.col-toggle[data-column-key]") || []).forEach((input) => {
               delete input.dataset.taxLockPrevChecked;
@@ -2448,13 +2448,6 @@
               w.syncModelCurrencyMenuUi(currency, { updateSelect: true });
             } else {
               selectRadio("modelCurrencyPanel", "currency", currency, "modelCurrency");
-            }
-
-            const taxMode = config.taxesEnabled === false ? "without" : "with";
-            if (typeof w.syncModelTaxMenuUi === "function") {
-              w.syncModelTaxMenuUi(taxMode, { updateSelect: true });
-            } else {
-              selectRadio("modelTaxPanel", "tax", taxMode, "modelTaxMode");
             }
 
             const numberFormat = normalizeNumberFormatLocal(config.numberFormat, state()?.meta?.numberFormat);

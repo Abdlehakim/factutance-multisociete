@@ -6324,7 +6324,6 @@
         compareText(meta.currency, config.currency);
         compareText(meta.numberFormat, config.numberFormat);
         compareNumber(meta.numberLength, config.numberLength);
-        compareBool(meta.taxesEnabled, config.taxesEnabled);
 
         const cfgColumns = config.columns && typeof config.columns === "object" ? config.columns : null;
         if (cfgColumns) {

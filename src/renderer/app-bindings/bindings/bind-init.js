@@ -96,7 +96,7 @@
           return fromState || fallback;
         };
         const priceLabel = resolveArticleLabel("price", enabled ? "P.U. HT" : "Prix unitaire");
-        const totalHtLabel = resolveArticleLabel("totalHt", enabled ? "Total HT" : "Total");
+        const totalHtLabel = resolveArticleLabel("totalHt", "Total HT");
         setLabelText("itemsPriceHeader", priceLabel);
         setLabelText("itemsTotalHtHeader", totalHtLabel);
         setLabelText("togglePriceLabel", priceLabel);

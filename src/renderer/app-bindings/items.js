@@ -166,6 +166,122 @@
     return resolved;
   }
 
+  const normalizeTaxModeToken = (value) =>
+    String(value ?? "")
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[\s-]+/g, "_");
+
+  const resolveEffectiveTaxModeValue = (value, fallback = "") => {
+    const normalized = normalizeTaxModeToken(value);
+    if (!normalized) return fallback;
+    if (
+      normalized === "without" ||
+      normalized === "false" ||
+      normalized === "0" ||
+      normalized === "exonore" ||
+      normalized === "exonoree" ||
+      normalized === "exoneree"
+    ) {
+      return "without";
+    }
+    if (
+      normalized === "with" ||
+      normalized === "true" ||
+      normalized === "1" ||
+      normalized === "non_exonore" ||
+      normalized === "nonexonore" ||
+      normalized === "non_exonoree" ||
+      normalized === "nonexonoree" ||
+      normalized === "non_exoneree" ||
+      normalized === "nonexoneree"
+    ) {
+      return "with";
+    }
+    return fallback;
+  };
+
+  function collectDocumentTaxModeValues(root) {
+    if (!root || typeof root.querySelectorAll !== "function") return [];
+    const values = [];
+    const shouldUseNode = (node) => {
+      if (!node || node.isConnected === false) return false;
+      const ownerModal = typeof node.closest === "function" ? node.closest("#itemsDocOptionsModal") : null;
+      if (!ownerModal) return true;
+      if (root === ownerModal) return true;
+      return (
+        ownerModal.classList?.contains("is-open") ||
+        ownerModal.getAttribute("aria-hidden") === "false"
+      );
+    };
+    const pushMode = (raw) => {
+      const resolved = resolveEffectiveTaxModeValue(raw, "");
+      if (resolved) values.push(resolved);
+    };
+    root.querySelectorAll("#clientDocTaxesMode").forEach((input) => {
+      if (shouldUseNode(input)) pushMode(input?.value);
+    });
+    root
+      .querySelectorAll('input[name="clientDocTaxesChoice"]:checked')
+      .forEach((input) => {
+        if (shouldUseNode(input)) pushMode(input?.value);
+      });
+    root
+      .querySelectorAll("[data-client-doc-taxes-option].is-active")
+      .forEach((btn) => {
+        if (shouldUseNode(btn)) pushMode(btn?.dataset?.clientDocTaxesOption);
+      });
+    root.querySelectorAll("#taxMode").forEach((input) => {
+      if (shouldUseNode(input)) pushMode(input?.value);
+    });
+    root
+      .querySelectorAll('input[name="taxChoice"]:checked')
+      .forEach((input) => {
+        if (shouldUseNode(input)) pushMode(input?.value);
+      });
+    return values;
+  }
+
+  function resolveLiveDocumentTaxMode() {
+    const st = state();
+    const meta = st?.meta || {};
+    const fallbackMode = isTaxesEnabled(meta.taxesEnabled) ? "with" : "without";
+    if (typeof document === "undefined") return fallbackMode;
+    const roots = [];
+    const addRoot = (node) => {
+      if (node && node.isConnected !== false && !roots.includes(node)) roots.push(node);
+    };
+    const itemsModal = document.getElementById("itemsDocOptionsModal");
+    const isItemsModalOpen =
+      !!itemsModal &&
+      (itemsModal.classList?.contains("is-open") || itemsModal.getAttribute("aria-hidden") === "false");
+    if (isItemsModalOpen) {
+      addRoot(itemsModal);
+      addRoot(document.getElementById("clientSelectionSummaryNewDoc"));
+      addRoot(document.getElementById("clientBoxNewDoc"));
+    }
+    for (const root of roots) {
+      const [resolvedMode] = collectDocumentTaxModeValues(root);
+      if (resolvedMode) return resolvedMode;
+    }
+    const documentResolvedModes = collectDocumentTaxModeValues(document);
+    return documentResolvedModes[documentResolvedModes.length - 1] || fallbackMode;
+  }
+
+  function syncEffectiveDocumentTaxesEnabledState() {
+    const st = state();
+    const meta = st?.meta || (st.meta = {});
+    meta.taxesEnabled = resolveLiveDocumentTaxMode() !== "without";
+    return meta.taxesEnabled;
+  }
+
+  helpers.resolveLiveDocumentTaxMode = resolveLiveDocumentTaxMode;
+  helpers.syncEffectiveDocumentTaxesEnabledState = syncEffectiveDocumentTaxesEnabledState;
+  SEM.resolveLiveDocumentTaxMode = resolveLiveDocumentTaxMode;
+  SEM.syncEffectiveDocumentTaxesEnabledState = syncEffectiveDocumentTaxesEnabledState;
+
   function getItemsSectionElement() {
     return getEl("itemsSection");
   }
@@ -1191,7 +1307,7 @@
     const body = getItemsScopedEl("tvaBreakdownBody");
     const card = getItemsScopedEl("tvaBreakdownCard");
     if (!body || !card) return;
-    const taxesEnabled = isTaxesEnabled(state().meta?.taxesEnabled);
+    const taxesEnabled = syncEffectiveDocumentTaxesEnabledState();
     card.style.display = "none";
     body.innerHTML = "";
 
@@ -2198,6 +2314,7 @@
   };
 
   SEM.computeTotals = function () {
+    syncEffectiveDocumentTaxesEnabledState();
     // Totals must honor the effective runtime tax mode selected in the document flow.
     // Avoid re-reading stale duplicated #taxMode inputs while recomputing summary blocks.
     SEM.readInputs({ preserveTaxMode: true });
@@ -2288,11 +2405,11 @@
     return trimmed || "0";
   };
   const getEffectiveAddFormTvaRate = () => {
-    if (!isTaxesEnabled(state().meta?.taxesEnabled)) return 0;
+    if (!syncEffectiveDocumentTaxesEnabledState()) return 0;
     return normalizeAddFormPriceNumber(getNum("addTva", 19), 0);
   };
   const getEffectiveAddFormSaleFodecRate = () => {
-    if (!isTaxesEnabled(state().meta?.taxesEnabled)) return 0;
+    if (!syncEffectiveDocumentTaxesEnabledState()) return 0;
     if (!getEl("addFodecEnabled")?.checked) return 0;
     return normalizeAddFormPriceNumber(getNum("addFodecRate", 1), 0);
   };
@@ -2356,11 +2473,11 @@
     return roundAddFormCurrencyValue(divisor > 0 ? safeTtc / divisor : safeTtc);
   };
   const getEffectiveAddFormPurchaseTvaRate = () => {
-    if (!isTaxesEnabled(state().meta?.taxesEnabled)) return 0;
+    if (!syncEffectiveDocumentTaxesEnabledState()) return 0;
     return normalizeAddFormPriceNumber(getNum("addPurchaseTva", 0), 0);
   };
   const getEffectiveAddFormPurchaseFodecRate = () => {
-    if (!isTaxesEnabled(state().meta?.taxesEnabled)) return 0;
+    if (!syncEffectiveDocumentTaxesEnabledState()) return 0;
     if (!getEl("addPurchaseFodecEnabled")?.checked) return 0;
     return normalizeAddFormPriceNumber(getNum("addPurchaseFodecRate", 1), 0);
   };
@@ -2516,7 +2633,7 @@
     const docType = normalizeDocType(state().meta?.docType || getStr("docType", "facture"));
     const discounts = resolveItemDiscountValues(it, { usePurchasePricing: docType === "fa" });
     const purchaseFodec = it.purchaseFodec && typeof it.purchaseFodec === "object" ? it.purchaseFodec : {};
-    const taxesEnabled = isTaxesEnabled(state().meta?.taxesEnabled);
+    const taxesEnabled = syncEffectiveDocumentTaxesEnabledState();
     const purchaseFodecRate = taxesEnabled && purchaseFodec.enabled
       ? normalizeAddFormPriceNumber(purchaseFodec.rate ?? 1, 0)
       : 0;
@@ -2726,7 +2843,7 @@
     const body = getEl("itemBody"); if (!body) return;
     body.innerHTML = "";
     const currency = state().meta.currency || "DT";
-    const taxesEnabled = isTaxesEnabled(state().meta?.taxesEnabled);
+    const taxesEnabled = syncEffectiveDocumentTaxesEnabledState();
     const docType = normalizeDocType(state().meta?.docType || getStr("docType", "facture"));
     const usePurchasePricing = docType === "fa";
     const resolveLegacyTotalPurchaseLabel = (key, value, fallback) => {
@@ -2810,7 +2927,7 @@
       fodecSale: "FODEC",
       totalPurchaseHt: taxesEnabled ? "Total A. HT" : "Total A.",
       totalPurchaseTtc: taxesEnabled ? "Total A. TTC" : "Total A.",
-      totalHt: taxesEnabled ? "Total HT" : "Total"
+      totalHt: "Total HT"
     };
     document.querySelectorAll("#items thead th[data-article-field-label]").forEach((cell) => {
       const key = String(cell?.dataset?.articleFieldLabel || "").trim();
@@ -2951,9 +3068,9 @@
         <td class="add-actions cell-action">
           <div class="actions-stack">
             <div class="qty-controls" aria-label="Actions quantité">
-              <button class="btn tiny qty-btn dec" data-qty-dec="${i}" title="Diminuer la quantité" aria-label="Diminuer la quantité">&minus;</button>
+              <button type="button" class="btn tiny qty-btn dec" data-qty-dec="${i}" title="Diminuer la quantité" aria-label="Diminuer la quantité">&minus;</button>
               <input type="number" class="qty-input" min="0.01" step="0.01" value="${Number(it.qty ?? 1)}" data-qty-input="${i}" aria-label="Quantité de la ligne ${i + 1}" />
-              <button class="btn tiny qty-btn inc" data-qty-inc="${i}" title="Augmenter la quantité" aria-label="Augmenter la quantité">+</button>
+              <button type="button" class="btn tiny qty-btn inc" data-qty-inc="${i}" title="Augmenter la quantité" aria-label="Augmenter la quantité">+</button>
             </div>
             <div class="action-buttons">
               <button type="button" class="btn tiny sel" data-sel="${i}" title="&#201;diter la ligne" aria-label="&#201;diter la ligne">
@@ -3127,6 +3244,42 @@
 
   const MIN_QTY = 0.01;
   const MIN_DISCOUNT = 0;
+  const DERIVED_ITEM_TOTAL_KEYS = [
+    "total",
+    "totalHt",
+    "total_ht",
+    "lineTotalHT",
+    "ttc",
+    "totalTtc",
+    "total_ttc",
+    "lineTotalTTC",
+    "totalPurchaseHt",
+    "total_purchase_ht",
+    "purchaseTotalHT",
+    "totalAchatHT",
+    "totalPurchaseTtc",
+    "total_purchase_ttc",
+    "purchaseTotalTTC",
+    "totalAchatTTC",
+    "taxAmount",
+    "tvaAmount",
+    "purchaseTaxAmount",
+    "purchaseTvaAmount",
+    "fodecAmount",
+    "purchaseFodecAmount",
+    "totalTax",
+    "totalTaxes"
+  ];
+
+  function clearItemDerivedTotals(item) {
+    if (!item || typeof item !== "object") return item;
+    DERIVED_ITEM_TOTAL_KEYS.forEach((key) => {
+      if (Object.prototype.hasOwnProperty.call(item, key)) delete item[key];
+    });
+    return item;
+  }
+
+  helpers.clearItemDerivedTotals = clearItemDerivedTotals;
 
   function setItemQuantity(index, value) {
     const items = state().items;
@@ -3138,6 +3291,7 @@
     const currentQty = Number(items[index].qty ?? 0) || 0;
     if (safeValue === currentQty) return;
     items[index].qty = safeValue;
+    clearItemDerivedTotals(items[index]);
     SEM.renderItems();
   }
 
@@ -3151,6 +3305,7 @@
     const currentDiscount = Number(items[index].discount ?? 0) || 0;
     if (safeValue === currentDiscount) return;
     items[index].discount = safeValue;
+    clearItemDerivedTotals(items[index]);
     SEM.renderItems();
   }
 
@@ -3174,6 +3329,7 @@
     if (usePurchasePricing) {
       items[index].discount = safeValue;
     }
+    clearItemDerivedTotals(items[index]);
     SEM.renderItems();
   }
 
@@ -3256,7 +3412,7 @@
       roots.push(document);
     }
     if (!roots.length) return;
-    const taxesEnabled = isTaxesEnabled(state().meta?.taxesEnabled);
+    const taxesEnabled = syncEffectiveDocumentTaxesEnabledState();
     const resolved = {
       ref: true,
       product: true,
@@ -3632,6 +3788,7 @@
 
   SEM.updateAddFormTotals = function () {
     if (shouldSkipMainscreenAddFormUpdate()) return;
+    const taxesEnabled = syncEffectiveDocumentTaxesEnabledState();
     const qty = normalizeAddFormPriceNumber(getNum("addQty", 1), 1);
     const stockQty = normalizeAddFormPriceNumber(getNum("addStockQty", 0), 0);
     syncAddFormPurchaseUnitPrices(lastEditedPurchasePriceField);
@@ -3648,7 +3805,6 @@
     const purchaseFodecEnabled = !!getEl("addPurchaseFodecEnabled")?.checked;
     const purchaseFodecRate = normalizeAddFormPriceNumber(getNum("addPurchaseFodecRate", 1), 1);
     const purchaseFodecTvaRate = normalizeAddFormPriceNumber(getNum("addPurchaseFodecTva", 19), 19);
-    const taxesEnabled = isTaxesEnabled(state().meta?.taxesEnabled);
     const docType = normalizeDocType(state().meta?.docType || getStr("docType", "facture"));
     const usePurchasePricing = docType === "fa";
 
@@ -3741,7 +3897,7 @@
   SEM.applyColumnHiding = function () {
     const columns = resolveColumnVisibility();
     const tableColumns = resolveModelColumnVisibility();
-    const taxesEnabled = isTaxesEnabled(state().meta?.taxesEnabled);
+    const taxesEnabled = syncEffectiveDocumentTaxesEnabledState();
 
     const tableRefVis = tableColumns.ref !== false;
     const tableProductVis = tableColumns.product !== false;
@@ -3765,7 +3921,7 @@
     const tableShowTotalPurchaseHt = tableColumns.totalPurchaseHt !== false;
     const tableShowTotalPurchaseTtc = taxesEnabled && tableColumns.totalPurchaseTtc !== false;
     const tableShowTotalHt = tablePriceVis && tableColumns.totalHt !== false;
-    const tableShowTotalTtc = tablePriceVis && tableColumns.totalTtc !== false;
+    const tableShowTotalTtc = tablePriceVis && taxesEnabled && tableColumns.totalTtc !== false;
     const showSalesFinancialColumns =
       tablePriceVis || tableShowFodecSale || tableShowTva || tableShowTotalHt || tableShowTotalTtc;
     const showPurchaseFinancialColumns =
@@ -3816,7 +3972,7 @@
     const formShowTva = taxesEnabled && columns.tva !== false;
     const formDiscountVis = formPriceVis && columns.discount !== false;
     const formShowTotalHt = formPriceVis && columns.totalHt !== false;
-    const formShowTotalTtc = formPriceVis && columns.totalTtc !== false;
+    const formShowTotalTtc = formPriceVis && taxesEnabled && columns.totalTtc !== false;
     const purchaseSectionEnabled = columns.purchaseSectionEnabled !== false;
     const salesSectionEnabled = columns.salesSectionEnabled !== false;
 

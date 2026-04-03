@@ -339,7 +339,7 @@
               state().meta.taxesEnabled = normalizedMode !== "without";
               // Keep all tax-mode selects synchronized to avoid stale readInputs() overrides.
               syncTaxMenuUiLocal(normalizedMode, { updateSelect: true });
-              syncTaxModeDependentColumnToggles({ scope: "main" });
+              syncTaxModeDependentColumnToggles({ scope: "all" });
               updateTaxDependentLabels(state().meta.taxesEnabled !== false);
               SEM.renderItems();
               SEM.applyColumnHiding?.();
@@ -353,7 +353,7 @@
               }
             });
             syncTaxMenuUiLocal(state().meta.taxesEnabled !== false ? "with" : "without", { updateSelect: true });
-            syncTaxModeDependentColumnToggles({ scope: "main" });
+            syncTaxModeDependentColumnToggles({ scope: "all" });
 
             const clientTypeSelectEl = getEl("clientType");
             const clientTypeMenu = getEl("clientTypeMenu");

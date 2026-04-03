@@ -890,7 +890,7 @@
       fodecSale: labels.fodecSale,
       fodecPurchase: labels.fodecPurchase,
       totalPurchaseHt: labels.totalPurchaseHt,
-      totalHt: taxesEnabled ? labels.totalHt : "Total",
+      totalHt: labels.totalHt,
       totalPurchaseTtc: labels.totalPurchaseTtc,
       totalTtc: labels.totalTtc
     };
@@ -926,8 +926,8 @@
       const purchaseTtcComputed = purchaseHtComputed + purchaseFodecAmount + purchaseTvaAmount;
       const explicitSaleHt = parseLooseNumber(item.totalHt);
       const explicitPurchaseHt = parseLooseNumber(item.totalPurchaseHt);
-      const explicitSaleTtc = parseLooseNumber(item.totalTtc);
-      const explicitPurchaseTtc = parseLooseNumber(item.totalPurchaseTtc);
+      const explicitSaleTtc = taxesEnabled ? parseLooseNumber(item.totalTtc) : NaN;
+      const explicitPurchaseTtc = taxesEnabled ? parseLooseNumber(item.totalPurchaseTtc) : NaN;
       const row = document.createElement("tr");
       columns.forEach(({ domKey, key }) => {
         const cell = document.createElement("td");
@@ -1188,6 +1188,33 @@
     return full ? full.charAt(0).toUpperCase() + full.slice(1) : "";
   }
 
+  const AMOUNT_WORDS_PHRASES = {
+    devis: "Arr\u00eat\u00e9 le pr\u00e9sent devis \u00e0 la somme de :",
+    facture: "Arr\u00eat\u00e9e la pr\u00e9sente facture \u00e0 la somme de :",
+    fa: "Arr\u00eat\u00e9e la pr\u00e9sente facture d'achat \u00e0 la somme de :",
+    avoir: "Arr\u00eat\u00e9e la pr\u00e9sente facture d'avoir \u00e0 la somme de :",
+    bl: "Arr\u00eat\u00e9 le pr\u00e9sent bon de livraison \u00e0 la somme de :"
+  };
+
+  function resolveAmountWordsContent(docType, totals, currency, pdfOptions = {}) {
+    const normalizedDocType = normalizeDocType(docType);
+    const phrase = AMOUNT_WORDS_PHRASES[normalizedDocType] || "";
+    const wordsAllowed = !!phrase;
+    const totalHt = toFiniteNumber(totals?.totalHT, 0);
+    const totalTtc = toFiniteNumber(totals?.totalTTC ?? totals?.grand, totalHt);
+    const showTtc = Math.abs(totalTtc - totalHt) > 1e-9;
+    const financing = totals?.financing && typeof totals.financing === "object" ? totals.financing : {};
+    const netToPay = toFiniteNumber(financing?.netToPay, NaN);
+    const hasNetToPay =
+      (financing?.subventionEnabled || financing?.bankEnabled) && Number.isFinite(netToPay);
+    const target = hasNetToPay ? netToPay : (showTtc ? totalTtc : totalHt);
+    return {
+      visible: pdfOptions.showAmountWords !== false && wordsAllowed,
+      phrase,
+      words: amountInWords(target, currency)
+    };
+  }
+
   function applyInvoiceSummaryAndFooter(page, state, docType, totals, currency, taxesEnabled, pdfOptions) {
     const isStock = MODEL_DOC_TYPE_STOCK_VALUES.has(docType);
     const summary = page.querySelector("#modelPreviewInvoiceSummary");
@@ -1242,12 +1269,10 @@
     }
 
     const amountWordsNode = page.querySelector(".doc-design1__amount-words");
-    const showAmountWords = pdfOptions.showAmountWords !== false && taxesEnabled;
-    setNodeVisibility(amountWordsNode, showAmountWords);
-    if (amountWordsNode && showAmountWords) {
-      const words = amountInWords(toFiniteNumber(totals?.totalTTC ?? totals?.grand, 0), currency);
-      const phrase = `Arr\u00eat\u00e9e la pr\u00e9sente ${docTypeTitle(docType).toLowerCase()} \u00e0 la somme de :`;
-      amountWordsNode.innerHTML = `${phrase}<br/><strong>${esc(words)}</strong>`;
+    const amountWords = resolveAmountWordsContent(docType, totals, currency, pdfOptions);
+    setNodeVisibility(amountWordsNode, amountWords.visible);
+    if (amountWordsNode && amountWords.visible) {
+      amountWordsNode.innerHTML = `${amountWords.phrase}<br/><strong>${esc(amountWords.words)}</strong>`;
     }
 
     const noteNode = page.querySelector("#modelPreviewNote");
@@ -1303,7 +1328,7 @@
     });
     setMiniSummaryRow("total-ht", {
       visible: !isPurchaseDoc,
-      label: taxesEnabled ? "Total HT" : "Total",
+      label: "Total HT",
       value: fmtMoney(totals?.totalHT, currency)
     });
     setMiniSummaryRow("total-purchase-ht", {
@@ -1312,12 +1337,12 @@
       value: fmtMoney(totals?.totalHT, currency)
     });
     setMiniSummaryRow("total-purchase-ttc", {
-      visible: isPurchaseDoc,
+      visible: isPurchaseDoc && taxesEnabled,
       label: "Total A. TTC",
       value: fmtMoney(totals?.totalTTC ?? totals?.grand, currency)
     });
     setMiniSummaryRow("total-ttc", {
-      visible: !isPurchaseDoc,
+      visible: !isPurchaseDoc && taxesEnabled,
       label: "Total TTC",
       value: fmtMoney(totals?.totalTTC ?? totals?.grand, currency)
     });

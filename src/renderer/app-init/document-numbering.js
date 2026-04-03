@@ -32,11 +32,6 @@
     const taxPanel = getEl("taxPanel");
     const taxDisplay = getEl("taxDisplay");
     const taxToggle = taxMenu?.querySelector("summary") || null;
-    const modelTaxSelect = getEl("modelTaxMode");
-    const modelTaxMenu = getEl("modelTaxMenu");
-    const modelTaxPanel = getEl("modelTaxPanel");
-    const modelTaxDisplay = getEl("modelTaxDisplay");
-    const modelTaxToggle = modelTaxMenu?.querySelector("summary") || null;
     const modelNumberFormatField = getEl("modelNumberFormatLabel");
     const modelNumberFormatSelect = getEl("modelNumberFormat");
     const modelNumberFormatPanel = getEl("modelNumberFormatPanel");
@@ -722,11 +717,10 @@
       const purchasePriceToggle = getModelColumnToggleById(MODEL_DOC_TYPE_PURCHASE_PRICE_TOGGLE_ID);
       const purchaseContextLocked =
         !purchasePriceToggle || !!purchasePriceToggle.disabled || !purchasePriceToggle.checked;
-      const rawModelTaxMode =
-        modelTaxSelect?.value ||
-        modelTaxPanel?.querySelector?.("input:checked")?.value ||
-        "with";
-      const taxesEnabled = normalizeTaxValue(rawModelTaxMode, "with") !== "without";
+      const rawTaxMode =
+        taxSelect?.value ||
+        (getInvoiceMeta()?.taxesEnabled === false ? "without" : "with");
+      const taxesEnabled = normalizeTaxValue(rawTaxMode, "with") !== "without";
       if (saleToggle) {
         setModelColumnToggleDisabledState(saleToggle, isPurchaseContext || isBonSortieContext || !taxesEnabled);
       }
@@ -1020,8 +1014,7 @@
       }
     ].filter(({ select, menu, panel, display }) => select || menu || panel || display);
     const taxControls = [
-      { select: taxSelect, menu: taxMenu, panel: taxPanel, display: taxDisplay, toggle: taxToggle },
-      { select: modelTaxSelect, menu: modelTaxMenu, panel: modelTaxPanel, display: modelTaxDisplay, toggle: modelTaxToggle }
+      { select: taxSelect, menu: taxMenu, panel: taxPanel, display: taxDisplay, toggle: taxToggle }
     ].filter(({ select, menu, panel, display }) => select || menu || panel || display);
     const refreshTaxUi = () => {
       try {
@@ -1314,7 +1307,7 @@
     function syncTaxMenuUi(value, { updateSelect = false, closeMenu = false } = {}) {
       const meta = getInvoiceMeta();
       const fallbackValue =
-        taxSelect?.value || modelTaxSelect?.value || (meta?.taxesEnabled === false ? "without" : "with");
+        taxSelect?.value || (meta?.taxesEnabled === false ? "without" : "with");
       const normalized = normalizeTaxValue(value, fallbackValue);
       const shouldUpdateSelects = updateSelect !== false;
       taxControls.forEach(({ select, display, panel, menu, toggle }) => {
@@ -1343,42 +1336,9 @@
           toggle.setAttribute("aria-expanded", menu?.open ? "true" : "false");
         }
       });
-      return normalized;
-    }
-
-    function syncModelTaxMenuUi(value, { updateSelect = true, closeMenu = false } = {}) {
-      const fallbackValue =
-        modelTaxSelect?.value ||
-        modelTaxPanel?.querySelector?.("input:checked")?.value ||
-        "with";
-      const normalized = normalizeTaxValue(value, fallbackValue);
-      if (modelTaxSelect && updateSelect !== false) {
-        modelTaxSelect.value = normalized;
-      }
-      if (modelTaxDisplay) {
-        modelTaxDisplay.textContent = getTaxLabel(normalized);
-      }
-      if (modelTaxPanel) {
-        modelTaxPanel.querySelectorAll("[data-tax-option]").forEach((btn) => {
-          const isMatch = btn.dataset.taxOption === normalized;
-          btn.classList.toggle("is-active", isMatch);
-          btn.setAttribute("aria-selected", isMatch ? "true" : "false");
-          const input = btn.querySelector('input[type="radio"], input[type="checkbox"]');
-          if (input) {
-            input.checked = isMatch;
-            input.setAttribute("aria-checked", isMatch ? "true" : "false");
-          }
-        });
-      }
-      if (closeMenu && modelTaxMenu && modelTaxMenu.open) {
-        modelTaxMenu.open = false;
-      }
-      if (modelTaxToggle) {
-        modelTaxToggle.setAttribute("aria-expanded", modelTaxMenu?.open ? "true" : "false");
-      }
       const syncTaxLocks = w.SEM?.__bindingHelpers?.syncTaxModeDependentColumnToggles;
       if (typeof syncTaxLocks === "function") {
-        syncTaxLocks({ scope: "model" });
+        syncTaxLocks({ scope: "all" });
       }
       applyModelDocTypeFaColumnLocks(getSelectedModelDocTypes());
       return normalized;
@@ -1440,7 +1400,6 @@
       w.syncDocTypeMenuUi = syncDocTypeMenuUi;
       w.syncModelDocTypeMenuUi = syncModelDocTypeMenuUi;
       w.syncModelCurrencyMenuUi = syncModelCurrencyMenuUi;
-      w.syncModelTaxMenuUi = syncModelTaxMenuUi;
       w.syncModelNumberFormatUi = syncModelNumberFormatUi;
       w.syncInvoiceNumberControls = syncInvoiceNumberControls;
       w.setDocTypeMenuAllowedDocTypes = setDocTypeMenuAllowedDocTypes;
@@ -1461,9 +1420,7 @@
       currencySelect?.value || modelCurrencySelect?.value || getInvoiceMeta()?.currency || "DT";
     syncCurrencyMenuUi(initialCurrency, { updateSelect: true });
     const initialTaxMode =
-      taxSelect?.value ||
-      modelTaxSelect?.value ||
-      (getInvoiceMeta()?.taxesEnabled === false ? "without" : "with");
+      taxSelect?.value || (getInvoiceMeta()?.taxesEnabled === false ? "without" : "with");
     syncTaxMenuUi(initialTaxMode, { updateSelect: true });
     const initialNumberFormat =
       modelNumberFormatSelect?.value ||
@@ -1650,10 +1607,6 @@
       if (!taxToggle) return;
       taxToggle.setAttribute("aria-expanded", taxMenu.open ? "true" : "false");
     });
-    modelTaxMenu?.addEventListener("toggle", () => {
-      if (!modelTaxToggle) return;
-      modelTaxToggle.setAttribute("aria-expanded", modelTaxMenu.open ? "true" : "false");
-    });
 
     taxPanel?.addEventListener("click", (evt) => {
       const optionBtn = evt.target.closest("[data-tax-option]");
@@ -1676,25 +1629,6 @@
       }
       taxToggle?.focus();
     });
-    const applyModelTaxSelection = (rawValue, focusTarget) => {
-      if (!rawValue) return;
-      syncModelTaxMenuUi(rawValue, { updateSelect: true, closeMenu: true });
-      focusTarget?.querySelector?.("input")?.focus();
-    };
-    modelTaxPanel?.addEventListener("click", (evt) => {
-      const radio = evt.target.closest('input[type="radio"][name="modelTaxModeChoice"]');
-      if (radio) return;
-      const optionBtn = evt.target.closest("[data-tax-option]");
-      if (!optionBtn) return;
-      evt.preventDefault();
-      applyModelTaxSelection(optionBtn.dataset.taxOption, optionBtn);
-    });
-    modelTaxPanel?.addEventListener("change", (evt) => {
-      const radio = evt.target.closest('input[type="radio"][name="modelTaxModeChoice"]');
-      if (!radio) return;
-      applyModelTaxSelection(radio.value);
-    });
-
     const applyModelNumberFormatSelection = (rawValue, focusTarget) => {
       if (syncModelNumberFormatDisabledState(getSelectedModelDocTypes())) return;
       if (!rawValue) return;
@@ -1733,9 +1667,6 @@
       syncTaxMenuUi(evt?.target?.value, { updateSelect: true });
       refreshTaxUi();
     });
-    modelTaxSelect?.addEventListener("change", (evt) => {
-      syncModelTaxMenuUi(evt?.target?.value, { updateSelect: true });
-    });
     modelNumberFormatSelect?.addEventListener("change", (evt) => {
       if (syncModelNumberFormatDisabledState(getSelectedModelDocTypes())) return;
       const normalized = syncModelNumberFormatUi(evt?.target?.value, { updateSelect: true });
@@ -1767,10 +1698,6 @@
       if (taxMenu?.open && !taxMenu.contains(evt.target)) {
         taxMenu.open = false;
         taxToggle?.setAttribute("aria-expanded", "false");
-      }
-      if (modelTaxMenu?.open && !modelTaxMenu.contains(evt.target)) {
-        modelTaxMenu.open = false;
-        modelTaxToggle?.setAttribute("aria-expanded", "false");
       }
     }
     document.addEventListener("click", handleOutsideClick);
