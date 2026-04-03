@@ -8,8 +8,14 @@
     const itemsDocOptionsModalContent = getEl("itemsDocOptionsModalContent");
     const itemsDocOptionsModalClose = getEl("itemsDocOptionsModalClose");
     const itemsDocOptionsModalCloseFooter = getEl("itemsDocOptionsModalCloseFooter");
+    const itemsDocOptionsModalDocOptionsToggle = getEl("itemsDocOptionsModalDocOptionsToggle");
+    const itemsDocOptionsModalDocOptionsWindow = getEl("itemsDocOptionsModalDocOptionsWindow");
+    const itemsDocOptionsModalDocOptionsPanel = getEl("itemsDocOptionsModalDocOptionsPanel");
+    const itemsDocOptionsModalDocOptionsContent = getEl("itemsDocOptionsModalDocOptionsContent");
+    const itemsDocOptionsModalDocOptionsClose = getEl("itemsDocOptionsModalDocOptionsClose");
     const itemsDocOptionsModalTitle = getEl("itemsDocOptionsModalTitle");
     let itemsDocOptionsRestoreFocus = null;
+    let itemsDocOptionsDocOptionsRestoreFocus = null;
     let itemsModalMoved = false;
     let itemsModalMode = "new";
     let syncItemsModalHeaderLayoutForDocType = null;
@@ -5734,7 +5740,10 @@
     };
 
     const resolveItemsModalDocOptionsRoot = () =>
-      itemsDocOptionsModalContent?.querySelector?.("#DocOptions") || getEl("DocOptions") || null;
+      itemsDocOptionsModalDocOptionsContent?.querySelector?.("#DocOptions") ||
+      itemsDocOptionsModalContent?.querySelector?.("#DocOptions") ||
+      getEl("DocOptions") ||
+      null;
 
     const setItemsModalContainerVisibility = (node, visible) => {
       if (!node || typeof node !== "object") return;
@@ -5753,6 +5762,111 @@
         node.setAttribute("aria-hidden", "true");
       }
       node.style.display = "none";
+    };
+
+    const syncItemsModalDocOptionsToggle = (expanded) => {
+      if (!itemsDocOptionsModalDocOptionsToggle) return;
+      const isExpanded = !!expanded;
+      const label = isExpanded
+        ? "Masquer les options du document"
+        : "Afficher les options du document";
+      itemsDocOptionsModalDocOptionsToggle.setAttribute("aria-expanded", isExpanded ? "true" : "false");
+      itemsDocOptionsModalDocOptionsToggle.setAttribute("aria-label", label);
+      itemsDocOptionsModalDocOptionsToggle.setAttribute("title", label);
+    };
+
+    const isItemsModalDocOptionsVisible = () => {
+      return !!(
+        itemsDocOptionsModalDocOptionsWindow &&
+        itemsDocOptionsModalDocOptionsWindow.classList.contains("is-open") &&
+        itemsDocOptionsModalDocOptionsWindow.getAttribute("aria-hidden") === "false"
+      );
+    };
+
+    const syncItemsModalDocOptionsPanelPosition = () => {
+      const modalRoot = itemsDocOptionsModal;
+      const panelNode = itemsDocOptionsModalDocOptionsPanel;
+      const shellNode = modalRoot?.querySelector?.(".items-options-modal__shell") || null;
+      if (!modalRoot || !panelNode || !shellNode) return false;
+      const modalRect = modalRoot.getBoundingClientRect();
+      const shellRect = shellNode.getBoundingClientRect();
+      const topOffset = Math.max(0, Math.round(shellRect.top - modalRect.top));
+      panelNode.style.top = `${topOffset}px`;
+      const availableHeight = Math.max(0, Math.round(shellRect.height));
+      if (availableHeight > 0) {
+        panelNode.style.maxHeight = `${availableHeight}px`;
+      } else {
+        panelNode.style.removeProperty("max-height");
+      }
+      return true;
+    };
+
+    const setItemsModalDocOptionsVisible = (visible, { focusToggle = false } = {}) => {
+      const docOptionsRoot = resolveItemsModalDocOptionsRoot();
+      const shouldShow = visible === true;
+      if (!docOptionsRoot || !itemsDocOptionsModalDocOptionsWindow || !itemsDocOptionsModalDocOptionsContent) {
+        syncItemsModalDocOptionsToggle(false);
+        return false;
+      }
+      if (shouldShow) {
+        if (docOptionsRoot.parentNode !== itemsDocOptionsModalDocOptionsContent) {
+          itemsDocOptionsModalDocOptionsContent.appendChild(docOptionsRoot);
+        }
+        itemsDocOptionsDocOptionsRestoreFocus =
+          document.activeElement instanceof HTMLElement
+            ? document.activeElement
+            : itemsDocOptionsModalDocOptionsToggle;
+        setItemsModalContainerVisibility(docOptionsRoot, true);
+        itemsDocOptionsModalDocOptionsWindow.hidden = false;
+        itemsDocOptionsModalDocOptionsWindow.removeAttribute("hidden");
+        itemsDocOptionsModalDocOptionsWindow.setAttribute("aria-hidden", "false");
+        itemsDocOptionsModalDocOptionsWindow.classList.add("is-open");
+        syncItemsModalDocOptionsPanelPosition();
+        syncItemsModalDocOptionsToggle(true);
+        const focusTarget =
+          itemsDocOptionsModalDocOptionsClose ||
+          itemsDocOptionsModalDocOptionsPanel ||
+          docOptionsRoot;
+        try {
+          focusTarget?.focus?.({ preventScroll: true });
+        } catch {
+          try {
+            focusTarget?.focus?.();
+          } catch {}
+        }
+        return true;
+      }
+
+      const activeElement = document.activeElement;
+      if (
+        activeElement &&
+        (activeElement === itemsDocOptionsModalDocOptionsPanel ||
+          itemsDocOptionsModalDocOptionsWindow.contains(activeElement))
+      ) {
+        try {
+          activeElement.blur?.();
+        } catch {}
+      }
+      itemsDocOptionsModalDocOptionsWindow.classList.remove("is-open");
+      itemsDocOptionsModalDocOptionsWindow.hidden = true;
+      itemsDocOptionsModalDocOptionsWindow.setAttribute("hidden", "");
+      itemsDocOptionsModalDocOptionsWindow.setAttribute("aria-hidden", "true");
+      setItemsModalContainerVisibility(docOptionsRoot, false);
+      syncItemsModalDocOptionsToggle(false);
+      if (focusToggle) {
+        const restoreTarget = itemsDocOptionsDocOptionsRestoreFocus || itemsDocOptionsModalDocOptionsToggle;
+        if (restoreTarget && typeof restoreTarget.focus === "function") {
+          try {
+            restoreTarget.focus({ preventScroll: true });
+          } catch {
+            try {
+              restoreTarget.focus();
+            } catch {}
+          }
+        }
+      }
+      itemsDocOptionsDocOptionsRestoreFocus = null;
+      return false;
     };
 
     const resolveItemsModalFeeOptionContainers = (root, enabledId, fieldsId) => {
@@ -6870,6 +6984,9 @@
         }
       });
       itemsDocOptionsModalContent.innerHTML = "";
+      if (itemsDocOptionsModalDocOptionsContent) {
+        itemsDocOptionsModalDocOptionsContent.innerHTML = "";
+      }
       itemsModalMoved = false;
       syncItemsModalHeaderLayoutForDocType = null;
     };
@@ -7264,9 +7381,14 @@
       const docOptions = getEl("DocOptions");
       if (docOptions) {
         rememberOriginalLocation(movableRefs.docOptions, docOptions);
-        docOptions.hidden = false;
-        docOptions.removeAttribute("hidden");
-        rowBottom.appendChild(docOptions);
+        if (itemsDocOptionsModalDocOptionsContent) {
+          itemsDocOptionsModalDocOptionsContent.innerHTML = "";
+          itemsDocOptionsModalDocOptionsContent.appendChild(docOptions);
+        } else {
+          rowBottom.appendChild(docOptions);
+        }
+        setItemsModalContainerVisibility(docOptions, false);
+        syncItemsModalDocOptionsToggle(false);
         itemsModalMoved = true;
       }
 
@@ -7345,6 +7467,7 @@
         if (typeof SEM?.applyColumnHiding === "function") {
           SEM.applyColumnHiding();
         }
+        setItemsModalDocOptionsVisible(false);
         syncItemsModalStockMovementBoxesFromState();
         const modelName = sanitizeModelSeed(
           options.model ||
@@ -7379,6 +7502,7 @@
         itemsDocOptionsModal.removeAttribute("hidden");
         itemsDocOptionsModal.setAttribute("aria-hidden", "false");
         itemsDocOptionsModal.classList.add("is-open");
+        syncItemsModalDocOptionsPanelPosition();
         try {
           itemsDocOptionsModal.focus({ preventScroll: true });
         } catch (focusErr) {
@@ -7409,6 +7533,7 @@
       itemsModalModelSelectSyncing = false;
       itemsModalMode = "new";
       setItemsModalAcompteReadOnly(false);
+      setItemsModalDocOptionsVisible(false, { focusToggle: false });
       restoreMovedContent();
       if (typeof w.setDocTypeMenuAllowedDocTypes === "function") {
         w.setDocTypeMenuAllowedDocTypes(null, { enforceSelection: false });
@@ -7430,6 +7555,21 @@
     [itemsDocOptionsModalClose, itemsDocOptionsModalCloseFooter].forEach((btn) => {
       btn?.addEventListener("click", closeItemsModal);
     });
+    itemsDocOptionsModalDocOptionsClose?.addEventListener("click", () => {
+      setItemsModalDocOptionsVisible(false, { focusToggle: true });
+    });
+    itemsDocOptionsModalDocOptionsToggle?.addEventListener("click", () => {
+      setItemsModalDocOptionsVisible(!isItemsModalDocOptionsVisible(), { focusToggle: !isItemsModalDocOptionsVisible() });
+    });
+    itemsDocOptionsModalDocOptionsWindow?.addEventListener("click", (evt) => {
+      const shouldClose =
+        evt.target === itemsDocOptionsModalDocOptionsWindow ||
+        evt.target?.closest?.("[data-doc-options-window-close='true']");
+      if (!shouldClose) return;
+      evt.preventDefault();
+      evt.stopPropagation();
+      setItemsModalDocOptionsVisible(false, { focusToggle: true });
+    });
     itemsDocOptionsModal?.addEventListener("click", (evt) => {
       if (evt.target === itemsDocOptionsModal) {
         evt.stopPropagation();
@@ -7440,11 +7580,19 @@
       (evt) => {
         if (evt.key === "Escape") {
           evt.preventDefault();
+          if (isItemsModalDocOptionsVisible()) {
+            setItemsModalDocOptionsVisible(false, { focusToggle: true });
+            return;
+          }
           closeItemsModal();
         }
       },
       true
     );
+    window.addEventListener("resize", () => {
+      if (!isItemsModalOpen()) return;
+      syncItemsModalDocOptionsPanelPosition();
+    });
 
     itemsDocOptionsModalContent?.addEventListener("change", (evt) => {
       if (!isItemsModalOpen()) return;
@@ -7505,6 +7653,7 @@
         if (!el) return;
         el.hidden = false;
         if (typeof el.removeAttribute === "function") el.removeAttribute("hidden");
+        if (el.style) el.style.display = "";
       });
       const scrollTarget =
         itemsSection && itemsSection.offsetParent !== null ? itemsSection : docOptions || itemsSection;
@@ -7539,6 +7688,7 @@
           const cloneSection = itemsSection.cloneNode(true);
           cloneSection.hidden = false;
           if (typeof cloneSection.removeAttribute === "function") cloneSection.removeAttribute("hidden");
+          if (cloneSection.style) cloneSection.style.display = "";
           container.appendChild(cloneSection);
         }
 
@@ -7546,6 +7696,7 @@
           const cloneOptions = docOptions.cloneNode(true);
           cloneOptions.hidden = false;
           if (typeof cloneOptions.removeAttribute === "function") cloneOptions.removeAttribute("hidden");
+          if (cloneOptions.style) cloneOptions.style.display = "";
           container.appendChild(cloneOptions);
         }
 
