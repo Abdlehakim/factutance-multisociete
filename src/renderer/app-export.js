@@ -2563,6 +2563,8 @@ function buildBonEntreePreviewTitle(stateInput) {
     overlay.classList.remove("is-open");
     overlay.hidden = true;
     overlay.setAttribute("aria-hidden", "true");
+    const styleEl = overlay.querySelector("#pdfPreviewModalStyle");
+    if (styleEl) styleEl.textContent = "";
     const content = overlay.querySelector("#pdfPreviewContent");
     if (content) content.innerHTML = "";
   }

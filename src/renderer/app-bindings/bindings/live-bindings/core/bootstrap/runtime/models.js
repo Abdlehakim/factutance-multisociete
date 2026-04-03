@@ -687,10 +687,26 @@
             const modelPreviewDoc = getEl("modelPreviewDoc");
             const modelPreviewCurrency = getEl("modelPreviewCurrency");
             const modelPreviewExtras = getEl("modelPreviewExtras");
+            const ensureNodeDefaultText = (el) => {
+              if (!el) return "";
+              const existing = typeof el.dataset?.default === "string" ? el.dataset.default : "";
+              if (existing) return existing;
+              const fallback = el.textContent || "";
+              if (el.dataset) el.dataset.default = fallback;
+              return fallback;
+            };
+            const ensureNodeDefaultHtml = (el) => {
+              if (!el) return "";
+              const existing = typeof el.dataset?.default === "string" ? el.dataset.default : "";
+              if (existing) return existing;
+              const fallback = el.innerHTML || "";
+              if (el.dataset) el.dataset.default = fallback;
+              return fallback;
+            };
             const setTextWithFallback = (id, value) => {
               const el = getEl(id);
               if (!el) return;
-              const fallback = el.dataset?.default || el.textContent || "";
+              const fallback = ensureNodeDefaultText(el);
               const text = typeof value === "string" ? value.trim() : "";
               el.textContent = text || fallback;
             };
@@ -706,7 +722,7 @@
             const setPhoneTextWithFallback = (id, value) => {
               const el = getEl(id);
               if (!el) return;
-              const fallbackRaw = el.dataset?.default || el.textContent || "";
+              const fallbackRaw = ensureNodeDefaultText(el);
               const sourceRaw = typeof value === "string" ? value : "";
               const normalized = normalizeContactLinesForPreview(sourceRaw);
               const normalizedFallback = normalizeContactLinesForPreview(fallbackRaw);
@@ -715,7 +731,7 @@
             const setHtmlWithFallback = (id, value) => {
               const el = getEl(id);
               if (!el) return "";
-              const fallback = el.dataset?.default || el.innerHTML || "";
+              const fallback = ensureNodeDefaultHtml(el);
               const html = typeof value === "string" ? value.trim() : "";
               el.innerHTML = html || fallback;
               return html || fallback;
@@ -821,20 +837,11 @@
               selectedModelDocTypes.every((docType) => docType === "fa");
             const currency =
               checkedValue(getEl("modelCurrencyPanel")) || getEl("modelCurrency")?.value || "DT";
-            const taxMode = (() => {
-              const helperMode =
-                typeof SEM.resolveLiveDocumentTaxMode === "function"
-                  ? SEM.resolveLiveDocumentTaxMode()
-                  : "";
-              const selectValue = getEl("taxMode")?.value || "";
-              const fallback = state()?.meta?.taxesEnabled === false ? "without" : "with";
-              return String(helperMode || selectValue || fallback || "with").toLowerCase();
-            })();
+            const taxMode = "with";
             const taxesEnabled = taxMode !== "without";
             const numberFormatRaw =
               checkedValue(getEl("modelNumberFormatPanel")) ||
               getEl("modelNumberFormat")?.value ||
-              state()?.meta?.numberFormat ||
               "prefix_date_counter";
             const normalizeNumberFormatLocal = (value, fallback = "prefix_date_counter") => {
               const raw = String(value || "").trim().toLowerCase();
@@ -843,7 +850,7 @@
               if (["prefix_date_counter", "prefix_counter", "counter"].includes(fb)) return fb;
               return "prefix_date_counter";
             };
-            const numberFormat = normalizeNumberFormatLocal(numberFormatRaw, state()?.meta?.numberFormat);
+            const numberFormat = normalizeNumberFormatLocal(numberFormatRaw, "prefix_date_counter");
             const shipEnabled = !!getEl("shipEnabledModal")?.checked;
             const dossierEnabled = !!getEl("dossierEnabledModal")?.checked;
             const deplacementEnabled = !!getEl("deplacementEnabledModal")?.checked;
@@ -871,10 +878,13 @@
               getEl("pdfShowBsCheckedByModal")?.checked ?? (pdfOptions.showBsCheckedBy !== false);
             const showBsValidatedBy =
               getEl("pdfShowBsValidatedByModal")?.checked ?? (pdfOptions.showBsValidatedBy !== false);
-            const previewDateValue = formatPreviewDateValue(
-              state()?.meta?.date,
-              getEl("modelPreviewDate")?.dataset?.default || getEl("modelPreviewDate")?.textContent || ""
-            );
+            const previewDateFallback = ensureNodeDefaultText(getEl("modelPreviewDate"));
+            const previewDateValue = formatPreviewDateValue("", previewDateFallback);
+            const previewDateRaw = previewDateValue || previewDateFallback;
+            const previewDateParsed = previewDateRaw ? new Date(previewDateRaw) : new Date();
+            const previewReferenceDate = Number.isFinite(previewDateParsed.getTime())
+              ? previewDateParsed
+              : new Date();
             setTextWithFallback("modelPreviewDate", previewDateValue);
 
             if (modelPreviewDoc) {
@@ -891,14 +901,15 @@
                 ? "Destinataire"
                 : (isPurchaseDocType ? "Fournisseur" : "Client");
             }
-            const party = state()?.client || {};
+            const party = {};
             const partySection =
               previewPartyLegend?.closest?.("fieldset") ||
               previewRoot.querySelector(".doc-design1__grid fieldset.doc-design1__section");
             const partyNameEl = partySection?.querySelector(".doc-design1__client-name");
             if (partyNameEl) {
+              const fallbackName = ensureNodeDefaultText(partyNameEl);
               const partyNameText = String(party.name || "").trim();
-              partyNameEl.textContent = partyNameText || "-";
+              partyNameEl.textContent = partyNameText || fallbackName || "-";
             }
             const partyCodeLine = partySection?.querySelector?.('.doc-design1__meta-line[data-party-field="code"]');
             const partyCodeLabelEl = partyCodeLine?.querySelector?.(".doc-design1__meta-label");
@@ -935,11 +946,12 @@
               if (!field) return;
               const valueEl = line.querySelector(".doc-design1__meta-value");
               if (!valueEl) return;
+              const fallbackValue = ensureNodeDefaultText(valueEl);
               const rawValue = Object.prototype.hasOwnProperty.call(partyFieldValues, field)
                 ? partyFieldValues[field]
                 : "";
               const textValue = String(rawValue || "").trim();
-              valueEl.textContent = textValue || "-";
+              valueEl.textContent = textValue || fallbackValue || "-";
             });
             const prefixMap = {
               facture: "Fact",
@@ -953,21 +965,13 @@
             };
             const previewNumberEl = getEl("modelPreviewNumber");
             if (previewNumberEl) {
-              const rawNumber = String(
-                getEl("invNumber")?.value ||
-                  state()?.meta?.previewNumber ||
-                  state()?.meta?.number ||
-                  ""
-              ).trim();
+              const defaultPreviewNumber = ensureNodeDefaultText(previewNumberEl);
+              const rawNumber = String(defaultPreviewNumber || "").trim();
               if (usesManualModelNumbering) {
-                previewNumberEl.textContent = rawNumber;
+                previewNumberEl.textContent = rawNumber || defaultPreviewNumber;
               } else {
                 const previewDocType = hasDocTypes ? effectiveDocType : "facture";
-                const numberLengthSource =
-                  modelPreviewNumberLengthOverride ??
-                  getEl("invNumberLength")?.value ??
-                  state()?.meta?.numberLength ??
-                  4;
+                const numberLengthSource = modelPreviewNumberLengthOverride ?? 4;
                 const numberLengthRaw = Number(numberLengthSource);
                 const numberLength = [4, 6, 8, 12].includes(numberLengthRaw) ? numberLengthRaw : 4;
                 const rawDigits = String(rawNumber.match(/(\d+)\s*$/)?.[1] || "");
@@ -980,7 +984,7 @@
                 if (typeof formatInvoiceNumber === "function") {
                   const formatted = formatInvoiceNumber(counterValue, numberLength, {
                     docType: previewDocType,
-                    date: state()?.meta?.date,
+                    date: previewReferenceDate,
                     numberFormat
                   });
                   previewNumberEl.textContent = formatted;
@@ -992,10 +996,8 @@
                   } else if (numberFormat === "prefix_counter") {
                     previewNumberEl.textContent = `${numberPrefix}_${counter}`;
                   } else {
-                    const dateRaw = state()?.meta?.date ? new Date(state().meta.date) : new Date();
-                    const safeDate = Number.isFinite(dateRaw.getTime()) ? dateRaw : new Date();
-                    const year = String(safeDate.getFullYear());
-                    const month = String(safeDate.getMonth() + 1).padStart(2, "0");
+                    const year = String(previewReferenceDate.getFullYear());
+                    const month = String(previewReferenceDate.getMonth() + 1).padStart(2, "0");
                     const shortYear = year.slice(-2);
                     previewNumberEl.textContent = `${numberPrefix}_${shortYear}-${month}-${counter}`;
                   }
@@ -1053,33 +1055,25 @@
             }
             const beRemarksEl = previewRoot.querySelector("#modelPreviewBeRemarks");
             if (beRemarksEl) {
-              const beRemarksValue =
-                getEl("beRemarksModal")?.value ||
-                state()?.meta?.extras?.pdf?.beRemarks ||
-                "";
+              const beRemarksValue = getEl("beRemarksModal")?.value || ensureNodeDefaultHtml(beRemarksEl);
               const beRemarksSize =
-                normalizeBeRemarksFontSize(
-                  getEl("beRemarksFontSizeModal")?.value ?? state()?.meta?.extras?.pdf?.beRemarksSize
-                ) ?? WH_NOTE_DEFAULT_FONT_SIZE;
+                normalizeBeRemarksFontSize(getEl("beRemarksFontSizeModal")?.value) ??
+                WH_NOTE_DEFAULT_FONT_SIZE;
               const formattedBeRemarks = ensureBeRemarksSizeWrapper(beRemarksValue, beRemarksSize);
               beRemarksEl.innerHTML = formattedBeRemarks;
             }
             const bsRemarksEl = previewRoot.querySelector("#modelPreviewBsRemarks");
             if (bsRemarksEl) {
-              const bsRemarksValue =
-                getEl("bsRemarksModal")?.value ||
-                state()?.meta?.extras?.pdf?.bsRemarks ||
-                "";
+              const bsRemarksValue = getEl("bsRemarksModal")?.value || ensureNodeDefaultHtml(bsRemarksEl);
               const bsRemarksSize =
-                normalizeBeRemarksFontSize(
-                  getEl("bsRemarksFontSizeModal")?.value ?? state()?.meta?.extras?.pdf?.bsRemarksSize
-                ) ?? WH_NOTE_DEFAULT_FONT_SIZE;
+                normalizeBeRemarksFontSize(getEl("bsRemarksFontSizeModal")?.value) ??
+                WH_NOTE_DEFAULT_FONT_SIZE;
               const formattedBsRemarks = ensureBeRemarksSizeWrapper(bsRemarksValue, bsRemarksSize);
               bsRemarksEl.innerHTML = formattedBsRemarks;
             }
             const footerNoteEl = previewRoot.querySelector("#modelPreviewFooterNote");
             if (footerNoteEl) {
-              const footerNoteValue = getEl("footerNoteModal")?.value || "";
+              const footerNoteValue = getEl("footerNoteModal")?.value || ensureNodeDefaultHtml(footerNoteEl);
               const footerNoteSizeRaw = Number.parseInt(getEl("footerNoteFontSizeModal")?.value, 10);
               const footerNoteSize = [7, 8, 9].includes(footerNoteSizeRaw) ? footerNoteSizeRaw : 8;
               const sanitizedFooterNote = formatFooterNoteForPreview(footerNoteValue, footerNoteSize);
@@ -1702,20 +1696,17 @@
           };
           helpers.syncTaxModeDependentColumnToggles = syncTaxModeDependentColumnToggles;
 
-          resetModelWizardFields = () => {
+          resetModelWizardFields = (options = {}) => {
+            const opts = options && typeof options === "object" ? options : {};
+            const clearName = opts.clearName !== false;
+            const clearMainSelection = opts.clearMainSelection !== false;
+            const clearActionsSelection = opts.clearActionsSelection !== false;
             if (typeof w.setDocTypeMenuAllowedDocTypes === "function") {
               w.setDocTypeMenuAllowedDocTypes(null);
             }
-            if (modelNameInput) modelNameInput.value = "";
-            if (modelSelect) modelSelect.value = "";
-            if (modelActionsSelect) modelActionsSelect.value = "";
-            const st = state && typeof state === "function" ? state() : null;
-            if (st?.meta && typeof st.meta === "object") {
-              st.meta.template = "";
-            }
-            if (st && typeof st === "object" && "template" in st) {
-              st.template = "";
-            }
+            if (clearName && modelNameInput) modelNameInput.value = "";
+            if (clearMainSelection && modelSelect) modelSelect.value = "";
+            if (clearActionsSelection && modelActionsSelect) modelActionsSelect.value = "";
             const templateSelect = getEl("modelTemplate");
             if (templateSelect) {
               templateSelect.value = "template1";
@@ -1738,6 +1729,7 @@
             }
             modelBaselineString = null;
             modelDirty = false;
+            modelPreviewNumberLengthOverride = null;
             const selectRadio = (panelId, attr, value, selectId) => {
               const panel = getEl(panelId);
               const attrKebab = String(attr || "").replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
@@ -1789,6 +1781,11 @@
               setModelDocTypeSelection(["facture"]);
               w.syncModelNumberFormatDisabledState?.(["facture"]);
               w.syncModelBeOnlySectionsVisibility?.(["facture"]);
+            }
+            if (typeof w.syncModelNumberFormatUi === "function") {
+              w.syncModelNumberFormatUi("prefix_date_counter", { updateSelect: true });
+            } else {
+              selectRadio("modelNumberFormatPanel", "numberFormat", "prefix_date_counter", "modelNumberFormat");
             }
             selectRadio("modelCurrencyPanel", "currency", "DT", "modelCurrency");
             const defaults = resolveModelColumnVisibilityDefaults();
@@ -2037,18 +2034,32 @@
             syncModelStepper(1);
           };
           finalizeModelCreation = null;
+          clearInactivePdfPreviewStyles = () => {
+            const overlay = getEl("pdfPreviewModal");
+            if (!overlay || overlay.classList.contains("is-open")) return;
+            const styleEl = overlay.querySelector("#pdfPreviewModalStyle");
+            if (styleEl) styleEl.textContent = "";
+          };
 
           setModelActionsOpen = (open) => {
             const wasOpen = modelActionsOpen;
             modelActionsOpen = !!open;
             if (modelActionsModal) {
               if (modelActionsOpen) {
+                if (!wasOpen) {
+                  clearInactivePdfPreviewStyles();
+                  if (typeof helpers.suspendTemplateStyles === "function") {
+                    helpers.suspendTemplateStyles();
+                  }
+                  if (typeof clearModelActionsSelection === "function") {
+                    clearModelActionsSelection();
+                  }
+                }
                 modelActionsRestoreFocus = document.activeElement;
                 modelActionsModal.hidden = false;
                 modelActionsModal.removeAttribute("hidden");
                 modelActionsModal.setAttribute("aria-hidden", "false");
                 modelActionsModal.classList.add("is-open");
-                hydrateModalWhNoteFromDocument();
                 scheduleModalWhNoteMount();
                 if (!wasOpen) {
                   resetModelStepperFlow();
@@ -2061,6 +2072,9 @@
                 modelActionsModal.setAttribute("hidden", "");
                 modelActionsModal.setAttribute("aria-hidden", "true");
                 resetModelStepperFlow();
+                if (wasOpen && typeof helpers.resumeTemplateStyles === "function") {
+                  helpers.resumeTemplateStyles();
+                }
                 if (modelActionsRestoreFocus && typeof modelActionsRestoreFocus.focus === "function") {
                   modelActionsRestoreFocus.focus();
                 }
@@ -2080,8 +2094,9 @@
 
           clearModelActionsSelection = () => {
             const actionsSelect = modelActionsSelect || getEl("modelActionsSelect");
-            if (!actionsSelect) return;
-            actionsSelect.value = "";
+            if (actionsSelect) {
+              actionsSelect.value = "";
+            }
 
             const actionsMenu = getEl("modelActionsSelectMenu");
             if (actionsMenu) {
@@ -2099,7 +2114,7 @@
 
             const actionsDisplay = getEl("modelActionsSelectDisplay");
             if (actionsDisplay) {
-              const placeholderOption = Array.from(actionsSelect.options || []).find(
+              const placeholderOption = Array.from(actionsSelect?.options || []).find(
                 (option) => !String(option?.value || "").trim()
               );
               const placeholderText = String(
@@ -2107,6 +2122,8 @@
               ).trim();
               actionsDisplay.textContent = placeholderText || "Sélectionner un modèle";
             }
+
+            resetModelWizardFields({ clearMainSelection: false, clearActionsSelection: false, clearName: true });
 
             if (typeof helpers.updateModelSelectDisplay === "function") {
               helpers.updateModelSelectDisplay();
@@ -2450,7 +2467,7 @@
               selectRadio("modelCurrencyPanel", "currency", currency, "modelCurrency");
             }
 
-            const numberFormat = normalizeNumberFormatLocal(config.numberFormat, state()?.meta?.numberFormat);
+            const numberFormat = normalizeNumberFormatLocal(config.numberFormat, "prefix_date_counter");
             if (typeof w.syncModelNumberFormatUi === "function") {
               w.syncModelNumberFormatUi(numberFormat, { updateSelect: true });
             } else {
@@ -2913,9 +2930,6 @@
             modelActionsToggle.addEventListener("click", () => {
               const shouldOpen = !modelActionsOpen;
               setModelActionsOpen(shouldOpen);
-              if (shouldOpen) {
-                clearModelActionsSelection();
-              }
             });
           } else {
             setModelActionsOpen(true);

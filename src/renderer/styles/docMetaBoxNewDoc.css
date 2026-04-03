@@ -723,6 +723,9 @@
 }
 
 #itemsDocOptionsModal {
+  --items-doc-options-toggle-size: 38px;
+  --items-doc-options-toggle-gap: 22px;
+  --items-doc-options-toggle-top: 7px;
   display: flex !important;
   align-items: center;
   justify-content: center;
@@ -740,7 +743,7 @@
   opacity: 1;
   background-color: rgba(0, 0, 0, 0.35);
   pointer-events: auto;
-      padding-right: 78px;
+  padding-right: calc(var(--items-doc-options-toggle-size) + var(--items-doc-options-toggle-gap) + 18px);
 }
 
 #itemsDocOptionsModal .items-options-modal__panel {
@@ -758,15 +761,15 @@
 
 #itemsDocOptionsModal .items-options-modal__shell > .items-options-modal__doc-options-toggle {
   position: absolute;
-  top: 7px;
-  right: -60px;
-  z-index: 7;
+  top: var(--items-doc-options-toggle-top);
+  right: calc((var(--items-doc-options-toggle-size) + var(--items-doc-options-toggle-gap)) * -1);
+  z-index: 12;
   appearance: none;
   border: 1px solid rgba(21, 51, 94, 0.16);
   background: #ffffff;
   color: #15335e;
-  width: 38px;
-  height: 38px;
+  width: var(--items-doc-options-toggle-size);
+  height: var(--items-doc-options-toggle-size);
   padding: 0;
   border-radius: 999px;
   display: inline-flex;
@@ -996,9 +999,14 @@
 }
 
 @media (max-width: 1200px) {
+  #itemsDocOptionsModal {
+    --items-doc-options-toggle-size: 36px;
+    --items-doc-options-toggle-gap: 18px;
+    --items-doc-options-toggle-top: 8px;
+  }
+
   #itemsDocOptionsModal .items-options-modal__shell > .items-options-modal__doc-options-toggle {
-    top: 0;
-    right: -6px;
+    right: calc((var(--items-doc-options-toggle-size) + var(--items-doc-options-toggle-gap)) * -1);
   }
 
   #itemsDocOptionsModal .items-options-modal__doc-options-panel {
@@ -1013,6 +1021,22 @@
     max-width: 100%;
     min-width: 0;
     flex: 1 1 100%;
+  }
+}
+
+@media (max-width: 900px) {
+  #itemsDocOptionsModal {
+    --items-doc-options-toggle-size: 34px;
+    --items-doc-options-toggle-gap: 14px;
+    --items-doc-options-toggle-top: 8px;
+  }
+}
+
+@media (max-width: 640px) {
+  #itemsDocOptionsModal {
+    --items-doc-options-toggle-size: 32px;
+    --items-doc-options-toggle-gap: 10px;
+    --items-doc-options-toggle-top: 10px;
   }
 }
 

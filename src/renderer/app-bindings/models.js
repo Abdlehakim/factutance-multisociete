@@ -20,6 +20,9 @@
     template1: "template1Css",
     template2: "template2Css"
   };
+  let templateStyleSuspendDepth = 0;
+  let templateStyleSnapshot = null;
+  let templateStylePendingKey = null;
 
   const toNumber = (value, fallback = 0) => {
     const n = Number(value);
@@ -736,15 +739,82 @@
     return cloned;
   }
 
-  function syncTemplateStyles(value) {
+  function getTemplateStyleLinks() {
     const doc = w?.document;
-    if (!doc) return;
+    if (!doc) return [];
+    return Object.entries(TEMPLATE_CSS_LINK_IDS)
+      .map(([key, id]) => ({ key, link: doc.getElementById(id) }))
+      .filter(({ link }) => !!link);
+  }
+
+  function captureTemplateStyleState() {
+    const snapshot = {};
+    getTemplateStyleLinks().forEach(({ key, link }) => {
+      snapshot[key] = { disabled: !!link.disabled };
+    });
+    return snapshot;
+  }
+
+  function restoreTemplateStyleState(snapshot) {
+    if (!snapshot || typeof snapshot !== "object") return false;
+    let restored = false;
+    getTemplateStyleLinks().forEach(({ key, link }) => {
+      if (!(key in snapshot)) return;
+      link.disabled = snapshot[key]?.disabled === true;
+      restored = true;
+    });
+    return restored;
+  }
+
+  function disableAllTemplateStyles() {
+    getTemplateStyleLinks().forEach(({ link }) => {
+      link.disabled = true;
+    });
+  }
+
+  function applyTemplateStyleKey(value) {
     const normalized = normalizeTemplateKey(value);
-    Object.entries(TEMPLATE_CSS_LINK_IDS).forEach(([key, id]) => {
-      const link = doc.getElementById(id);
-      if (!link) return;
+    getTemplateStyleLinks().forEach(({ key, link }) => {
       link.disabled = key !== normalized;
     });
+    return normalized;
+  }
+
+  function suspendTemplateStyles() {
+    if (templateStyleSuspendDepth === 0) {
+      templateStyleSnapshot = captureTemplateStyleState();
+      templateStylePendingKey = null;
+    }
+    templateStyleSuspendDepth += 1;
+    disableAllTemplateStyles();
+  }
+  helpers.suspendTemplateStyles = suspendTemplateStyles;
+
+  function resumeTemplateStyles() {
+    if (templateStyleSuspendDepth <= 0) return;
+    templateStyleSuspendDepth -= 1;
+    if (templateStyleSuspendDepth > 0) return;
+    const pendingKey = templateStylePendingKey;
+    const snapshot = templateStyleSnapshot;
+    templateStylePendingKey = null;
+    templateStyleSnapshot = null;
+    if (pendingKey) {
+      applyTemplateStyleKey(pendingKey);
+      return;
+    }
+    restoreTemplateStyleState(snapshot);
+  }
+  helpers.resumeTemplateStyles = resumeTemplateStyles;
+
+  function syncTemplateStyles(value) {
+    const normalized = normalizeTemplateKey(value);
+    if (templateStyleSuspendDepth > 0) {
+      templateStylePendingKey = normalized;
+      disableAllTemplateStyles();
+      return;
+    }
+    templateStylePendingKey = null;
+    applyTemplateStyleKey(normalized);
   }
 
   function syncItemsSectionTemplate(value) {
@@ -761,7 +831,7 @@
     const doc = w?.document;
     if (!doc) return;
     const normalized = normalizeTemplateKey(value);
-    const applyToDocument = options?.applyToDocument !== false;
+    const applyToDocument = options?.applyToDocument === true;
     if (applyToDocument) {
       syncTemplateStyles(normalized);
       syncItemsSectionTemplate(normalized);
@@ -786,7 +856,7 @@
   function updateTemplateSelectDisplay(options = {}) {
     const { select, panel, display } = getTemplateSelectElements();
     if (!select) return;
-    const applyToDocument = options?.applyToDocument !== false;
+    const applyToDocument = options?.applyToDocument === true;
     const selectedOption = select.selectedOptions && select.selectedOptions.length > 0 ? select.selectedOptions[0] : null;
     const label =
       (selectedOption?.textContent || selectedOption?.label || "").trim() || TEMPLATE_SELECT_PLACEHOLDER;
@@ -859,11 +929,16 @@
     const doc = w?.document;
     const panelDoc = panel.ownerDocument || doc;
     if (!panelDoc) return;
-    const st = typeof state === "function" ? state() : null;
-    const metaTemplate = st?.meta?.template;
-    const normalizedMeta = metaTemplate ? normalizeTemplateKey(metaTemplate) : "";
-    if (normalizedMeta && optionList.some((option) => option.value === normalizedMeta)) {
-      select.value = normalizedMeta;
+    const currentValue = normalizeTemplateKey(select.value || "");
+    const hasCurrentValue = currentValue && optionList.some((option) => option.value === currentValue);
+    const hasDefaultValue = optionList.some((option) => option.value === TEMPLATE_DEFAULT_KEY);
+    const resolvedValue = hasCurrentValue
+      ? currentValue
+      : hasDefaultValue
+        ? TEMPLATE_DEFAULT_KEY
+        : normalizeTemplateKey(optionList.find((option) => option.value)?.value || "");
+    if (resolvedValue && select.value !== resolvedValue) {
+      select.value = resolvedValue;
     }
     panel.innerHTML = "";
     let added = 0;
@@ -903,7 +978,7 @@
       panel.appendChild(emptyMsg);
     }
 
-    updateTemplateSelectDisplay();
+    updateTemplateSelectDisplay({ applyToDocument: false });
   }
 
   function normalizeColumnKey(raw) {
