@@ -321,14 +321,36 @@
                 w.syncTaxMenuUi(value, opts);
               }
             };
-            taxSelectEl?.addEventListener("change", () => {
-              const val = getStr("taxMode", state().meta.taxesEnabled !== false ? "with" : "without");
-              state().meta.taxesEnabled = String(val || "").toLowerCase() !== "without";
-              syncTaxMenuUiLocal(val, { updateSelect: false });
+            const resolveTaxModeFromClientTaxes = (value) => {
+              const normalized = String(value || "")
+                .trim()
+                .toLowerCase()
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .replace(/[\s-]+/g, "_");
+              return normalized === "exonore" || normalized === "exonoree" || normalized === "exoneree"
+                ? "without"
+                : "with";
+            };
+            const resolveClientTaxesFromTaxMode = (value) =>
+              String(value || "").toLowerCase() === "without" ? "exonore" : "non_exonore";
+            const applyCurrentTaxMode = (modeValue) => {
+              const normalizedMode = String(modeValue || "").toLowerCase() === "without" ? "without" : "with";
+              state().meta.taxesEnabled = normalizedMode !== "without";
+              // Keep all tax-mode selects synchronized to avoid stale readInputs() overrides.
+              syncTaxMenuUiLocal(normalizedMode, { updateSelect: true });
               syncTaxModeDependentColumnToggles({ scope: "main" });
               updateTaxDependentLabels(state().meta.taxesEnabled !== false);
               SEM.renderItems();
               SEM.applyColumnHiding?.();
+              return normalizedMode;
+            };
+            taxSelectEl?.addEventListener("change", () => {
+              const val = getStr("taxMode", state().meta.taxesEnabled !== false ? "with" : "without");
+              const normalizedTaxMode = applyCurrentTaxMode(val);
+              if (typeof SEM.syncClientDocTaxesControlFromTaxMode === "function") {
+                SEM.syncClientDocTaxesControlFromTaxMode(normalizedTaxMode, { updateSelect: true });
+              }
             });
             syncTaxMenuUiLocal(state().meta.taxesEnabled !== false ? "with" : "without", { updateSelect: true });
             syncTaxModeDependentColumnToggles({ scope: "main" });
@@ -343,6 +365,20 @@
             const clientTaxesPanel = getEl("clientTaxesPanel");
             const clientTaxesDisplay = getEl("clientTaxesDisplay");
             const clientTaxesToggle = clientTaxesMenu?.querySelector("summary") || null;
+            const resolveClientDocTaxesControls = () => {
+              if (typeof document === "undefined") {
+                return { selectEl: null, panelEl: null, radioEls: [] };
+              }
+              const selectEl = document.getElementById("clientDocTaxesMode");
+              const panelEl = document.getElementById("clientDocTaxesPanel");
+              return {
+                selectEl,
+                panelEl,
+                radioEls: Array.from(
+                  panelEl?.querySelectorAll?.('input[name="clientDocTaxesChoice"]') || []
+                )
+              };
+            };
             const CLIENT_TYPE_LABELS = {
               societe: "Societe / personne morale",
               particulier: "Particulier",
@@ -361,9 +397,162 @@
                 .normalize("NFD")
                 .replace(/[\u0300-\u036f]/g, "")
                 .replace(/[\s-]+/g, "_");
-              if (normalized === "exonoree" || normalized === "exoneree") return "exonore";
-              if (normalized === "non_exonoree" || normalized === "non_exoneree") return "non_exonore";
+              if (normalized === "exonore" || normalized === "exonoree" || normalized === "exoneree") {
+                return "exonore";
+              }
+              if (
+                normalized === "non_exonore" ||
+                normalized === "nonexonore" ||
+                normalized === "non_exonoree" ||
+                normalized === "nonexonoree" ||
+                normalized === "non_exoneree" ||
+                normalized === "nonexoneree"
+              ) {
+                return "non_exonore";
+              }
               return CLIENT_TAXES_LABELS[normalized] ? normalized : "non_exonore";
+            };
+            const syncClientDocTaxesControlFromTaxMode = (taxModeValue, { updateSelect = false } = {}) => {
+              const normalizedTaxMode = String(taxModeValue || "").toLowerCase() === "without" ? "without" : "with";
+              const normalizedTaxes = resolveClientTaxesFromTaxMode(normalizedTaxMode);
+              return applyClientDocTaxesSelection(normalizedTaxes, {
+                updateSelect,
+                triggerTaxUpdate: false,
+                source: "tax-mode-sync"
+              });
+            };
+            const applyClientDocTaxesSelection = (
+              taxesValue,
+              {
+                updateSelect = true,
+                triggerTaxUpdate = true,
+                source = "system",
+                clientPath = ""
+              } = {}
+            ) => {
+              const normalizedTaxes = normalizeClientTaxesValue(taxesValue);
+              const st = state();
+              const meta = st.meta || (st.meta = {});
+              const {
+                selectEl: clientDocTaxesSelectEl,
+                panelEl: clientDocTaxesPanel,
+                radioEls: clientDocTaxesRadioEls
+              } = resolveClientDocTaxesControls();
+              const resolvedClientPath = String(
+                clientPath || st.client?.__path || meta.clientDocTaxesClientPath || ""
+              ).trim();
+              if (updateSelect && clientDocTaxesSelectEl) {
+                clientDocTaxesSelectEl.value = normalizedTaxes;
+              }
+              if (clientDocTaxesPanel) {
+                clientDocTaxesPanel.querySelectorAll("[data-client-doc-taxes-option]").forEach((btn) => {
+                  const isMatch = btn.dataset.clientDocTaxesOption === normalizedTaxes;
+                  btn.classList.toggle("is-active", isMatch);
+                  btn.setAttribute("aria-selected", isMatch ? "true" : "false");
+                  const radio = btn.querySelector('input[name="clientDocTaxesChoice"]');
+                  if (radio) {
+                    radio.checked = isMatch;
+                    radio.setAttribute("aria-checked", isMatch ? "true" : "false");
+                  }
+                });
+              }
+              if (clientDocTaxesRadioEls.length) {
+                clientDocTaxesRadioEls.forEach((radio) => {
+                  const isMatch = String(radio.value || "").toLowerCase() === normalizedTaxes;
+                  radio.checked = isMatch;
+                  radio.setAttribute("aria-checked", isMatch ? "true" : "false");
+                });
+              }
+              meta.clientDocTaxesMode = normalizedTaxes;
+              meta.clientDocTaxesClientPath = resolvedClientPath;
+              if (source === "user") {
+                meta.clientDocTaxesManualOverride = normalizedTaxes;
+                meta.clientDocTaxesManualOverrideClientPath = resolvedClientPath;
+              } else if (source === "client-selection") {
+                // Client selection must always initialize from the selected client's saved DB taxes.
+                delete meta.clientDocTaxesManualOverride;
+                delete meta.clientDocTaxesManualOverrideClientPath;
+              } else if (source === "client-reset") {
+                delete meta.clientDocTaxesManualOverride;
+                delete meta.clientDocTaxesManualOverrideClientPath;
+                meta.clientDocTaxesClientPath = "";
+              }
+              if (!triggerTaxUpdate) return normalizedTaxes;
+              const nextTaxMode = resolveTaxModeFromClientTaxes(normalizedTaxes);
+              if (taxSelectEl) {
+                const previousTaxMode = String(taxSelectEl.value || "").toLowerCase() === "without" ? "without" : "with";
+                if (previousTaxMode !== nextTaxMode) {
+                  taxSelectEl.value = nextTaxMode;
+                  taxSelectEl.dispatchEvent(new Event("change", { bubbles: true }));
+                } else {
+                  applyCurrentTaxMode(nextTaxMode);
+                }
+              } else {
+                applyCurrentTaxMode(nextTaxMode);
+              }
+              return normalizedTaxes;
+            };
+            SEM.syncClientDocTaxesControlFromTaxMode = (taxModeValue, options = {}) =>
+              syncClientDocTaxesControlFromTaxMode(taxModeValue, options);
+            SEM.setDocumentTaxesFromClientValue = (taxesValue, options = {}) => {
+              const scopeNode = options.formScope instanceof HTMLElement ? options.formScope : null;
+              const normalizedEntityType = String(options.entityType || "").trim().toLowerCase();
+              if (normalizedEntityType && normalizedEntityType !== "client") {
+                return normalizeClientTaxesValue(taxesValue);
+              }
+              const isClientBoxScope =
+                !!scopeNode &&
+                (scopeNode.id === "clientBoxNewDoc" ||
+                  (typeof scopeNode.closest === "function" && !!scopeNode.closest("#clientBoxNewDoc")));
+              if (scopeNode && !isClientBoxScope) {
+                return normalizeClientTaxesValue(taxesValue);
+              }
+              const st = state();
+              const meta = st.meta || (st.meta = {});
+              const resolvedClientPath = String(
+                options.clientPath || st.client?.__path || meta.clientDocTaxesClientPath || ""
+              ).trim();
+              if (options.resetOverride === true) {
+                delete meta.clientDocTaxesManualOverride;
+                delete meta.clientDocTaxesManualOverrideClientPath;
+              }
+              const source = String(options.source || "").trim().toLowerCase();
+              if (source === "client-selection" || source === "client-change") {
+                delete meta.clientDocTaxesManualOverride;
+                delete meta.clientDocTaxesManualOverrideClientPath;
+              }
+              const manualOverrideValue = String(meta.clientDocTaxesManualOverride || "").trim();
+              const manualOverridePath = String(meta.clientDocTaxesManualOverrideClientPath || "").trim();
+              const hasManualOverride = !!manualOverrideValue;
+              const keepManualOverride =
+                options.preserveManualOverride !== false &&
+                hasManualOverride &&
+                manualOverridePath &&
+                resolvedClientPath &&
+                manualOverridePath === resolvedClientPath &&
+                source !== "client-selection" &&
+                source !== "client-change";
+              if (keepManualOverride) {
+                return applyClientDocTaxesSelection(manualOverrideValue, {
+                  updateSelect: true,
+                  triggerTaxUpdate: true,
+                  source: "manual-override",
+                  clientPath: resolvedClientPath
+                });
+              }
+              const { selectEl: clientDocTaxesSelectEl } = resolveClientDocTaxesControls();
+              const scopedClientTaxesValue = scopeNode
+                ? queryScopedClientFormElement(scopeNode, "clientTaxes")?.value
+                : "";
+              const candidateTaxesValue = String(taxesValue ?? "").trim()
+                ? taxesValue
+                : scopedClientTaxesValue || st.client?.taxes || clientDocTaxesSelectEl?.value || "non_exonore";
+              return applyClientDocTaxesSelection(candidateTaxesValue, {
+                updateSelect: true,
+                triggerTaxUpdate: true,
+                source: options.source || "client-selection",
+                clientPath: resolvedClientPath
+              });
             };
 
             function syncClientTypeMenuUiLocal(value, { updateSelect = false, closeMenu = false } = {}) {
@@ -422,6 +611,40 @@
               w.syncClientTaxesMenuUi = syncClientTaxesMenuUiLocal;
             }
 
+            document.addEventListener("click", (evt) => {
+              const btn = evt.target?.closest?.("#clientDocTaxesPanel [data-client-doc-taxes-option]");
+              if (!btn) return;
+              evt.preventDefault();
+              const optionValue = btn.dataset.clientDocTaxesOption;
+              if (!optionValue) return;
+              applyClientDocTaxesSelection(optionValue, {
+                updateSelect: true,
+                triggerTaxUpdate: true,
+                source: "user"
+              });
+              const focusTarget = btn.querySelector?.('input[name="clientDocTaxesChoice"]');
+              focusTarget?.focus?.();
+            });
+            document.addEventListener("change", (evt) => {
+              const target = evt.target;
+              if (target instanceof HTMLInputElement && target.name === "clientDocTaxesChoice") {
+                applyClientDocTaxesSelection(target.value, {
+                  updateSelect: true,
+                  triggerTaxUpdate: true,
+                  source: "user"
+                });
+                return;
+              }
+              if (!(target instanceof HTMLSelectElement)) return;
+              if (target.id !== "clientDocTaxesMode") return;
+              const normalized = normalizeClientTaxesValue(getStr("clientDocTaxesMode", "non_exonore"));
+              applyClientDocTaxesSelection(normalized, {
+                updateSelect: true,
+                triggerTaxUpdate: true,
+                source: "user"
+              });
+            });
+
             clientTypeMenu?.addEventListener("toggle", () => {
               if (!clientTypeToggle) return;
               clientTypeToggle.setAttribute("aria-expanded", clientTypeMenu.open ? "true" : "false");
@@ -466,9 +689,9 @@
               clientTaxesMenu.open = false;
               clientTaxesToggle?.setAttribute("aria-expanded", "false");
             });
-
             syncClientTypeMenuUiLocal(clientTypeSelectEl?.value || "societe");
             syncClientTaxesMenuUiLocal(clientTaxesSelectEl?.value || "non_exonore");
+            syncClientDocTaxesControlFromTaxMode(taxSelectEl?.value || (state().meta.taxesEnabled !== false ? "with" : "without"), { updateSelect: true });
 
             clientTypeSelectEl?.addEventListener("change", (evt) => {
               const currentTarget = evt.currentTarget instanceof HTMLElement ? evt.currentTarget : null;

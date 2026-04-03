@@ -1505,6 +1505,7 @@
     const totalsData = totals || SEM.computeTotalsReturn();
     const extrasState = st.meta?.extras || {};
     const currency = st.meta?.currency || totalsData.currency || "DT";
+    const taxesEnabled = st.meta?.taxesEnabled !== false;
     const extras = totalsData.extras || {};
 
     const updateRow = (rowId, labelId, valueId, labelText, enabled, amount) => {
@@ -1564,7 +1565,7 @@
       extras.fodecHT || 0
     );
 
-    const stampEnabled = !!extrasState.stamp?.enabled;
+    const stampEnabled = taxesEnabled && !!extrasState.stamp?.enabled;
     updateRow(
       "miniStampRow",
       "miniStampLabel",

@@ -1115,7 +1115,8 @@
     const deplacementHT      = deplacementEnabled ? deplacementBaseHT : 0;
     const deplacementTVA     = deplacementEnabled && taxesEnabled ? deplacementHT * (deplacementTVApc / 100) : 0;
 
-    const stampEnabled = !!ex?.stamp?.enabled;
+    const stampEnabledRaw = !!ex?.stamp?.enabled;
+    const stampEnabled = taxesEnabled && stampEnabledRaw;
     const stampLabel   = (ex?.stamp?.label || "Timbre fiscal");
     const stampBaseHT  = toFiniteNumber(ex?.stamp?.amount, 0);
     const stampHT      = stampEnabled ? stampBaseHT : 0;
@@ -1411,10 +1412,10 @@
         usePurchasePricing && purchaseFCfg && Object.keys(purchaseFCfg).length
           ? purchaseFCfg
           : fCfg;
-      const fEnabled = !!activeFCfg.enabled && Number.isFinite(Number(activeFCfg.rate));
+      const fEnabled = taxesEnabled && !!activeFCfg.enabled && Number.isFinite(Number(activeFCfg.rate));
       const fRate = Number(activeFCfg.rate || 0);
       const fTvaRate = taxesEnabled ? Number(activeFCfg.tva || 0) : 0;
-      const purchaseFEnabled = !!purchaseFCfg.enabled && Number.isFinite(Number(purchaseFCfg.rate));
+      const purchaseFEnabled = taxesEnabled && !!purchaseFCfg.enabled && Number.isFinite(Number(purchaseFCfg.rate));
       const purchaseFRate = Number(purchaseFCfg.rate || 0);
       const fHt = fEnabled ? after * (fRate / 100) : 0;
       const fTva = fEnabled ? fHt * (fTvaRate / 100) : 0;
@@ -1528,11 +1529,11 @@
         usePurchasePricing && purchaseFCfg && Object.keys(purchaseFCfg).length
           ? purchaseFCfg
           : fCfg;
-      const fEnabled = !!activeFCfg.enabled && Number.isFinite(Number(activeFCfg.rate));
+      const fEnabled = taxesEnabled && !!activeFCfg.enabled && Number.isFinite(Number(activeFCfg.rate));
       const fRate = Number(activeFCfg.rate || 0);
-      const fTvaRate = Number(activeFCfg.tva || 0);
+      const fTvaRate = taxesEnabled ? Number(activeFCfg.tva || 0) : 0;
       const fht = fEnabled ? after * (fRate / 100) : 0;
-      const ftva = fEnabled && taxesEnabled ? fht * (fTvaRate / 100) : 0;
+      const ftva = fEnabled ? fht * (fTvaRate / 100) : 0;
       subtotalItems += base;
       totalDisc     += disc;
       totalTVA_items+= tvaAmt;

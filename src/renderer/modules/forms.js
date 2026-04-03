@@ -321,10 +321,19 @@
     const normalized = String(value || "")
       .trim()
       .toLowerCase()
-      .replace(/[éèêë]/g, "e");
-    if (normalized === "exonore" || normalized === "exoneree") return "exonore";
-    if (normalized === "non_exonore" || normalized === "non_exonoree") return "non_exonore";
-    return fallback;
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[\s-]+/g, "_");
+    if (normalized === "exonore" || normalized === "exonoree" || normalized === "exoneree") return "exonore";
+    if (
+      normalized === "non_exonore" ||
+      normalized === "nonexonore" ||
+      normalized === "non_exonoree" ||
+      normalized === "nonexonoree" ||
+      normalized === "non_exoneree" ||
+      normalized === "nonexoneree"
+    ) return "non_exonore";
+    return String(fallback || "").trim().toLowerCase() === "exonore" ? "exonore" : "non_exonore";
   }
   function captureClientFromForm(scopeHint = null) {
     const scopeNode = resolveClientFormCaptureScope(scopeHint);

@@ -2198,7 +2198,9 @@
   };
 
   SEM.computeTotals = function () {
-    SEM.readInputs();
+    // Totals must honor the effective runtime tax mode selected in the document flow.
+    // Avoid re-reading stale duplicated #taxMode inputs while recomputing summary blocks.
+    SEM.readInputs({ preserveTaxMode: true });
     const totals = SEM.computeTotalsReturn();
     const currency = totals.currency || state().meta.currency || "DT";
     const fodecAmount = Number(totals?.extras?.fodecHT || 0);
@@ -2290,6 +2292,7 @@
     return normalizeAddFormPriceNumber(getNum("addTva", 19), 0);
   };
   const getEffectiveAddFormSaleFodecRate = () => {
+    if (!isTaxesEnabled(state().meta?.taxesEnabled)) return 0;
     if (!getEl("addFodecEnabled")?.checked) return 0;
     return normalizeAddFormPriceNumber(getNum("addFodecRate", 1), 0);
   };
@@ -2357,6 +2360,7 @@
     return normalizeAddFormPriceNumber(getNum("addPurchaseTva", 0), 0);
   };
   const getEffectiveAddFormPurchaseFodecRate = () => {
+    if (!isTaxesEnabled(state().meta?.taxesEnabled)) return 0;
     if (!getEl("addPurchaseFodecEnabled")?.checked) return 0;
     return normalizeAddFormPriceNumber(getNum("addPurchaseFodecRate", 1), 0);
   };
@@ -2512,14 +2516,15 @@
     const docType = normalizeDocType(state().meta?.docType || getStr("docType", "facture"));
     const discounts = resolveItemDiscountValues(it, { usePurchasePricing: docType === "fa" });
     const purchaseFodec = it.purchaseFodec && typeof it.purchaseFodec === "object" ? it.purchaseFodec : {};
-    const purchaseFodecRate = purchaseFodec.enabled
+    const taxesEnabled = isTaxesEnabled(state().meta?.taxesEnabled);
+    const purchaseFodecRate = taxesEnabled && purchaseFodec.enabled
       ? normalizeAddFormPriceNumber(purchaseFodec.rate ?? 1, 0)
       : 0;
     const salesTva = pricing.hasSalesTva ? pricing.salesTva : 19;
     const fodec = it.fodec && typeof it.fodec === "object" ? it.fodec : {};
     const salesFodecTva = resolveItemFodecTvaValue(it, { purchase: false, fallback: 19 });
     const purchaseFodecTva = resolveItemFodecTvaValue(it, { purchase: true, fallback: 19 });
-    const saleFodecRate = fodec.enabled
+    const saleFodecRate = taxesEnabled && fodec.enabled
       ? normalizeAddFormPriceNumber(fodec.rate ?? 1, 0)
       : 0;
     setVal("addRef", it.ref ?? ""); setVal("addProduct", it.product ?? "");
@@ -2531,7 +2536,7 @@
       formatAddFormPriceInputValue(
         computeAddFormPurchaseTtcFromHt(
           pricing.purchasePrice,
-          isTaxesEnabled(state().meta?.taxesEnabled) ? Math.max(0, pricing.purchaseTva) : 0,
+          taxesEnabled ? Math.max(0, pricing.purchaseTva) : 0,
           purchaseFodecRate
         )
       )
@@ -2545,7 +2550,7 @@
       formatAddFormPriceInputValue(
         computeAddFormTtcFromHt(
           pricing.salesPrice,
-          isTaxesEnabled(state().meta?.taxesEnabled) ? Math.max(0, salesTva) : 0,
+          taxesEnabled ? Math.max(0, salesTva) : 0,
           saleFodecRate
         )
       )
@@ -2871,11 +2876,12 @@
       const salesTaxedBase = Math.max(0, salesBase - salesDiscount);
       const tvaRate = taxesEnabled ? it.tva : 0;
       const tax = salesTaxedBase * (tvaRate / 100);
-      const fEnabled = !!it.fodec?.enabled && Number.isFinite(Number(it.fodec?.rate));
+      const fEnabled =
+        taxesEnabled && !!it.fodec?.enabled && Number.isFinite(Number(it.fodec?.rate));
       const fRate = Number(it.fodec?.rate || 0);
       const fTvaRate = taxesEnabled ? Number(it.fodec?.tva || 0) : 0;
       const fodec = fEnabled ? salesTaxedBase * (fRate / 100) : 0;
-      const fodecTva = fEnabled && taxesEnabled ? fodec * (fTvaRate / 100) : 0;
+      const fodecTva = fEnabled ? fodec * (fTvaRate / 100) : 0;
       const purchaseBase = it.qty * it.purchasePrice;
       const purchaseDiscountRate =
         Number.isFinite(Number(it.purchaseDiscount)) ? Number(it.purchaseDiscount) : 0;
@@ -2883,12 +2889,14 @@
       const purchaseTaxedBase = Math.max(0, purchaseBase - purchaseDiscount);
       const purchaseTvaRate = taxesEnabled ? it.purchaseTva : 0;
       const purchaseFEnabled =
-        !!it.purchaseFodec?.enabled && Number.isFinite(Number(it.purchaseFodec?.rate));
+        taxesEnabled &&
+        !!it.purchaseFodec?.enabled &&
+        Number.isFinite(Number(it.purchaseFodec?.rate));
       const purchaseFRate = Number(it.purchaseFodec?.rate || 0);
       const purchaseFTvaRate = taxesEnabled ? Number(it.purchaseFodec?.tva || 0) : 0;
       const purchaseFodec = purchaseFEnabled ? purchaseTaxedBase * (purchaseFRate / 100) : 0;
       const purchaseFodecTva =
-        purchaseFEnabled && taxesEnabled ? purchaseFodec * (purchaseFTvaRate / 100) : 0;
+        purchaseFEnabled ? purchaseFodec * (purchaseFTvaRate / 100) : 0;
       const linePurchaseHt = purchaseTaxedBase;
       const linePurchaseTtc =
         linePurchaseHt + linePurchaseHt * (purchaseTvaRate / 100) + purchaseFodec + purchaseFodecTva;
@@ -3645,10 +3653,11 @@
     const usePurchasePricing = docType === "fa";
 
     const saleTvaRate = taxesEnabled ? normalizeAddFormPriceNumber(tva, 0) : 0;
-    const saleFodecRate = fodecEnabled ? normalizeAddFormPriceNumber(fodecRate, 0) : 0;
+    const saleFodecRate =
+      taxesEnabled && fodecEnabled ? normalizeAddFormPriceNumber(fodecRate, 0) : 0;
     const purchaseTvaRate = taxesEnabled ? normalizeAddFormPriceNumber(purchaseTva, 0) : 0;
     const purchaseSaleFodecRate =
-      purchaseFodecEnabled ? normalizeAddFormPriceNumber(purchaseFodecRate, 0) : 0;
+      taxesEnabled && purchaseFodecEnabled ? normalizeAddFormPriceNumber(purchaseFodecRate, 0) : 0;
 
     const saleCompositeFactor = (1 + saleTvaRate / 100) * (1 + saleFodecRate / 100);
     const purchaseCompositeFactor = (1 + purchaseTvaRate / 100) * (1 + purchaseSaleFodecRate / 100);
@@ -3680,7 +3689,10 @@
     });
 
     const salesTax = taxesEnabled ? roundAddFormCalcValue(salesLineTotals.totalHt * (saleTvaRate / 100)) : 0;
-    const fodec = fodecEnabled ? roundAddFormCalcValue(salesLineTotals.totalHt * (saleFodecRate / 100)) : 0;
+    const fodec =
+      taxesEnabled && fodecEnabled
+        ? roundAddFormCalcValue(salesLineTotals.totalHt * (saleFodecRate / 100))
+        : 0;
     const fodecTva =
       taxesEnabled && fodecEnabled
         ? roundAddFormCalcValue(fodec * (normalizeAddFormPriceNumber(fodecTvaRate, 0) / 100))
@@ -3689,7 +3701,9 @@
     const purchaseTax =
       taxesEnabled ? roundAddFormCalcValue(purchaseLineTotals.totalHt * (purchaseTvaRate / 100)) : 0;
     const purchaseFodec =
-      purchaseFodecEnabled ? roundAddFormCalcValue(purchaseLineTotals.totalHt * (purchaseSaleFodecRate / 100)) : 0;
+      taxesEnabled && purchaseFodecEnabled
+        ? roundAddFormCalcValue(purchaseLineTotals.totalHt * (purchaseSaleFodecRate / 100))
+        : 0;
     const purchaseFodecTva =
       taxesEnabled && purchaseFodecEnabled
         ? roundAddFormCalcValue(purchaseFodec * (normalizeAddFormPriceNumber(purchaseFodecTvaRate, 0) / 100))
@@ -3717,8 +3731,8 @@
     setReadOnlyNumberValue("addTotalPurchaseHt", totalPurchaseHT);
     setReadOnlyNumberValue("addTotalPurchaseTtc", purchaseTtc);
     setReadOnlyNumberValue("addTotalHt", totalHT);
-    setReadOnlyNumberValue("addPurchaseFodecAmount", purchaseFodecEnabled ? purchaseFodec : 0);
-    setReadOnlyNumberValue("addFodecAmount", fodecEnabled ? fodec : 0);
+    setReadOnlyNumberValue("addPurchaseFodecAmount", taxesEnabled && purchaseFodecEnabled ? purchaseFodec : 0);
+    setReadOnlyNumberValue("addFodecAmount", taxesEnabled && fodecEnabled ? fodec : 0);
     setReadOnlyNumberValue("addTotalTtc", totalTTC);
     setReadOnlyNumberValue("addTotalStockCostPurchase", roundAddFormCalcValue(stockQty * purchaseTtc));
     setReadOnlyNumberValue("addTotalStockValueSale", roundAddFormCalcValue(stockQty * totalTTC));

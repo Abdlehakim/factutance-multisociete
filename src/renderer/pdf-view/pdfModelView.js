@@ -1274,7 +1274,7 @@
     const shippingEnabled = !!metaExtras?.shipping?.enabled;
     const dossierEnabled = !!metaExtras?.dossier?.enabled;
     const deplacementEnabled = !!metaExtras?.deplacement?.enabled;
-    const stampEnabled = !!metaExtras?.stamp?.enabled;
+    const stampEnabled = taxesEnabled && !!metaExtras?.stamp?.enabled;
 
     setMiniSummaryRow("shipping", {
       visible: shippingEnabled,

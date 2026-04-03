@@ -4771,6 +4771,7 @@ const searchClients = ({ query = "", limit, offset, entityType } = {}) => {
         name: row.name || data.name || "",
         entityType: row.type,
         identifier: buildClientIdentifier(data),
+        taxes: data.taxes || "non_exonore",
         codeClient: data.codeClient || "",
         codeFournisseur: data.codeFournisseur || "",
         codeTransporteur: data.codeTransporteur || "",

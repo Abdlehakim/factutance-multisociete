@@ -86,11 +86,11 @@
       const taxRate = taxesEnabled ? Number(it.tva||0) : 0;
       const tax  = after*(taxRate/100);
       const fCfg = it && typeof it.fodec === "object" ? it.fodec : {};
-      const fEnabled = !!fCfg.enabled && Number.isFinite(Number(fCfg.rate));
+      const fEnabled = taxesEnabled && !!fCfg.enabled && Number.isFinite(Number(fCfg.rate));
       const fRate = Number(fCfg.rate || 0);
       const fTvaRate = Number(fCfg.tva || 0);
       const fHt = fEnabled ? after * (fRate / 100) : 0;
-      const fTva = fEnabled && taxesEnabled ? fHt * (fTvaRate / 100) : 0;
+      const fTva = fEnabled ? fHt * (fTvaRate / 100) : 0;
       subtotal+=base; totalDiscount+=disc; totalTax+=tax;
       fodecHT += fHt; fodecTVA += fTva;
     }
@@ -99,21 +99,21 @@
 
     // shipping
     const shipHT  = ex?.shipping?.enabled ? Number(ex.shipping.amount||0) : 0;
-    const shipTVA = shipHT * (Number(ex?.shipping?.tva||0)/100);
+    const shipTVA = taxesEnabled ? shipHT * (Number(ex?.shipping?.tva||0)/100) : 0;
     const shipTT  = shipHT + shipTVA;
 
     // dossier
     const dossierHT  = ex?.dossier?.enabled ? Number(ex.dossier.amount||0) : 0;
-    const dossierTVA = dossierHT * (Number(ex?.dossier?.tva||0)/100);
+    const dossierTVA = taxesEnabled ? dossierHT * (Number(ex?.dossier?.tva||0)/100) : 0;
     const dossierTT  = dossierHT + dossierTVA;
 
     // deplacement
     const deplacementHT  = ex?.deplacement?.enabled ? Number(ex.deplacement.amount||0) : 0;
-    const deplacementTVA = deplacementHT * (Number(ex?.deplacement?.tva||0)/100);
+    const deplacementTVA = taxesEnabled ? deplacementHT * (Number(ex?.deplacement?.tva||0)/100) : 0;
     const deplacementTT  = deplacementHT + deplacementTVA;
 
     // stamp
-    const stampHT  = ex?.stamp?.enabled ? Number(ex.stamp.amount||0) : 0;
+    const stampHT  = taxesEnabled && ex?.stamp?.enabled ? Number(ex.stamp.amount||0) : 0;
     const stampTT  = stampHT;
 
     // totals (keep HT excluding stamp, TTC including stamp)

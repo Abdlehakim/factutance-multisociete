@@ -98,7 +98,6 @@
   height: 22px;
   pointer-events: none;
 }
-
 .client-search__results {
   border: 1px solid #caddff;
   border-radius: 5px;
@@ -330,6 +329,14 @@
   display: none !important;
 }
 
+.client-search__selection-summary {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid #dce7fa;
+  border-radius: 8px;
+  background: #f8fbff;
+}
+
 .client-search__option {
   display: flex;
   align-items: center;
@@ -419,6 +426,47 @@
   min-width: 0;
   max-width: 100%;
 }
+.client-search__details-row--identity {
+  flex-wrap: nowrap;
+  align-items: center;
+}
+.client-search__details-row--identity .client-search__detail--name {
+  flex: 1 1 56%;
+}
+.client-search__details-row--identity .client-search__detail--code {
+  flex: 1 1 44%;
+  justify-content: flex-start;
+}
+.client-search__summary-clear {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  border: 1px solid #d6deeb;
+  background: #ffffff;
+  color: #64748b;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+.client-search__summary-clear:hover {
+  background: #fee2e2;
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+.client-search__summary-clear:active {
+  transform: scale(0.94);
+}
+.client-search__summary-clear svg {
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+}
+.client-search__details-row--taxes .client-search__detail--doc-taxes {
+  width: 100%;
+}
 
 .client-search__detail-label {
   font-size: 10px;
@@ -443,6 +491,100 @@
   flex: 1 1 auto;
   min-width: 0;
   max-width: 100%;
+}
+.client-search__detail--doc-taxes {
+  align-items: center;
+  gap: 8px;
+}
+.client-search__detail--doc-taxes .client-search__detail-label {
+  flex: 0 0 auto;
+}
+.client-search__doc-taxes {
+  min-width: 260px;
+  max-width: 360px;
+}
+.client-search__doc-taxes .client-search__doc-taxes-panel {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  min-width: 100%;
+}
+.client-search__doc-taxes .client-search__doc-taxes-panel .currency-toggle {
+  min-height: 32px;
+  padding: 6px 8px;
+  border: 1px solid #caddff;
+  border-radius: 8px;
+  background: #fff;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+.client-search__doc-taxes .client-search__doc-taxes-panel .currency-toggle:hover {
+  background: #f7f9ff;
+}
+.client-search__doc-taxes .client-search__doc-taxes-panel .currency-toggle.is-active {
+  background: #eef4ff;
+  border-color: #9db8e3;
+}
+.client-search__doc-taxes .client-search__doc-taxes-panel .currency-toggle input[type="radio"] {
+  margin: 0;
+  width: 14px;
+  height: 14px;
+  accent-color: #15335e;
+}
+.client-search__doc-taxes .client-search__doc-taxes-panel .currency-toggle .model-save-dot {
+  padding-right: 0;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.2;
+  color: #0f172a;
+}
+.client-search__doc-taxes .client-search__doc-taxes-panel .currency-toggle .model-save-dot::after {
+  display: none;
+}
+.client-search__doc-taxes .doc-type-select {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  border: 0;
+  clip: rect(0 0 0 0);
+  overflow: hidden;
+  white-space: nowrap;
+}
+.client-search__doc-taxes .client-search__doc-taxes-panel .currency-toggle span {
+  white-space: nowrap;
+}
+.client-search__doc-taxes .client-search__doc-taxes-panel .currency-toggle {
+  font-size: 12px;
+}
+@media (max-width: 640px) {
+  .client-search__details-row--identity {
+    flex-wrap: wrap;
+    align-items: baseline;
+  }
+  .client-search__details-row--identity .client-search__detail--name,
+  .client-search__details-row--identity .client-search__detail--code {
+    flex: 1 1 100%;
+  }
+  .client-search__summary-clear {
+    margin-left: auto;
+  }
+  .client-search__detail--doc-taxes {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  .client-search__doc-taxes {
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+  }
+  .client-search__doc-taxes .client-search__doc-taxes-panel {
+    grid-template-columns: 1fr;
+  }
 }
 .client-search__detail-value--with-copy {
   display: inline-flex;

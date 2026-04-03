@@ -1624,9 +1624,34 @@
         }
         return "";
       };
+      const normalizeClientTaxesValue = (taxesValue, taxesFallback = "non_exonore") => {
+        const normalized = String(taxesValue || "")
+          .trim()
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/[\s-]+/g, "_");
+        if (normalized === "exonore" || normalized === "exonoree" || normalized === "exoneree") {
+          return "exonore";
+        }
+        if (
+          normalized === "non_exonore" ||
+          normalized === "nonexonore" ||
+          normalized === "non_exonoree" ||
+          normalized === "nonexonoree" ||
+          normalized === "non_exoneree" ||
+          normalized === "nonexoneree"
+        ) {
+          return "non_exonore";
+        }
+        return String(taxesFallback || "").trim().toLowerCase() === "exonore" ? "exonore" : "non_exonore";
+      };
       const normalized = {
         type: read(raw.type, raw.clientType, raw.personType, fallbackData.type, "societe").toLowerCase(),
-        taxes: read(raw.taxes, raw.taxesStatus, fallbackData.taxes, "non_exonore").toLowerCase(),
+        taxes: normalizeClientTaxesValue(
+          read(raw.taxes, raw.taxesStatus, fallbackData.taxes, "non_exonore"),
+          "non_exonore"
+        ),
         name: read(
           raw.name,
           raw.clientName,
@@ -1679,9 +1704,6 @@
         __entityType: "client"
       };
       if (normalized.type !== "particulier") normalized.type = "societe";
-      if (normalized.taxes === "exoneree") normalized.taxes = "exonore";
-      if (normalized.taxes === "non_exonoree") normalized.taxes = "non_exonore";
-      if (normalized.taxes !== "exonore") normalized.taxes = "non_exonore";
       const hasContent =
         normalized.name ||
         normalized.vat ||
@@ -5291,6 +5313,9 @@
     const buildBlankClientSnapshot = () => ({
       type: "societe",
       taxes: "non_exonore",
+      codeClient: "",
+      codeFournisseur: "",
+      codeTransporteur: "",
       name: "",
       benefit: "",
       account: "",
@@ -5305,19 +5330,50 @@
 
     const resetItemsModalClientState = (scopeNode = null) => {
       const blankClient = buildBlankClientSnapshot();
-      const st = SEM.state || (SEM.state = {});
-      st.client = { ...blankClient };
-      if (st.client && "__dirty" in st.client) delete st.client.__dirty;
-
       const targetScope =
         scopeNode ||
         itemsDocOptionsModalContent?.querySelector?.(CLIENT_SCOPE_SELECTOR) ||
         null;
+      const entityType = resolveClientScopeEntityType(targetScope || scopeNode || null);
+      const st = SEM.state || (SEM.state = {});
+      st.client = { ...blankClient, __entityType: entityType };
+      if (st.client && "__dirty" in st.client) delete st.client.__dirty;
+      const meta = getInvoiceMeta?.() || null;
+      if (entityType === "client" && meta && typeof meta === "object") {
+        [
+          "client",
+          "clientSnapshot",
+          "party",
+          "destination",
+          "destinationSnapshot",
+          "destinataire",
+          "recipient",
+          "customer"
+        ].forEach((key) => {
+          if (key in meta) delete meta[key];
+        });
+      }
+
+      const setEntityState = SEM?.__bindingHelpers?.setEntityClientFormState;
+      if (typeof setEntityState === "function") {
+        setEntityState(entityType, {
+          ...blankClient,
+          __entityType: entityType,
+          __clearPath: true,
+          __dirty: false
+        });
+      }
+      const setEntityDirty = SEM?.__bindingHelpers?.setEntityClientFormDirty;
+      if (typeof setEntityDirty === "function") {
+        setEntityDirty(entityType, false);
+      }
       if (targetScope) {
         Object.entries(CLIENT_FORM_FIELD_TO_KEY).forEach(([id, key]) => {
           const input = queryClientFormElement(targetScope, id);
           if (input && "value" in input) input.value = String(blankClient[key] || "");
         });
+        const codeInput = queryClientFormElement(targetScope, "clientCode");
+        if (codeInput && "value" in codeInput) codeInput.value = "";
         const labelEl = queryClientFormElement(targetScope, "clientIdLabel");
         if (labelEl) labelEl.textContent = "Matricule fiscal";
         const vatInput = queryClientFormElement(targetScope, "clientVat");
@@ -5361,12 +5417,40 @@
           searchResults.hidden = true;
           searchResults.classList.remove("client-search--paged");
         }
+        const summaryName = targetScope.querySelector("#clientSummaryNameNewDoc");
+        if (summaryName) {
+          summaryName.textContent = "-";
+          summaryName.classList.add("is-empty");
+        }
+        const summaryCode = targetScope.querySelector("#clientSummaryCodeNewDoc");
+        if (summaryCode) {
+          summaryCode.textContent = "-";
+          summaryCode.classList.add("is-empty");
+        }
+        const hasClientDocTaxesControl = !!targetScope.querySelector?.("#clientDocTaxesMode");
+        if (hasClientDocTaxesControl) {
+          if (typeof SEM.setDocumentTaxesFromClientValue === "function") {
+            SEM.setDocumentTaxesFromClientValue("non_exonore", {
+              formScope: targetScope,
+              entityType: "client",
+              source: "client-reset",
+              clientPath: "",
+              resetOverride: true
+            });
+          } else {
+            const taxModeSelect = getEl("taxMode");
+            if (taxModeSelect && "value" in taxModeSelect) {
+              taxModeSelect.value = "with";
+              taxModeSelect.dispatchEvent(new Event("change", { bubbles: true }));
+            }
+          }
+        }
       }
 
       SEM.clientFormAllowUpdate = false;
       SEM.clientFormDirty = false;
-      if (typeof SEM.setClientFormBaseline === "function") SEM.setClientFormBaseline(null);
-      if (typeof SEM.evaluateClientDirtyState === "function") SEM.evaluateClientDirtyState();
+      if (typeof SEM.setClientFormBaseline === "function") SEM.setClientFormBaseline(null, entityType);
+      if (typeof SEM.evaluateClientDirtyState === "function") SEM.evaluateClientDirtyState(targetScope);
       if (typeof SEM.refreshClientSummary === "function") SEM.refreshClientSummary();
       if (typeof SEM.refreshClientActionButtons === "function") SEM.refreshClientActionButtons();
       if (typeof SEM.refreshUpdateClientButton === "function") SEM.refreshUpdateClientButton(targetScope);
@@ -6889,9 +6973,22 @@
         const normalized = String(value || "")
           .trim()
           .toLowerCase()
-          .replace(/[éèêë]/g, "e");
-        if (normalized === "exonore" || normalized === "exoneree") return "exonore";
-        if (normalized === "non_exonore" || normalized === "non_exonoree") return "non_exonore";
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/[\s-]+/g, "_");
+        if (normalized === "exonore" || normalized === "exonoree" || normalized === "exoneree") {
+          return "exonore";
+        }
+        if (
+          normalized === "non_exonore" ||
+          normalized === "nonexonore" ||
+          normalized === "non_exonoree" ||
+          normalized === "nonexonoree" ||
+          normalized === "non_exoneree" ||
+          normalized === "nonexoneree"
+        ) {
+          return "non_exonore";
+        }
         return String(fallback || "").trim().toLowerCase() === "exonore" ? "exonore" : "non_exonore";
       };
       const syncClientTaxesUi = (box, taxesValue) => {
@@ -7358,6 +7455,15 @@
       if (!ITEMS_DOC_TYPE_FA_TRACKED_COLUMN_KEYS.has(key)) return;
       const docTypes = resolveItemsModalModelDocTypes({ allowPanel: true });
       applyItemsModalFaColumnLocks(docTypes);
+    });
+    itemsDocOptionsModalContent?.addEventListener("click", (evt) => {
+      if (!isItemsModalOpen()) return;
+      const clearClientBtn = evt.target?.closest?.("#clientClearSelectionBtn");
+      if (!clearClientBtn) return;
+      evt.preventDefault();
+      evt.stopPropagation();
+      const scopeNode = clearClientBtn.closest?.("#clientBoxNewDoc") || null;
+      resetItemsModalClientState(scopeNode);
     });
     itemsDocOptionsModalContent?.addEventListener("click", (evt) => {
       if (!isItemsModalOpen()) return;

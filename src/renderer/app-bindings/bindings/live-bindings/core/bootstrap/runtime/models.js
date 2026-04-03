@@ -824,6 +824,7 @@
               checkedValue(getEl("modelCurrencyPanel")) || getEl("modelCurrency")?.value || "DT";
             const taxMode =
               checkedValue(getEl("modelTaxPanel")) || getEl("modelTaxMode")?.value || "with";
+            const taxesEnabled = taxMode !== "without";
             const numberFormatRaw =
               checkedValue(getEl("modelNumberFormatPanel")) ||
               getEl("modelNumberFormat")?.value ||
@@ -845,7 +846,7 @@
             if (dossierEnabled) extras.push("Dossier");
             if (deplacementEnabled) extras.push("Deplacement");
             const stampEnabled = !!getEl("stampEnabledModal")?.checked;
-            if (stampEnabled) extras.push("Timbre");
+            if (taxesEnabled && stampEnabled) extras.push("Timbre");
             if (getEl("whEnabledModal")?.checked) extras.push("Retenue");
             const company = state()?.company || {};
             const pdfOptions = state()?.meta?.extras?.pdf || {};
@@ -1020,8 +1021,9 @@
             }
             const stampRow = previewRoot.querySelector('[data-mini-key="stamp"]');
             if (stampRow) {
-              stampRow.hidden = !stampEnabled;
-              stampRow.style.display = stampEnabled ? "" : "none";
+              const stampVisible = taxesEnabled && stampEnabled;
+              stampRow.hidden = !stampVisible;
+              stampRow.style.display = stampVisible ? "" : "none";
             }
             const amountWordsContainer = previewRoot.querySelector(".doc-design1__amount-words");
             if (amountWordsContainer) {
@@ -1148,7 +1150,6 @@
             if (contextualFodecToggle) {
               colToggles.fodec = !!contextualFodecToggle.checked;
             }
-            const taxesEnabled = taxMode !== "without";
             const isColumnChecked = (key) => colToggles[key] === true;
             const priceVis = isColumnChecked("price");
             const purchasePriceVis = isColumnChecked("purchasePrice");
@@ -1227,7 +1228,7 @@
             const deplacementAmount = deplacementEnabled ? readModalNumber("deplacementAmountModal", 0) : 0;
             const deplacementTva = taxesEnabled && deplacementEnabled ? readModalNumber("deplacementTvaModal", 0) : 0;
             const deplacementTax = taxesEnabled && deplacementEnabled ? deplacementAmount * (deplacementTva / 100) : 0;
-            const stampAmount = stampEnabled ? readModalNumber("stampAmountModal", 0) : 0;
+            const stampAmount = taxesEnabled && stampEnabled ? readModalNumber("stampAmountModal", 0) : 0;
             const totalPurchaseHtAmount = sumPreviewColumn("totalPurchaseHt");
             const totalPurchaseTtcAmount = taxesEnabled ? sumPreviewColumn("totalPurchaseTtc") : totalPurchaseHtAmount;
             const totalHtItemsAmount = sumPreviewColumn("totalHt");
@@ -1358,7 +1359,7 @@
               miniSummary.style.display = hasVisibleMiniRow ? "" : "none";
             }
             const taxPanel = previewRoot.querySelector("[data-tax-panel]");
-            setNodeVisibility(taxPanel, !isStockMovementPreview);
+            setNodeVisibility(taxPanel, !isStockMovementPreview && taxesEnabled);
             const invoiceSummary = previewRoot.querySelector("#modelPreviewInvoiceSummary");
             setNodeVisibility(invoiceSummary, !isStockMovementPreview);
             const invoiceFooter = previewRoot.querySelector("#modelPreviewInvoiceFooter");

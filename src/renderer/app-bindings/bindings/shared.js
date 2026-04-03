@@ -442,8 +442,8 @@
   SEM.refreshCompanySummary = refreshCompanySummary;
 
   const CLIENT_SUMMARY_DISPLAY_IDS = {
-    name: "itemsClientName",
-    codeClient: "itemsClientCode",
+    name: ["itemsClientName", "clientSummaryNameNewDoc"],
+    codeClient: ["itemsClientCode", "clientSummaryCodeNewDoc"],
     benefit: "itemsClientBenefit",
     account: "itemsClientAccount",
     vat: "itemsClientVat",
@@ -482,7 +482,6 @@
       ""
     );
   };
-
   const CLIENT_TAX_LABEL_FALLBACK = "Matricule fiscal";
   const CLIENT_TAX_LABEL_PARTICULIER = "CIN / passeport";
   const resolveItemsClientTaxLabel = (client = {}) => {
@@ -504,11 +503,12 @@
 
   function refreshClientSummary() {
     const client = state().client || {};
+    const docTypeValue = state().meta?.docType;
     Object.entries(CLIENT_SUMMARY_DISPLAY_IDS).forEach(([key, displayIds]) => {
       const ids = Array.isArray(displayIds) ? displayIds : [displayIds];
       let value = client[key];
       if (key === "codeClient") {
-        value = resolveItemsPartyCodeValue(client);
+        value = resolveItemsPartyCodeValue(client, docTypeValue);
       }
       ids.forEach((displayId) => {
         const el = getEl(displayId);
@@ -518,7 +518,7 @@
         el.classList.toggle("is-empty", !text);
       });
     });
-    updateItemsPartyCodeLabel(state().meta?.docType);
+    updateItemsPartyCodeLabel(docTypeValue);
     updateItemsClientTaxLabel(client);
   }
   SEM.refreshClientSummary = refreshClientSummary;

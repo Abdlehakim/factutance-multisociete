@@ -1451,13 +1451,35 @@
           syncClientFormFields = (client = {}, formScope = null) => {
             const scopeNode = normalizeClientFormScope(formScope);
             const resolvedEntityType = resolveClientEntityType(scopeNode);
+            const CLIENT_TYPE_LABELS = {
+              societe: "Societe / personne morale",
+              particulier: "Particulier",
+              personne_physique: "Personne physique"
+            };
+            const CLIENT_TAXES_LABELS = {
+              non_exonore: "Non exon\u00E9r\u00E9e",
+              exonore: "Exon\u00E9r\u00E9e"
+            };
             const normalizeClientTaxesValue = (value, fallback = "non_exonore") => {
               const normalized = String(value || "")
                 .trim()
                 .toLowerCase()
-                .replace(/[éèêë]/g, "e");
-              if (normalized === "exonore" || normalized === "exoneree") return "exonore";
-              if (normalized === "non_exonore" || normalized === "non_exonoree") return "non_exonore";
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .replace(/[\s-]+/g, "_");
+              if (normalized === "exonore" || normalized === "exonoree" || normalized === "exoneree") {
+                return "exonore";
+              }
+              if (
+                normalized === "non_exonore" ||
+                normalized === "nonexonore" ||
+                normalized === "non_exonoree" ||
+                normalized === "nonexonoree" ||
+                normalized === "non_exoneree" ||
+                normalized === "nonexoneree"
+              ) {
+                return "non_exonore";
+              }
               return String(fallback || "").trim().toLowerCase() === "exonore" ? "exonore" : "non_exonore";
             };
             const setScopedVal = (id, value = "") => {
@@ -1474,6 +1496,16 @@
                 return true;
               }
               return false;
+            };
+            const syncScopedSelectOptionState = (id, value) => {
+              const target = queryScopedClientFormElement(scopeNode, id);
+              if (!target || !("value" in target)) return;
+              target.value = value;
+              if (target instanceof HTMLSelectElement) {
+                Array.from(target.options).forEach((option) => {
+                  option.selected = option.value === value;
+                });
+              }
             };
             const updateClientIdLabelScoped = (typeValue) => {
               const labelEl = queryScopedClientFormElement(scopeNode, "clientIdLabel");
@@ -1494,6 +1526,61 @@
               if (labelEl) labelEl.textContent = useCustomLabel ? customTaxIdLabel.trim() : labelText;
               if (vatInput) vatInput.placeholder = placeholder;
             };
+            const syncClientTypeUiScopedFallback = (typeValue) => {
+              if (!scopeNode) return;
+              const resolvedType =
+                String(typeValue || "").toLowerCase() === "particulier" ||
+                String(typeValue || "").toLowerCase() === "personne_physique"
+                  ? String(typeValue || "").toLowerCase()
+                  : "societe";
+              syncScopedSelectOptionState("clientType", resolvedType);
+              const displayEl = queryScopedClientFormElement(scopeNode, "clientTypeDisplay");
+              if (displayEl) {
+                displayEl.textContent = CLIENT_TYPE_LABELS[resolvedType] || CLIENT_TYPE_LABELS.societe;
+              }
+              const panel = queryScopedClientFormElement(scopeNode, "clientTypePanel");
+              if (panel) {
+                panel.querySelectorAll("[data-client-type-option]").forEach((btn) => {
+                  const isMatch = btn.dataset.clientTypeOption === resolvedType;
+                  btn.classList.toggle("is-active", isMatch);
+                  btn.setAttribute("aria-selected", isMatch ? "true" : "false");
+                });
+              }
+              const menu = queryScopedClientFormElement(scopeNode, "clientTypeMenu");
+              if (menu && menu.open) {
+                menu.open = false;
+              }
+              const toggle = menu?.querySelector("summary");
+              if (toggle) {
+                toggle.setAttribute("aria-expanded", menu?.open ? "true" : "false");
+              }
+            };
+            const syncClientTaxesUiScopedFallback = (taxesValue) => {
+              if (!scopeNode) return;
+              const resolvedTaxes = normalizeClientTaxesValue(taxesValue, "non_exonore");
+              syncScopedSelectOptionState("clientTaxes", resolvedTaxes);
+              const displayEl = queryScopedClientFormElement(scopeNode, "clientTaxesDisplay");
+              if (displayEl) {
+                displayEl.textContent =
+                  CLIENT_TAXES_LABELS[resolvedTaxes] || CLIENT_TAXES_LABELS.non_exonore;
+              }
+              const panel = queryScopedClientFormElement(scopeNode, "clientTaxesPanel");
+              if (panel) {
+                panel.querySelectorAll("[data-client-taxes-option]").forEach((btn) => {
+                  const isMatch = btn.dataset.clientTaxesOption === resolvedTaxes;
+                  btn.classList.toggle("is-active", isMatch);
+                  btn.setAttribute("aria-selected", isMatch ? "true" : "false");
+                });
+              }
+              const menu = queryScopedClientFormElement(scopeNode, "clientTaxesMenu");
+              if (menu && menu.open) {
+                menu.open = false;
+              }
+              const toggle = menu?.querySelector("summary");
+              if (toggle) {
+                toggle.setAttribute("aria-expanded", menu?.open ? "true" : "false");
+              }
+            };
             const norm = (value, fallback = "") => (value ?? fallback).toString();
             const typeRaw = String(client.type || "").toLowerCase();
             const typeResolved =
@@ -1502,9 +1589,11 @@
               resolvedEntityType === "vendor" && typeResolved === "particulier"
                 ? "personne_physique"
                 : typeResolved;
+            const existingScopedTaxes =
+              String(queryScopedClientFormElement(scopeNode, "clientTaxes")?.value || "").trim() || "non_exonore";
             const taxes = normalizeClientTaxesValue(
               client.taxes ?? client.taxesStatus ?? client.taxes_status,
-              "non_exonore"
+              existingScopedTaxes
             );
             setScopedVal("clientType", type);
             setScopedVal("clientTaxes", taxes);
@@ -1533,9 +1622,13 @@
               updateClientIdLabelScoped(type);
               if (typeof updateClientTypeDisplayScoped === "function") {
                 updateClientTypeDisplayScoped(scopeNode, type);
+              } else {
+                syncClientTypeUiScopedFallback(type);
               }
               if (typeof updateClientTaxesDisplayScoped === "function") {
                 updateClientTaxesDisplayScoped(scopeNode, taxes);
+              } else {
+                syncClientTaxesUiScopedFallback(taxes);
               }
             } else if (SEM.updateClientIdLabel) {
               SEM.updateClientIdLabel();
@@ -1553,9 +1646,22 @@
               const normalized = String(value || "")
                 .trim()
                 .toLowerCase()
-                .replace(/[éèêë]/g, "e");
-              if (normalized === "exonore" || normalized === "exoneree") return "exonore";
-              if (normalized === "non_exonore" || normalized === "non_exonoree") return "non_exonore";
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .replace(/[\s-]+/g, "_");
+              if (normalized === "exonore" || normalized === "exonoree" || normalized === "exoneree") {
+                return "exonore";
+              }
+              if (
+                normalized === "non_exonore" ||
+                normalized === "nonexonore" ||
+                normalized === "non_exonoree" ||
+                normalized === "nonexonoree" ||
+                normalized === "non_exoneree" ||
+                normalized === "nonexoneree"
+              ) {
+                return "non_exonore";
+              }
               return String(fallback || "").trim().toLowerCase() === "exonore" ? "exonore" : "non_exonore";
             };
             const normalizedTaxes = normalizeClientTaxesValue(
@@ -1567,13 +1673,25 @@
             if (typeof setEntityState === "function") {
               setEntityState(entityType, { ...client, taxes: normalizedTaxes, __entityType: entityType });
             }
+            const normalizedFormScope = normalizeClientFormScope(options.formScope);
+            const isDocumentPartyScope =
+              !!normalizedFormScope &&
+              (normalizedFormScope.id === "clientBoxNewDoc" ||
+                normalizedFormScope.id === "FournisseurBoxNewDoc" ||
+                normalizedFormScope.id === "clientSavedModalNv" ||
+                normalizedFormScope.id === "fournisseurSavedModalNv" ||
+                normalizedFormScope.id === "transporteurSavedModalNv" ||
+                (typeof normalizedFormScope.closest === "function" &&
+                  !!normalizedFormScope.closest(
+                    "#clientBoxNewDoc, #FournisseurBoxNewDoc, #clientSavedModalNv, #fournisseurSavedModalNv, #transporteurSavedModalNv"
+                  )));
             const shouldMirrorHelper = SEM.__bindingHelpers?.shouldMirrorEntityClientStateToDocument;
             const shouldMirror =
               options.mirrorToDocumentState !== undefined
                 ? !!options.mirrorToDocumentState
                 : typeof shouldMirrorHelper === "function"
-                  ? !!shouldMirrorHelper(normalizeClientFormScope(options.formScope))
-                  : false;
+                  ? !!shouldMirrorHelper(normalizedFormScope)
+                  : isDocumentPartyScope;
             if (!shouldMirror) return;
             st.client = { ...(st.client || {}), ...client, taxes: normalizedTaxes, __entityType: entityType };
             const targetVat =
@@ -1595,28 +1713,96 @@
                   ? record.client
                   : record
                 : {};
+            const normalizeClientTaxesValue = (value, fallback = "non_exonore") => {
+              const normalized = String(value || "")
+                .trim()
+                .toLowerCase()
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .replace(/[\s-]+/g, "_");
+              if (normalized === "exonore" || normalized === "exonoree" || normalized === "exoneree") {
+                return "exonore";
+              }
+              if (
+                normalized === "non_exonore" ||
+                normalized === "nonexonore" ||
+                normalized === "non_exonoree" ||
+                normalized === "nonexonoree" ||
+                normalized === "non_exoneree" ||
+                normalized === "nonexoneree"
+              ) {
+                return "non_exonore";
+              }
+              return String(fallback || "").trim().toLowerCase() === "exonore" ? "exonore" : "non_exonore";
+            };
+            const hasExplicitTaxesValue = (source) => {
+              if (!source || typeof source !== "object") return false;
+              return ["taxes", "taxesStatus", "taxes_status"].some((key) => {
+                if (!Object.prototype.hasOwnProperty.call(source, key)) return false;
+                return String(source[key] ?? "").trim().length > 0;
+              });
+            };
+            const formScope = normalizeClientFormScope(options.formScope);
+            const hasPayloadTaxes = hasExplicitTaxesValue(payload) || hasExplicitTaxesValue(record);
+            const scopedTaxesFallback = normalizeClientTaxesValue(
+              queryScopedClientFormElement(formScope, "clientTaxes")?.value,
+              "non_exonore"
+            );
+            const resolvedPayloadTaxes = normalizeClientTaxesValue(
+              payload?.taxes ??
+                payload?.taxesStatus ??
+                payload?.taxes_status ??
+                record?.taxes ??
+                record?.taxesStatus ??
+                record?.taxes_status,
+              hasPayloadTaxes ? "non_exonore" : scopedTaxesFallback
+            );
+            const normalizedPayload = {
+              ...payload,
+              taxes: resolvedPayloadTaxes
+            };
+            const selectedPath = record.path || normalizedPayload.__path || "";
             const entityType =
               record?.entityType ||
-              payload?.__entityType ||
+              normalizedPayload?.__entityType ||
               resolveClientEntityType(normalizeClientFormScope(options.formScope)) ||
               clientSavedModalEntityType ||
               "client";
             SEM.clientFormAllowUpdate = true;
-            const formScope = normalizeClientFormScope(options.formScope);
             if (SEM.forms?.fillClientToForm && !formScope) {
-              SEM.forms.fillClientToForm(payload);
+              SEM.forms.fillClientToForm(normalizedPayload);
             } else {
-              syncClientFormFields(payload, formScope);
+              syncClientFormFields(normalizedPayload, formScope);
             }
+            const isDocumentPartyScope =
+              !!formScope &&
+              (formScope.id === "clientBoxNewDoc" ||
+                formScope.id === "FournisseurBoxNewDoc" ||
+                formScope.id === "clientSavedModalNv" ||
+                formScope.id === "fournisseurSavedModalNv" ||
+                formScope.id === "transporteurSavedModalNv" ||
+                (typeof formScope.closest === "function" &&
+                  !!formScope.closest(
+                    "#clientBoxNewDoc, #FournisseurBoxNewDoc, #clientSavedModalNv, #fournisseurSavedModalNv, #transporteurSavedModalNv"
+                  )));
             const shouldMirrorHelper = SEM.__bindingHelpers?.shouldMirrorEntityClientStateToDocument;
             const shouldMirrorToDocument =
-              typeof shouldMirrorHelper === "function" ? !!shouldMirrorHelper(formScope) : false;
-            applyClientToState(payload, {
+              typeof shouldMirrorHelper === "function"
+                ? !!shouldMirrorHelper(formScope)
+                : isDocumentPartyScope;
+            applyClientToState(normalizedPayload, {
               formScope,
               entityType,
               mirrorToDocumentState: shouldMirrorToDocument
             });
-            const selectedPath = record.path || payload.__path || "";
+            if (shouldMirrorToDocument && typeof SEM.setDocumentTaxesFromClientValue === "function") {
+              SEM.setDocumentTaxesFromClientValue(resolvedPayloadTaxes, {
+                formScope,
+                entityType,
+                clientPath: selectedPath,
+                source: "client-selection"
+              });
+            }
             if (shouldMirrorToDocument && state().client) state().client.__path = selectedPath;
 
             const skipReadInputs = options.skipReadInputs || !!formScope;
@@ -1632,7 +1818,7 @@
                   SEM.getClientFormSnapshot(baselineScope)) ||
                 (typeof SEM.forms?.captureClientFromForm === "function" &&
                   SEM.forms.captureClientFromForm(baselineScope)) ||
-                { ...payload };
+                { ...normalizedPayload };
               snapshot.__path = selectedPath;
               snapshot.__entityType = baselineEntityType;
               if (selectedPath) {
@@ -1641,7 +1827,10 @@
                 SEM.setClientFormBaseline(null);
               }
             } else if (selectedPath) {
-              SEM.clientFormBaseline = sanitizeClientSnapshot({ ...payload, __path: selectedPath });
+              SEM.clientFormBaseline = sanitizeClientSnapshot({
+                ...normalizedPayload,
+                __path: selectedPath
+              });
               SEM.clientFormBaselineEntityType = formScope ? resolveClientEntityType(formScope) : null;
               SEM.clientFormDirty = false;
               SEM.clientFormAllowUpdate = true;
@@ -2419,6 +2608,50 @@
               }
             }
           };
+          const normalizeClientTaxesForSearchResults = (value, fallback = "non_exonore") => {
+            const normalized = String(value || "")
+              .trim()
+              .toLowerCase()
+              .normalize("NFD")
+              .replace(/[\u0300-\u036f]/g, "")
+              .replace(/[\s-]+/g, "_");
+            if (normalized === "exonore" || normalized === "exonoree" || normalized === "exoneree") {
+              return "exonore";
+            }
+            if (
+              normalized === "non_exonore" ||
+              normalized === "nonexonore" ||
+              normalized === "non_exonoree" ||
+              normalized === "nonexonoree" ||
+              normalized === "non_exoneree" ||
+              normalized === "nonexoneree"
+            ) {
+              return "non_exonore";
+            }
+            return String(fallback || "").trim().toLowerCase() === "exonore" ? "exonore" : "non_exonore";
+          };
+          const ensureClientSearchResultTaxes = (entry = {}) => {
+            const source = entry && typeof entry === "object" ? entry : {};
+            const nestedClient =
+              source.client && typeof source.client === "object" ? source.client : {};
+            const resolvedTaxes = normalizeClientTaxesForSearchResults(
+              nestedClient.taxes ??
+                nestedClient.taxesStatus ??
+                nestedClient.taxes_status ??
+                source.taxes ??
+                source.taxesStatus ??
+                source.taxes_status,
+              "non_exonore"
+            );
+            return {
+              ...source,
+              taxes: resolvedTaxes,
+              client: {
+                ...nestedClient,
+                taxes: resolvedTaxes
+              }
+            };
+          };
 
           performClientSearch = async (rawValue, options = {}) => {
             const resultsEl = options.resultsEl || clientSearchResults;
@@ -2450,7 +2683,9 @@
                 );
                 return;
               }
-              const nextItems = Array.isArray(res.results) ? res.results : [];
+              const nextItems = (Array.isArray(res.results) ? res.results : []).map(
+                ensureClientSearchResultTaxes
+              );
               searchState?.setData?.(nextItems);
               searchState?.setPage?.(1);
               renderClientSearchResults(nextItems, query, resultsEl, { searchState });
@@ -2463,6 +2698,56 @@
   }, { order: 700 });
 
   registerCoreBootstrapRuntimeSource("saved-modals-main", function (ctx) {
+          const ensureClientSearchResultTaxesSafe = (entry = {}) => {
+            if (typeof ensureClientSearchResultTaxes === "function") {
+              try {
+                return ensureClientSearchResultTaxes(entry);
+              } catch (err) {
+                console.warn("client taxes normalization fallback (saved modal)", err);
+              }
+            }
+            const normalizeClientTaxesValue = (value, fallback = "non_exonore") => {
+              const normalized = String(value || "")
+                .trim()
+                .toLowerCase()
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .replace(/[\s-]+/g, "_");
+              if (normalized === "exonore" || normalized === "exonoree" || normalized === "exoneree") {
+                return "exonore";
+              }
+              if (
+                normalized === "non_exonore" ||
+                normalized === "nonexonore" ||
+                normalized === "non_exonoree" ||
+                normalized === "nonexonoree" ||
+                normalized === "non_exoneree" ||
+                normalized === "nonexoneree"
+              ) {
+                return "non_exonore";
+              }
+              return String(fallback || "").trim().toLowerCase() === "exonore" ? "exonore" : "non_exonore";
+            };
+            const source = entry && typeof entry === "object" ? entry : {};
+            const nestedClient = source.client && typeof source.client === "object" ? source.client : {};
+            const resolvedTaxes = normalizeClientTaxesValue(
+              nestedClient.taxes ??
+                nestedClient.taxesStatus ??
+                nestedClient.taxes_status ??
+                source.taxes ??
+                source.taxesStatus ??
+                source.taxes_status,
+              "non_exonore"
+            );
+            return {
+              ...source,
+              taxes: resolvedTaxes,
+              client: {
+                ...nestedClient,
+                taxes: resolvedTaxes
+              }
+            };
+          };
           renderClientSavedModal = () => {
             if (!clientSavedModalList) return;
             const { items, page, total, loading, message } = clientSavedModalState;
@@ -2847,7 +3132,9 @@
                 clientSavedModalState.message = res?.error || "Chargement impossible.";
                 return;
               }
-              const results = Array.isArray(res.results) ? res.results : [];
+              const results = (Array.isArray(res.results) ? res.results : []).map(
+                ensureClientSearchResultTaxesSafe
+              );
               const totalRaw = Number(res.total);
               const total = Number.isFinite(totalRaw) && totalRaw >= 0 ? totalRaw : offset + results.length;
               if (total > 0) {
@@ -3069,7 +3356,7 @@
           if (clientSavedModalList) {
             clientSavedModalList.addEventListener("click", async (evt) => {
               const handleClientLoad = (index, options = {}) => {
-                const selected = clientSavedModalState.items[index];
+                const selected = getNormalizedSavedModalItem(index);
                 if (!selected) return;
                 hideClientSearchResults();
                 clearClientSearchInputValue();
@@ -3118,6 +3405,76 @@
                   SEM.refreshClientActionButtons();
                 }
                 return targetScope;
+              };
+              const normalizeClientTaxesSelectionValue = (value, fallback = "non_exonore") => {
+                const normalized = String(value || "")
+                  .trim()
+                  .toLowerCase()
+                  .normalize("NFD")
+                  .replace(/[\u0300-\u036f]/g, "")
+                  .replace(/[\s-]+/g, "_");
+                if (normalized === "exonore" || normalized === "exonoree" || normalized === "exoneree") {
+                  return "exonore";
+                }
+                if (
+                  normalized === "non_exonore" ||
+                  normalized === "nonexonore" ||
+                  normalized === "non_exonoree" ||
+                  normalized === "nonexonoree" ||
+                  normalized === "non_exoneree" ||
+                  normalized === "nonexoneree"
+                ) {
+                  return "non_exonore";
+                }
+                return String(fallback || "").trim().toLowerCase() === "exonore" ? "exonore" : "non_exonore";
+              };
+              const getNormalizedSavedModalItem = (index) => {
+                const idx = Math.trunc(Number(index));
+                if (!Number.isFinite(idx) || idx < 0) return null;
+                const sourceItems = Array.isArray(clientSavedModalState?.items)
+                  ? clientSavedModalState.items
+                  : [];
+                const current = sourceItems[idx];
+                if (!current) return null;
+                const normalized = ensureClientSearchResultTaxesSafe(current);
+                if (normalized !== current) {
+                  sourceItems[idx] = normalized;
+                }
+                return normalized;
+              };
+              const syncDocumentTaxesFromClientSelection = (payload, targetScope, entityType) => {
+                if (!targetScope || typeof SEM.setDocumentTaxesFromClientValue !== "function") return;
+                const resolvedEntityType =
+                  entityType || resolveClientEntityType(targetScope) || clientSavedModalEntityType || "client";
+                const shouldMirrorHelper = SEM.__bindingHelpers?.shouldMirrorEntityClientStateToDocument;
+                const shouldMirror =
+                  typeof shouldMirrorHelper === "function"
+                    ? shouldMirrorHelper(targetScope) === true
+                    : targetScope.id === "clientBoxNewDoc" ||
+                      (typeof targetScope.closest === "function" && !!targetScope.closest("#clientBoxNewDoc"));
+                if (!shouldMirror || resolvedEntityType !== "client") return;
+                const scopedTaxesFallback = normalizeClientTaxesSelectionValue(
+                  queryScopedClientFormElement(targetScope, "clientTaxes")?.value,
+                  state().client?.taxes || "non_exonore"
+                );
+                const resolvedTaxes = normalizeClientTaxesSelectionValue(
+                  payload?.taxes ??
+                    payload?.taxesStatus ??
+                    payload?.taxes_status ??
+                    payload?.client?.taxes ??
+                    payload?.client?.taxesStatus ??
+                    payload?.client?.taxes_status,
+                  scopedTaxesFallback
+                );
+                const resolvedPath = String(
+                  payload?.path || payload?.clientPath || payload?.__path || payload?.client?.__path || ""
+                ).trim();
+                SEM.setDocumentTaxesFromClientValue(resolvedTaxes, {
+                  formScope: targetScope,
+                  entityType: resolvedEntityType,
+                  clientPath: resolvedPath,
+                  source: "client-selection"
+                });
               };
               const applyClientPopoverModeFallback = (popoverNode, mode = "create") => {
                 if (!popoverNode) return;
@@ -3194,7 +3551,7 @@
               const loadBtn = evt.target.closest("[data-client-saved-load]");
               if (loadBtn) {
                 const idx = Number(loadBtn.dataset.clientSavedLoad);
-                const selected = clientSavedModalState.items[idx];
+                const selected = getNormalizedSavedModalItem(idx);
                 if (!selected) return;
                 const isBsTransportTarget =
                   clientSavedModal?.dataset?.bsTransportTarget === "true" &&
@@ -3226,10 +3583,16 @@
                 ) {
                   const payload = selected.client || selected;
                   const targetScope = syncClientFormScopeFromPayload(payload);
+                  const resolvedEntityType = selected.entityType || clientSavedModalEntityType || "client";
                   applyClientToState(payload, {
                     formScope: targetScope,
-                    entityType: selected.entityType || clientSavedModalEntityType || "client"
+                    entityType: resolvedEntityType
                   });
+                  syncDocumentTaxesFromClientSelection(
+                    selected?.client ? { ...selected, ...payload } : payload,
+                    targetScope,
+                    resolvedEntityType
+                  );
                   const selectedPath = selected.path || payload.__path || "";
                   if (
                     targetScope &&
@@ -3244,10 +3607,16 @@
                 if (loadBtn.classList?.contains("client-search__edit")) {
                   const payload = selected.client || selected;
                   const targetScope = syncClientFormScopeFromPayload(payload);
+                  const resolvedEntityType = selected.entityType || clientSavedModalEntityType || "client";
                   applyClientToState(payload, {
                     formScope: targetScope,
-                    entityType: selected.entityType || clientSavedModalEntityType || "client"
+                    entityType: resolvedEntityType
                   });
+                  syncDocumentTaxesFromClientSelection(
+                    selected?.client ? { ...selected, ...payload } : payload,
+                    targetScope,
+                    resolvedEntityType
+                  );
                   const selectedPath = selected.path || payload.__path || "";
                   if (
                     targetScope &&
@@ -3269,7 +3638,7 @@
               const updateBtn = evt.target.closest("[data-client-saved-update]");
               if (updateBtn) {
                 const idx = Number(updateBtn.dataset.clientSavedUpdate);
-                const selected = clientSavedModalState.items[idx];
+                const selected = getNormalizedSavedModalItem(idx);
                 if (!selected) return;
                 const modalEntityType = resolveClientEntityType(clientSavedModal) || clientSavedModalEntityType;
                 if (openClientRecordInSavedModalPopover(selected, "edit", modalEntityType)) {
@@ -3292,7 +3661,7 @@
               const deleteBtn = evt.target.closest("[data-client-saved-delete]");
               if (deleteBtn) {
                 const idx = Number(deleteBtn.dataset.clientSavedDelete);
-                const selected = clientSavedModalState.items[idx];
+                const selected = getNormalizedSavedModalItem(idx);
                 if (!selected) return;
                 const label = selected.name ? ` \"${selected.name}\"` : "";
                 const entityLabels = getClientSavedModalLabels(clientSavedModalEntityType);
@@ -3392,12 +3761,12 @@
             const currentClient = current.client && typeof current.client === "object" ? current.client : {};
             const mergedClient = { ...currentClient, ...snapshot };
             if (nextPath) mergedClient.__path = nextPath;
-            const mergedEntry = {
+            const mergedEntry = ensureClientSearchResultTaxesSafe({
               ...current,
               ...snapshot,
               entityType: expectedEntityType,
               client: mergedClient
-            };
+            });
             if (nextPath) {
               mergedEntry.path = nextPath;
               mergedEntry.clientPath = nextPath;
@@ -4429,6 +4798,20 @@
             });
             const pageSize = resolveClientSearchPageSize(resultsEl);
             const getCurrentItems = () => searchState?.getData?.() || [];
+            const getNormalizedSearchItem = (index) => {
+              const idx = Math.trunc(Number(index));
+              if (!Number.isFinite(idx) || idx < 0) return null;
+              const currentItems = getCurrentItems();
+              const current = currentItems[idx];
+              if (!current) return null;
+              const normalized = ensureClientSearchResultTaxes(current);
+              if (normalized !== current) {
+                const nextItems = [...currentItems];
+                nextItems[idx] = normalized;
+                searchState?.setData?.(nextItems);
+              }
+              return normalized;
+            };
             const pagerBtn = evt.target.closest("[data-article-page]");
             if (pagerBtn) {
               const direction = pagerBtn.getAttribute("data-article-page");
@@ -4458,7 +4841,7 @@
             const editBtn = evt.target.closest("[data-client-edit]");
             if (editBtn) {
               const idx = Number(editBtn.dataset.clientEdit);
-              const selected = getCurrentItems()[idx];
+              const selected = getNormalizedSearchItem(idx);
               if (!selected) return;
               resetClientSearchSession({
                 scopeNode: resolvedScopeNode,
@@ -4475,7 +4858,7 @@
             const updateBtn = evt.target.closest("[data-client-saved-update]");
             if (updateBtn) {
               const idx = Number(updateBtn.dataset.clientSavedUpdate);
-              const selected = getCurrentItems()[idx];
+              const selected = getNormalizedSearchItem(idx);
               if (!selected) return;
               resetClientSearchSession({
                 scopeNode: resolvedScopeNode,
@@ -4498,7 +4881,7 @@
             if (deleteBtn) {
               const idx = Number(deleteBtn.dataset.clientDelete);
               const currentItems = getCurrentItems();
-              const selected = currentItems[idx];
+              const selected = getNormalizedSearchItem(idx);
               if (!selected) return;
               const label = selected.name ? ` \"${selected.name}\"` : "";
               const entityType = resolveClientEntityType(
@@ -4560,7 +4943,7 @@
               return;
             }
             const idx = Number(selectBtn.dataset.clientSelect);
-            const selected = getCurrentItems()[idx];
+            const selected = getNormalizedSearchItem(idx);
             if (!selected) return;
             resetClientSearchSession({
               scopeNode: resolvedScopeNode,
@@ -4766,3 +5149,4 @@
           }
   }, { order: 1000 });
 })(window);
+

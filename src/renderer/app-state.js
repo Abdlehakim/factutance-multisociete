@@ -993,9 +993,10 @@
           : salesFcfg;
       const fRate = toNum(activeFcfg.rate, 0);
       const fTvaRate = toNum(activeFcfg.tva, 0);
-      const fEnabled = !!activeFcfg.enabled && Number.isFinite(fRate);
+      // In tax-exempt mode, all tax-driven components (including FODEC) are forced to zero.
+      const fEnabled = taxesEnabled && !!activeFcfg.enabled && Number.isFinite(fRate);
       const fht = fEnabled ? taxedBase * (fRate / 100) : 0;
-      const ftva = fEnabled && taxesEnabled ? fht * (fTvaRate / 100) : 0;
+      const ftva = fEnabled ? fht * (fTvaRate / 100) : 0;
       subtotal      += base;
       totalDiscount += disc;
       totalTax      += tax;
@@ -1044,7 +1045,7 @@
       taxBreakdown.set(rateKey, entry);
     }
 
-    const stampHT  = ex.stamp?.enabled ? toNum(ex.stamp.amount, 0) : 0;
+    const stampHT  = taxesEnabled && ex.stamp?.enabled ? toNum(ex.stamp.amount, 0) : 0;
     const stampTVA = 0;
     const stampTT  = stampHT;
 
@@ -1188,7 +1189,8 @@
     };
   };
 
-  SEM.readInputs = function () {
+  SEM.readInputs = function (options = {}) {
+    const preserveTaxMode = options && options.preserveTaxMode === true;
     const st = SEM.state;
     if (!SEM.COMPANY_LOCKED) {
       st.company.name    = getStr("companyName",  st.company.name);
@@ -1262,8 +1264,35 @@
       }
       syncInvNumberSplitFieldsLocal(st.meta.number, st.meta);
     }
-    const taxModeVal = getStr("taxMode", st.meta.taxesEnabled !== false ? "with" : "without");
-    st.meta.taxesEnabled = isTaxesEnabled(taxModeVal, st.meta.taxesEnabled !== false);
+    const fallbackTaxMode = st.meta.taxesEnabled !== false ? "with" : "without";
+    if (!preserveTaxMode) {
+      const resolveTaxModeInputValue = () => {
+        if (typeof document === "undefined") {
+          return getStr("taxMode", fallbackTaxMode);
+        }
+        const itemsModal = document.getElementById("itemsDocOptionsModal");
+        const isItemsModalOpen =
+          !!itemsModal &&
+          (itemsModal.classList?.contains("is-open") || itemsModal.getAttribute("aria-hidden") === "false");
+        if (isItemsModalOpen) {
+          const modalTaxSelect = itemsModal.querySelector?.("#taxMode");
+          if (modalTaxSelect && typeof modalTaxSelect.value === "string") {
+            return String(modalTaxSelect.value || "").trim() || fallbackTaxMode;
+          }
+        }
+        const allTaxSelectValues = Array.from(document.querySelectorAll("#taxMode"))
+          .map((el) => (typeof el?.value === "string" ? String(el.value || "").trim() : ""))
+          .filter(Boolean);
+        if (allTaxSelectValues.length) {
+          return allTaxSelectValues[allTaxSelectValues.length - 1];
+        }
+        return getStr("taxMode", fallbackTaxMode);
+      };
+      const taxModeVal = resolveTaxModeInputValue();
+      st.meta.taxesEnabled = isTaxesEnabled(taxModeVal, st.meta.taxesEnabled !== false);
+    } else {
+      st.meta.taxesEnabled = isTaxesEnabled(st.meta.taxesEnabled, st.meta.taxesEnabled !== false);
+    }
     st.meta.currency = getStr("currency",  st.meta.currency) || st.meta.currency;
     st.meta.date     = getStr("invDate",   st.meta.date);
     st.meta.due      = getStr("invDue",    st.meta.due);
