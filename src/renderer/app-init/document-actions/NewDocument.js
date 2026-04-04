@@ -5462,6 +5462,146 @@
       if (typeof SEM.refreshUpdateClientButton === "function") SEM.refreshUpdateClientButton(targetScope);
     };
 
+    const resolveItemsModalClientScope = (docTypeValue = "") => {
+      const normalizedDocType = String(docTypeValue || getInvoiceMeta()?.docType || "")
+        .trim()
+        .toLowerCase();
+      const preferredSelector = isPurchaseDocType(normalizedDocType)
+        ? "#FournisseurBoxNewDoc"
+        : "#clientBoxNewDoc";
+      return (
+        itemsDocOptionsModalContent?.querySelector?.(preferredSelector) ||
+        itemsDocOptionsModalContent?.querySelector?.(CLIENT_SCOPE_SELECTOR) ||
+        null
+      );
+    };
+
+    const hasItemsModalClientSnapshot = (value = null) => {
+      if (!value || typeof value !== "object") return false;
+      return [
+        value.name,
+        value.codeClient,
+        value.code_client,
+        value.codeFournisseur,
+        value.code_fournisseur,
+        value.codeTransporteur,
+        value.code_transporteur,
+        value.code,
+        value.benefit,
+        value.account,
+        value.vat,
+        value.identifiantFiscal,
+        value.identifiant,
+        value.tva,
+        value.nif,
+        value.stegRef,
+        value.phone,
+        value.telephone,
+        value.tel,
+        value.email,
+        value.address,
+        value.adresse,
+        value.__path,
+        value.path
+      ].some((entry) => String(entry ?? "").trim().length > 0);
+    };
+
+    const resolveItemsModalClientCode = (value = {}) =>
+      String(
+        value.codeClient ||
+          value.code_client ||
+          value.codeFournisseur ||
+          value.code_fournisseur ||
+          value.codeTransporteur ||
+          value.code_transporteur ||
+          value.code ||
+          ""
+      ).trim();
+
+    const resolveItemsModalClientSnapshotFromState = () => {
+      const st = SEM?.state || w.state || {};
+      const meta = getInvoiceMeta?.() || {};
+      const candidates = [
+        meta.clientSnapshot,
+        meta.client,
+        meta.party,
+        meta.destinationSnapshot,
+        meta.destination,
+        meta.destinataire,
+        meta.recipient,
+        meta.customer,
+        st.client
+      ];
+      for (const candidate of candidates) {
+        if (candidate && typeof candidate === "object" && hasItemsModalClientSnapshot(candidate)) {
+          return candidate;
+        }
+      }
+      return st.client && typeof st.client === "object" ? st.client : {};
+    };
+
+    const syncItemsModalClientUiFromState = (docTypeValue = "") => {
+      const scopeNode = resolveItemsModalClientScope(docTypeValue);
+      if (!scopeNode) return false;
+
+      const snapshot = resolveItemsModalClientSnapshotFromState();
+      const entityType = resolveClientScopeEntityType(scopeNode);
+      const st = SEM.state || (SEM.state = {});
+      const snapshotPath = String(snapshot?.__path || snapshot?.path || "").trim();
+      const hasSnapshot = hasItemsModalClientSnapshot(snapshot) || !!snapshotPath;
+
+      if (hasSnapshot) {
+        st.client = {
+          ...(st.client || {}),
+          ...(snapshot || {}),
+          __entityType: entityType,
+          __path: snapshotPath || String(st.client?.__path || "").trim()
+        };
+        if (typeof SEM.syncClientFormFields === "function") {
+          SEM.syncClientFormFields(st.client, scopeNode);
+        } else {
+          Object.entries(CLIENT_FORM_FIELD_TO_KEY).forEach(([id, key]) => {
+            const input = queryClientFormElement(scopeNode, id);
+            if (!input || !("value" in input)) return;
+            input.value = String(st.client?.[key] ?? snapshot?.[key] ?? "");
+          });
+          const codeInput = queryClientFormElement(scopeNode, "clientCode");
+          if (codeInput && "value" in codeInput) {
+            codeInput.value = resolveItemsModalClientCode(st.client || snapshot);
+          }
+        }
+      }
+
+      const searchInput = scopeNode.querySelector("#clientSearch");
+      if (searchInput && "value" in searchInput) {
+        searchInput.value = hasSnapshot ? String(st.client?.name || snapshot?.name || "").trim() : "";
+      }
+
+      const summaryNameText = hasSnapshot ? String(st.client?.name || snapshot?.name || "").trim() : "";
+      const summaryCodeText = hasSnapshot ? resolveItemsModalClientCode(st.client || snapshot) : "";
+      const summaryName = scopeNode.querySelector("#clientSummaryNameNewDoc");
+      if (summaryName) {
+        summaryName.textContent = summaryNameText || "-";
+        summaryName.classList.toggle("is-empty", !summaryNameText);
+      }
+      const summaryCode = scopeNode.querySelector("#clientSummaryCodeNewDoc");
+      if (summaryCode) {
+        summaryCode.textContent = summaryCodeText || "-";
+        summaryCode.classList.toggle("is-empty", !summaryCodeText);
+      }
+
+      if (hasSnapshot && typeof SEM.refreshClientSummary === "function") {
+        SEM.refreshClientSummary();
+      }
+      if (typeof SEM.syncDocumentClientTaxesFromState === "function") {
+        SEM.syncDocumentClientTaxesFromState({ updateSelect: true });
+      }
+      if (typeof SEM.refreshClientActionButtons === "function") SEM.refreshClientActionButtons();
+      if (typeof SEM.refreshUpdateClientButton === "function") SEM.refreshUpdateClientButton(scopeNode);
+      if (typeof SEM.evaluateClientDirtyState === "function") SEM.evaluateClientDirtyState(scopeNode);
+      return hasSnapshot;
+    };
+
     const sanitizeModelSeed = (value) => {
       const helper = SEM?.__bindingHelpers?.sanitizeModelName;
       if (typeof helper === "function") return helper(value);
@@ -7378,7 +7518,13 @@
       if (docMetaBox) {
         const isEditMode = isItemsModalEditMode();
         docMetaBox.classList.toggle("doc-meta-box--new-mode", !isEditMode);
-        if (!isEditMode) {
+        docMetaBox.classList.toggle("doc-meta-box--edit-mode", isEditMode);
+        if (isEditMode) {
+          const modelSummaryField = docMetaBox.querySelector(".doc-model-summary-field");
+          if (modelSummaryField?.parentNode) {
+            modelSummaryField.parentNode.removeChild(modelSummaryField);
+          }
+        } else {
           const modelField = docMetaBox.querySelector(".doc-model-field");
           const modelFieldItem = modelField?.closest?.(".doc-meta-grid__item") || null;
           if (modelFieldItem?.parentNode) {
@@ -7580,6 +7726,12 @@
               ""
           )
         });
+        if (options.resetClient === true) {
+          const scopeNode = resolveItemsModalClientScope(options.docType || getInvoiceMeta()?.docType);
+          resetItemsModalClientState(scopeNode);
+        } else {
+          syncItemsModalClientUiFromState(options.docType || getInvoiceMeta()?.docType);
+        }
         setItemsModalTitle({ mode: itemsModalMode, docType: options.docType || getInvoiceMeta()?.docType });
         setItemsModalAcompteReadOnly(isItemsModalEditMode());
         return true;
@@ -7621,8 +7773,9 @@
             autoSelectFallback: true
           });
         }
+        const shouldHydrateClientState = options.resetClient !== true;
         if (options.resetClient === true) {
-          const scopeNode = itemsDocOptionsModalContent?.querySelector?.(CLIENT_SCOPE_SELECTOR) || null;
+          const scopeNode = resolveItemsModalClientScope(options.docType || getInvoiceMeta()?.docType);
           resetItemsModalClientState(scopeNode);
         }
 
@@ -7633,6 +7786,9 @@
         itemsDocOptionsModal.removeAttribute("hidden");
         itemsDocOptionsModal.setAttribute("aria-hidden", "false");
         itemsDocOptionsModal.classList.add("is-open");
+        if (shouldHydrateClientState) {
+          syncItemsModalClientUiFromState(options.docType || getInvoiceMeta()?.docType);
+        }
         syncItemsModalDocOptionsPanelPosition();
         try {
           itemsDocOptionsModal.focus({ preventScroll: true });
@@ -7852,7 +8008,8 @@
       openItemsPopup,
       revealItemsAndOptions,
       setItemsModalTitle,
-      syncDocMetaBoxFromState
+      syncDocMetaBoxFromState,
+      syncItemsModalClientUiFromState
     };
     AppInit.itemsDocOptionsModalApi = api;
     return api;

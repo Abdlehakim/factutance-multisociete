@@ -3042,6 +3042,11 @@
           .toLowerCase();
         return modalDocType || stateDocType || historyDocType || "facture";
       };
+      const modalApi = w.AppInit?.itemsDocOptionsModalApi;
+      if (typeof modalApi?.syncItemsModalClientUiFromState === "function") {
+        modalApi.syncItemsModalClientUiFromState(resolveItemsModalDocType());
+        return;
+      }
       const preferredScopeSelector =
         ["fa", "bc", "be"].includes(resolveItemsModalDocType())
           ? "#FournisseurBoxNewDoc"
@@ -3121,6 +3126,19 @@
       };
       setScopedVal("clientType", type);
       setScopedVal("clientTaxes", taxes);
+      setScopedVal(
+        "clientCode",
+        normalize(
+          client.codeClient ||
+            client.code_client ||
+            client.codeFournisseur ||
+            client.code_fournisseur ||
+            client.codeTransporteur ||
+            client.code_transporteur ||
+            client.code ||
+            ""
+        )
+      );
       setScopedVal("clientName", normalize(client.name));
       setScopedVal("clientBeneficiary", normalize(client.benefit || client.beneficiary || ""));
       setScopedVal("clientAccount", normalize(client.account || ""));
@@ -3195,6 +3213,16 @@
       const taxesToggle = taxesMenu?.querySelector("summary");
       if (taxesToggle) {
         taxesToggle.setAttribute("aria-expanded", taxesMenu?.open ? "true" : "false");
+      }
+      const searchInput = scope.querySelector("#clientSearch");
+      if (searchInput && "value" in searchInput) {
+        searchInput.value = String(client.name || searchInput.value || "").trim();
+      }
+      if (typeof SEM?.refreshClientSummary === "function") {
+        SEM.refreshClientSummary();
+      }
+      if (typeof SEM?.syncDocumentClientTaxesFromState === "function") {
+        SEM.syncDocumentClientTaxesFromState({ updateSelect: true });
       }
 
       if (typeof SEM?.refreshClientActionButtons === "function") {

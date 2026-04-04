@@ -167,6 +167,9 @@
   align-items: start;
   min-width: 0;
 }
+#docMetaBoxNewDoc.doc-meta-box--edit-mode .doc-meta-grid__doc-summary {
+  grid-template-columns: minmax(0, 1fr);
+}
 .doc-type-field__controls {
   display: flex;
   position: relative;

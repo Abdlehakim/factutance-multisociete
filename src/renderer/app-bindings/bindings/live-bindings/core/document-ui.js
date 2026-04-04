@@ -421,6 +421,57 @@
                 source: "tax-mode-sync"
               });
             };
+            const resolveDocumentClientTaxesSelection = () => {
+              const st = state();
+              const meta = st.meta || {};
+              const fallbackTaxMode =
+                String(taxSelectEl?.value || "").toLowerCase() === "without" ||
+                meta.taxesEnabled === false
+                  ? "without"
+                  : "with";
+              const fallbackTaxes = resolveClientTaxesFromTaxMode(fallbackTaxMode);
+              const explicitMode = String(
+                meta.clientDocTaxesMode || meta.clientDocTaxesManualOverride || ""
+              ).trim();
+              const explicitClientPath = String(
+                meta.clientDocTaxesClientPath || meta.clientDocTaxesManualOverrideClientPath || ""
+              ).trim();
+              const resolvedClientPath = String(explicitClientPath || st.client?.__path || "").trim();
+              return {
+                taxesValue: normalizeClientTaxesValue(
+                  explicitMode || "",
+                  fallbackTaxes
+                ),
+                clientPath: resolvedClientPath,
+                hasExplicitSavedValue: !!explicitMode
+              };
+            };
+            const syncDocumentClientTaxesFromState = (
+              {
+                updateSelect = true,
+                triggerTaxUpdate,
+                source = "document-state-sync"
+              } = {}
+            ) => {
+              const st = state();
+              const meta = st.meta || (st.meta = {});
+              const resolved = resolveDocumentClientTaxesSelection();
+              meta.clientDocTaxesMode = resolved.taxesValue;
+              meta.clientDocTaxesClientPath = resolved.clientPath;
+              if (resolved.hasExplicitSavedValue || resolved.clientPath) {
+                meta.clientDocTaxesManualOverride = resolved.taxesValue;
+                meta.clientDocTaxesManualOverrideClientPath = resolved.clientPath;
+              }
+              return applyClientDocTaxesSelection(resolved.taxesValue, {
+                updateSelect,
+                triggerTaxUpdate:
+                  triggerTaxUpdate !== undefined
+                    ? !!triggerTaxUpdate
+                    : resolved.hasExplicitSavedValue,
+                source,
+                clientPath: resolved.clientPath
+              });
+            };
             const applyClientDocTaxesSelection = (
               taxesValue,
               {
@@ -494,6 +545,8 @@
             };
             SEM.syncClientDocTaxesControlFromTaxMode = (taxModeValue, options = {}) =>
               syncClientDocTaxesControlFromTaxMode(taxModeValue, options);
+            SEM.syncDocumentClientTaxesFromState = (options = {}) =>
+              syncDocumentClientTaxesFromState(options);
             SEM.setDocumentTaxesFromClientValue = (taxesValue, options = {}) => {
               const scopeNode = options.formScope instanceof HTMLElement ? options.formScope : null;
               const normalizedEntityType = String(options.entityType || "").trim().toLowerCase();
@@ -691,7 +744,7 @@
             });
             syncClientTypeMenuUiLocal(clientTypeSelectEl?.value || "societe");
             syncClientTaxesMenuUiLocal(clientTaxesSelectEl?.value || "non_exonore");
-            syncClientDocTaxesControlFromTaxMode(taxSelectEl?.value || (state().meta.taxesEnabled !== false ? "with" : "without"), { updateSelect: true });
+            syncDocumentClientTaxesFromState({ updateSelect: true });
 
             clientTypeSelectEl?.addEventListener("change", (evt) => {
               const currentTarget = evt.currentTarget instanceof HTMLElement ? evt.currentTarget : null;

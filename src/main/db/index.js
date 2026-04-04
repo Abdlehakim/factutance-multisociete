@@ -2639,6 +2639,16 @@ const normalizeDocumentPayload = (payload = {}, { docType = "" } = {}) => {
     client.taxes ?? client.taxesStatus ?? client.taxes_status,
     "non_exonore"
   );
+  const fallbackDocTaxesMode = meta.taxesEnabled === false ? "exonore" : "non_exonore";
+  const docTaxesModeSnapshot = normalizeClientTaxesValue(
+    meta.clientDocTaxesMode ?? meta.clientDocTaxesManualOverride,
+    fallbackDocTaxesMode
+  );
+  const docTaxesClientPathSnapshot = normalizeOptionalText(
+    meta.clientDocTaxesClientPath ||
+      meta.clientDocTaxesManualOverrideClientPath ||
+      clientPath
+  );
   const reglement = meta.reglement && typeof meta.reglement === "object" ? meta.reglement : {};
   const wh = meta.withholding && typeof meta.withholding === "object" ? meta.withholding : {};
   const financing = meta.financing && typeof meta.financing === "object" ? meta.financing : {};
@@ -2788,6 +2798,10 @@ const normalizeDocumentPayload = (payload = {}, { docType = "" } = {}) => {
       ? normalizeOptionalText(pdf.bsValidatedByName ?? pdf.validatedByName)
       : undefined,
     meta_taxes_enabled: normalizeOptionalBool(meta.taxesEnabled),
+    meta_client_doc_taxes_mode: normalizeOptionalText(docTaxesModeSnapshot),
+    meta_client_doc_taxes_client_path: docTaxesClientPathSnapshot,
+    meta_client_doc_taxes_manual_override: normalizeOptionalText(docTaxesModeSnapshot),
+    meta_client_doc_taxes_manual_override_client_path: docTaxesClientPathSnapshot,
     meta_note_interne: normalizeOptionalText(meta.noteInterne),
     meta_reglement_enabled: normalizeOptionalBool(meta.reglementEnabled ?? reglement.enabled),
     meta_reglement_type: normalizeOptionalText(meta.reglementType ?? reglement.type),
@@ -3195,6 +3209,16 @@ const buildDocumentPayloadFromRow = (row = {}, items = [], taxRows = []) => {
   };
   const resolvedModelName = readTextValue(row.meta_model_name || row.meta_model_key);
   const resolvedModelKey = readTextValue(row.meta_model_key || row.meta_model_name);
+  const fallbackDocTaxesMode = readBoolValue(row.meta_taxes_enabled) === false ? "exonore" : "non_exonore";
+  const resolvedDocTaxesMode = normalizeClientTaxesValue(
+    readTextValue(row.meta_client_doc_taxes_mode || row.meta_client_doc_taxes_manual_override),
+    fallbackDocTaxesMode
+  );
+  const resolvedDocTaxesClientPath = readTextValue(
+    row.meta_client_doc_taxes_client_path ||
+      row.meta_client_doc_taxes_manual_override_client_path ||
+      row.client_path
+  );
   const meta = {
     number: readTextValue(row.meta_number || row.number),
     currency: readTextValue(row.meta_currency),
@@ -3211,6 +3235,15 @@ const buildDocumentPayloadFromRow = (row = {}, items = [], taxRows = []) => {
     modelName: resolvedModelName,
     modelKey: resolvedModelKey,
     taxesEnabled: readBoolValue(row.meta_taxes_enabled),
+    clientDocTaxesMode: resolvedDocTaxesMode,
+    clientDocTaxesClientPath: resolvedDocTaxesClientPath,
+    clientDocTaxesManualOverride: normalizeClientTaxesValue(
+      readTextValue(row.meta_client_doc_taxes_manual_override),
+      resolvedDocTaxesMode
+    ),
+    clientDocTaxesManualOverrideClientPath:
+      readTextValue(row.meta_client_doc_taxes_manual_override_client_path) ||
+      resolvedDocTaxesClientPath,
     noteInterne: readTextValue(row.meta_note_interne),
     reglementEnabled: readBoolValue(row.meta_reglement_enabled),
     reglementType: readTextValue(row.meta_reglement_type),

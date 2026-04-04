@@ -929,7 +929,29 @@
     if (src.meta) {
       const cur = st.meta || {};
         const incoming = src.meta;
-        const mergedWH = { ...(cur.withholding || {}), ...(incoming.withholding || {}) };
+        const normalizeClientTaxesValue = (value, fallback = "non_exonore") => {
+          const normalized = String(value || "")
+            .trim()
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/[\s-]+/g, "_");
+          if (normalized === "exonore" || normalized === "exonoree" || normalized === "exoneree") {
+            return "exonore";
+          }
+          if (
+            normalized === "non_exonore" ||
+            normalized === "nonexonore" ||
+            normalized === "non_exonoree" ||
+            normalized === "nonexonoree" ||
+            normalized === "non_exoneree" ||
+            normalized === "nonexoneree"
+          ) {
+            return "non_exonore";
+          }
+          return String(fallback || "").trim().toLowerCase() === "exonore" ? "exonore" : "non_exonore";
+        };
+      const mergedWH = { ...(cur.withholding || {}), ...(incoming.withholding || {}) };
       const cx = cur.extras || {}, ix = incoming.extras || {};
       const currentPdf = cx.pdf && typeof cx.pdf === "object" ? cx.pdf : {};
       const incomingPdfLegacy = incoming.pdf && typeof incoming.pdf === "object" ? incoming.pdf : {};
@@ -1047,6 +1069,30 @@
         st.meta.reglementEnabled = normalizedReglement.enabled;
         st.meta.reglementType = normalizedReglement.type;
         st.meta.reglementDays = normalizedReglement.days;
+        const fallbackDocTaxesMode = st.meta.taxesEnabled === false ? "exonore" : "non_exonore";
+        const resolvedClientDocTaxesMode = normalizeClientTaxesValue(
+          incoming.clientDocTaxesMode || incoming.clientDocTaxesManualOverride,
+          fallbackDocTaxesMode
+        );
+        const resolvedClientDocTaxesClientPath = String(
+          incoming.clientDocTaxesClientPath ||
+            incoming.clientDocTaxesManualOverrideClientPath ||
+            src.client?.__path ||
+            src.client?.path ||
+            ""
+        ).trim();
+        st.meta.clientDocTaxesMode = resolvedClientDocTaxesMode;
+        st.meta.clientDocTaxesClientPath = resolvedClientDocTaxesClientPath;
+        st.meta.clientDocTaxesManualOverride = normalizeClientTaxesValue(
+          incoming.clientDocTaxesManualOverride || incoming.clientDocTaxesMode,
+          resolvedClientDocTaxesMode
+        );
+        st.meta.clientDocTaxesManualOverrideClientPath =
+          String(
+            incoming.clientDocTaxesManualOverrideClientPath ||
+              incoming.clientDocTaxesClientPath ||
+              resolvedClientDocTaxesClientPath
+          ).trim();
         if (typeof window.SEM?.__bindingHelpers?.applyDocumentTemplate === "function") {
           window.SEM.__bindingHelpers.applyDocumentTemplate(st.meta?.template, {
             updateState: true,
