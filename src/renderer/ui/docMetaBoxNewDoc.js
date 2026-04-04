@@ -15,33 +15,44 @@
 
         <div class="doc-meta-grid doc-meta-grid--stacked">
           <div class="doc-meta-grid__row doc-meta-grid__row--top">
-            <div class="doc-meta-grid__item">
-              <label class="doc-type-field">
-                <span id="docTypeLabelText" class="model-save-dot">Type de document</span>
-                <div class="doc-type-field__controls">
-                  <details id="docTypeMenu" class="field-toggle-menu doc-type-menu">
-                    <summary
-                      class="btn success field-toggle-trigger"
-                      role="button"
-                      aria-haspopup="listbox"
-                      aria-expanded="false"
-                      aria-labelledby="docTypeLabelText docTypeDisplay"
-                    >
-                      <span id="docTypeDisplay">Facture</span>
-                    </summary>
-                  </details>
-                  <select id="docType" class="doc-type-select" aria-hidden="true" tabindex="-1">
-                    <option value="facture" selected>Facture</option>
-                    <option value="fa">Facture d'achat</option>
-                    <option value="bc">Bon de commande</option>
-                    <option value="be">Bon d'entr&eacute;e</option>
-                    <option value="bs">Bon de sortie</option>
-                    <option value="avoir">Facture d'avoir</option>
-                    <option value="devis">Devis</option>
-                    <option value="bl">Bon de livraison</option>
-                  </select>
+            <div class="doc-meta-grid__item doc-meta-grid__item--doc-summary">
+              <div class="doc-meta-grid__doc-summary">
+                <label class="doc-type-field">
+                  <span id="docTypeLabelText" class="model-save-dot">Type de document</span>
+                  <div class="doc-type-field__controls">
+                    <details id="docTypeMenu" class="field-toggle-menu doc-type-menu">
+                      <summary
+                        class="btn success field-toggle-trigger"
+                        role="button"
+                        aria-haspopup="listbox"
+                        aria-expanded="false"
+                        aria-labelledby="docTypeLabelText docTypeDisplay"
+                      >
+                        <span id="docTypeDisplay">Facture</span>
+                      </summary>
+                    </details>
+                    <select id="docType" class="doc-type-select" aria-hidden="true" tabindex="-1">
+                      <option value="facture" selected>Facture</option>
+                      <option value="fa">Facture d'achat</option>
+                      <option value="bc">Bon de commande</option>
+                      <option value="be">Bon d'entr&eacute;e</option>
+                      <option value="bs">Bon de sortie</option>
+                      <option value="avoir">Facture d'avoir</option>
+                      <option value="devis">Devis</option>
+                      <option value="bl">Bon de livraison</option>
+                    </select>
+                  </div>
+                </label>
+
+                <div class="doc-model-summary-field" aria-live="polite" aria-atomic="true">
+                  <span id="docMetaSelectedModelLabelText" class="model-save-dot">Mod&egrave;le</span>
+                  <output
+                    id="docMetaSelectedModelDisplay"
+                    class="doc-model-summary-field__value is-placeholder"
+                    for="docMetaModelSelect"
+                  >Aucun modele</output>
                 </div>
-              </label>
+              </div>
             </div>
 
             <div class="doc-meta-grid__item">

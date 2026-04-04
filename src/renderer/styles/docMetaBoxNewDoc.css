@@ -19,16 +19,19 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;
 }
 .doc-meta-grid__item--number {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 .inv-number-field__controls {
   display: flex;
   flex-wrap: nowrap;
   gap: 8px;
   align-items: flex-start;
+  min-width: 0;
 }
 .inv-number-input {
   flex: 1 1 220px;
@@ -44,8 +47,8 @@
 }
 .inv-number-input--split input[type="text"],
 .inv-number-input--split input:not([type]) {
-      padding: 10px 6px;
-    min-height: 42px;
+  padding: 10px 6px;
+  min-height: 42px;
 }
 .inv-number-input--single {
   display: none;
@@ -134,10 +137,35 @@
 #docMetaBoxNewDoc .doc-meta-grid--stacked .doc-meta-grid__row .doc-meta-grid__item {
   min-width: 0;
 }
+.doc-meta-grid__item--doc-summary {
+  min-width: 0;
+}
 .doc-type-field {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;
+}
+#docMetaBoxNewDoc #docTypeLabelText,
+#docMetaBoxNewDoc #docMetaSelectedModelLabelText {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 4px;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: #1f2937;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+.doc-meta-grid__doc-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.9fr);
+  gap: 12px;
+  align-items: start;
+  min-width: 0;
 }
 .doc-type-field__controls {
   display: flex;
@@ -230,6 +258,33 @@
 }
 .doc-model-select-native:disabled {
   pointer-events: none;
+}
+.doc-model-summary-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.doc-model-summary-field__value {
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid #caddff;
+  border-radius: 5px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.2;
+  background: #f8fafc;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+.doc-model-summary-field__value.is-placeholder {
+  color: #6b7280;
 }
 
 .currency-field {
@@ -324,11 +379,32 @@
   #docMetaBoxNewDoc .doc-meta-grid--stacked .doc-meta-grid__row {
     grid-template-columns: 1fr;
   }
+  .doc-meta-grid__doc-summary {
+    grid-template-columns: 1fr;
+  }
   .inv-number-field__controls {
     flex-wrap: wrap;
   }
   .inv-length-menu {
     flex-basis: 160px;
+  }
+}
+
+@media (max-width: 1120px) {
+  #docMetaBoxNewDoc .doc-meta-grid--stacked .doc-meta-grid__row--top {
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+  }
+  #docMetaBoxNewDoc .doc-meta-grid--stacked .doc-meta-grid__row--top .doc-meta-grid__item--number {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 860px) {
+  #docMetaBoxNewDoc .doc-meta-grid--stacked .doc-meta-grid__row--top {
+    grid-template-columns: 1fr;
+  }
+  .doc-meta-grid__doc-summary {
+    grid-template-columns: 1fr;
   }
 }
 

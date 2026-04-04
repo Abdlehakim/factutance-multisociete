@@ -5520,8 +5520,10 @@
     const ITEMS_MODAL_MODEL_MENU_ID = "docMetaModelMenu";
     const ITEMS_MODAL_MODEL_PANEL_ID = "docMetaModelPanel";
     const ITEMS_MODAL_MODEL_DISPLAY_ID = "docMetaModelDisplay";
+    const ITEMS_MODAL_MODEL_SUMMARY_DISPLAY_ID = "docMetaSelectedModelDisplay";
     const ITEMS_MODAL_MODEL_SELECT_PLACEHOLDER = "Selectionner un modele";
     const ITEMS_MODAL_MODEL_SELECT_EMPTY = "Aucun modele compatible";
+    const ITEMS_MODAL_MODEL_SUMMARY_EMPTY = "Aucun modele";
     let itemsModalModelSelectSyncing = false;
     let itemsModalModelApplySeq = 0;
 
@@ -6517,6 +6519,33 @@
       );
     }
 
+    function syncItemsModalSelectedModelSummary(metaBox, { preferredModelName = "" } = {}) {
+      const summaryDisplay =
+        metaBox?.querySelector?.(`#${ITEMS_MODAL_MODEL_SUMMARY_DISPLAY_ID}`) || null;
+      if (!summaryDisplay) return "";
+      const rawMenuDisplayText = sanitizeModelSeed(
+        metaBox?.querySelector?.(`#${ITEMS_MODAL_MODEL_DISPLAY_ID}`)?.textContent || ""
+      );
+      const menuDisplayText =
+        rawMenuDisplayText === ITEMS_MODAL_MODEL_SELECT_PLACEHOLDER ||
+        rawMenuDisplayText === ITEMS_MODAL_MODEL_SELECT_EMPTY
+          ? ""
+          : rawMenuDisplayText;
+      const resolvedModelName = pickItemsModalModelName(
+        preferredModelName,
+        resolveItemsModalCurrentModelName(metaBox, { preferredModelName }),
+        menuDisplayText
+      );
+      const nextText = resolvedModelName || ITEMS_MODAL_MODEL_SUMMARY_EMPTY;
+      if (summaryDisplay.textContent !== nextText) {
+        summaryDisplay.textContent = nextText;
+      }
+      summaryDisplay.classList.toggle("is-placeholder", !resolvedModelName);
+      summaryDisplay.title = nextText;
+      summaryDisplay.dataset.modelName = resolvedModelName;
+      return resolvedModelName;
+    }
+
     function resolveItemsModalActiveDocType(metaBox, fallbackDocType = "") {
       const fromModalSelect = normalizeModelDocType(metaBox?.querySelector?.("#docType")?.value, "");
       if (fromModalSelect) return fromModalSelect;
@@ -6563,16 +6592,17 @@
       metaBox,
       { docTypeValue, preferredModelName = "", autoSelectFallback = false } = {}
     ) {
+      const normalizedDocType = resolveItemsModalActiveDocType(metaBox, docTypeValue);
       const modelSelect = metaBox?.querySelector?.(`#${ITEMS_MODAL_MODEL_SELECT_ID}`) || null;
       if (!modelSelect) {
+        const selectedModel = syncItemsModalSelectedModelSummary(metaBox, { preferredModelName });
         return {
-          selectedModel: "",
+          selectedModel,
           previousModel: "",
-          docTypeValue: normalizeModelDocType(docTypeValue, DEFAULT_MODEL_DOC_TYPE),
+          docTypeValue: normalizedDocType,
           options: []
         };
       }
-      const normalizedDocType = resolveItemsModalActiveDocType(metaBox, docTypeValue);
       const options = resolveItemsModalModelEntriesForDocType(normalizedDocType).map((entry) => ({
         name: entry?.name || "",
         docTypes: normalizeModelDocTypeSwitchSelection(entry?.docTypes || []),
@@ -6636,6 +6666,9 @@
       } finally {
         itemsModalModelSelectSyncing = false;
       }
+      syncItemsModalSelectedModelSummary(metaBox, {
+        preferredModelName: pickItemsModalModelName(preferred, displayModelName)
+      });
 
       return {
         selectedModel: sanitizeModelSeed(modelSelect.value || ""),
