@@ -46,7 +46,7 @@ export function renderAddItemSection() {
         </div>
         <div class="article-saved-modal__body swbDialog__msg payments-history-modal__body">
           <div class="article-saved-modal__search article-search client-search">
-            <div class="client-search__controls">
+            <div class="client-search__controls article-saved-modal__controls">
               <label class="client-search__field">
                 <input
                   id="articleSavedSearch"
@@ -66,6 +66,90 @@ export function renderAddItemSection() {
                   </svg>
                 </button>
               </label>
+              <label class="doc-history-modal__filter article-saved-modal__filter">
+                <span id="articleSavedDepotFilterLabel" class="label-text">D&eacute;p&ocirc;t/Magasin</span>
+                <div class="doc-dialog-model-picker__field">
+                  <details
+                    id="articleSavedDepotFilterMenu"
+                    class="field-toggle-menu model-select-menu doc-dialog-model-menu doc-history-model-menu"
+                    data-wired="1"
+                    data-disabled="false"
+                  >
+                    <summary
+                      class="btn success field-toggle-trigger"
+                      role="button"
+                      aria-haspopup="listbox"
+                      aria-expanded="false"
+                      aria-labelledby="articleSavedDepotFilterLabel articleSavedDepotFilterDisplay"
+                      aria-disabled="false"
+                    >
+                      <span id="articleSavedDepotFilterDisplay" class="model-select-display">Tous les d&eacute;p&ocirc;ts/magasins</span>
+                      <svg class="chevron" aria-hidden="true" focusable="false" stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="none" d="M0 0h24v24H0V0z"></path><path d="M12 4c4.41 0 8 3.59 8 8s-3.59 8-8 8-8-3.59-8-8 3.59-8 8-8m0-2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 13-4-4h8z"></path></svg>
+                    </summary>
+                    <div
+                      id="articleSavedDepotFilterPanel"
+                      class="field-toggle-panel model-select-panel doc-history-model-panel"
+                      role="listbox"
+                      aria-labelledby="articleSavedDepotFilterLabel"
+                    ></div>
+                  </details>
+                  <select
+                    id="articleSavedDepotFilter"
+                    class="model-select doc-dialog-model-select"
+                    aria-hidden="true"
+                    tabindex="-1"
+                  >
+                    <option value="">Tous les d&eacute;p&ocirc;ts/magasins</option>
+                  </select>
+                </div>
+              </label>
+              <label class="doc-history-modal__filter article-saved-modal__filter article-saved-modal__filter--emplacement">
+                <span id="articleSavedEmplacementFilterLabel" class="label-text">Emplacement</span>
+                <div class="doc-dialog-model-picker__field">
+                  <details
+                    id="articleSavedEmplacementFilterMenu"
+                    class="field-toggle-menu model-select-menu doc-dialog-model-menu doc-history-model-menu"
+                    data-wired="1"
+                    data-disabled="true"
+                  >
+                    <summary
+                      class="btn success field-toggle-trigger"
+                      role="button"
+                      aria-haspopup="listbox"
+                      aria-expanded="false"
+                      aria-labelledby="articleSavedEmplacementFilterLabel articleSavedEmplacementFilterDisplay"
+                      aria-disabled="true"
+                    >
+                      <span id="articleSavedEmplacementFilterDisplay" class="model-select-display">S&eacute;lectionner un d&eacute;p&ocirc;t</span>
+                      <svg class="chevron" aria-hidden="true" focusable="false" stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="none" d="M0 0h24v24H0V0z"></path><path d="M12 4c4.41 0 8 3.59 8 8s-3.59 8-8 8-8-3.59-8-8 3.59-8 8-8m0-2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 13-4-4h8z"></path></svg>
+                    </summary>
+                    <div
+                      id="articleSavedEmplacementFilterPanel"
+                      class="field-toggle-panel model-select-panel doc-history-model-panel"
+                      role="listbox"
+                      aria-labelledby="articleSavedEmplacementFilterLabel"
+                    ></div>
+                  </details>
+                  <select
+                    id="articleSavedEmplacementFilter"
+                    class="model-select doc-dialog-model-select"
+                    aria-hidden="true"
+                    tabindex="-1"
+                    disabled
+                    aria-disabled="true"
+                  >
+                    <option value="">S&eacute;lectionner un d&eacute;p&ocirc;t</option>
+                  </select>
+                </div>
+              </label>
+              <button
+                id="articleSavedLocationFiltersReset"
+                type="button"
+                class="btn ghost article-saved-modal__filters-reset"
+                disabled
+              >
+                R&eacute;initialiser
+              </button>
             </div>
             ${renderArticleFormPopover()}
           </div>

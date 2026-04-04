@@ -1162,6 +1162,56 @@
 .client-saved-modal__search input[type="search"] {
   background: #ffffff;
 }
+#articleSavedModal .article-saved-modal__controls {
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+#articleSavedModal .article-saved-modal__controls > .client-search__field {
+  flex: 1 1 320px;
+  min-width: 260px;
+}
+#articleSavedModal .article-saved-modal__filter {
+  display: flex;
+  flex: 0 1 220px;
+  min-width: 210px;
+  flex-direction: column;
+  gap: 6px;
+}
+#articleSavedModal .article-saved-modal__filter .doc-dialog-model-picker__field,
+#articleSavedModal .article-saved-modal__filter .field-toggle-menu,
+#articleSavedModal .article-saved-modal__filter .field-toggle-trigger {
+  width: 100%;
+}
+#articleSavedModal .article-saved-modal__filter .field-toggle-trigger {
+  justify-content: space-between;
+}
+#articleSavedModal .article-saved-modal__filter .model-select-display {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#articleSavedModal .article-saved-modal__filters-reset {
+  flex: 0 0 auto;
+  align-self: flex-end;
+  min-height: 42px;
+}
+@media (max-width: 1080px) {
+  #articleSavedModal .article-saved-modal__controls > .client-search__field {
+    flex-basis: 100%;
+  }
+}
+@media (max-width: 760px) {
+  #articleSavedModal .article-saved-modal__filter,
+  #articleSavedModal .article-saved-modal__filters-reset {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+  #articleSavedModal .article-saved-modal__filters-reset {
+    width: 100%;
+  }
+}
 .swbDialog__panel.client-saved-modal__panel .client-search__actions,
 .swbDialog__panel.article-saved-modal__panel .client-search__actions,
 .swbDialog__panel.doc-history-modal__panel .client-search__actions {

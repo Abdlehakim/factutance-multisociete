@@ -592,16 +592,41 @@
             articleSavedModal?.querySelector("#articleSavedModalRefresh") || getEl("articleSavedModalRefresh");
           articleSavedSearchInput = getEl("articleSavedSearch");
           articleSavedSearchButton = getEl("articleSavedSearchBtn");
+          articleSavedDepotFilterMenu =
+            articleSavedModal?.querySelector("#articleSavedDepotFilterMenu") || getEl("articleSavedDepotFilterMenu");
+          articleSavedDepotFilterPanel =
+            articleSavedModal?.querySelector("#articleSavedDepotFilterPanel") || getEl("articleSavedDepotFilterPanel");
+          articleSavedDepotFilterDisplay =
+            articleSavedModal?.querySelector("#articleSavedDepotFilterDisplay") || getEl("articleSavedDepotFilterDisplay");
+          articleSavedDepotFilter =
+            articleSavedModal?.querySelector("#articleSavedDepotFilter") || getEl("articleSavedDepotFilter");
+          articleSavedEmplacementFilterMenu =
+            articleSavedModal?.querySelector("#articleSavedEmplacementFilterMenu") || getEl("articleSavedEmplacementFilterMenu");
+          articleSavedEmplacementFilterPanel =
+            articleSavedModal?.querySelector("#articleSavedEmplacementFilterPanel") || getEl("articleSavedEmplacementFilterPanel");
+          articleSavedEmplacementFilterDisplay =
+            articleSavedModal?.querySelector("#articleSavedEmplacementFilterDisplay") || getEl("articleSavedEmplacementFilterDisplay");
+          articleSavedEmplacementFilter =
+            articleSavedModal?.querySelector("#articleSavedEmplacementFilter") || getEl("articleSavedEmplacementFilter");
+          articleSavedLocationFiltersReset =
+            articleSavedModal?.querySelector("#articleSavedLocationFiltersReset") || getEl("articleSavedLocationFiltersReset");
           ARTICLE_SAVED_PAGE_SIZE = 5;
           ARTICLE_SAVED_MIN_SEARCH_LENGTH = 2;
           getArticleSavedModalTotalPages = () => {
-            const total = Array.isArray(articleSavedModalState.items) ? articleSavedModalState.items.length : 0;
+            const total = Array.isArray(articleSavedModalState.filteredItems)
+              ? articleSavedModalState.filteredItems.length
+              : Array.isArray(articleSavedModalState.items)
+              ? articleSavedModalState.items.length
+              : 0;
             return total ? Math.max(1, Math.ceil(total / ARTICLE_SAVED_PAGE_SIZE)) : 1;
           };
           articleSavedModalState = {
             page: 1,
             query: "",
             items: [],
+            filteredItems: [],
+            depotId: "",
+            emplacementId: "",
             loading: false,
             message: ""
           };
@@ -614,6 +639,8 @@
           articleSavedModalRestoreFocus = null;
           articleSavedSearchTimer = null;
           articleSavedModalRequestId = 0;
+          articleSavedDepotFilterRecords = [];
+          articleSavedEmplacementFilterCache = new Map();
           articleSavedModalAllowAddAction = true;
           articleSavedModalForceAddActionForMainscreenScope = false;
           articleSavedModalFormScope = null;
@@ -3828,12 +3855,603 @@
             );
           }
 
+          const ARTICLE_SAVED_DEPOT_PLACEHOLDER = "Tous les depots/magasins";
+          const ARTICLE_SAVED_LOCATION_PLACEHOLDER = "Tous les emplacements";
+          const ARTICLE_SAVED_LOCATION_DISABLED_PLACEHOLDER = "Selectionner un depot";
+          const normalizeArticleSavedDepotFilterId = (value = "") =>
+            String(value || "")
+              .trim()
+              .replace(/^sqlite:\/\/depots\//i, "");
+          const normalizeArticleSavedEmplacementFilterId = (value = "") =>
+            String(value || "")
+              .trim()
+              .replace(/^sqlite:\/\/emplacements\//i, "");
+          const normalizeArticleSavedFilterLabel = (value = "", fallback = "") =>
+            String(value || fallback || "").trim();
+          const normalizeArticleSavedEmplacementRows = (rows = [], depotId = "") => {
+            const source = Array.isArray(rows) ? rows : [];
+            const seen = new Set();
+            return source
+              .map((entry) => {
+                const sourceEntry = entry && typeof entry === "object" ? entry : { id: entry, name: entry };
+                const id = normalizeArticleSavedEmplacementFilterId(
+                  sourceEntry.id ??
+                    sourceEntry.path ??
+                    sourceEntry.emplacementId ??
+                    sourceEntry.emplacement_id ??
+                    sourceEntry.code ??
+                    sourceEntry.name ??
+                    ""
+                );
+                const name = normalizeArticleSavedFilterLabel(
+                  sourceEntry.name ??
+                    sourceEntry.label ??
+                    sourceEntry.code ??
+                    sourceEntry.emplacement ??
+                    sourceEntry.path,
+                  id
+                );
+                return {
+                  id,
+                  name,
+                  depotId: normalizeArticleSavedDepotFilterId(
+                    sourceEntry.depotId ?? sourceEntry.depot_id ?? sourceEntry.magasinId ?? depotId
+                  )
+                };
+              })
+              .filter((entry) => {
+                if (!entry.id) return false;
+                const key = entry.id.toLowerCase();
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+              });
+          };
+          const normalizeArticleSavedDepotFilterRecords = (rows = []) => {
+            const source = Array.isArray(rows) ? rows : [];
+            const seen = new Set();
+            return source
+              .map((entry) => {
+                const sourceEntry = entry && typeof entry === "object" ? entry : { id: entry, name: entry };
+                const id = normalizeArticleSavedDepotFilterId(
+                  sourceEntry.id ??
+                    sourceEntry.path ??
+                    sourceEntry.depotId ??
+                    sourceEntry.depot_id ??
+                    sourceEntry.magasinId ??
+                    sourceEntry.magasin_id ??
+                    ""
+                );
+                const name = normalizeArticleSavedFilterLabel(
+                  sourceEntry.name ?? sourceEntry.label ?? sourceEntry.depot ?? sourceEntry.magasin,
+                  id
+                );
+                return {
+                  id,
+                  name,
+                  emplacements: normalizeArticleSavedEmplacementRows(sourceEntry.emplacements || [], id)
+                };
+              })
+              .filter((entry) => {
+                if (!entry.id) return false;
+                const key = entry.id.toLowerCase();
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+              });
+          };
+          const setArticleSavedFilterMenuDisabled = (menu, select, panel, disabled) => {
+            if (!(menu instanceof HTMLElement)) return;
+            const summary = menu.querySelector("summary.field-toggle-trigger");
+            const isDisabled = !!disabled;
+            menu.dataset.disabled = isDisabled ? "true" : "false";
+            if (summary) {
+              summary.setAttribute("aria-disabled", isDisabled ? "true" : "false");
+              if (isDisabled) {
+                menu.open = false;
+                summary.setAttribute("aria-expanded", "false");
+                summary.tabIndex = -1;
+              } else {
+                summary.removeAttribute("tabindex");
+              }
+            }
+            if (select) {
+              select.disabled = isDisabled;
+              select.setAttribute("aria-disabled", isDisabled ? "true" : "false");
+            }
+            panel?.querySelectorAll?.(".model-select-option")?.forEach?.((btn) => {
+              btn.disabled = isDisabled;
+              btn.setAttribute("aria-disabled", isDisabled ? "true" : "false");
+            });
+          };
+          const syncArticleSavedFilterMenuUi = ({
+            select = null,
+            panel = null,
+            display = null,
+            value = "",
+            placeholderText = ""
+          } = {}) => {
+            if (!(select instanceof HTMLElement)) return;
+            const nextValue = String(value || "");
+            select.value = nextValue;
+            const selectedOption =
+              Array.from(select.options || []).find((option) => option.value === nextValue) ||
+              select.options?.[0] ||
+              null;
+            if (display) {
+              display.textContent = String(
+                selectedOption?.textContent || selectedOption?.label || placeholderText || ""
+              ).trim();
+            }
+            panel?.querySelectorAll?.(".model-select-option")?.forEach?.((btn) => {
+              const isActive = String(btn.dataset.value || "") === nextValue;
+              btn.classList.toggle("is-active", isActive);
+              btn.setAttribute("aria-selected", isActive ? "true" : "false");
+            });
+          };
+          const renderArticleSavedFilterMenuOptions = ({
+            select = null,
+            panel = null,
+            display = null,
+            options = [],
+            selectedValue = "",
+            placeholderText = "",
+            emptyText = "",
+            showEmptyMessage = true,
+            showPlaceholderOption = false
+          } = {}) => {
+            if (!(select instanceof HTMLElement) || !(panel instanceof HTMLElement)) return;
+            select.innerHTML = "";
+            panel.textContent = "";
+            const placeholderOption = document.createElement("option");
+            placeholderOption.value = "";
+            placeholderOption.textContent = placeholderText;
+            select.appendChild(placeholderOption);
+            if (showPlaceholderOption) {
+              const placeholderBtn = document.createElement("button");
+              placeholderBtn.type = "button";
+              placeholderBtn.className = "model-select-option model-select-option--placeholder";
+              placeholderBtn.dataset.value = "";
+              placeholderBtn.setAttribute("role", "option");
+              placeholderBtn.setAttribute("aria-selected", "false");
+              placeholderBtn.textContent = placeholderText;
+              panel.appendChild(placeholderBtn);
+            }
+            const source = Array.isArray(options) ? options : [];
+            if (!source.length && showEmptyMessage) {
+              const empty = document.createElement("p");
+              empty.className = "model-select-empty";
+              empty.textContent = emptyText || "Aucune option disponible";
+              panel.appendChild(empty);
+            }
+            source.forEach((entry) => {
+              const value = String(entry?.value || "").trim();
+              if (!value) return;
+              const label = String(entry?.label || value).trim() || value;
+              const btn = document.createElement("button");
+              btn.type = "button";
+              btn.className = "model-select-option";
+              btn.dataset.value = value;
+              btn.setAttribute("role", "option");
+              btn.setAttribute("aria-selected", "false");
+              btn.textContent = label;
+              panel.appendChild(btn);
+              const option = document.createElement("option");
+              option.value = value;
+              option.textContent = label;
+              select.appendChild(option);
+            });
+            const hasSelection = source.some((entry) => String(entry?.value || "") === String(selectedValue || ""));
+            syncArticleSavedFilterMenuUi({
+              select,
+              panel,
+              display,
+              value: hasSelection ? String(selectedValue || "") : "",
+              placeholderText
+            });
+          };
+          const wireArticleSavedFilterMenu = ({ menu = null, panel = null, select = null, display = null } = {}) => {
+            if (!(menu instanceof HTMLElement) || menu.dataset.articleSavedFilterWired === "1") return;
+            const summary = menu.querySelector("summary.field-toggle-trigger");
+            if (!(summary instanceof HTMLElement)) return;
+            menu.dataset.articleSavedFilterWired = "1";
+            const isDisabled = () => menu.dataset.disabled === "true";
+            summary.addEventListener("click", (evt) => {
+              if (isDisabled()) {
+                evt.preventDefault();
+                return;
+              }
+              evt.preventDefault();
+              menu.open = !menu.open;
+              summary.setAttribute("aria-expanded", menu.open ? "true" : "false");
+              if (!menu.open) summary.focus();
+            });
+            menu.addEventListener("keydown", (evt) => {
+              if (evt.key !== "Escape" || !menu.open) return;
+              evt.preventDefault();
+              menu.open = false;
+              summary.setAttribute("aria-expanded", "false");
+              summary.focus();
+            });
+            document.addEventListener(
+              "click",
+              (evt) => {
+                if (!menu.open) return;
+                if (menu.contains(evt.target)) return;
+                menu.open = false;
+                summary.setAttribute("aria-expanded", "false");
+              },
+              true
+            );
+            panel?.addEventListener?.("click", (evt) => {
+              if (isDisabled()) return;
+              const btn = evt.target?.closest?.(".model-select-option");
+              if (!(btn instanceof HTMLElement)) return;
+              const value = String(btn.dataset.value || "");
+              if (select && select.value !== value) {
+                select.value = value;
+              }
+              syncArticleSavedFilterMenuUi({
+                select,
+                panel,
+                display,
+                value,
+                placeholderText: String(select?.options?.[0]?.textContent || "")
+              });
+              if (select) {
+                select.dispatchEvent(new Event("change", { bubbles: true }));
+              }
+              menu.open = false;
+              summary.setAttribute("aria-expanded", "false");
+            });
+            select?.addEventListener?.("change", () => {
+              syncArticleSavedFilterMenuUi({
+                select,
+                panel,
+                display,
+                value: select.value,
+                placeholderText: String(select?.options?.[0]?.textContent || "")
+              });
+            });
+          };
+          const updateArticleSavedLocationFiltersResetState = () => {
+            if (!articleSavedLocationFiltersReset) return;
+            const hasActiveFilter =
+              !!normalizeArticleSavedDepotFilterId(articleSavedModalState.depotId) ||
+              !!normalizeArticleSavedEmplacementFilterId(articleSavedModalState.emplacementId);
+            articleSavedLocationFiltersReset.disabled = !hasActiveFilter;
+            articleSavedLocationFiltersReset.setAttribute(
+              "aria-disabled",
+              hasActiveFilter ? "false" : "true"
+            );
+          };
+          const getArticleSavedModalDepotRecords = async ({ refresh = false } = {}) => {
+            let records = normalizeArticleSavedDepotFilterRecords(
+              SEM?.stockWindow?.getDepotRecords?.() ||
+                SEM?.depotMagasin?.getRecords?.() ||
+                SEM?.depotMagasin?.records ||
+                []
+            );
+            if ((!records.length || refresh) && typeof SEM?.stockWindow?.refreshDepotRecords === "function") {
+              try {
+                records = normalizeArticleSavedDepotFilterRecords(await SEM.stockWindow.refreshDepotRecords());
+              } catch {}
+            }
+            if ((!records.length || refresh) && typeof window.electronAPI?.listDepots === "function") {
+              try {
+                const response = await window.electronAPI.listDepots();
+                const nextRows =
+                  response?.ok && Array.isArray(response.results)
+                    ? response.results
+                    : Array.isArray(response)
+                    ? response
+                    : [];
+                if (nextRows.length) {
+                  records = normalizeArticleSavedDepotFilterRecords(nextRows);
+                  if (typeof SEM?.stockWindow?.setDepotRecords === "function") {
+                    SEM.stockWindow.setDepotRecords(records);
+                  }
+                }
+              } catch {}
+            }
+            articleSavedDepotFilterRecords = records.slice();
+            return articleSavedDepotFilterRecords.slice();
+          };
+          const getArticleSavedModalLocationsForDepot = async (depotId = "", { refresh = false } = {}) => {
+            const targetDepotId = normalizeArticleSavedDepotFilterId(depotId);
+            if (!targetDepotId) return [];
+            if (!refresh && articleSavedEmplacementFilterCache instanceof Map) {
+              const cached = articleSavedEmplacementFilterCache.get(targetDepotId);
+              if (Array.isArray(cached) && cached.length) {
+                return cached.slice();
+              }
+            }
+            let depotRecords = await getArticleSavedModalDepotRecords({ refresh: false });
+            let depotRecord =
+              depotRecords.find((entry) => normalizeArticleSavedDepotFilterId(entry?.id || "") === targetDepotId) ||
+              null;
+            let locations = normalizeArticleSavedEmplacementRows(depotRecord?.emplacements || [], targetDepotId);
+            if ((!locations.length || refresh) && typeof window.electronAPI?.listEmplacementsByDepot === "function") {
+              try {
+                const response = await window.electronAPI.listEmplacementsByDepot({ depotId: targetDepotId });
+                const nextRows =
+                  response?.ok && Array.isArray(response.results)
+                    ? response.results
+                    : Array.isArray(response)
+                    ? response
+                    : [];
+                if (nextRows.length) {
+                  locations = normalizeArticleSavedEmplacementRows(nextRows, targetDepotId);
+                  if (locations.length) {
+                    articleSavedDepotFilterRecords = (depotRecords.length
+                      ? depotRecords
+                      : [{ id: targetDepotId, name: depotRecord?.name || targetDepotId, emplacements: [] }]
+                    ).map((entry) =>
+                      normalizeArticleSavedDepotFilterId(entry?.id || "") === targetDepotId
+                        ? { ...entry, emplacements: locations.slice() }
+                        : entry
+                    );
+                    if (typeof SEM?.stockWindow?.setDepotRecords === "function") {
+                      SEM.stockWindow.setDepotRecords(articleSavedDepotFilterRecords);
+                    }
+                  }
+                }
+              } catch {}
+            }
+            if (!(articleSavedEmplacementFilterCache instanceof Map)) {
+              articleSavedEmplacementFilterCache = new Map();
+            }
+            articleSavedEmplacementFilterCache.set(targetDepotId, locations.slice());
+            return locations.slice();
+          };
+          const syncArticleSavedDepotFilterOptions = async ({ refresh = false } = {}) => {
+            const records = await getArticleSavedModalDepotRecords({ refresh });
+            const selectedDepotId = normalizeArticleSavedDepotFilterId(articleSavedModalState.depotId);
+            renderArticleSavedFilterMenuOptions({
+              select: articleSavedDepotFilter,
+              panel: articleSavedDepotFilterPanel,
+              display: articleSavedDepotFilterDisplay,
+              options: records.map((entry) => ({
+                value: String(entry.id || ""),
+                label: String(entry.name || entry.id || "").trim() || String(entry.id || "")
+              })),
+              selectedValue: selectedDepotId,
+              placeholderText: ARTICLE_SAVED_DEPOT_PLACEHOLDER,
+              emptyText: "Aucun depot/magasin disponible",
+              showPlaceholderOption: true
+            });
+            setArticleSavedFilterMenuDisabled(
+              articleSavedDepotFilterMenu,
+              articleSavedDepotFilter,
+              articleSavedDepotFilterPanel,
+              false
+            );
+            articleSavedModalState.depotId =
+              Array.from(articleSavedDepotFilter?.options || []).some(
+                (option) => option.value === selectedDepotId
+              )
+                ? selectedDepotId
+                : "";
+            syncArticleSavedFilterMenuUi({
+              select: articleSavedDepotFilter,
+              panel: articleSavedDepotFilterPanel,
+              display: articleSavedDepotFilterDisplay,
+              value: articleSavedModalState.depotId,
+              placeholderText: ARTICLE_SAVED_DEPOT_PLACEHOLDER
+            });
+            updateArticleSavedLocationFiltersResetState();
+          };
+          const syncArticleSavedEmplacementFilterOptions = async ({ refresh = false } = {}) => {
+            const selectedDepotId = normalizeArticleSavedDepotFilterId(articleSavedModalState.depotId);
+            if (!selectedDepotId) {
+              articleSavedModalState.emplacementId = "";
+              renderArticleSavedFilterMenuOptions({
+                select: articleSavedEmplacementFilter,
+                panel: articleSavedEmplacementFilterPanel,
+                display: articleSavedEmplacementFilterDisplay,
+                options: [],
+                selectedValue: "",
+                placeholderText: ARTICLE_SAVED_LOCATION_DISABLED_PLACEHOLDER,
+                showEmptyMessage: false,
+                showPlaceholderOption: false
+              });
+              setArticleSavedFilterMenuDisabled(
+                articleSavedEmplacementFilterMenu,
+                articleSavedEmplacementFilter,
+                articleSavedEmplacementFilterPanel,
+                true
+              );
+              updateArticleSavedLocationFiltersResetState();
+              return;
+            }
+            const locations = await getArticleSavedModalLocationsForDepot(selectedDepotId, { refresh });
+            const selectedEmplacementId = normalizeArticleSavedEmplacementFilterId(articleSavedModalState.emplacementId);
+            renderArticleSavedFilterMenuOptions({
+              select: articleSavedEmplacementFilter,
+              panel: articleSavedEmplacementFilterPanel,
+              display: articleSavedEmplacementFilterDisplay,
+              options: locations.map((entry) => ({
+                value: String(entry.id || ""),
+                label: String(entry.name || entry.id || "").trim() || String(entry.id || "")
+              })),
+              selectedValue: selectedEmplacementId,
+              placeholderText: ARTICLE_SAVED_LOCATION_PLACEHOLDER,
+              emptyText: "Aucun emplacement disponible",
+              showPlaceholderOption: true
+            });
+            const hasLocations = locations.length > 0;
+            setArticleSavedFilterMenuDisabled(
+              articleSavedEmplacementFilterMenu,
+              articleSavedEmplacementFilter,
+              articleSavedEmplacementFilterPanel,
+              !hasLocations
+            );
+            articleSavedModalState.emplacementId =
+              hasLocations &&
+              Array.from(articleSavedEmplacementFilter?.options || []).some(
+                (option) => option.value === selectedEmplacementId
+              )
+                ? selectedEmplacementId
+                : "";
+            syncArticleSavedFilterMenuUi({
+              select: articleSavedEmplacementFilter,
+              panel: articleSavedEmplacementFilterPanel,
+              display: articleSavedEmplacementFilterDisplay,
+              value: articleSavedModalState.emplacementId,
+              placeholderText: hasLocations
+                ? ARTICLE_SAVED_LOCATION_PLACEHOLDER
+                : "Aucun emplacement disponible"
+            });
+            updateArticleSavedLocationFiltersResetState();
+          };
+          const resetArticleSavedLocationFilters = async () => {
+            articleSavedModalState.depotId = "";
+            articleSavedModalState.emplacementId = "";
+            articleSavedModalState.page = 1;
+            if (articleSavedDepotFilter) articleSavedDepotFilter.value = "";
+            if (articleSavedEmplacementFilter) articleSavedEmplacementFilter.value = "";
+            await syncArticleSavedDepotFilterOptions({ refresh: false });
+            await syncArticleSavedEmplacementFilterOptions({ refresh: false });
+            updateArticleSavedLocationFiltersResetState();
+          };
+          const resolveArticleSavedItemFilterMeta = (item = {}) => {
+            const sourceItem = item && typeof item === "object" ? item : {};
+            const normalizedArticle = normalizeArticleRecord(item?.article || item);
+            const depotIds = new Set();
+            const emplacementIdsByDepot = new Map();
+            const addEmplacements = (depotId, values) => {
+              const targetDepotId = normalizeArticleSavedDepotFilterId(depotId);
+              if (!targetDepotId) return;
+              if (!emplacementIdsByDepot.has(targetDepotId)) {
+                emplacementIdsByDepot.set(targetDepotId, new Set());
+              }
+              const targetSet = emplacementIdsByDepot.get(targetDepotId);
+              const rows = Array.isArray(values) ? values : String(values || "").trim() ? [values] : [];
+              rows.forEach((entry) => {
+                const normalizedId = normalizeArticleSavedEmplacementFilterId(entry);
+                if (normalizedId) targetSet.add(normalizedId);
+              });
+            };
+            const addDepotId = (value = "") => {
+              const normalizedId = normalizeArticleSavedDepotFilterId(value);
+              if (normalizedId) depotIds.add(normalizedId);
+              return normalizedId;
+            };
+            const directDepotId = addDepotId(
+              sourceItem?.depotId ??
+                sourceItem?.depot_id ??
+                sourceItem?.magasinId ??
+                sourceItem?.magasin_id ??
+                sourceItem?.linkedDepotId ??
+                sourceItem?.article?.depotId ??
+                sourceItem?.article?.depot_id ??
+                sourceItem?.article?.magasinId ??
+                sourceItem?.article?.magasin_id ??
+                sourceItem?.article?.linkedDepotId ??
+                ""
+            );
+            const depots = Array.isArray(normalizedArticle?.depots) ? normalizedArticle.depots : [];
+            depots.forEach((entry) => {
+              const depotId = normalizeArticleSavedDepotFilterId(
+                entry?.linkedDepotId ??
+                  entry?.depotDbId ??
+                  entry?.magasinId ??
+                  entry?.magasin_id ??
+                  entry?.id ??
+                  ""
+              );
+              if (!depotId) return;
+              depotIds.add(depotId);
+              addEmplacements(
+                depotId,
+                entry?.selectedLocationIds ??
+                  entry?.selectedEmplacementIds ??
+                  entry?.selectedEmplacements ??
+                  entry?.defaultLocationIds ??
+                  entry?.defaultLocationId ??
+                  entry?.defaultLocation ??
+                  []
+              );
+            });
+            const selectedDepotId = normalizeArticleSavedDepotFilterId(
+              normalizedArticle?.selectedDepotId ??
+                normalizedArticle?.activeDepotId ??
+                normalizedArticle?.stockManagement?.activeDepotId ??
+                normalizedArticle?.stockManagement?.selectedDepotId ??
+                normalizedArticle?.stockManagement?.defaultDepot ??
+                ""
+            );
+            if (selectedDepotId) {
+              depotIds.add(selectedDepotId);
+              addEmplacements(
+                selectedDepotId,
+                normalizedArticle?.selectedEmplacements ??
+                  normalizedArticle?.selected_emplacements ??
+                  normalizedArticle?.stockManagement?.selectedEmplacements ??
+                  normalizedArticle?.stockManagement?.defaultLocationIds ??
+                  normalizedArticle?.stockManagement?.defaultLocationId ??
+                  normalizedArticle?.stockManagement?.defaultLocation ??
+                  []
+              );
+            }
+            if (directDepotId) {
+              addEmplacements(
+                directDepotId,
+                sourceItem?.emplacementId ??
+                  sourceItem?.emplacement_id ??
+                  sourceItem?.locationId ??
+                  sourceItem?.location_id ??
+                  sourceItem?.selectedEmplacementIds ??
+                  sourceItem?.selectedLocationIds ??
+                  sourceItem?.selectedEmplacements ??
+                  sourceItem?.defaultLocationIds ??
+                  sourceItem?.defaultLocationId ??
+                  sourceItem?.defaultLocation ??
+                  sourceItem?.article?.emplacementId ??
+                  sourceItem?.article?.emplacement_id ??
+                  sourceItem?.article?.locationId ??
+                  sourceItem?.article?.location_id ??
+                  sourceItem?.article?.selectedEmplacementIds ??
+                  sourceItem?.article?.selectedLocationIds ??
+                  sourceItem?.article?.selectedEmplacements ??
+                  sourceItem?.article?.defaultLocationIds ??
+                  sourceItem?.article?.defaultLocationId ??
+                  sourceItem?.article?.defaultLocation ??
+                  []
+              );
+            }
+            return { depotIds, emplacementIdsByDepot };
+          };
+          const getFilteredArticleSavedModalItems = () => {
+            const source = Array.isArray(articleSavedModalState.items) ? articleSavedModalState.items : [];
+            const selectedDepotId = normalizeArticleSavedDepotFilterId(articleSavedModalState.depotId);
+            const selectedEmplacementId = normalizeArticleSavedEmplacementFilterId(articleSavedModalState.emplacementId);
+            const filtered = source.filter((item) => {
+              if (!selectedDepotId && !selectedEmplacementId) return true;
+              const filterMeta = resolveArticleSavedItemFilterMeta(item);
+              if (selectedDepotId && !filterMeta.depotIds.has(selectedDepotId)) return false;
+              if (!selectedEmplacementId) return true;
+              if (selectedDepotId) {
+                return filterMeta.emplacementIdsByDepot.get(selectedDepotId)?.has(selectedEmplacementId) === true;
+              }
+              return Array.from(filterMeta.emplacementIdsByDepot.values()).some(
+                (entry) => entry?.has(selectedEmplacementId) === true
+              );
+            });
+            articleSavedModalState.filteredItems = filtered.slice();
+            return filtered;
+          };
           renderArticleSavedModal = () => {
             if (!articleSavedModalList) return;
             const { loading, message } = articleSavedModalState;
             const isArticleSavedMainscreenScope =
               normalizeAddFormScope(articleSavedModalFormScope)?.id === "addItemBoxMainscreen";
-            const total = Array.isArray(articleSavedModalState.items) ? articleSavedModalState.items.length : 0;
+            const filteredItems = getFilteredArticleSavedModalItems();
+            const total = filteredItems.length;
+            const sourceTotal = Array.isArray(articleSavedModalState.items) ? articleSavedModalState.items.length : 0;
+            const hasLocationFilters =
+              !!normalizeArticleSavedDepotFilterId(articleSavedModalState.depotId) ||
+              !!normalizeArticleSavedEmplacementFilterId(articleSavedModalState.emplacementId);
             const totalPages = getArticleSavedModalTotalPages();
             const hasPages = total > 0;
             const safePage = hasPages ? Math.min(Math.max(1, articleSavedModalState.page), totalPages) : 1;
@@ -3848,11 +4466,16 @@
             } else if (!total) {
               const emptyEl = document.createElement("div");
               emptyEl.className = "client-saved-modal__empty article-saved-modal__empty";
+              const emptyText =
+                sourceTotal && hasLocationFilters
+                  ? "Aucun article correspondant aux filtres selectionnes."
+                  : "Aucun article enregistre.";
               emptyEl.textContent = "Aucun article enregistré.";
+              emptyEl.textContent = emptyText;
               articleSavedModalList.appendChild(emptyEl);
             } else {
               const startIndex = (safePage - 1) * ARTICLE_SAVED_PAGE_SIZE;
-              const pageItems = articleSavedModalState.items.slice(startIndex, startIndex + ARTICLE_SAVED_PAGE_SIZE);
+              const pageItems = filteredItems.slice(startIndex, startIndex + ARTICLE_SAVED_PAGE_SIZE);
               pageItems.forEach((item, idx) => {
                 const actualIndex = startIndex + idx;
                 const row = document.createElement("div");
@@ -4099,12 +4722,21 @@
               statusText = "Chargement des articles...";
             } else if (message) {
               statusText = message;
-            } else if (total) {
+            } else if (!loading && !message && total) {
               const start = (articleSavedModalState.page - 1) * ARTICLE_SAVED_PAGE_SIZE + 1;
               const end = Math.min(total, start + ARTICLE_SAVED_PAGE_SIZE - 1);
               statusText = `Affichage ${start}–${end} sur ${total} article${total > 1 ? "s" : ""}`;
             } else {
               statusText = "Aucun article enregistré pour le moment.";
+            }
+            if (!loading && !message && total) {
+              const start = (articleSavedModalState.page - 1) * ARTICLE_SAVED_PAGE_SIZE + 1;
+              const end = Math.min(total, start + ARTICLE_SAVED_PAGE_SIZE - 1);
+              statusText = `Affichage ${start}-${end} sur ${total} article${total > 1 ? "s" : ""}`;
+            } else if (!loading && !message && sourceTotal && hasLocationFilters) {
+              statusText = "Aucun article correspondant aux filtres selectionnes.";
+            } else if (!loading && !message) {
+              statusText = "Aucun article enregistre pour le moment.";
             }
             if (articleSavedModalStatus) articleSavedModalStatus.textContent = statusText;
 
@@ -4128,6 +4760,7 @@
             if (trimmedQuery && trimmedQuery.length < ARTICLE_SAVED_MIN_SEARCH_LENGTH) {
               articleSavedModalState.loading = false;
               articleSavedModalState.items = [];
+              articleSavedModalState.filteredItems = [];
               articleSavedModalState.message = `Tapez au moins ${ARTICLE_SAVED_MIN_SEARCH_LENGTH} caracteres.`;
               articleSavedModalState.page = 1;
               renderArticleSavedModal();
@@ -4139,6 +4772,7 @@
               if (requestId !== articleSavedModalRequestId) return;
               articleSavedModalState.loading = false;
               articleSavedModalState.items = [];
+              articleSavedModalState.filteredItems = [];
               articleSavedModalState.message = "Recherche d'articles indisponible.";
               renderArticleSavedModal();
               setArticleSavedRefreshBusy(false);
@@ -4152,10 +4786,12 @@
               if (requestId !== articleSavedModalRequestId) return;
               if (!res?.ok) {
                 articleSavedModalState.items = [];
+                articleSavedModalState.filteredItems = [];
                 articleSavedModalState.message = res?.error || "Chargement impossible.";
                 articleSavedModalState.page = 1;
               } else {
                 articleSavedModalState.items = Array.isArray(res.results) ? res.results : [];
+                articleSavedModalState.filteredItems = [];
                 articleSavedModalState.message = "";
                 articleSavedModalState.page = 1;
               }
@@ -4163,6 +4799,7 @@
               console.error("article saved modal fetch", err);
               if (requestId !== articleSavedModalRequestId) return;
               articleSavedModalState.items = [];
+              articleSavedModalState.filteredItems = [];
               articleSavedModalState.message = "Chargement impossible.";
               articleSavedModalState.page = 1;
             } finally {
@@ -4191,7 +4828,7 @@
               articleSavedModalPageInput.value = String(articleSavedModalState.page);
               return;
             }
-            const total = Array.isArray(articleSavedModalState.items) ? articleSavedModalState.items.length : 0;
+            const total = getFilteredArticleSavedModalItems().length;
             const totalPages = total ? Math.max(1, Math.ceil(total / ARTICLE_SAVED_PAGE_SIZE)) : 1;
             const targetPage = Math.min(Math.max(1, requested), totalPages);
             if (targetPage !== articleSavedModalState.page) {
@@ -4232,6 +4869,9 @@
             document.addEventListener("keydown", onArticleSavedModalKeyDown);
             articleSavedModalState.query = (articleSavedSearchInput?.value || "").trim();
             articleSavedModalState.page = 1;
+            articleSavedModalState.depotId = "";
+            articleSavedModalState.emplacementId = "";
+            void resetArticleSavedLocationFilters();
             renderArticleSavedModal();
             fetchArticleSavedModalData();
           };
@@ -4254,8 +4894,14 @@
             articleSavedModalState.query = "";
             articleSavedModalState.page = 1;
             articleSavedModalState.items = [];
+            articleSavedModalState.filteredItems = [];
+            articleSavedModalState.depotId = "";
+            articleSavedModalState.emplacementId = "";
             articleSavedModalState.loading = false;
             articleSavedModalState.message = "";
+            if (articleSavedDepotFilter) articleSavedDepotFilter.value = "";
+            if (articleSavedEmplacementFilter) articleSavedEmplacementFilter.value = "";
+            void resetArticleSavedLocationFilters();
             renderArticleSavedModal();
             fetchArticleSavedModalData();
             syncArticleSavedModalTriggers(false);
@@ -4328,6 +4974,8 @@
             if (articleSavedModalState.loading) return;
             clearTimeout(articleSavedSearchTimer);
             articleSavedModalState.query = (articleSavedSearchInput?.value || "").trim();
+            void syncArticleSavedDepotFilterOptions({ refresh: true });
+            void syncArticleSavedEmplacementFilterOptions({ refresh: true });
             fetchArticleSavedModalData();
           });
           articleSavedModalPrev?.addEventListener("click", () => {
@@ -4338,7 +4986,7 @@
           });
           articleSavedModalNext?.addEventListener("click", () => {
             if (articleSavedModalState.loading) return;
-            const total = Array.isArray(articleSavedModalState.items) ? articleSavedModalState.items.length : 0;
+            const total = getFilteredArticleSavedModalItems().length;
             if (!total) return;
             const totalPages = Math.max(1, Math.ceil(total / ARTICLE_SAVED_PAGE_SIZE));
             if (articleSavedModalState.page >= totalPages) return;
@@ -4389,6 +5037,38 @@
               triggerArticleSavedSearch();
             });
           }
+          wireArticleSavedFilterMenu({
+            menu: articleSavedDepotFilterMenu,
+            panel: articleSavedDepotFilterPanel,
+            select: articleSavedDepotFilter,
+            display: articleSavedDepotFilterDisplay
+          });
+          wireArticleSavedFilterMenu({
+            menu: articleSavedEmplacementFilterMenu,
+            panel: articleSavedEmplacementFilterPanel,
+            select: articleSavedEmplacementFilter,
+            display: articleSavedEmplacementFilterDisplay
+          });
+          articleSavedDepotFilter?.addEventListener("change", async () => {
+            articleSavedModalState.depotId = normalizeArticleSavedDepotFilterId(articleSavedDepotFilter.value || "");
+            articleSavedModalState.emplacementId = "";
+            articleSavedModalState.page = 1;
+            await syncArticleSavedEmplacementFilterOptions({ refresh: false });
+            renderArticleSavedModal();
+          });
+          articleSavedEmplacementFilter?.addEventListener("change", () => {
+            articleSavedModalState.emplacementId = normalizeArticleSavedEmplacementFilterId(
+              articleSavedEmplacementFilter.value || ""
+            );
+            articleSavedModalState.page = 1;
+            updateArticleSavedLocationFiltersResetState();
+            renderArticleSavedModal();
+          });
+          articleSavedLocationFiltersReset?.addEventListener("click", async () => {
+            articleSavedModalState.page = 1;
+            await resetArticleSavedLocationFilters();
+            renderArticleSavedModal();
+          });
           if (articleSavedModalList) {
             articleSavedModalList.addEventListener("click", async (evt) => {
               const stockIncBtn = evt.target.closest("[data-stock-qty-inc]");
@@ -4413,7 +5093,7 @@
               if (addBtn) {
                 if (addBtn.disabled) return;
                 const idx = Number(addBtn.dataset.articleAdd);
-                const selected = articleSavedModalState.items[idx];
+                const selected = articleSavedModalState.filteredItems[idx];
                 if (!selected) return;
                 addArticleToItems(selected.article || {}, { path: selected.path });
                 return;
@@ -4421,7 +5101,7 @@
               const loadBtn = evt.target.closest("[data-article-saved-load]");
               if (loadBtn) {
                 const idx = Number(loadBtn.dataset.articleSavedLoad);
-                const selected = articleSavedModalState.items[idx];
+                const selected = articleSavedModalState.filteredItems[idx];
                 if (!selected) return;
                 const isEditAction = loadBtn.classList?.contains("client-search__edit");
                 const isSelectAction = loadBtn.classList?.contains("client-search__select");
@@ -4467,7 +5147,7 @@
               const deleteBtn = evt.target.closest("[data-article-saved-delete]");
               if (deleteBtn) {
                 const idx = Number(deleteBtn.dataset.articleSavedDelete);
-                const selected = articleSavedModalState.items[idx];
+                const selected = articleSavedModalState.filteredItems[idx];
                 if (!selected) return;
                 const label = selected.article?.product || selected.article?.ref || selected.name || "";
                 const confirmed = await showConfirm(
@@ -4491,8 +5171,11 @@
                     await showDialog?.(res?.error || deleteError.text, { title: deleteError.title });
                     return;
                   }
-                  articleSavedModalState.items.splice(idx, 1);
-                  const total = articleSavedModalState.items.length;
+                  const baseIndex = articleSavedModalState.items.indexOf(selected);
+                  if (baseIndex >= 0) {
+                    articleSavedModalState.items.splice(baseIndex, 1);
+                  }
+                  const total = getFilteredArticleSavedModalItems().length;
                   const totalPages = total ? Math.max(1, Math.ceil(total / ARTICLE_SAVED_PAGE_SIZE)) : 1;
                   if (articleSavedModalState.page > totalPages) {
                     articleSavedModalState.page = totalPages;
