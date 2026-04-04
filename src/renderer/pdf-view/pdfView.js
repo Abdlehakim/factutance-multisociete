@@ -2115,6 +2115,15 @@
     if (!options.stable) scheduleStableRender(state, assets, { root });
   }
 
+  function buildBundle(state, assets) {
+    ensurePdfCssReady();
+    return {
+      html: build(state, assets),
+      css: pdfCssText || "",
+      templateKey: resolveTemplateKey(state)
+    };
+  }
+
   function show(state, assets) {
     render(state, assets);
     document.body.classList.add("printing");
@@ -2128,7 +2137,22 @@
 
   function cleanup() { hide(); }
 
-  const PDFViewAPI = { build, render, show, hide, cleanup };
+  const PDFViewAPI = {
+    buildBundle,
+    build,
+    render,
+    show,
+    hide,
+    cleanup,
+    ready() {
+      ensurePdfCssReady();
+      return Promise.all([waitForPdfCssReady(), waitForFontsReady()]).then(() => {});
+    },
+    getCssForState() {
+      ensurePdfCssReady();
+      return pdfCssText || "";
+    }
+  };
   Object.defineProperty(PDFViewAPI, "css", {
     enumerable: true,
     get() { return pdfCssText || ""; },

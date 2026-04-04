@@ -171,7 +171,7 @@
         SEM.applyItemsHeaderColor(st.meta?.itemsHeaderColor, { setBaseline: true });
       }
       if (typeof helpers.applyDocumentTemplate === "function") {
-        helpers.applyDocumentTemplate(st.meta?.template, { updateState: true });
+        helpers.applyDocumentTemplate(st.meta?.template, { updateState: true, state: st });
       }
 
       try {

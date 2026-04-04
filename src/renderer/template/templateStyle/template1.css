@@ -160,6 +160,7 @@
   background: #fff;
   border: 2px solid var(--items-head-bg, var(--primary));
   min-height: 97px;
+  flex: 1 1 auto;
   overflow-x: auto;
   display: flex;
   flex-direction: column;
@@ -167,9 +168,13 @@
 
 .doc-design1__table {
   width: 100%;
+  flex: 0 0 auto;
+  height: auto;
   font-size: 12px;
   color: #0f172a;
   font-family: var(--font-sans, "Segoe UI", Arial, sans-serif);
+  border-collapse: separate;
+  border-spacing: 2px;
 }
 
 .doc-design1__table th,
@@ -189,6 +194,12 @@
 .doc-design1__table tbody td {
   border-bottom: 1px solid #000;
   border-right: 0;
+}
+
+.doc-design1__table tbody,
+.doc-design1__table tbody tr:last-child,
+.doc-design1__table tbody tr:last-child td {
+  height: auto;
 }
 
 .doc-design1__table thead th:last-child,
@@ -299,6 +310,8 @@
   width: 100%;
   font-size: 8px;
   color: #0e1220;
+  border-collapse: separate;
+  border-spacing: 2px;
 }
 
 .doc-design1__tva-table th,
@@ -353,6 +366,8 @@
 
 .doc-design1__mini-table {
   width: 100%;
+  border-collapse: separate;
+  border-spacing: 2px;
 }
 
 .doc-design1__mini-table th,

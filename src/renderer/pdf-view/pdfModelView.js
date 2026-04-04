@@ -22,7 +22,6 @@
   let transformedModelActionsCssSource = "";
   let transformedTemplateCssTexts = { template1: "", template2: "" };
   let transformedTemplateCssSource = { template1: "", template2: "" };
-  let activeTemplateKey = "template1";
 
   const COLUMN_VISIBILITY_DEFAULTS = {
     ref: true,
@@ -239,9 +238,9 @@
     return transformedTemplateCssTexts[key];
   }
 
-  function getCombinedCssText() {
+  function getCombinedCssText(templateKeyInput = "template1") {
     ensureCssReady();
-    const key = activeTemplateKey === "template2" ? "template2" : "template1";
+    const key = normalizeTemplateKey(templateKeyInput);
     const templateCss = transformTemplateCss(templateCssTexts[key] || "", key);
     return [pdfCssText || "", transformModelActionsCss(modelActionsCssText || ""), templateCss]
       .filter(Boolean)
@@ -1431,7 +1430,6 @@
     const st = state && typeof state === "object" ? state : {};
     const meta = st?.meta && typeof st.meta === "object" ? st.meta : {};
     const templateKey = resolveTemplateKey(st);
-    activeTemplateKey = templateKey;
     const page = cloneTemplatePreviewPage(templateKey) || createFallbackPreviewPage();
     page.classList.add("pdf-model-preview-page");
     page.removeAttribute("id");
@@ -1461,7 +1459,7 @@
     return { page, templateKey };
   }
 
-  function build(state, assets) {
+  function buildBundle(state, assets) {
     ensureCssReady();
     const { page, templateKey } = buildTemplateBoundPage(state, assets);
     const shell = document.createElement("div");
@@ -1477,14 +1475,24 @@
     previewScroll.appendChild(previewStage);
     previewWrap.appendChild(previewScroll);
     shell.appendChild(previewWrap);
-    return shell.outerHTML;
+    return {
+      html: shell.outerHTML,
+      css: getCombinedCssText(templateKey),
+      templateKey
+    };
+  }
+
+  function build(state, assets) {
+    return buildBundle(state, assets).html;
   }
 
   function render(state, assets, options = {}) {
     ensureCssReady();
     const root = options?.root || document.getElementById("pdfRoot");
     if (!root) return;
-    root.innerHTML = build(state, assets);
+    const bundle = buildBundle(state, assets);
+    root.innerHTML = bundle.html;
+    return bundle;
   }
 
   function show(state, assets, options = {}) {
@@ -1503,18 +1511,25 @@
   }
 
   const PDFModelViewAPI = {
+    buildBundle,
     build,
     render,
     show,
     hide,
     cleanup,
-    ready: waitForCssReady
+    ready: waitForCssReady,
+    getCssForState(state) {
+      return getCombinedCssText(resolveTemplateKey(state));
+    },
+    getCssForTemplate(templateKey) {
+      return getCombinedCssText(templateKey);
+    }
   };
 
   Object.defineProperty(PDFModelViewAPI, "css", {
     enumerable: true,
     get() {
-      return getCombinedCssText();
+      return getCombinedCssText("template1");
     }
   });
 

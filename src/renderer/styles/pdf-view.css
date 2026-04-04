@@ -298,7 +298,7 @@ body.exporting-pdf .pdf-preview-modal__content .pdf-page {
   border-right: 0;
 }
 .pdf-table {
-  border-spacing: 0px;
+  border-spacing: 2px;
 }
 .pdf-table th[data-col="desc"],
 .pdf-table td[data-col="desc"] {
@@ -406,6 +406,8 @@ body.exporting-pdf .pdf-preview-modal__content .pdf-page {
   border: 2px solid var(--items-head-bg, var(--primary, #15335e));
   width: 100%;
   border-radius: 5px;
+  border-collapse: separate;
+  border-spacing: 2px;
 }
 .pdf-mini-table th,
 .pdf-mini-table td {
@@ -468,6 +470,8 @@ body.exporting-pdf .pdf-preview-modal__content .pdf-page {
   width: 100%;
   font-size: 12px;
   color: #0e1220;
+  border-collapse: separate;
+  border-spacing: 2px;
 }
 .tva-breakdown__table th,
 .tva-breakdown__table td {

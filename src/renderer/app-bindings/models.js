@@ -20,9 +20,6 @@
     template1: "template1Css",
     template2: "template2Css"
   };
-  let templateStyleSuspendDepth = 0;
-  let templateStyleSnapshot = null;
-  let templateStylePendingKey = null;
 
   const toNumber = (value, fallback = 0) => {
     const n = Number(value);
@@ -759,74 +756,56 @@
       .filter(({ link }) => !!link);
   }
 
-  function captureTemplateStyleState() {
-    const snapshot = {};
+  function ensureTemplateStyleLinksEnabled() {
     getTemplateStyleLinks().forEach(({ key, link }) => {
-      snapshot[key] = { disabled: !!link.disabled };
-    });
-    return snapshot;
-  }
-
-  function restoreTemplateStyleState(snapshot) {
-    if (!snapshot || typeof snapshot !== "object") return false;
-    let restored = false;
-    getTemplateStyleLinks().forEach(({ key, link }) => {
-      if (!(key in snapshot)) return;
-      link.disabled = snapshot[key]?.disabled === true;
-      restored = true;
-    });
-    return restored;
-  }
-
-  function disableAllTemplateStyles() {
-    getTemplateStyleLinks().forEach(({ link }) => {
-      link.disabled = true;
+      if (!link) return;
+      if (link.disabled) link.disabled = false;
     });
   }
 
   function applyTemplateStyleKey(value) {
     const normalized = normalizeTemplateKey(value);
-    getTemplateStyleLinks().forEach(({ key, link }) => {
-      link.disabled = key !== normalized;
-    });
+    ensureTemplateStyleLinksEnabled();
     return normalized;
   }
 
   function suspendTemplateStyles() {
-    if (templateStyleSuspendDepth === 0) {
-      templateStyleSnapshot = captureTemplateStyleState();
-      templateStylePendingKey = null;
-    }
-    templateStyleSuspendDepth += 1;
-    disableAllTemplateStyles();
+    ensureTemplateStyleLinksEnabled();
   }
   helpers.suspendTemplateStyles = suspendTemplateStyles;
 
   function resumeTemplateStyles() {
-    if (templateStyleSuspendDepth <= 0) return;
-    templateStyleSuspendDepth -= 1;
-    if (templateStyleSuspendDepth > 0) return;
-    const pendingKey = templateStylePendingKey;
-    const snapshot = templateStyleSnapshot;
-    templateStylePendingKey = null;
-    templateStyleSnapshot = null;
-    if (pendingKey) {
-      applyTemplateStyleKey(pendingKey);
-      return;
-    }
-    restoreTemplateStyleState(snapshot);
+    ensureTemplateStyleLinksEnabled();
   }
   helpers.resumeTemplateStyles = resumeTemplateStyles;
 
   function syncTemplateStyles(value) {
     const normalized = normalizeTemplateKey(value);
-    if (templateStyleSuspendDepth > 0) {
-      templateStylePendingKey = normalized;
-      disableAllTemplateStyles();
-      return;
-    }
-    templateStylePendingKey = null;
+    ensureTemplateStyleLinksEnabled();
     applyTemplateStyleKey(normalized);
+  }
+
+  function resolveDocumentTemplateKey(value, options = {}) {
+    const explicitValue = String(value || "").trim();
+    if (explicitValue) return normalizeTemplateKey(explicitValue);
+    const st = options?.state && typeof options.state === "object" ? options.state : state();
+    const meta = st?.meta && typeof st.meta === "object" ? st.meta : {};
+    const modelNameCandidates = [
+      meta.documentModelName,
+      meta.docDialogModelName,
+      meta.modelName,
+      meta.modelKey
+    ]
+      .map((entry) => sanitizeModelName(entry))
+      .filter(Boolean);
+    for (const modelName of modelNameCandidates) {
+      const entry = resolveModelEntryByName(modelName);
+      const configuredTemplate = entry?.config?.template;
+      if (typeof configuredTemplate === "string" && configuredTemplate.trim()) {
+        return normalizeTemplateKey(configuredTemplate);
+      }
+    }
+    return TEMPLATE_DEFAULT_KEY;
   }
 
   function syncItemsSectionTemplate(value) {
@@ -840,10 +819,10 @@
   }
 
   function applyDocumentTemplate(value, options = {}) {
-    const normalized = normalizeTemplateKey(value);
+    const st = options?.state && typeof options.state === "object" ? options.state : state();
+    const normalized = resolveDocumentTemplateKey(value, { state: st });
     const updateState = options?.updateState !== false;
     if (updateState) {
-      const st = typeof state === "function" ? state() : null;
       if (st?.meta && typeof st.meta === "object") {
         st.meta.template = normalized;
       }
@@ -865,7 +844,7 @@
     if (applyToDocument) {
       applyDocumentTemplate(normalized);
     }
-    const currentPreview = doc.querySelector(".model-actions-layout__preview");
+    const currentPreview = doc.querySelector("#modelActionsModal .model-actions-layout__preview");
     if (!currentPreview) return;
     const currentKey = currentPreview.dataset?.templateKey || "";
     const effectiveKey = currentKey || TEMPLATE_DEFAULT_KEY;

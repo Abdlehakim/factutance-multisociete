@@ -342,6 +342,25 @@
     return st;
   }
 
+  async function hydrateStateTemplateFromDocumentModel(stateInput) {
+    const st = ensureStateDefaults(stateInput || {});
+    const meta = st.meta && typeof st.meta === "object" ? st.meta : (st.meta = {});
+    const hasSavedTemplate =
+      typeof meta.template === "string" && String(meta.template).trim().length > 0;
+    if (hasSavedTemplate) return st;
+    const { modelName, config } = await resolveModelConfigFromDocumentMeta(meta);
+    if (modelName) {
+      meta.documentModelName = modelName;
+      meta.docDialogModelName = modelName;
+      meta.modelName = modelName;
+      meta.modelKey = modelName;
+    }
+    if (config && typeof config === "object" && hasOwn(config, "template")) {
+      meta.template = config.template;
+    }
+    return st;
+  }
+
   function ensureStateDefaults(target = {}) {
     const st = target && typeof target === "object" ? target : {};
     const semState = window.SEM?.state || {};
@@ -386,8 +405,10 @@
 
     const strictMode = strict === true || meta.__pdfPreviewStrict === true;
     if (strictMode) {
-      meta.__pdfPreviewStrict = true;
-      if (markPrepared) meta.__pdfPreviewPrepared = true;
+      st = await hydrateStateTemplateFromDocumentModel(st);
+      const strictMeta = st.meta && typeof st.meta === "object" ? st.meta : (st.meta = {});
+      strictMeta.__pdfPreviewStrict = true;
+      if (markPrepared) strictMeta.__pdfPreviewPrepared = true;
       return st;
     }
 
@@ -431,6 +452,60 @@
       } catch {}
     }
     return renderer;
+  }
+
+  function resolveInvoiceRendererCss(renderer, stateInput) {
+    if (!renderer) return "";
+    try {
+      if (typeof renderer.getCssForState === "function") {
+        return String(renderer.getCssForState(stateInput || {}) || "");
+      }
+      const cssValue = renderer.css;
+      return typeof cssValue === "string" ? cssValue : String(cssValue || "");
+    } catch (err) {
+      console.warn("resolveInvoiceRendererCss failed", err);
+      return "";
+    }
+  }
+
+  function buildInvoiceRendererBundle(renderer, stateInput, assets = {}) {
+    if (!renderer) {
+      return { html: "", css: "" };
+    }
+    try {
+      if (typeof renderer.buildBundle === "function") {
+        const bundle = renderer.buildBundle(stateInput, assets);
+        if (bundle && typeof bundle === "object") {
+          return {
+            html: typeof bundle.html === "string" ? bundle.html : "",
+            css:
+              typeof bundle.css === "string" && bundle.css
+                ? bundle.css
+                : resolveInvoiceRendererCss(renderer, stateInput),
+            templateKey: bundle.templateKey
+          };
+        }
+      }
+    } catch (err) {
+      console.warn("buildInvoiceRendererBundle failed", err);
+    }
+    return {
+      html: typeof renderer.build === "function" ? String(renderer.build(stateInput, assets) || "") : "",
+      css: resolveInvoiceRendererCss(renderer, stateInput)
+    };
+  }
+
+  function renderInvoiceSnapshotIntoRoot(renderer, stateInput, assets, root) {
+    if (!renderer || !root) return { css: "" };
+    const css = resolveInvoiceRendererCss(renderer, stateInput);
+    if (typeof renderer.render === "function") {
+      renderer.render(stateInput, assets, { root });
+    } else if (typeof renderer.build === "function") {
+      root.innerHTML = renderer.build(stateInput, assets);
+    } else {
+      root.innerHTML = "";
+    }
+    return { css };
   }
 
   function applyTotalsSnapshotToState(stateInput, totalsSnapshot = null) {
@@ -970,7 +1045,10 @@
         st.meta.reglementType = normalizedReglement.type;
         st.meta.reglementDays = normalizedReglement.days;
         if (typeof window.SEM?.__bindingHelpers?.applyDocumentTemplate === "function") {
-          window.SEM.__bindingHelpers.applyDocumentTemplate(st.meta?.template, { updateState: true });
+          window.SEM.__bindingHelpers.applyDocumentTemplate(st.meta?.template, {
+            updateState: true,
+            state: st
+          });
         }
     }
     if (Array.isArray(src.items)) {
@@ -1221,8 +1299,9 @@
     }
     const assets = API?.assets || {};
     const totalsSnapshotResolved = applyTotalsSnapshotToState(st, totalsSnapshot);
-    const htmlInv = renderer.build(st, assets);
-    const cssInv = renderer.css || "";
+    const renderBundle = buildInvoiceRendererBundle(renderer, st, assets);
+    const htmlInv = renderBundle.html;
+    const cssInv = renderBundle.css;
 
     const typeLbl = docTypeLabel(st.meta?.docType);
     const invRaw  = String(st.meta?.number || "").trim();
@@ -1921,8 +2000,9 @@ function buildBonEntreePreviewTitle(stateInput) {
       try {
         const assets = API?.assets || {};
         applyTotalsSnapshotToState(st, null);
-        const htmlInv = renderer.build(st, assets);
-        const cssInv = renderer.css || "";
+        const renderBundle = buildInvoiceRendererBundle(renderer, st, assets);
+        const htmlInv = renderBundle.html;
+        const cssInv = renderBundle.css;
         const res = await API.printHTML({
           html: htmlInv,
           css: cssInv,
@@ -2191,7 +2271,9 @@ function buildBonEntreePreviewTitle(stateInput) {
     if (!lastPreviewState || !renderer) return;
     const assets = API?.assets || {};
     applyTotalsSnapshotToState(lastPreviewState, lastPreviewTotals);
-    renderer.render(lastPreviewState, assets, { root });
+    const renderResult = renderInvoiceSnapshotIntoRoot(renderer, lastPreviewState, assets, root);
+    const styleEl = overlay.querySelector("#pdfPreviewModalStyle");
+    if (styleEl) styleEl.textContent = renderResult.css || "";
   }
 
   function updatePdfPreviewOptionsFromToggles(overlay) {
@@ -2468,8 +2550,9 @@ function buildBonEntreePreviewTitle(stateInput) {
         const st = lastPreviewState;
         const assets = API?.assets || {};
         applyTotalsSnapshotToState(st, lastPreviewTotals);
-        const htmlInv = renderer.build(st, assets);
-        const cssInv = renderer.css || "";
+        const renderBundle = buildInvoiceRendererBundle(renderer, st, assets);
+        const htmlInv = renderBundle.html;
+        const cssInv = renderBundle.css;
         const res = await API.printHTML({
           html: htmlInv,
           css: cssInv,
@@ -2488,8 +2571,9 @@ function buildBonEntreePreviewTitle(stateInput) {
         const st = lastPreviewState;
         const assets = API?.assets || {};
         applyTotalsSnapshotToState(st, lastPreviewTotals);
-        const htmlInv = renderer.build(st, assets);
-        const cssInv = renderer.css || "";
+        const renderBundle = buildInvoiceRendererBundle(renderer, st, assets);
+        const htmlInv = renderBundle.html;
+        const cssInv = renderBundle.css;
 
         const invRaw = String(st.meta?.number || "").trim();
         const invNum = invRaw ? slugForFile(invRaw) : "";
@@ -2687,9 +2771,9 @@ function buildBonEntreePreviewTitle(stateInput) {
       root.className = "pdf-preview-root";
       content.appendChild(root);
       lastPreviewTotals = applyTotalsSnapshotToState(st, null);
-      renderer.render(st, assets, { root });
+      const renderResult = renderInvoiceSnapshotIntoRoot(renderer, st, assets, root);
       const styleEl = overlay.querySelector("#pdfPreviewModalStyle");
-      if (styleEl) styleEl.textContent = renderer.css || "";
+      if (styleEl) styleEl.textContent = renderResult.css || "";
       content.scrollTop = 0;
     }
     lastPreviewState = st;
