@@ -3245,6 +3245,14 @@
       if (!entry) return false;
       const openedOk = await openHistoryEntry(entry);
       if (!openedOk) return false;
+      const ensureModelCache = w.SEM?.__bindingHelpers?.ensureModelCache;
+      if (typeof ensureModelCache === "function") {
+        try {
+          await ensureModelCache();
+        } catch (err) {
+          console.warn("items modal model cache preload failed", err);
+        }
+      }
       const modalApi = w.AppInit?.itemsDocOptionsModalApi;
       const activeModel = resolveActiveDocumentModelName();
       const openedModal = openItemsDocOptionsModal({

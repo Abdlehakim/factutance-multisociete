@@ -5526,6 +5526,27 @@
     const ITEMS_MODAL_MODEL_SUMMARY_EMPTY = "Aucun modele";
     let itemsModalModelSelectSyncing = false;
     let itemsModalModelApplySeq = 0;
+    const normalizeItemsModalModelLabel = (value) =>
+      String(value ?? "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^\w\s]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .toLowerCase();
+    const isItemsModalModelPlaceholderValue = (value) => {
+      const normalized = normalizeItemsModalModelLabel(value);
+      return (
+        !normalized ||
+        normalized === normalizeItemsModalModelLabel(ITEMS_MODAL_MODEL_SELECT_PLACEHOLDER) ||
+        normalized === normalizeItemsModalModelLabel(ITEMS_MODAL_MODEL_SELECT_EMPTY) ||
+        normalized === normalizeItemsModalModelLabel(ITEMS_MODAL_MODEL_SUMMARY_EMPTY)
+      );
+    };
+    const readItemsModalModelUiValue = (value) => {
+      const nextValue = sanitizeModelSeed(value || "");
+      return isItemsModalModelPlaceholderValue(nextValue) ? "" : nextValue;
+    };
 
     const normalizeOptionalModelFlag = (value) => {
       if (value === true || value === false) return value;
@@ -6504,6 +6525,14 @@
           )
           ?.dataset?.value || ""
       ).trim();
+      const displayValue = readItemsModalModelUiValue(
+        metaBox?.querySelector?.(`#${ITEMS_MODAL_MODEL_DISPLAY_ID}`)?.textContent || ""
+      );
+      const summaryValue = readItemsModalModelUiValue(
+        metaBox?.querySelector?.(`#${ITEMS_MODAL_MODEL_SUMMARY_DISPLAY_ID}`)?.dataset?.modelName ||
+          metaBox?.querySelector?.(`#${ITEMS_MODAL_MODEL_SUMMARY_DISPLAY_ID}`)?.textContent ||
+          ""
+      );
       return pickItemsModalModelName(
         preferredModelName,
         meta.documentModelName,
@@ -6515,7 +6544,9 @@
         stateMeta.modelName,
         stateMeta.modelKey,
         selectValue,
-        activePanelValue
+        activePanelValue,
+        displayValue,
+        summaryValue
       );
     }
 
@@ -6523,14 +6554,9 @@
       const summaryDisplay =
         metaBox?.querySelector?.(`#${ITEMS_MODAL_MODEL_SUMMARY_DISPLAY_ID}`) || null;
       if (!summaryDisplay) return "";
-      const rawMenuDisplayText = sanitizeModelSeed(
+      const menuDisplayText = readItemsModalModelUiValue(
         metaBox?.querySelector?.(`#${ITEMS_MODAL_MODEL_DISPLAY_ID}`)?.textContent || ""
       );
-      const menuDisplayText =
-        rawMenuDisplayText === ITEMS_MODAL_MODEL_SELECT_PLACEHOLDER ||
-        rawMenuDisplayText === ITEMS_MODAL_MODEL_SELECT_EMPTY
-          ? ""
-          : rawMenuDisplayText;
       const resolvedModelName = pickItemsModalModelName(
         preferredModelName,
         resolveItemsModalCurrentModelName(metaBox, { preferredModelName }),
@@ -6617,6 +6643,24 @@
       const selectedMatch = resolvedSeedKey
         ? options.find((entry) => normalizeItemsModalModelKey(entry?.name || "") === resolvedSeedKey)
         : null;
+      const persistedDocTypes = resolvedSeed
+        ? normalizeModelDocTypeSwitchSelection(
+            resolveItemsModalModelDocTypes({ preferredModelName: resolvedSeed, allowPanel: true })
+          )
+        : [];
+      const shouldInjectPersistedSelection =
+        !!resolvedSeed &&
+        !selectedMatch &&
+        (!persistedDocTypes.length || persistedDocTypes.includes(normalizedDocType));
+      const persistedSelection =
+        shouldInjectPersistedSelection && resolvedSeedKey
+          ? {
+              name: resolvedSeed,
+              docTypes: persistedDocTypes.length ? persistedDocTypes.slice() : [normalizedDocType],
+              available: true,
+              persisted: true
+            }
+          : null;
       const previousKey = normalizeItemsModalModelKey(previousModel);
       const previousMatch =
         !selectedMatch && previousKey
@@ -6626,8 +6670,11 @@
         !selectedMatch && !resolvedSeed && autoSelectFallback
           ? previousMatch || options[0] || null
           : null;
-      const nextModel = sanitizeModelSeed(selectedMatch?.name || fallbackMatch?.name || "");
-      const displayModelName = nextModel;
+      const menuOptions = persistedSelection ? [persistedSelection, ...options] : options;
+      const nextModel = sanitizeModelSeed(
+        selectedMatch?.name || persistedSelection?.name || fallbackMatch?.name || ""
+      );
+      const displayModelName = nextModel || sanitizeModelSeed(preferred || "");
       const showModelField = syncItemsModalModelFieldVisibility(metaBox);
 
       itemsModalModelSelectSyncing = true;
@@ -6639,23 +6686,26 @@
           ? ITEMS_MODAL_MODEL_SELECT_PLACEHOLDER
           : ITEMS_MODAL_MODEL_SELECT_EMPTY;
         modelSelect.appendChild(placeholder);
-        options.forEach((entry) => {
+        menuOptions.forEach((entry) => {
           const optionEl = document.createElement("option");
           optionEl.value = entry.name;
           optionEl.textContent = entry.name;
           optionEl.dataset.modelDocType = entry.docTypes?.[0] || DEFAULT_MODEL_DOC_TYPE;
           optionEl.dataset.modelDocTypes = (entry.docTypes || []).join(",");
           optionEl.dataset.modelUnavailable = "false";
+          if (entry.persisted) optionEl.dataset.modelPersisted = "true";
           modelSelect.appendChild(optionEl);
         });
-        modelSelect.disabled = !showModelField || !options.length;
+        modelSelect.disabled = !showModelField || !menuOptions.length;
         modelSelect.setAttribute("aria-disabled", modelSelect.disabled ? "true" : "false");
         modelSelect.value = nextModel || "";
-        if (selectedMatch && hasSavedModelSeed) {
-          syncItemsModalSavedModelMeta(selectedMatch.name || nextModel);
+        if ((selectedMatch || persistedSelection) && hasSavedModelSeed) {
+          syncItemsModalSavedModelMeta(
+            selectedMatch?.name || persistedSelection?.name || nextModel
+          );
         }
         syncItemsModalModelMenuUi(metaBox, {
-          menuOptions: options,
+          menuOptions,
           selectedModel: modelSelect.value || "",
           displayModelName,
           placeholderText: options.length
@@ -6674,7 +6724,7 @@
         selectedModel: sanitizeModelSeed(modelSelect.value || ""),
         previousModel,
         docTypeValue: normalizedDocType,
-        options
+        options: menuOptions
       };
     }
 

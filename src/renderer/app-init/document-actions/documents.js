@@ -3592,6 +3592,28 @@
           typeof bindingHelpers.sanitizeModelName === "function"
             ? bindingHelpers.sanitizeModelName
             : (value) => String(value ?? "").trim();
+        const normalizeModelUiText = (value) =>
+          String(value ?? "")
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/[^\w\s]/g, " ")
+            .replace(/\s+/g, " ")
+            .trim()
+            .toLowerCase();
+        const readModelUiValue = (value) => {
+          const normalized = sanitizeModelNameForMeta(value);
+          if (!normalized) return "";
+          const normalizedLabel = normalizeModelUiText(normalized);
+          if (
+            !normalizedLabel ||
+            normalizedLabel === "selectionner un modele" ||
+            normalizedLabel === "aucun modele compatible" ||
+            normalizedLabel === "aucun modele"
+          ) {
+            return "";
+          }
+          return normalized;
+        };
         const firstNonEmptyString = (...values) => {
           for (const value of values) {
             const str = String(value == null ? "" : value).trim();
@@ -3599,8 +3621,50 @@
           }
           return "";
         };
+        const itemsModalMetaBox = document
+          ?.getElementById?.("itemsDocOptionsModal")
+          ?.querySelector?.("#docMetaBoxNewDoc");
+        const itemsModalModelSelect = itemsModalMetaBox?.querySelector?.("#docMetaModelSelect") || null;
+        const itemsModalActiveModel = readModelUiValue(
+          itemsModalMetaBox
+            ?.querySelector?.(
+              "#docMetaModelPanel .model-select-option.is-active, #docMetaModelPanel .model-select-option[aria-selected='true']"
+            )
+            ?.dataset?.value || ""
+        );
+        const itemsModalDisplayModel = readModelUiValue(
+          itemsModalMetaBox?.querySelector?.("#docMetaModelDisplay")?.textContent || ""
+        );
+        const itemsModalSummaryModel = readModelUiValue(
+          itemsModalMetaBox?.querySelector?.("#docMetaSelectedModelDisplay")?.dataset?.modelName ||
+            itemsModalMetaBox?.querySelector?.("#docMetaSelectedModelDisplay")?.textContent ||
+            ""
+        );
+        const itemsModalSelectedModel = sanitizeModelNameForMeta(
+          firstNonEmptyString(
+            itemsModalModelSelect?.value,
+            itemsModalActiveModel,
+            itemsModalDisplayModel,
+            itemsModalSummaryModel
+          )
+        );
+        const itemsModalSelectedOption =
+          itemsModalSelectedModel && itemsModalModelSelect
+            ? Array.from(itemsModalModelSelect.options || []).find(
+                (option) => sanitizeModelNameForMeta(option?.value || "") === itemsModalSelectedModel
+              ) || null
+            : null;
+        const itemsModalModelDocTypes = String(
+          itemsModalSelectedOption?.dataset?.modelDocTypes ||
+            itemsModalSelectedOption?.dataset?.modelDocType ||
+            ""
+        )
+          .split(",")
+          .map((entry) => String(entry || "").trim().toLowerCase())
+          .filter(Boolean);
         const resolvedModelName = sanitizeModelNameForMeta(
           firstNonEmptyString(
+            itemsModalSelectedModel,
             stateMeta.documentModelName,
             stateMeta.docDialogModelName,
             stateMeta.modelName,
@@ -3629,6 +3693,16 @@
             snapshot.meta.docDialogModelName = resolvedModelName;
             snapshot.meta.modelName = resolvedModelName;
             snapshot.meta.modelKey = resolvedModelName;
+          }
+          if (itemsModalModelDocTypes.length) {
+            stateMeta.modelDocTypes = itemsModalModelDocTypes.slice();
+            stateMeta.modelDocType = itemsModalModelDocTypes[0] || docType;
+            baseMeta.modelDocTypes = itemsModalModelDocTypes.slice();
+            baseMeta.modelDocType = itemsModalModelDocTypes[0] || docType;
+            if (snapshot.meta && typeof snapshot.meta === "object") {
+              snapshot.meta.modelDocTypes = itemsModalModelDocTypes.slice();
+              snapshot.meta.modelDocType = itemsModalModelDocTypes[0] || docType;
+            }
           }
 
           let resolvedTemplate = firstNonEmptyString(
