@@ -1225,6 +1225,142 @@
     };
   }
 
+  function buildInvoiceTaxSummary(totals, currency, taxesEnabled) {
+    const extras = totals?.extras && typeof totals.extras === "object" ? totals.extras : {};
+    if (!taxesEnabled) {
+      return {
+        rowsHtml: "",
+        totalAmount: 0,
+        hasAnyRow: false
+      };
+    }
+
+    const tvaRows = Array.isArray(totals?.tvaBreakdown) ? totals.tvaBreakdown : [];
+    const fodecLabel = String(extras?.fodecLabel || "FODEC").trim() || "FODEC";
+    const baseFodecRows = Array.isArray(extras?.fodecBreakdown) ? extras.fodecBreakdown : [];
+    const normalizedFodecRows = [];
+    const fodecTvaRows = [];
+    const fallbackFodecRate = toFiniteNumber(extras?.fodecRate, NaN);
+    const fallbackFodecTvaRate = toFiniteNumber(
+      extras?.fodecTva ?? extras?.fodecTVA ?? extras?.fodecRate,
+      NaN
+    );
+    const fallbackFodecAmount = toFiniteNumber(extras?.fodecHT, NaN);
+    const fallbackFodecTvaAmount = toFiniteNumber(extras?.fodecTVA, NaN);
+    const extrasFodecBase = toFiniteNumber(extras?.fodecBase, NaN);
+    const fallbackFodecBase =
+      Number.isFinite(extrasFodecBase)
+        ? extrasFodecBase
+        : (Number.isFinite(fallbackFodecRate) && Math.abs(fallbackFodecRate) > 1e-9
+            ? fallbackFodecAmount / (fallbackFodecRate / 100)
+            : NaN);
+
+    baseFodecRows.forEach((row) => {
+      const base = toFiniteNumber(row?.base ?? row?.ht, NaN);
+      const fodecAmount = toFiniteNumber(row?.fodec ?? row?.amount, 0);
+      const fodecTvaAmount = toFiniteNumber(row?.fodecTva ?? row?.tva, 0);
+      const rate = toFiniteNumber(row?.rate ?? extras?.fodecRate, 0);
+      const fodecTvaRate = toFiniteNumber(
+        row?.tvaRate ?? row?.fodecTvaRate ?? extras?.fodecTva ?? extras?.fodecTVA,
+        0
+      );
+      if (!Number.isFinite(base) && !Number.isFinite(fodecAmount)) return;
+      normalizedFodecRows.push({
+        rate,
+        base: Number.isFinite(base) ? base : 0,
+        fodecAmount,
+        fodecTvaAmount,
+        fodecTvaRate
+      });
+      if (Math.abs(fodecTvaAmount) > 1e-9) {
+        fodecTvaRows.push({
+          rate: Number.isFinite(fodecTvaRate) ? fodecTvaRate : 0,
+          base: fodecAmount,
+          amount: fodecTvaAmount
+        });
+      }
+    });
+
+    if (
+      extras?.fodecEnabled &&
+      !normalizedFodecRows.length &&
+      Number.isFinite(fallbackFodecAmount) &&
+      Math.abs(fallbackFodecAmount) > 1e-9
+    ) {
+      normalizedFodecRows.push({
+        rate: Number.isFinite(fallbackFodecRate) ? fallbackFodecRate : 0,
+        base: Number.isFinite(fallbackFodecBase) ? fallbackFodecBase : 0,
+        fodecAmount: fallbackFodecAmount,
+        fodecTvaAmount: Number.isFinite(fallbackFodecTvaAmount) ? fallbackFodecTvaAmount : 0,
+        fodecTvaRate: Number.isFinite(fallbackFodecTvaRate) ? fallbackFodecTvaRate : 0
+      });
+      if (Number.isFinite(fallbackFodecTvaAmount) && Math.abs(fallbackFodecTvaAmount) > 1e-9) {
+        fodecTvaRows.push({
+          rate: Number.isFinite(fallbackFodecTvaRate) ? fallbackFodecTvaRate : 0,
+          base: fallbackFodecAmount,
+          amount: fallbackFodecTvaAmount
+        });
+      }
+    }
+
+    const aggregatedFodecRows = (() => {
+      const map = new Map();
+      normalizedFodecRows.forEach((row) => {
+        const rate = toFiniteNumber(row?.rate, 0);
+        const key = rate.toFixed(3);
+        const entry = map.get(key) || { rate, base: 0, amount: 0 };
+        entry.base += toFiniteNumber(row?.base, 0);
+        entry.amount += toFiniteNumber(row?.fodecAmount, 0);
+        map.set(key, entry);
+      });
+      return Array.from(map.values())
+        .filter((row) => Math.abs(row.amount) > 1e-9 && row.rate > 0)
+        .sort((a, b) => a.rate - b.rate);
+    })();
+
+    const aggregatedTvaRows = (() => {
+      const map = new Map();
+      [...tvaRows, ...fodecTvaRows].forEach((row) => {
+        const rate = toFiniteNumber(row?.rate, 0);
+        const key = rate.toFixed(3);
+        const entry = map.get(key) || { rate, base: 0, amount: 0 };
+        entry.base += toFiniteNumber(row?.base ?? row?.ht, 0);
+        entry.amount += toFiniteNumber(row?.tva ?? row?.amount, 0);
+        map.set(key, entry);
+      });
+      return Array.from(map.values())
+        .filter((row) => Math.abs(row.amount) > 1e-9 && row.rate > 0)
+        .sort((a, b) => a.rate - b.rate);
+    })();
+
+    let totalAmount = 0;
+    const rowHtml = [];
+    aggregatedFodecRows.forEach((row) => {
+      totalAmount += toFiniteNumber(row.amount, 0);
+      rowHtml.push(`
+        <tr class="doc-design1__tva-fodec">
+          <td>${esc(`${fodecLabel} ${fmtPct(row.rate)}%`)}</td>
+          <td class="right">${fmtMoney(row.base, currency)}</td>
+          <td class="right">${fmtMoney(row.amount, currency)}</td>
+        </tr>`);
+    });
+    aggregatedTvaRows.forEach((row) => {
+      totalAmount += toFiniteNumber(row.amount, 0);
+      rowHtml.push(`
+        <tr>
+          <td>${esc(`TVA ${fmtPct(row.rate)}%`)}</td>
+          <td class="right">${fmtMoney(row.base, currency)}</td>
+          <td class="right">${fmtMoney(row.amount, currency)}</td>
+        </tr>`);
+    });
+
+    return {
+      rowsHtml: rowHtml.join(""),
+      totalAmount,
+      hasAnyRow: rowHtml.length > 0
+    };
+  }
+
   function applyInvoiceSummaryAndFooter(page, state, docType, totals, currency, taxesEnabled, pdfOptions) {
     const isStock = MODEL_DOC_TYPE_STOCK_VALUES.has(docType);
     const summary = page.querySelector("#modelPreviewInvoiceSummary");
@@ -1236,11 +1372,7 @@
     const extras = totals?.extras && typeof totals.extras === "object" ? totals.extras : {};
     const metaExtras = state?.meta?.extras && typeof state.meta.extras === "object" ? state.meta.extras : {};
     const isPurchaseDoc = MODEL_DOC_TYPE_PURCHASE_VALUES.has(docType);
-    const tvaBreakdown = Array.isArray(totals?.tvaBreakdown) ? totals.tvaBreakdown : [];
-    const combinedTaxes =
-      toFiniteNumber(totals?.tax, 0) +
-      toFiniteNumber(extras?.fodecHT, 0) +
-      toFiniteNumber(extras?.fodecTVA, 0);
+    const taxSummary = buildInvoiceTaxSummary(totals, currency, taxesEnabled);
 
     const tvaPanel = page.querySelector("[data-tax-panel]");
     setNodeVisibility(tvaPanel, taxesEnabled);
@@ -1249,19 +1381,8 @@
       if (!taxesEnabled) {
         tvaBody.innerHTML = "";
       } else {
-        const rows = tvaBreakdown.length
-          ? tvaBreakdown
-              .map((entry) => {
-                const rate = toFiniteNumber(entry?.rate, 0);
-                const label = String(entry?.label || "").trim() || `TVA ${fmtPct(rate)}%`;
-                return `
-                  <tr>
-                    <td>${esc(label)}</td>
-                    <td class="right">${fmtMoney(entry?.base, currency)}</td>
-                    <td class="right">${fmtMoney(entry?.tva ?? entry?.amount, currency)}</td>
-                  </tr>`;
-              })
-              .join("")
+        const rows = taxSummary.hasAnyRow
+          ? taxSummary.rowsHtml
           : `
             <tr>
               <td>TVA 0%</td>
@@ -1272,7 +1393,7 @@
           ${rows}
           <tr class="doc-design1__tva-total">
             <th colspan="2">Total</th>
-            <th class="right">${fmtMoney(combinedTaxes, currency)}</th>
+            <th class="right">${fmtMoney(taxSummary.totalAmount, currency)}</th>
           </tr>
         `;
       }
@@ -1334,7 +1455,7 @@
     setMiniSummaryRow("taxes", {
       visible: taxesEnabled,
       label: "Total Taxes",
-      value: fmtMoney(combinedTaxes, currency)
+      value: fmtMoney(taxSummary.totalAmount, currency)
     });
     setMiniSummaryRow("total-ht", {
       visible: !isPurchaseDoc,

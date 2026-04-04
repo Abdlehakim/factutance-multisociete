@@ -3477,20 +3477,29 @@ const buildDocumentPayloadFromRow = (row = {}, items = [], taxRows = []) => {
   const fodecBreakdown = [];
   taxRows.forEach((entry) => {
     if (entry.kind === "tva") {
+      const baseValue = readNumberValue(entry.base ?? entry.ht) ?? 0;
+      const amountValue = readNumberValue(entry.tva) ?? 0;
       tvaBreakdown.push({
         rate: readNumberValue(entry.rate) ?? 0,
-        ht: readNumberValue(entry.ht) ?? 0,
-        tva: readNumberValue(entry.tva) ?? 0
+        base: baseValue,
+        ht: baseValue,
+        tva: amountValue,
+        amount: amountValue
       });
       return;
     }
     if (entry.kind === "fodec") {
+      const baseValue = readNumberValue(entry.base) ?? 0;
+      const amountValue = readNumberValue(entry.fodec) ?? 0;
+      const tvaAmountValue = readNumberValue(entry.fodec_tva) ?? 0;
       fodecBreakdown.push({
         rate: readNumberValue(entry.rate) ?? 0,
         tvaRate: readNumberValue(entry.tva_rate) ?? 0,
-        base: readNumberValue(entry.base) ?? 0,
-        fodec: readNumberValue(entry.fodec) ?? 0,
-        fodecTva: readNumberValue(entry.fodec_tva) ?? 0
+        base: baseValue,
+        fodec: amountValue,
+        amount: amountValue,
+        fodecTva: tvaAmountValue,
+        tva: tvaAmountValue
       });
     }
   });
@@ -8006,14 +8015,15 @@ const saveDocumentData = (db, docType, documentId, payload = {}) => {
       `
     );
     normalized.tvaBreakdown.forEach((rowEntry, index) => {
+      const baseValue = normalizeOptionalNumber(rowEntry.base ?? rowEntry.ht) ?? 0;
       insertBreakdown.run(
         documentId,
         "tva",
         index,
         normalizeOptionalNumber(rowEntry.rate) ?? 0,
         null,
-        null,
-        normalizeOptionalNumber(rowEntry.ht) ?? 0,
+        baseValue,
+        baseValue,
         normalizeOptionalNumber(rowEntry.tva) ?? 0,
         null,
         null

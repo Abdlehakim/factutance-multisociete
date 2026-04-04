@@ -968,6 +968,9 @@
           addForm: mergedAddForm,
           noteInterne: normalizedNoteInterne
         };
+        delete st.meta.__pdfPreviewTotals;
+        delete st.meta.__pdfPreviewPrepared;
+        delete st.meta.__pdfPreviewStrict;
         if (!Object.prototype.hasOwnProperty.call(incoming, "documentModelName")) {
           const fallbackDocumentModelName =
             typeof incoming.docDialogModelName === "string"

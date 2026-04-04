@@ -1083,7 +1083,17 @@
     const tvaBreakdown = taxesEnabled
       ? Array.from(taxBreakdown.values())
           .filter((row) => Math.abs(row.ht) > 1e-9 || Math.abs(row.tva) > 1e-9 || Math.abs(row.rate) > 1e-9)
-          .map((row) => ({ rate: Number(row.rate) || 0, ht: R(row.ht), tva: R(row.tva) }))
+          .map((row) => {
+            const baseValue = R(row.ht);
+            const amountValue = R(row.tva);
+            return {
+              rate: Number(row.rate) || 0,
+              base: baseValue,
+              ht: baseValue,
+              tva: amountValue,
+              amount: amountValue
+            };
+          })
           .sort((a, b) => a.rate - b.rate)
       : [];
 
