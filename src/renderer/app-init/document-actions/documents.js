@@ -4441,6 +4441,7 @@
           container.style.overflow = "visible";
         }
 
+        const MODEL_PLACEHOLDER = "S\u00e9lectionner un mod\u00e8le";
         const menu = doc.createElement("details");
         menu.id = "docDialogModelSelectMenu";
         menu.className = "field-toggle-menu model-select-menu doc-dialog-model-menu";
@@ -4453,7 +4454,7 @@
         const display = doc.createElement("span");
         display.id = "docDialogModelDisplay";
         display.className = "model-select-display";
-        display.textContent = "S\u00e9lectionner un mod\u00e8le";
+        display.textContent = MODEL_PLACEHOLDER;
         summary.appendChild(display);
         summary.insertAdjacentHTML("beforeend", CHEVRON_SVG);
         menu.appendChild(summary);
@@ -4472,13 +4473,14 @@
           hiddenSelect.tabIndex = -1;
           const placeholder = doc.createElement("option");
           placeholder.value = "";
-          placeholder.textContent = "S\u00e9lectionner un mod\u00e8le";
+          placeholder.textContent = MODEL_PLACEHOLDER;
           hiddenSelect.appendChild(placeholder);
 
           label.htmlFor = hiddenSelect.id;
 
           const modelOptions = getModelOptionsForDialog();
           let activeDocType = "";
+          let visibleModelOptions = [];
           const isMenuDisabled = () => menu.dataset.disabled === "true";
 
           const okBtn = doc.getElementById("swbDialogOk");
@@ -4497,14 +4499,7 @@
           const isSelectedModelValid = () => {
             const value = hiddenSelect.value || "";
             if (!value) return false;
-            const opt =
-              hiddenSelect.selectedOptions && hiddenSelect.selectedOptions.length
-                ? hiddenSelect.selectedOptions[0]
-                : null;
-            if (!opt) return false;
-            if (opt.disabled) return false;
-            if (opt.dataset?.modelUnavailable === "true") return false;
-            return true;
+            return visibleModelOptions.some((opt) => String(opt.value || "") === value);
           };
           const updateCreateButtonState = () => {
             if (!okBtn) return;
@@ -4515,7 +4510,6 @@
             okBtn.setAttribute("aria-disabled", isEnabled ? "false" : "true");
           };
 
-          let refreshAvailability = () => {};
           const setMenuDisabled = (disabled) => {
             const isDisabled = !!disabled;
             menu.dataset.disabled = isDisabled ? "true" : "false";
@@ -4529,37 +4523,19 @@
             }
             hiddenSelect.disabled = isDisabled;
             hiddenSelect.setAttribute("aria-disabled", isDisabled ? "true" : "false");
-            if (isDisabled) {
-              panel.querySelectorAll(".model-select-option").forEach((btn) => {
-                btn.disabled = true;
-                btn.dataset.unavailable = "true";
-                btn.classList.add("is-disabled");
-                btn.setAttribute("aria-disabled", "true");
-                if (!btn.title) {
-                  btn.title = "Indisponible pour ce type de document";
-                }
-              });
-              hiddenSelect.querySelectorAll("option").forEach((opt) => {
-                if (!opt.value) return;
-                opt.disabled = true;
-                opt.dataset.modelUnavailable = "true";
-              });
-            } else {
-              refreshAvailability(activeDocType || DEFAULT_MODEL_DOC_TYPE);
-            }
           };
 
-          const optionIndex = new Map();
-          const renderOptions = (options, { emptyText } = {}) => {
+          const renderOptions = (options, { emptyText, showEmptyMessage = true } = {}) => {
             panel.textContent = "";
             hiddenSelect.innerHTML = "";
-            optionIndex.clear();
             hiddenSelect.appendChild(placeholder.cloneNode(true));
             if (!options.length) {
-              const emptyMsg = doc.createElement("p");
-              emptyMsg.className = "model-select-empty";
-              emptyMsg.textContent = emptyText || "Aucun mod\u00e8le disponible";
-              panel.appendChild(emptyMsg);
+              if (showEmptyMessage) {
+                const emptyMsg = doc.createElement("p");
+                emptyMsg.className = "model-select-empty";
+                emptyMsg.textContent = emptyText || "Aucun mod\u00e8le disponible";
+                panel.appendChild(emptyMsg);
+              }
               return;
             }
             options.forEach((opt) => {
@@ -4583,55 +4559,37 @@
               optionEl.dataset.modelDocType = optDocType;
               optionEl.dataset.modelDocTypes = optDocTypesAttr;
               hiddenSelect.appendChild(optionEl);
-              optionIndex.set(optVal, { btn, optionEl, docTypes: optDocTypes });
             });
           };
 
-          const updateAvailability = (docTypeValue) => {
-            const normalizedDocType = normalizeDocType(docTypeValue || DEFAULT_MODEL_DOC_TYPE);
-            optionIndex.forEach(({ btn, optionEl, docTypes }) => {
-              const optDocTypes = Array.isArray(docTypes) && docTypes.length
-                ? docTypes
-                : [DEFAULT_MODEL_DOC_TYPE];
-              const isAllowed = optDocTypes.includes(normalizedDocType);
-              const isDisabled = !isAllowed;
-              btn.disabled = isDisabled;
-              btn.dataset.unavailable = isDisabled ? "true" : "false";
-              btn.classList.toggle("is-disabled", isDisabled);
-              btn.setAttribute("aria-disabled", isDisabled ? "true" : "false");
-              if (isDisabled) {
-                btn.title = "Indisponible pour ce type de document";
-              } else {
-                btn.removeAttribute("title");
-              }
-              optionEl.disabled = isDisabled;
-              optionEl.dataset.modelUnavailable = isDisabled ? "true" : "false";
+          const getVisibleModelOptions = (docTypeValue) => {
+            const normalizedDocType = normalizeDocType(docTypeValue || "", "");
+            if (!normalizedDocType) return [];
+            return modelOptions.filter((opt) => {
+              const optDocTypes = expandModelDocTypes(opt?.docTypes, DEFAULT_MODEL_DOC_TYPE);
+              return optDocTypes.includes(normalizedDocType);
             });
           };
-          refreshAvailability = updateAvailability;
 
-          const applySelectionToUi = (value) => {
+          const applySelectionToUi = (value, options = visibleModelOptions) => {
             const nextValue = value || "";
             hiddenSelect.value = nextValue;
-            const fallbackLabel = "S\u00e9lectionner un mod\u00e8le";
+            const fallbackLabel = MODEL_PLACEHOLDER;
             const activeLabel =
-            modelOptions.find((opt) => String(opt.value || "") === nextValue)?.label || fallbackLabel;
-          display.textContent = activeLabel;
-          panel.querySelectorAll(".model-select-option").forEach((btn) => {
-            const isActive = btn.dataset.value === nextValue;
-            btn.classList.toggle("is-active", isActive);
-            btn.setAttribute("aria-selected", isActive ? "true" : "false");
-          });
-        };
+              options.find((opt) => String(opt.value || "") === nextValue)?.label || fallbackLabel;
+            display.textContent = activeLabel;
+            panel.querySelectorAll(".model-select-option").forEach((btn) => {
+              const isActive = btn.dataset.value === nextValue;
+              btn.classList.toggle("is-active", isActive);
+              btn.setAttribute("aria-selected", isActive ? "true" : "false");
+            });
+          };
 
           const setSelection = async (value, { dispatchMainChange = false, closeMenu = true } = {}) => {
             const nextValue = value || "";
             if (nextValue) {
-              const opt = modelOptions.find((entry) => String(entry.value || "") === nextValue);
-              const optDocTypes = expandModelDocTypes(opt?.docTypes, DEFAULT_MODEL_DOC_TYPE);
-              if (activeDocType && !optDocTypes.includes(activeDocType)) {
-                return;
-              }
+              const opt = visibleModelOptions.find((entry) => String(entry.value || "") === nextValue);
+              if (!opt) return;
             }
             selectedModel = nextValue;
             if (nextValue) {
@@ -4649,29 +4607,29 @@
           };
 
           const applyDocTypeFilter = (docTypeValue) => {
-            const normalized = normalizeDocType(docTypeValue || DEFAULT_MODEL_DOC_TYPE);
+            const normalized = normalizeDocType(docTypeValue || "", "");
             activeDocType = normalized;
-            updateAvailability(normalized);
-            const hasSelection = !normalized
-              ? !!selectedModel
-              : modelOptions.some((opt) => {
-                  if (String(opt.value || "") !== selectedModel) return false;
-                  const optDocTypes = expandModelDocTypes(opt.docTypes, DEFAULT_MODEL_DOC_TYPE);
-                  return optDocTypes.includes(normalized);
-                });
-            if (normalized && !hasSelection) {
+            visibleModelOptions = getVisibleModelOptions(normalized);
+            const hasDocType = !!normalized;
+            renderOptions(visibleModelOptions, {
+              emptyText: "Aucun mod\u00e8le disponible",
+              showEmptyMessage: hasDocType
+            });
+            const hasSelection = visibleModelOptions.some(
+              (opt) => String(opt.value || "") === selectedModel
+            );
+            if (!hasSelection) {
               selectedModel = "";
               selectedModelDocTypes = [];
             }
-            applySelectionToUi(selectedModel);
-            setMenuDisabled(false);
+            applySelectionToUi(selectedModel, visibleModelOptions);
+            setMenuDisabled(!hasDocType || !visibleModelOptions.length);
             updateCreateButtonState();
           };
 
           dialogModelPickerApi = { setDocType: applyDocTypeFilter };
 
-          renderOptions(modelOptions, { emptyText: "Aucun mod\u00e8le disponible" });
-
+          setMenuDisabled(true);
           applyDocTypeFilter(dialogSelectedDocType);
           updateCreateButtonState();
 
@@ -4702,7 +4660,7 @@
           { capture: true, passive: true }
         );
 
-          if (selectedModel && modelOptions.some((opt) => String(opt.value || "") === selectedModel)) {
+          if (selectedModel && visibleModelOptions.some((opt) => String(opt.value || "") === selectedModel)) {
             setSelection(selectedModel, { dispatchMainChange: false, closeMenu: false });
           } else {
             panel.querySelectorAll(".model-select-option").forEach((btn) => {

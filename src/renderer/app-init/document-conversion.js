@@ -728,10 +728,11 @@
         modelSummary.setAttribute("aria-haspopup", "listbox");
         modelSummary.setAttribute("aria-expanded", "false");
         modelSummary.setAttribute("aria-labelledby", "docHistoryConvertModelLabel docHistoryConvertModelDisplay");
+        const MODEL_PLACEHOLDER = "S\u00E9lectionner un mod\u00E8le";
         const modelDisplay = document.createElement("span");
         modelDisplay.id = "docHistoryConvertModelDisplay";
         modelDisplay.className = "model-select-display";
-        modelDisplay.textContent = "Aucun";
+        modelDisplay.textContent = MODEL_PLACEHOLDER;
         modelSummary.appendChild(modelDisplay);
         modelSummary.insertAdjacentHTML("beforeend", CHEVRON_SVG);
         modelMenu.appendChild(modelSummary);
@@ -818,7 +819,6 @@
         });
         const allModelOptions = [];
         let visibleModelOptions = [];
-        const selectOptions = [{ value: "", label: "Aucun" }];
         models.forEach((model) => {
           const value = model.value || "";
           if (!value || seenModels.has(value)) return;
@@ -832,10 +832,11 @@
         });
 
         const getModelLabel = (value) => {
+          if (!value) return MODEL_PLACEHOLDER;
           const match =
-            allModelOptions.find((opt) => opt.value === value) ||
-            visibleModelOptions.find((opt) => opt.value === value);
-          return match?.label || "Aucun";
+            visibleModelOptions.find((opt) => opt.value === value) ||
+            allModelOptions.find((opt) => opt.value === value);
+          return match?.label || MODEL_PLACEHOLDER;
         };
         const okBtn = document.getElementById("swbDialogOk");
         const setOkEnabled = (enabled) => {
@@ -1357,12 +1358,10 @@
         const renderModelOptions = () => {
           modelPanel.textContent = "";
           modelSelect.innerHTML = "";
-          selectOptions.forEach((opt) => {
-            const optEl = document.createElement("option");
-            optEl.value = opt.value;
-            optEl.textContent = opt.label;
-            modelSelect.appendChild(optEl);
-          });
+          const placeholderOption = document.createElement("option");
+          placeholderOption.value = "";
+          placeholderOption.textContent = MODEL_PLACEHOLDER;
+          modelSelect.appendChild(placeholderOption);
           visibleModelOptions.forEach((opt) => {
             const btn = document.createElement("button");
             btn.type = "button";
@@ -1384,16 +1383,17 @@
           renderModelOptions();
           setModelPickerEnabled(visibleModelOptions.length > 0);
           const hasSelectedModel = visibleModelOptions.some((opt) => opt.value === selectedModel);
-          const fallbackModel = hasSelectedModel
-            ? selectedModel
-            : visibleModelOptions[0]?.value || "";
+          const fallbackModel = hasSelectedModel ? selectedModel : "";
           setModelSelection(fallbackModel, { closeMenu: false });
         };
 
         visibleModelOptions = resolveVisibleModelOptions(getSelectedTargetValue() || targetDocType);
         renderModelOptions();
         setModelPickerEnabled(visibleModelOptions.length > 0);
-        setModelSelection(selectedModel, { closeMenu: false });
+        setModelSelection(
+          visibleModelOptions.some((opt) => opt.value === selectedModel) ? selectedModel : "",
+          { closeMenu: false }
+        );
 
         modelSummary.addEventListener("click", (evt) => {
           if (isModelPickerDisabled()) {
