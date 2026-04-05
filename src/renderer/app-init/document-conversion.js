@@ -44,15 +44,32 @@
     });
     return normalized;
   };
-  const getConvertedFromInfo = (entry, raw, sourceDocType = "devis") => {
-    if (!entry) return null;
+  const pickFirstTrimmedText = (...values) => {
+    for (const value of values) {
+      const text = String(value ?? "").trim();
+      if (text) return text;
+    }
+    return "";
+  };
+  const resolveSourcePayloadMeta = (raw) => {
+    const level1 = raw && raw.data && typeof raw.data === "object" ? raw.data : raw;
+    const level2 = level1 && level1.data && typeof level1.data === "object" ? level1.data : null;
+    const meta =
+      level2 && level2.meta && typeof level2.meta === "object"
+        ? level2.meta
+        : level1 && level1.meta && typeof level1.meta === "object"
+          ? level1.meta
+          : null;
+    return meta && typeof meta === "object" ? meta : {};
+  };
+  const resolveConvertedSourceSnapshot = (entry, raw, sourceDocType = "devis") => {
+    const payloadMeta = resolveSourcePayloadMeta(raw);
     const candidates = [
-      entry.number,
-      entry.invNumber,
-      raw?.data?.meta?.number,
-      raw?.meta?.number,
-      entry.name,
-      entry.label
+      entry?.number,
+      entry?.invNumber,
+      payloadMeta?.number,
+      entry?.name,
+      entry?.label
     ];
     let number = "";
     for (const value of candidates) {
@@ -62,25 +79,37 @@
       break;
     }
     if (!number) {
-      number = extractDocNumberFromPath(entry.path);
+      number = extractDocNumberFromPath(entry?.path);
     }
     const sourceNumbers = normalizeSourceNumbers(
-      entry.sourceNumbers ||
-        entry.sourceDocs ||
-        entry.convertedFrom?.numbers ||
-        raw?.data?.meta?.convertedFrom?.numbers ||
-        raw?.meta?.convertedFrom?.numbers
+      entry?.sourceNumbers ||
+        entry?.sourceDocs ||
+        entry?.convertedFrom?.numbers ||
+        payloadMeta?.convertedFrom?.numbers
     );
     if (!number && sourceNumbers.length) {
       number = sourceNumbers[0];
     }
-    const normalizedDocType = String(sourceDocType || "devis").trim().toLowerCase() || "devis";
+    return {
+      sourceDocType: String(sourceDocType || "devis").trim().toLowerCase() || "devis",
+      sourceDocNumber: number,
+      sourceDocDate: pickFirstTrimmedText(entry?.date, payloadMeta?.date),
+      sourceDocPath: String(entry?.path || "").trim(),
+      sourceNumbers
+    };
+  };
+  const getConvertedFromInfo = (entry, raw, sourceDocType = "devis") => {
+    if (!entry) return null;
+    const resolvedSource = resolveConvertedSourceSnapshot(entry, raw, sourceDocType);
+    const normalizedDocType = resolvedSource.sourceDocType;
     const convertedFrom = { docType: normalizedDocType, type: normalizedDocType };
-    const sourceId = String(entry.id || raw?.id || raw?.meta?.id || raw?.data?.meta?.id || "").trim();
+    const payloadMeta = resolveSourcePayloadMeta(raw);
+    const sourceId = String(entry.id || raw?.id || payloadMeta?.id || "").trim();
     if (sourceId) convertedFrom.id = sourceId;
-    if (number) convertedFrom.number = number;
-    if (sourceNumbers.length) convertedFrom.numbers = sourceNumbers;
-    if (entry.path) convertedFrom.path = String(entry.path);
+    if (resolvedSource.sourceDocNumber) convertedFrom.number = resolvedSource.sourceDocNumber;
+    if (resolvedSource.sourceNumbers.length) convertedFrom.numbers = resolvedSource.sourceNumbers;
+    if (resolvedSource.sourceDocPath) convertedFrom.path = resolvedSource.sourceDocPath;
+    if (resolvedSource.sourceDocDate) convertedFrom.date = resolvedSource.sourceDocDate;
     return convertedFrom;
   };
   const normalizeConvertedFrom = (value) => {
@@ -2364,43 +2393,12 @@
     return false;
   }
 
-  const SOURCE_ITEM_REF_FIELDS = ["ref", "reference", "code", "sku"];
-  const SOURCE_ITEM_DESIGNATION_FIELDS = [
-    "designation",
-    "product",
-    "name",
-    "label",
-    "article",
-    "description",
-    "desc"
-  ];
-  const SOURCE_ITEM_UNIT_FIELDS = ["unit", "unite"];
-  const SOURCE_ITEM_QTY_FIELDS = ["qty", "quantity", "qte", "quantite"];
-  const normalizeMergeText = (value) => String(value || "").trim().toLowerCase();
   const deepCloneValue = (value) => {
     try {
       return JSON.parse(JSON.stringify(value));
     } catch {
       return value;
     }
-  };
-  const toQuantityNumber = (value) => {
-    if (typeof value === "number") return Number.isFinite(value) ? value : 0;
-    if (value === undefined || value === null) return 0;
-    const raw = String(value).replace(/\u00A0/g, " ").trim();
-    if (!raw) return 0;
-    const parsed = Number(raw.replace(/\s+/g, "").replace(/,/g, "."));
-    return Number.isFinite(parsed) ? parsed : 0;
-  };
-  const pickFirstItemValue = (item, keys = []) => {
-    const source = item && typeof item === "object" ? item : {};
-    for (const key of keys) {
-      const value = source?.[key];
-      if (value !== undefined && value !== null && String(value).trim() !== "") {
-        return value;
-      }
-    }
-    return "";
   };
   const getInvoiceSourcePayload = (raw) => {
     const sourceLevel1 = raw && raw.data && typeof raw.data === "object" ? raw.data : raw;
@@ -2410,52 +2408,65 @@
         : sourceLevel1;
     return source && typeof source === "object" ? source : null;
   };
-  const getSourceItemReference = (item) =>
-    String(pickFirstItemValue(item, SOURCE_ITEM_REF_FIELDS) || "").trim();
-  const getSourceItemDesignation = (item) =>
-    String(pickFirstItemValue(item, SOURCE_ITEM_DESIGNATION_FIELDS) || "").trim();
-  const getSourceItemUnit = (item) =>
-    String(pickFirstItemValue(item, SOURCE_ITEM_UNIT_FIELDS) || "").trim();
-  const getSourceItemQuantity = (item) =>
-    toQuantityNumber(pickFirstItemValue(item, SOURCE_ITEM_QTY_FIELDS));
-  const setSourceItemQuantity = (item, quantity) => {
-    const nextQuantity = toQuantityNumber(quantity);
-    item.qty = nextQuantity;
-    SOURCE_ITEM_QTY_FIELDS.forEach((key) => {
-      if (Object.prototype.hasOwnProperty.call(item, key)) {
-        item[key] = nextQuantity;
-      }
-    });
+  const cloneSourceItemWithSourceMeta = (item, sourceMeta = {}) => {
+    const clonedItem = deepCloneValue(item && typeof item === "object" ? item : {});
+    const sourceDocType = String(
+      clonedItem.sourceDocType ||
+        clonedItem.source_doc_type ||
+        clonedItem.sourceType ||
+        clonedItem.source_type ||
+        sourceMeta.sourceDocType ||
+        ""
+    )
+      .trim()
+      .toLowerCase();
+    const sourceDocNumber = String(
+      clonedItem.sourceDocNumber ||
+        clonedItem.source_doc_number ||
+        clonedItem.sourceNumber ||
+        clonedItem.source_number ||
+        sourceMeta.sourceDocNumber ||
+        ""
+    ).trim();
+    const sourceDocDate = String(
+      clonedItem.sourceDocDate ||
+        clonedItem.source_doc_date ||
+        clonedItem.sourceDate ||
+        clonedItem.source_date ||
+        sourceMeta.sourceDocDate ||
+        ""
+    ).trim();
+    if (sourceDocType) {
+      clonedItem.sourceDocType = sourceDocType;
+      clonedItem.source_doc_type = sourceDocType;
+    }
+    if (sourceDocNumber) {
+      clonedItem.sourceDocNumber = sourceDocNumber;
+      clonedItem.source_doc_number = sourceDocNumber;
+    }
+    if (sourceDocDate) {
+      clonedItem.sourceDocDate = sourceDocDate;
+      clonedItem.source_doc_date = sourceDocDate;
+    }
+    return clonedItem;
   };
-  const buildSourceItemMergeKey = (item, index) => {
-    const reference = normalizeMergeText(getSourceItemReference(item));
-    if (reference) return `ref:${reference}`;
-    const designation = normalizeMergeText(getSourceItemDesignation(item));
-    if (!designation) return `row:${index}`;
-    const unit = normalizeMergeText(getSourceItemUnit(item));
-    return `designation:${designation}|unit:${unit}`;
-  };
-  const mergeSourceItemsFromRawDocuments = (rawDocuments = []) => {
-    const mergedItems = [];
-    const mergeIndexByKey = new Map();
-    rawDocuments.forEach((rawDoc) => {
+  const collectSourceItemsForConversion = (sources = [], fallbackSourceDocType = "") => {
+    const collectedItems = [];
+    sources.forEach((entryLike) => {
+      const entry = entryLike?.entry && typeof entryLike.entry === "object" ? entryLike.entry : {};
+      const rawDoc = entryLike?.raw ?? entryLike;
       const payload = getInvoiceSourcePayload(rawDoc);
       const sourceItems = Array.isArray(payload?.items) ? payload.items : [];
+      const sourceMeta = resolveConvertedSourceSnapshot(
+        entry,
+        rawDoc,
+        fallbackSourceDocType || entry?.docType || ""
+      );
       sourceItems.forEach((sourceItem) => {
-        const clonedItem = deepCloneValue(sourceItem && typeof sourceItem === "object" ? sourceItem : {});
-        const mergeKey = buildSourceItemMergeKey(clonedItem, mergedItems.length);
-        const existingIndex = mergeIndexByKey.get(mergeKey);
-        if (existingIndex === undefined) {
-          mergeIndexByKey.set(mergeKey, mergedItems.length);
-          mergedItems.push(clonedItem);
-          return;
-        }
-        const existingItem = mergedItems[existingIndex];
-        const mergedQty = getSourceItemQuantity(existingItem) + getSourceItemQuantity(clonedItem);
-        setSourceItemQuantity(existingItem, mergedQty);
+        collectedItems.push(cloneSourceItemWithSourceMeta(sourceItem, sourceMeta));
       });
     });
-    return mergedItems;
+    return collectedItems;
   };
 
   async function convertHistoryEntry(
@@ -2522,6 +2533,13 @@
       if (choices.date) metaTarget.date = choices.date;
       metaTarget.historyPath = null;
       metaTarget.historyDocType = null;
+      const clonedPayload = getInvoiceSourcePayload(cloned);
+      if (clonedPayload && Array.isArray(clonedPayload.items)) {
+        const sourceMeta = resolveConvertedSourceSnapshot(entry, raw, resolvedSourceDocType);
+        clonedPayload.items = clonedPayload.items.map((sourceItem) =>
+          cloneSourceItemWithSourceMeta(sourceItem, sourceMeta)
+        );
+      }
       if (normalizedTarget === "facture") {
         if (choices.paymentMethod) metaTarget.paymentMethod = choices.paymentMethod;
         else if ("paymentMethod" in metaTarget) delete metaTarget.paymentMethod;
@@ -2830,9 +2848,7 @@
     const mergedRaw = deepCloneValue(loadedEntries[0].raw);
     const mergedPayload = getInvoiceSourcePayload(mergedRaw);
     if (!mergedPayload) return false;
-    mergedPayload.items = mergeSourceItemsFromRawDocuments(
-      loadedEntries.map(({ raw }) => raw)
-    );
+    mergedPayload.items = collectSourceItemsForConversion(loadedEntries, normalizedSourceDocType);
     const sourceNumbers = normalizeSourceNumbers(
       sourceEntries.map((entry) => entry?.number || entry?.name || entry?.path || "")
     );

@@ -289,6 +289,9 @@ const ITEM_COLUMNS = [
   ["purchase_fodec_label", "TEXT"],
   ["purchase_fodec_rate", "REAL"],
   ["purchase_fodec_tva", "REAL"],
+  ["source_doc_type", "TEXT"],
+  ["source_doc_number", "TEXT"],
+  ["source_doc_date", "TEXT"],
   ["article_path", "TEXT"],
   ["PRIMARY KEY", "(document_id, position)"]
 ];

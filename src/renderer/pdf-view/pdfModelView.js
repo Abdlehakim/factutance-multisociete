@@ -546,7 +546,18 @@
         "total_purchase_ttc",
         "purchaseTotalTTC",
         "totalAchatTTC"
-      ])
+      ]),
+      sourceDocType: String(
+        pickFirstValue(source, ["sourceDocType", "source_doc_type", "sourceType", "source_type"]) || ""
+      )
+        .trim()
+        .toLowerCase(),
+      sourceDocNumber: String(
+        pickFirstValue(source, ["sourceDocNumber", "source_doc_number", "sourceNumber", "source_number"]) || ""
+      ).trim(),
+      sourceDocDate: String(
+        pickFirstValue(source, ["sourceDocDate", "source_doc_date", "sourceDate", "source_date"]) || ""
+      ).trim()
     };
   }
 
@@ -704,41 +715,85 @@
     return single ? [single] : [];
   }
 
+  function formatConvertedSourceHeadingDate(value = "") {
+    const raw = String(value || "").trim();
+    if (!raw) return "";
+    const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
+    return raw;
+  }
+
+  function resolveConvertedSourceHeadingLabel(sourceType = "") {
+    const normalizedType = normalizeDocType(sourceType || "bl");
+    const labelByType = {
+      bl: "BL N\u00B0 :",
+      devis: "Devis N\u00B0 :",
+      facture: "Facture N\u00B0 :",
+      fa: "FA N\u00B0 :",
+      bc: "BC N\u00B0 :",
+      be: "BE N\u00B0 :",
+      bs: "BS N\u00B0 :",
+      avoir: "Avoir N\u00B0 :"
+    };
+    return labelByType[normalizedType] || `${docTypeTitle(normalizedType)} N\u00B0 :`;
+  }
+
+  function resolveConvertedItemSourceGroup(item = {}, meta = {}, docType = "") {
+    if (normalizeDocType(docType) !== "facture") return null;
+    const convertedFrom =
+      meta && typeof meta.convertedFrom === "object" ? meta.convertedFrom : null;
+    const sourceType = normalizeDocType(
+      item.sourceDocType || convertedFrom?.docType || convertedFrom?.type || "bl"
+    );
+    let sourceNumber = String(item.sourceDocNumber || "").trim();
+    let sourceDate = String(item.sourceDocDate || "").trim();
+    const docLevelNumbers = resolveConvertedSourceNumbers(meta);
+    if (!sourceNumber && docLevelNumbers.length === 1) {
+      sourceNumber = String(docLevelNumbers[0] || "").trim();
+    }
+    if (!sourceDate && docLevelNumbers.length <= 1) {
+      sourceDate = String(convertedFrom?.date || "").trim();
+    }
+    if (!sourceNumber) return null;
+    const displayDate = formatConvertedSourceHeadingDate(sourceDate);
+    const headingText = `${resolveConvertedSourceHeadingLabel(sourceType)} ${sourceNumber}${
+      displayDate ? ` date ${displayDate}` : ""
+    }`;
+    return {
+      key: `${sourceType || "document"}|${sourceNumber.toLowerCase()}|${displayDate.toLowerCase()}`,
+      text: headingText
+    };
+  }
+
+  function buildConvertedSourceRenderRows(items = [], meta = {}, docType = "") {
+    if (!Array.isArray(items) || !items.length || normalizeDocType(docType) !== "facture") {
+      return Array.isArray(items)
+        ? items.map((item) => ({ type: "item", item }))
+        : [];
+    }
+    const renderRows = [];
+    let lastGroupKey = "";
+    let hasRenderedSourceGroup = false;
+    items.forEach((item) => {
+      const group = resolveConvertedItemSourceGroup(item, meta, docType);
+      if (group?.key && group.key !== lastGroupKey) {
+        renderRows.push({
+          type: "source",
+          group,
+          spaced: hasRenderedSourceGroup
+        });
+        lastGroupKey = group.key;
+        hasRenderedSourceGroup = true;
+      }
+      renderRows.push({ type: "item", item });
+    });
+    return renderRows;
+  }
+
   function applyConvertedSourcesLine(page, state, docType) {
     if (!page) return;
-    const tableWrap = page.querySelector(".doc-design1__table-wrap");
-    const parent = tableWrap?.parentNode;
     let node = page.querySelector("#modelPreviewConvertedSources");
-    if (!tableWrap || !parent) {
-      if (node) node.remove();
-      return;
-    }
-    const numbers =
-      docType === "facture"
-        ? resolveConvertedSourceNumbers(state?.meta && typeof state.meta === "object" ? state.meta : {})
-        : [];
-    if (!numbers.length) {
-      if (node) node.remove();
-      return;
-    }
-    if (!node) {
-      node = document.createElement("div");
-      node.id = "modelPreviewConvertedSources";
-      node.className = "doc-design1__converted-sources";
-    }
-    if (node.parentNode !== parent || node.nextSibling !== tableWrap) {
-      parent.insertBefore(node, tableWrap);
-    }
-    node.innerHTML = "";
-    const label = document.createElement("span");
-    label.className = "doc-design1__converted-sources-label";
-    label.textContent = "Documents sources :";
-    const value = document.createElement("span");
-    value.className = "doc-design1__converted-sources-value";
-    value.textContent = numbers.join(", ");
-    node.appendChild(label);
-    node.appendChild(document.createTextNode(" "));
-    node.appendChild(value);
+    if (node) node.remove();
   }
 
   function setApprovalName(page, nodeId, value) {
@@ -914,9 +969,52 @@
     const body = table.querySelector("tbody");
     if (!body) return;
     body.innerHTML = "";
-    const inputItems = Array.isArray(state?.items) ? state.items.map((item) => normalizePreviewItem(item)) : [];
-    const rows = inputItems.length ? inputItems : [{}];
-    rows.forEach((item) => {
+    const inputItems = Array.isArray(state?.items)
+      ? state.items.map((item) => normalizePreviewItem(item))
+      : [];
+    const hasProductContent = inputItems.some((item) => hasText(item?.product));
+    const hasDescContent = inputItems.some((item) => hasText(item?.desc));
+    const contentColumnKey =
+      visibleByKey.product !== false && hasProductContent
+        ? "product"
+        : visibleByKey.desc !== false && hasDescContent
+          ? "desc"
+          : visibleByKey.product !== false
+            ? "product"
+            : visibleByKey.desc !== false
+              ? "desc"
+              : columns.find(({ key }) => visibleByKey[key] !== false)?.key || "";
+    const renderRows = buildConvertedSourceRenderRows(
+      inputItems,
+      state?.meta && typeof state.meta === "object" ? state.meta : {},
+      docType
+    );
+    const rows = renderRows.length ? renderRows : [{ type: "item", item: {} }];
+    rows.forEach((entry) => {
+      if (entry?.type === "source") {
+        const row = document.createElement("tr");
+        row.classList.add("doc-design1__source-row");
+        if (entry?.spaced) row.classList.add("doc-design1__source-row--spaced");
+        columns.forEach(({ domKey, key }) => {
+          const cell = document.createElement("td");
+          cell.dataset.col = domKey;
+          const headerCell = headerCells.find((node) => String(node.dataset?.col || "").trim() === domKey);
+          if (headerCell?.className) cell.className = headerCell.className;
+          if (key === contentColumnKey) {
+            const heading = document.createElement("div");
+            heading.className = "doc-design1__source-heading";
+            heading.textContent = String(entry?.group?.text || "").trim();
+            cell.appendChild(heading);
+          } else {
+            cell.innerHTML = "&nbsp;";
+          }
+          setNodeVisibility(cell, visibleByKey[key] !== false);
+          row.appendChild(cell);
+        });
+        body.appendChild(row);
+        return;
+      }
+      const item = entry?.item && typeof entry.item === "object" ? entry.item : {};
       const qty = toFiniteNumber(item.qty, 0);
       const price = toFiniteNumber(item.price, 0);
       const purchasePrice = toFiniteNumber(item.purchasePrice, price);

@@ -223,20 +223,40 @@ body.exporting-pdf .pdf-preview-modal__content .pdf-page {
   font-size: 14px;
 }
 .pdf-converted-sources {
-  margin: 8px 0 8px;
-  padding: 6px 10px;
-  border: 1px solid rgba(21, 51, 94, 0.24);
-  border-radius: 6px;
+  display: none !important;
+}
+.doc-design1__table-cell-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.doc-design1__table-cell-main {
+  min-width: 0;
+}
+.doc-design1__source-row td {
+  border-bottom: 0 !important;
+  padding-bottom: 0;
+  overflow: visible;
+}
+.doc-design1__source-row--spaced td {
+  padding-top: 8px;
+}
+.doc-design1__source-row + tr td {
+  padding-top: 1px;
+}
+.doc-design1__source-heading {
+  display: block;
   font-size: 12px;
   line-height: 1.35;
-  background: rgba(21, 51, 94, 0.03);
-}
-.pdf-converted-sources__label {
+  font-style: italic;
   font-weight: 700;
-  color: var(--items-head-bg, var(--primary, #15335e));
-}
-.pdf-converted-sources__value {
-  font-weight: 500;
+  text-decoration: underline;
+  color: #0f172a;
+  white-space: normal;
+  position: relative;
+  left: -78px;
+  width: calc(100% + 78px);
 }
 .pdf-small {
   font-size: 12px;

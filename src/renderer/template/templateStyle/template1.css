@@ -215,6 +215,49 @@
   white-space: nowrap;
 }
 
+.doc-design1__converted-sources {
+  display: none !important;
+}
+
+.doc-design1__table-cell-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.doc-design1__table-cell-main {
+  min-width: 0;
+}
+
+.doc-design1__source-row td {
+  border-bottom: 0 !important;
+  padding-bottom: 0;
+  overflow: visible;
+}
+
+.doc-design1__source-row--spaced td {
+  padding-top: 8px;
+}
+
+.doc-design1__source-row + tr td {
+  padding-top: 1px;
+}
+
+.doc-design1__source-heading {
+  display: block;
+  font-size: 11px;
+  line-height: 1.3;
+  font-style: italic;
+  font-weight: 700;
+  text-decoration: underline;
+  color: #0f172a;
+  white-space: normal;
+  position: relative;
+  left: -78px;
+  width: calc(100% + 78px);
+}
+
 .doc-design1.hide-col-ref [data-col="ref"],
 .doc-design1.hide-col-product [data-col="product"],
 .doc-design1.hide-col-desc [data-col="desc"],

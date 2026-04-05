@@ -1159,6 +1159,110 @@
       if (!ordered.length) append(convertedFromMeta.number);
       return ordered;
     })();
+    const pickTextValue = (target, keys = []) => {
+      const source = target && typeof target === "object" ? target : {};
+      for (const key of keys) {
+        const value = source?.[key];
+        if (value === undefined || value === null) continue;
+        const text = String(value).trim();
+        if (text) return text;
+      }
+      return "";
+    };
+    const formatConvertedSourceHeadingDate = (value = "") => {
+      const raw = String(value || "").trim();
+      if (!raw) return "";
+      const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
+      return raw;
+    };
+    const resolveConvertedSourceHeadingLabel = (sourceType = "") => {
+      const normalizedType = String(sourceType || "bl").trim().toLowerCase() || "bl";
+      const labelByType = {
+        bl: "BL N&deg; :",
+        devis: "Devis N&deg; :",
+        facture: "Facture N&deg; :",
+        fa: "FA N&deg; :",
+        bc: "BC N&deg; :",
+        be: "BE N&deg; :",
+        bs: "BS N&deg; :",
+        avoir: "Avoir N&deg; :"
+      };
+      const fallbackDocLabel =
+        normalizedType === "fa" ? "Facture d'achat" :
+        normalizedType === "devis" ? "Devis" :
+        normalizedType === "bl" ? "Bon de livraison" :
+        normalizedType === "bc" ? "Bon de commande" :
+        normalizedType === "be" ? "Bon d'entree" :
+        normalizedType === "bs" ? "Bon de sortie" :
+        normalizedType === "avoir" ? "Facture d'avoir" :
+        "Facture";
+      return labelByType[normalizedType] || `${esc(fallbackDocLabel)} N&deg; :`;
+    };
+    const resolveConvertedItemSourceGroup = (item = {}) => {
+      if (type !== "facture") return null;
+      const sourceType = String(
+        item.sourceDocType ||
+          item.source_doc_type ||
+          item.sourceType ||
+          item.source_type ||
+          convertedFromMeta?.docType ||
+          convertedFromMeta?.type ||
+          "bl"
+      )
+        .trim()
+        .toLowerCase();
+      let sourceNumber = pickTextValue(item, [
+        "sourceDocNumber",
+        "source_doc_number",
+        "sourceNumber",
+        "source_number"
+      ]);
+      let sourceDate = pickTextValue(item, [
+        "sourceDocDate",
+        "source_doc_date",
+        "sourceDate",
+        "source_date"
+      ]);
+      if (!sourceNumber && convertedSourceNumbers.length === 1) {
+        sourceNumber = String(convertedSourceNumbers[0] || "").trim();
+      }
+      if (!sourceDate && convertedSourceNumbers.length <= 1) {
+        sourceDate = String(convertedFromMeta?.date || "").trim();
+      }
+      if (!sourceNumber) return null;
+      const displayDate = formatConvertedSourceHeadingDate(sourceDate);
+      return {
+        key: `${sourceType || "document"}|${sourceNumber.toLowerCase()}|${displayDate.toLowerCase()}`,
+        text: `${resolveConvertedSourceHeadingLabel(sourceType)} ${esc(sourceNumber)}${
+          displayDate ? ` date ${esc(displayDate)}` : ""
+        }`
+      };
+    };
+    const buildConvertedSourceRenderRows = (previewItems = []) => {
+      if (!Array.isArray(previewItems) || !previewItems.length || type !== "facture") {
+        return Array.isArray(previewItems)
+          ? previewItems.map((item) => ({ type: "item", item }))
+          : [];
+      }
+      const renderRows = [];
+      let lastGroupKey = "";
+      let hasRenderedSourceGroup = false;
+      previewItems.forEach((item) => {
+        const group = resolveConvertedItemSourceGroup(item);
+        if (group?.key && group.key !== lastGroupKey) {
+          renderRows.push({
+            type: "source",
+            group,
+            spaced: hasRenderedSourceGroup
+          });
+          lastGroupKey = group.key;
+          hasRenderedSourceGroup = true;
+        }
+        renderRows.push({ type: "item", item });
+      });
+      return renderRows;
+    };
     const pdfOptions = ex?.pdf && typeof ex.pdf === "object" ? ex.pdf : {};
     const showSeal = pdfOptions.showSeal !== false;
     const showSignature = pdfOptions.showSignature !== false;
@@ -1404,13 +1508,55 @@
           ? toNum(purchaseDiscountSource, 0)
           : toNum(source.purchaseDiscount ?? source.discount, 0),
         fodec: resolveNormalizedFodecConfig(source, { purchase: false }),
-        purchaseFodec: resolveNormalizedFodecConfig(source, { purchase: true })
+        purchaseFodec: resolveNormalizedFodecConfig(source, { purchase: true }),
+        sourceDocType: pickTextValue(source, [
+          "sourceDocType",
+          "source_doc_type",
+          "sourceType",
+          "source_type"
+        ]).toLowerCase(),
+        sourceDocNumber: pickTextValue(source, [
+          "sourceDocNumber",
+          "source_doc_number",
+          "sourceNumber",
+          "source_number"
+        ]),
+        sourceDocDate: pickTextValue(source, [
+          "sourceDocDate",
+          "source_doc_date",
+          "sourceDate",
+          "source_date"
+        ])
       };
     };
     const normalizedItems = items.map((raw) => normalizePreviewItem(raw));
+    const hasProductContent = normalizedItems.some((item) => pickTextValue(item, ["product"]));
+    const hasDescContent = normalizedItems.some((item) => pickTextValue(item, ["desc"]));
 
-    const rowHtml = normalizedItems.map((it) => {
-
+    const sourceHeadingColumnKey = columns.some((col) => col.key === "product")
+      ? (hasProductContent
+          ? "product"
+          : (columns.some((col) => col.key === "desc") && hasDescContent ? "desc" : "product"))
+      : columns.some((col) => col.key === "desc")
+        ? "desc"
+        : (columns[0]?.key || "");
+    const buildSourceHeadingRowHtml = (group, { spaced = false } = {}) => {
+      const rowClasses = ["pdf-row", "doc-design1__source-row"];
+      if (spaced) rowClasses.push("doc-design1__source-row--spaced");
+      const headingHtml = String(group?.text || "").trim();
+      const cells = columns.map((col) => {
+        const classes = [];
+        if (col.nowrap) classes.push("no-wrap");
+        const classAttr = classes.length ? ` class="${classes.join(" ")}"` : "";
+        const dataAttr = ` data-col="${col.key}"`;
+        if (col.key === sourceHeadingColumnKey) {
+          return `<td${dataAttr}${classAttr}><div class="doc-design1__source-heading">${headingHtml}</div></td>`;
+        }
+        return `<td${dataAttr}${classAttr}>&nbsp;</td>`;
+      });
+      return `<tr class="${rowClasses.join(" ")}">${cells.join("")}</tr>`;
+    };
+    const buildItemRowHtml = (it) => {
       const unitPrice = usePurchasePricing ? it.purchasePrice : it.price;
       const base   = it.qty * unitPrice;
       const activeDiscountRate = usePurchasePricing ? it.purchaseDiscount : it.discount;
@@ -1503,7 +1649,13 @@
         }
       });
       return `<tr class="pdf-row">${cells.join("")}</tr>`;
-    });
+    };
+    const renderRows = buildConvertedSourceRenderRows(normalizedItems);
+    const rowHtml = (renderRows.length ? renderRows : [{ type: "item", item: {} }]).map((entry) =>
+      entry?.type === "source"
+        ? buildSourceHeadingRowHtml(entry?.group, { spaced: !!entry?.spaced })
+        : buildItemRowHtml(entry?.item || {})
+    );
 
     let subtotalItems = 0, totalDisc = 0, totalTVA_items = 0;
     let fodecHTSum = 0, fodecTVASum = 0;
@@ -1906,14 +2058,6 @@
             ${clientAddressHTML}
           </fieldset>
         </div>`;
-    const convertedSourcesLineHTML =
-      type === "facture" && convertedSourceNumbers.length
-        ? `<div class="pdf-converted-sources">
-            <span class="pdf-converted-sources__label">Documents sources :</span>
-            <span class="pdf-converted-sources__value">${esc(convertedSourceNumbers.join(", "))}</span>
-          </div>`
-        : "";
-
     const buildSummaryBlock = () => `
         <div class="pdf-summary-row">
           <div class="pdf-summary-left" style="display:flex;flex-direction:column;flex:1;justify-content:space-between;min-height:100%;gap: 10px;">
@@ -2084,7 +2228,7 @@
       if (isFirstPage) pageClasses.push("first-page");
       if (includeSummary) pageClasses.push("last-page");
       const pageClass = pageClasses.join(" ");
-      const topSection = isFirstPage ? `${docHeadHTML}${partiesBlockHTML}${convertedSourcesLineHTML}` : "";
+      const topSection = isFirstPage ? `${docHeadHTML}${partiesBlockHTML}` : "";
       const footerHTML = includeFooter ? footerBlockHTML : "";
       const bottomSection = includeSummary
         ? `<div class="pdf-bottom-wrap">${summarySection}${footerHTML}</div>`

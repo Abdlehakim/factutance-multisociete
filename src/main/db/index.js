@@ -2109,6 +2109,24 @@ const normalizeDocumentItem = (item = {}, position = 0, { docType = "" } = {}) =
     (typeof source.__articlePath === "string" && source.__articlePath.trim()) ||
     (typeof source.path === "string" && source.path.trim()) ||
     "";
+  const sourceDocType = normalizeTextValue(
+    source.sourceDocType ??
+      source.source_doc_type ??
+      source.sourceType ??
+      source.source_type
+  ).toLowerCase();
+  const sourceDocNumber = normalizeTextValue(
+    source.sourceDocNumber ??
+      source.source_doc_number ??
+      source.sourceNumber ??
+      source.source_number
+  );
+  const sourceDocDate = normalizeTextValue(
+    source.sourceDocDate ??
+      source.source_doc_date ??
+      source.sourceDate ??
+      source.source_date
+  );
   return {
     position,
     ref: normalizeTextValue(source.ref),
@@ -2152,6 +2170,9 @@ const normalizeDocumentItem = (item = {}, position = 0, { docType = "" } = {}) =
           source.purchase_fodec_tva ??
           0
       ) ?? 0,
+    sourceDocType,
+    sourceDocNumber,
+    sourceDocDate,
     articlePath
   };
 };
@@ -3598,6 +3619,9 @@ const buildDocumentItemsFromRows = (rows = [], { docType = "" } = {}) => {
         rate: purchaseFodecRate,
         tva: purchaseFodecTva
       },
+      sourceDocType: readTextValue(row.source_doc_type),
+      sourceDocNumber: readTextValue(row.source_doc_number),
+      sourceDocDate: readTextValue(row.source_doc_date),
       __articlePath: readTextValue(row.article_path)
     };
   });
@@ -7947,6 +7971,10 @@ const getDocumentByNumber = (rawNumber) => {
 const saveDocumentData = (db, docType, documentId, payload = {}) => {
   const table = resolveDocTableName(docType);
   const itemsTable = resolveDocItemsTableName(docType);
+  alignSchema(db, { tables: [table, itemsTable, "document_tax_breakdown"] });
+  invalidateTableColumnCache(db, table);
+  invalidateTableColumnCache(db, itemsTable);
+  invalidateTableColumnCache(db, "document_tax_breakdown");
   const normalized = normalizeDocumentPayload(payload, { docType });
   const row = { ...normalized.row, document_id: documentId };
   const entries = filterRowEntriesByTableColumns(db, table, row);
@@ -7975,57 +8003,49 @@ const saveDocumentData = (db, docType, documentId, payload = {}) => {
 
   db.prepare(`DELETE FROM ${itemsTable} WHERE document_id = ?`).run(documentId);
   if (normalized.items.length) {
+    const itemColumnDefs = [
+      ["document_id", () => documentId],
+      ["position", (item) => item.position],
+      ["ref", (item) => item.ref],
+      ["product", (item) => item.product],
+      ["desc", (item) => item.desc],
+      ["qty", (item) => item.qty],
+      ["unit", (item) => item.unit],
+      ["purchase_price", (item) => item.purchasePrice],
+      ["purchase_tva", (item) => item.purchaseTva],
+      ["price", (item) => item.price],
+      ["tva", (item) => item.tva],
+      ["discount", (item) => item.discount],
+      ["fodec_enabled", (item) => item.fodecEnabled],
+      ["fodec_label", (item) => item.fodecLabel],
+      ["fodec_rate", (item) => item.fodecRate],
+      ["fodec_tva", (item) => item.fodecTva],
+      ["purchase_fodec_enabled", (item) => item.purchaseFodecEnabled],
+      ["purchase_fodec_label", (item) => item.purchaseFodecLabel],
+      ["purchase_fodec_rate", (item) => item.purchaseFodecRate],
+      ["purchase_fodec_tva", (item) => item.purchaseFodecTva],
+      ["source_doc_type", (item) => item.sourceDocType],
+      ["source_doc_number", (item) => item.sourceDocNumber],
+      ["source_doc_date", (item) => item.sourceDocDate],
+      ["article_path", (item) => item.articlePath]
+    ];
+    const availableItemColumns = getCachedTableColumns(db, itemsTable);
+    const activeItemColumnDefs = itemColumnDefs.filter(([column]) =>
+      !availableItemColumns.size || availableItemColumns.has(column)
+    );
     const insertItem = db.prepare(
       `
         INSERT INTO ${itemsTable} (
-          document_id,
-          position,
-          ref,
-          product,
-          desc,
-          qty,
-          unit,
-          purchase_price,
-          purchase_tva,
-          price,
-          tva,
-          discount,
-          fodec_enabled,
-          fodec_label,
-          fodec_rate,
-          fodec_tva,
-          purchase_fodec_enabled,
-          purchase_fodec_label,
-          purchase_fodec_rate,
-          purchase_fodec_tva,
-          article_path
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ${activeItemColumnDefs.map(([column]) => column).join(",\n          ")}
+        ) VALUES (${activeItemColumnDefs.map(() => "?").join(", ")})
       `
     );
     normalized.items.forEach((item) => {
-      insertItem.run(
-        documentId,
-        item.position,
-        item.ref,
-        item.product,
-        item.desc,
-        item.qty,
-        item.unit,
-        item.purchasePrice,
-        item.purchaseTva,
-        item.price,
-        item.tva,
-        item.discount,
-        item.fodecEnabled,
-        item.fodecLabel,
-        item.fodecRate,
-        item.fodecTva,
-        item.purchaseFodecEnabled,
-        item.purchaseFodecLabel,
-        item.purchaseFodecRate,
-        item.purchaseFodecTva,
-        item.articlePath
-      );
+      const values = activeItemColumnDefs.map(([, getter]) => {
+        const value = typeof getter === "function" ? getter(item) : null;
+        return value === undefined ? null : value;
+      });
+      insertItem.run(...values);
     });
   }
 
