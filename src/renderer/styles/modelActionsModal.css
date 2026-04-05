@@ -191,7 +191,7 @@ background: #f3f8ff;
   backdrop-filter: blur(2px);
   position: absolute;
   left: 50%;
-  bottom: 12px;
+  bottom: 43px;
   transform: translateX(-50%);
   z-index: 6;
   pointer-events: none;
@@ -473,6 +473,7 @@ background: #f3f8ff;
   line-height: 1.1;
   z-index: 1;
   display: inline-block;
+  text-transform: uppercase;
 }
 
 #modelActionsModal #modelActionsPreview .doc-design1__client-name {

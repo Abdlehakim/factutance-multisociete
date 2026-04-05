@@ -102,6 +102,10 @@ body.exporting-pdf .pdf-model-template .pdf-model-preview-page {
   gap: 12px !important;
 }
 
+.pdf-model-template .pdf-model-preview-page .doc-design1__section > legend {
+  text-transform: uppercase;
+}
+
 .pdf-model-template .pdf-model-preview-page .doc-design1__converted-sources {
   display: none !important;
 }
