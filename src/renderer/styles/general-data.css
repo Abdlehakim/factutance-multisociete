@@ -2011,7 +2011,8 @@ body:not(.printing):not(.print-mode):not(.exporting-pdf)
 .doc-history__converted-number {
   font-weight: 700;
   min-width: 0;
-  word-break: break-word;
+  word-break: normal;
+  overflow-wrap: anywhere;
 }
 .doc-history__converted-number--empty {
   color: #94a3b8;
@@ -2040,6 +2041,18 @@ body:not(.printing):not(.print-mode):not(.exporting-pdf)
   align-items: center;
   margin: 0;
   white-space: nowrap;
+}
+#docHistoryModal .doc-history__converted-source-row--stack-value {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+#docHistoryModal .doc-history__converted-source-row--stack-value > .doc-history__converted-number {
+  width: 100%;
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: anywhere;
 }
 #docHistoryModal .doc-history__converted-sources-control {
   position: relative;

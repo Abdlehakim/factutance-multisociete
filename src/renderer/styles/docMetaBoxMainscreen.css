@@ -1054,6 +1054,16 @@
 
 }
 
+.doc-export-wizard #docHistoryExportFieldPanel.field-toggle-panel--fields.is-empty-state {
+  align-items: center;
+  justify-content: center;
+}
+
+.doc-export-wizard #docHistoryExportFieldPanel.field-toggle-panel--fields.is-empty-state > .doc-export-wizard__empty {
+  width: 100%;
+  text-align: center;
+}
+
 .doc-export-wizard #docHistoryExportClientPanel.field-toggle-panel--fields {
     position: static;
     display: flex;

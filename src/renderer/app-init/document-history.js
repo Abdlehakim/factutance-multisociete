@@ -4156,7 +4156,7 @@
             }
             return `<span class="doc-history__converted-number doc-history__converted-number--empty"><span class="doc-history__converted-placeholder" aria-hidden="true">&mdash;</span></span>`;
           };
-          const buildConvertedInfoRowHtml = (label, valueHtml) => `<span class="doc-history__converted-source-row">
+          const buildConvertedInfoRowHtml = (label, valueHtml, rowClass = "") => `<span class="doc-history__converted-source-row${rowClass ? ` ${rowClass}` : ""}">
                   <span class="doc-history__converted-label">${label}</span>
                   ${valueHtml}
                 </span>`;
@@ -4213,13 +4213,15 @@
           const paymentMethodHtml = showPaymentBlock
             ? buildConvertedInfoRowHtml(
                 "Mode de paiement :",
-                buildConvertedValueHtml(paymentMethodDisplay)
+                buildConvertedValueHtml(paymentMethodDisplay),
+                "doc-history__converted-source-row--stack-value"
               )
             : "";
           const paymentReferenceHtml = showPaymentBlock
             ? buildConvertedInfoRowHtml(
                 "R\u00e9f. paiement :",
-                buildConvertedValueHtml(paymentReferenceDisplay)
+                buildConvertedValueHtml(paymentReferenceDisplay),
+                "doc-history__converted-source-row--stack-value"
               )
             : "";
           const convertedFromRowHtml = `<div class="doc-history__converted-badge">

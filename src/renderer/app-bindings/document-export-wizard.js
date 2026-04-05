@@ -2912,7 +2912,9 @@
     renderFieldTabs();
     panel.textContent = "";
     panel.classList.remove("is-meta-panel");
+    panel.classList.remove("is-empty-state");
     if (!st.fields.length) {
+      panel.classList.add("is-empty-state");
       panel.removeAttribute("aria-labelledby");
       const p = document.createElement("p");
       p.className = "doc-export-wizard__empty";
@@ -2925,6 +2927,7 @@
     const activeTabId = `docHistoryExportFieldTab-${fieldId(activeTab)}`;
     panel.setAttribute("aria-labelledby", activeTabId);
     if (!activeFields.length) {
+      panel.classList.add("is-empty-state");
       const p = document.createElement("p");
       p.className = "doc-export-wizard__empty";
       p.textContent = "Aucun champ disponible dans cette categorie.";
