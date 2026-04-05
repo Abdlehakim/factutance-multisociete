@@ -738,13 +738,22 @@
     return labelByType[normalizedType] || `${docTypeTitle(normalizedType)} N\u00B0 :`;
   }
 
+  function shouldRenderConvertedSourceGroups(docType = "", sourceType = "") {
+    const normalizedDocType = normalizeDocType(docType);
+    const normalizedSourceType = normalizeDocType(sourceType);
+    return (
+      (normalizedDocType === "facture" && normalizedSourceType === "bl") ||
+      (normalizedDocType === "bl" && normalizedSourceType === "facture")
+    );
+  }
+
   function resolveConvertedItemSourceGroup(item = {}, meta = {}, docType = "") {
-    if (normalizeDocType(docType) !== "facture") return null;
     const convertedFrom =
       meta && typeof meta.convertedFrom === "object" ? meta.convertedFrom : null;
     const sourceType = normalizeDocType(
       item.sourceDocType || convertedFrom?.docType || convertedFrom?.type || "bl"
     );
+    if (!shouldRenderConvertedSourceGroups(docType, sourceType)) return null;
     let sourceNumber = String(item.sourceDocNumber || "").trim();
     let sourceDate = String(item.sourceDocDate || "").trim();
     const docLevelNumbers = resolveConvertedSourceNumbers(meta);
@@ -766,7 +775,12 @@
   }
 
   function buildConvertedSourceRenderRows(items = [], meta = {}, docType = "") {
-    if (!Array.isArray(items) || !items.length || normalizeDocType(docType) !== "facture") {
+    const normalizedDocType = normalizeDocType(docType);
+    if (
+      !Array.isArray(items) ||
+      !items.length ||
+      !["facture", "bl"].includes(normalizedDocType)
+    ) {
       return Array.isArray(items)
         ? items.map((item) => ({ type: "item", item }))
         : [];

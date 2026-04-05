@@ -1199,8 +1199,15 @@
         "Facture";
       return labelByType[normalizedType] || `${esc(fallbackDocLabel)} N&deg; :`;
     };
+    const shouldRenderConvertedSourceGroups = (docType = "", sourceType = "") => {
+      const normalizedDocType = String(docType || "").trim().toLowerCase();
+      const normalizedSourceType = String(sourceType || "").trim().toLowerCase();
+      return (
+        (normalizedDocType === "facture" && normalizedSourceType === "bl") ||
+        (normalizedDocType === "bl" && normalizedSourceType === "facture")
+      );
+    };
     const resolveConvertedItemSourceGroup = (item = {}) => {
-      if (type !== "facture") return null;
       const sourceType = String(
         item.sourceDocType ||
           item.source_doc_type ||
@@ -1212,6 +1219,7 @@
       )
         .trim()
         .toLowerCase();
+      if (!shouldRenderConvertedSourceGroups(type, sourceType)) return null;
       let sourceNumber = pickTextValue(item, [
         "sourceDocNumber",
         "source_doc_number",
@@ -1240,7 +1248,11 @@
       };
     };
     const buildConvertedSourceRenderRows = (previewItems = []) => {
-      if (!Array.isArray(previewItems) || !previewItems.length || type !== "facture") {
+      if (
+        !Array.isArray(previewItems) ||
+        !previewItems.length ||
+        !["facture", "bl"].includes(String(type || "").trim().toLowerCase())
+      ) {
         return Array.isArray(previewItems)
           ? previewItems.map((item) => ({ type: "item", item }))
           : [];
