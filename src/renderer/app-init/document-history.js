@@ -4113,27 +4113,10 @@
           const paymentRow = paymentRowHtml(entry, currency, entryDocType);
           const reglementRow = reglementRowHtml(entry);
           const convertedFrom = entry && typeof entry.convertedFrom === "object" ? entry.convertedFrom : null;
-          const convertedFromDocType = convertedFrom?.docType || convertedFrom?.type
-            ? String(convertedFrom.docType || convertedFrom.type).toLowerCase()
-            : "";
           const convertedFromNumbers = resolveConvertedFromNumbers(convertedFrom);
           const convertedFromNumber = convertedFromNumbers[0] || "";
           const hasMultipleConvertedFromNumbers = convertedFromNumbers.length > 1;
-          const isDevisOrBlOrigin =
-            ["devis", "bl"].includes(convertedFromDocType) ||
-            (!convertedFromDocType && !!convertedFromNumber);
-          const showFactureConvertedFrom =
-            entryDocType === "facture" &&
-            isDevisOrBlOrigin &&
-            convertedFromNumber;
-          const showBlConvertedFrom =
-            entryDocType === "bl" &&
-            !!convertedFromNumber;
-          const showAvoirConvertedFrom =
-            entryDocType === "avoir" &&
-            !!convertedFromNumber;
-          const showConvertedFrom =
-            showFactureConvertedFrom || showBlConvertedFrom || showAvoirConvertedFrom;
+          const showConvertedFrom = convertedFromNumbers.length > 0;
           const paymentMethodRaw =
             entry && (entry.paymentMethod || entry.mode)
               ? String(entry.paymentMethod || entry.mode).trim()
@@ -4148,86 +4131,102 @@
             entry && (entry.paymentReference || entry.paymentRef)
               ? String(entry.paymentReference || entry.paymentRef).trim()
               : "";
-          const showPaymentBlock = entryDocType === "facture";
-          const paymentMethodDisplay = showPaymentBlock
-            ? paymentMethodLabel || "N.R."
-            : "";
-          const paymentReferenceDisplay = showPaymentBlock
-            ? paymentReferenceRaw || "N.R."
-            : "";
+          const showPaymentBlock = historyModalState.docType === "facture";
+          const paymentMethodDisplay = paymentMethodRaw
+            ? paymentMethodLabel || paymentMethodRaw
+            : showPaymentBlock
+              ? "N.R."
+              : "";
+          const paymentReferenceDisplay = paymentReferenceRaw
+            ? paymentReferenceRaw
+            : showPaymentBlock
+              ? "N.R."
+              : "";
           const convertedFromPopoverId = `docHistoryConvertedSourcesPopover-${actualIndex}`;
           const convertedFromListHtml = convertedFromNumbers
             .map((number) => `<li class="doc-history__converted-sources-item">${safeHtml(number)}</li>`)
             .join("");
+          const buildConvertedValueHtml = (value, { allowNeutral = true } = {}) => {
+            const text = String(value || "").trim();
+            if (text) {
+              return `<span class="doc-history__converted-number">${safeHtml(text)}</span>`;
+            }
+            if (!allowNeutral) {
+              return `<span class="doc-history__converted-number"></span>`;
+            }
+            return `<span class="doc-history__converted-number doc-history__converted-number--empty"><span class="doc-history__converted-placeholder" aria-hidden="true">&mdash;</span></span>`;
+          };
+          const buildConvertedInfoRowHtml = (label, valueHtml) => `<span class="doc-history__converted-source-row">
+                  <span class="doc-history__converted-label">${label}</span>
+                  ${valueHtml}
+                </span>`;
           const convertedFromControlHtml =
             hasMultipleConvertedFromNumbers && showConvertedFrom
-              ? `<span class="doc-history__converted-sources-control">
-                    <button
-                      type="button"
-                      class="doc-history__converted-sources-toggle"
-                      data-doc-history-converted-sources-toggle="${actualIndex}"
-                      aria-label="Afficher les documents sources (${convertedFromNumbers.length})"
-                      aria-haspopup="dialog"
-                      aria-expanded="false"
-                      aria-controls="${escapeAttr(convertedFromPopoverId)}"
-                    >
-                      <svg class="doc-history__converted-sources-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true" focusable="false">
-                        <circle cx="5" cy="7" r="1.2" fill="currentColor" stroke="none"></circle>
-                        <circle cx="5" cy="12" r="1.2" fill="currentColor" stroke="none"></circle>
-                        <circle cx="5" cy="17" r="1.2" fill="currentColor" stroke="none"></circle>
-                        <path d="M8 7h11M8 12h11M8 17h11" stroke-linecap="round"></path>
-                      </svg>
-                    </button>
-                    <div
-                      id="${escapeAttr(convertedFromPopoverId)}"
-                      class="doc-history__converted-sources-popover"
-                      role="dialog"
-                      aria-modal="false"
-                      hidden
-                    >
-                      <div class="doc-history__converted-sources-popover-header">
-                        <span class="doc-history__converted-sources-popover-title">Converti de</span>
-                        <button
-                          type="button"
-                          class="swbDialog__close doc-history__converted-sources-popover-close"
-                          data-doc-history-converted-sources-close
-                          aria-label="Fermer la liste des documents sources"
-                        >
-                          <svg stroke="currentColor" fill="none" stroke-width="0" viewBox="0 0 24 24" height="200px" width="200px" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M16.3394 9.32245C16.7434 8.94589 16.7657 8.31312 16.3891 7.90911C16.0126 7.50509 15.3798 7.48283 14.9758 7.85938L12.0497 10.5866L9.32245 7.66048C8.94589 7.25647 8.31312 7.23421 7.90911 7.61076C7.50509 7.98731 7.48283 8.62008 7.85938 9.0241L10.5866 11.9502L7.66048 14.6775C7.25647 15.054 7.23421 15.6868 7.61076 16.0908C7.98731 16.4948 8.62008 16.5171 9.0241 16.1405L11.9502 13.4133L14.6775 16.3394C15.054 16.7434 15.6868 16.7657 16.0908 16.3891C16.4948 16.0126 16.5171 15.3798 16.1405 14.9758L13.4133 12.0497L16.3394 9.32245Z" fill="currentColor"></path>
-                            <path fill-rule="evenodd" clip-rule="evenodd" d="M1 12C1 5.92487 5.92487 1 12 1C18.0751 1 23 5.92487 23 12C23 18.0751 18.0751 23 12 23C5.92487 23 1 18.0751 1 12ZM12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12C21 16.9706 16.9706 21 12 21Z" fill="currentColor"></path>
-                          </svg>
-                        </button>
+              ? `<span class="doc-history__converted-number doc-history__converted-number--control">
+                    <span class="doc-history__converted-sources-control">
+                      <button
+                        type="button"
+                        class="doc-history__converted-sources-toggle"
+                        data-doc-history-converted-sources-toggle="${actualIndex}"
+                        aria-label="Afficher les documents sources (${convertedFromNumbers.length})"
+                        aria-haspopup="dialog"
+                        aria-expanded="false"
+                        aria-controls="${escapeAttr(convertedFromPopoverId)}"
+                      >
+                        <svg class="doc-history__converted-sources-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true" focusable="false">
+                          <circle cx="5" cy="7" r="1.2" fill="currentColor" stroke="none"></circle>
+                          <circle cx="5" cy="12" r="1.2" fill="currentColor" stroke="none"></circle>
+                          <circle cx="5" cy="17" r="1.2" fill="currentColor" stroke="none"></circle>
+                          <path d="M8 7h11M8 12h11M8 17h11" stroke-linecap="round"></path>
+                        </svg>
+                      </button>
+                      <div
+                        id="${escapeAttr(convertedFromPopoverId)}"
+                        class="doc-history__converted-sources-popover"
+                        role="dialog"
+                        aria-modal="false"
+                        hidden
+                      >
+                        <div class="doc-history__converted-sources-popover-header">
+                          <span class="doc-history__converted-sources-popover-title">Converti de</span>
+                          <button
+                            type="button"
+                            class="swbDialog__close doc-history__converted-sources-popover-close"
+                            data-doc-history-converted-sources-close
+                            aria-label="Fermer la liste des documents sources"
+                          >
+                            <svg stroke="currentColor" fill="none" stroke-width="0" viewBox="0 0 24 24" height="200px" width="200px" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M16.3394 9.32245C16.7434 8.94589 16.7657 8.31312 16.3891 7.90911C16.0126 7.50509 15.3798 7.48283 14.9758 7.85938L12.0497 10.5866L9.32245 7.66048C8.94589 7.25647 8.31312 7.23421 7.90911 7.61076C7.50509 7.98731 7.48283 8.62008 7.85938 9.0241L10.5866 11.9502L7.66048 14.6775C7.25647 15.054 7.23421 15.6868 7.61076 16.0908C7.98731 16.4948 8.62008 16.5171 9.0241 16.1405L11.9502 13.4133L14.6775 16.3394C15.054 16.7434 15.6868 16.7657 16.0908 16.3891C16.4948 16.0126 16.5171 15.3798 16.1405 14.9758L13.4133 12.0497L16.3394 9.32245Z" fill="currentColor"></path>
+                              <path fill-rule="evenodd" clip-rule="evenodd" d="M1 12C1 5.92487 5.92487 1 12 1C18.0751 1 23 5.92487 23 12C23 18.0751 18.0751 23 12 23C5.92487 23 1 18.0751 1 12ZM12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12C21 16.9706 16.9706 21 12 21Z" fill="currentColor"></path>
+                            </svg>
+                          </button>
+                        </div>
+                        <ul class="doc-history__converted-sources-list">${convertedFromListHtml}</ul>
                       </div>
-                      <ul class="doc-history__converted-sources-list">${convertedFromListHtml}</ul>
-                    </div>
+                    </span>
                   </span>`
-              : `<span class="doc-history__converted-number">${safeHtml(convertedFromNumber)}</span>`;
-          const convertedFromHtml = showConvertedFrom
-            ? hasMultipleConvertedFromNumbers
-              ? `<span class="doc-history__converted-source-row">
-                  <span class="doc-history__converted-label">Converti de :</span>
-                  ${convertedFromControlHtml}
-                </span>`
-              : `<span class="doc-history__converted-label">Converti de :</span>
-                  ${convertedFromControlHtml}`
-            : "";
+              : buildConvertedValueHtml(convertedFromNumber);
+          const convertedFromHtml = buildConvertedInfoRowHtml(
+            "Converti de :",
+            showConvertedFrom ? convertedFromControlHtml : buildConvertedValueHtml("")
+          );
           const paymentMethodHtml = showPaymentBlock
-            ? `<span class="doc-history__converted-label">Mode de paiement :</span>
-                  <span class="doc-history__converted-number">${safeHtml(paymentMethodDisplay)}</span>`
+            ? buildConvertedInfoRowHtml(
+                "Mode de paiement :",
+                buildConvertedValueHtml(paymentMethodDisplay)
+              )
             : "";
           const paymentReferenceHtml = showPaymentBlock
-            ? `<span class="doc-history__converted-label">R\u00e9f. paiement :</span>
-                  <span class="doc-history__converted-number">${safeHtml(paymentReferenceDisplay)}</span>`
+            ? buildConvertedInfoRowHtml(
+                "R\u00e9f. paiement :",
+                buildConvertedValueHtml(paymentReferenceDisplay)
+              )
             : "";
-          const convertedFromRowHtml =
-            showConvertedFrom || showPaymentBlock
-              ? `<div class="doc-history__converted-badge">
+          const convertedFromRowHtml = `<div class="doc-history__converted-badge">
                   ${convertedFromHtml}
                   ${paymentMethodHtml}
                   ${paymentReferenceHtml}
-              </div>`
-              : "";
+              </div>`;
           const showStatusSelect = historyModalState.docType === "facture";
           const statusMenuHtml = showStatusSelect
               ? (() => {
