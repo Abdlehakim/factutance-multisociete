@@ -2227,6 +2227,223 @@ function buildBonEntreePreviewTitle(stateInput) {
   let lastPreviewHtml = "";
   let lastPreviewCss = "";
   let lastPreviewPdfPath = "";
+  let pdfPreviewLastRowStretchFrame = null;
+  let pdfPreviewLastRowStretchObserver = null;
+  let pdfPreviewLastRowStretchObservedElements = [];
+  let pdfPreviewLastRowStretchTimers = [];
+  let pdfPreviewScrollResetFrame = null;
+  let pdfPreviewScrollResetTimers = [];
+
+  function cancelPdfPreviewLastRowStretchFrame() {
+    if (!pdfPreviewLastRowStretchFrame) return;
+    if (typeof window !== "undefined" && typeof window.cancelAnimationFrame === "function") {
+      window.cancelAnimationFrame(pdfPreviewLastRowStretchFrame);
+    } else {
+      clearTimeout(pdfPreviewLastRowStretchFrame);
+    }
+    pdfPreviewLastRowStretchFrame = null;
+  }
+
+  function cancelPdfPreviewLastRowStretchTimers() {
+    pdfPreviewLastRowStretchTimers.forEach((timer) => clearTimeout(timer));
+    pdfPreviewLastRowStretchTimers = [];
+  }
+
+  function cancelPdfPreviewScrollReset() {
+    if (pdfPreviewScrollResetFrame) {
+      if (typeof window !== "undefined" && typeof window.cancelAnimationFrame === "function") {
+        window.cancelAnimationFrame(pdfPreviewScrollResetFrame);
+      } else {
+        clearTimeout(pdfPreviewScrollResetFrame);
+      }
+      pdfPreviewScrollResetFrame = null;
+    }
+    pdfPreviewScrollResetTimers.forEach((timer) => clearTimeout(timer));
+    pdfPreviewScrollResetTimers = [];
+  }
+
+  function resetPdfPreviewModalScroll(overlay = document.getElementById("pdfPreviewModal")) {
+    const content = overlay?.querySelector?.("#pdfPreviewContent");
+    if (!content) return;
+    content.scrollTop = 0;
+    content.scrollLeft = 0;
+  }
+
+  function schedulePdfPreviewModalScrollReset(overlay = document.getElementById("pdfPreviewModal")) {
+    if (!overlay) return;
+    cancelPdfPreviewScrollReset();
+    const raf =
+      typeof window !== "undefined" && typeof window.requestAnimationFrame === "function"
+        ? window.requestAnimationFrame.bind(window)
+        : (fn) => setTimeout(fn, 16);
+    const runAfterLayout = () => {
+      pdfPreviewScrollResetFrame = raf(() => {
+        pdfPreviewScrollResetFrame = null;
+        resetPdfPreviewModalScroll(overlay);
+      });
+    };
+    resetPdfPreviewModalScroll(overlay);
+    pdfPreviewScrollResetFrame = raf(runAfterLayout);
+    [80, 240, 500].forEach((delay) => {
+      const timer = setTimeout(() => {
+        pdfPreviewScrollResetTimers = pdfPreviewScrollResetTimers.filter((item) => item !== timer);
+        resetPdfPreviewModalScroll(overlay);
+      }, delay);
+      pdfPreviewScrollResetTimers.push(timer);
+    });
+  }
+
+  function focusPdfPreviewCloseButton(overlay) {
+    const closeBtn = overlay?.querySelector?.("#pdfPreviewModalClose");
+    if (!closeBtn) return;
+    try {
+      closeBtn.focus({ preventScroll: true });
+    } catch {
+      closeBtn.focus();
+    }
+  }
+
+  function isPdfPreviewNodeVisible(node) {
+    if (!node) return false;
+    if (node.hidden) return false;
+    if (String(node.getAttribute?.("aria-hidden") || "").toLowerCase() === "true") return false;
+    if (node.style?.display === "none") return false;
+    if (typeof window !== "undefined" && typeof window.getComputedStyle === "function") {
+      const computed = window.getComputedStyle(node);
+      if (computed?.display === "none") return false;
+    }
+    return true;
+  }
+
+  function clearPdfPreviewTemplate2LastRowStretch(overlay = document.getElementById("pdfPreviewModal")) {
+    if (!overlay?.querySelectorAll) return;
+    overlay
+      .querySelectorAll(".pdf-table tbody tr.pdf-row--stretched, .doc-design1__table tbody tr.doc-design1__row--stretched")
+      .forEach((row) => {
+        row.classList.remove("pdf-row--stretched", "doc-design1__row--stretched");
+        row.style.height = "";
+        row.style.minHeight = "";
+        Array.from(row.cells || []).forEach((cell) => {
+          cell.style.height = "";
+          cell.style.minHeight = "";
+          cell.style.paddingBottom = "";
+          cell.style.verticalAlign = "";
+        });
+      });
+  }
+
+  function syncPdfPreviewTemplate2LastRowStretch(overlay = document.getElementById("pdfPreviewModal")) {
+    if (!overlay?.querySelectorAll) return;
+    clearPdfPreviewTemplate2LastRowStretch(overlay);
+    const tableTargets = [
+      ...Array.from(overlay.querySelectorAll('#pdfPreviewContent .pdf-page[data-template="template2"]')).map((page) => ({
+        page,
+        tableWrap: page.querySelector(".tableDiv"),
+        table: page.querySelector(".pdf-table"),
+        rowSelector: "tr.pdf-row:not(.doc-design1__source-row)",
+        stretchClass: "pdf-row--stretched"
+      })),
+      ...Array.from(
+        overlay.querySelectorAll(
+          '#pdfPreviewContent .model-actions-layout__preview[data-template-key="template2"] .pdf-model-preview-page.doc-design1'
+        )
+      ).map((page) => ({
+        page,
+        tableWrap: page.querySelector(".doc-design1__table-wrap"),
+        table: page.querySelector(".doc-design1__table"),
+        rowSelector: "tr.doc-design1__row:not(.doc-design1__source-row), tr:not(.doc-design1__source-row)",
+        stretchClass: "doc-design1__row--stretched"
+      }))
+    ].filter(({ page, tableWrap, table }) =>
+      isPdfPreviewNodeVisible(page) && isPdfPreviewNodeVisible(tableWrap) && isPdfPreviewNodeVisible(table)
+    );
+    tableTargets.forEach(({ tableWrap, table, rowSelector, stretchClass }) => {
+      const tbody = table?.tBodies?.[0];
+      if (!tableWrap || !table || !tbody) return;
+      const realRows = Array.from(tbody.querySelectorAll(rowSelector)).filter(isPdfPreviewNodeVisible);
+      const lastRealRow = realRows[realRows.length - 1];
+      if (!lastRealRow) return;
+      const visibleCells = Array.from(lastRealRow.cells || []).filter(isPdfPreviewNodeVisible);
+      if (!visibleCells.length) return;
+      const wrapStyles =
+        typeof window !== "undefined" && typeof window.getComputedStyle === "function"
+          ? window.getComputedStyle(tableWrap)
+          : null;
+      const wrapPaddingTop = Number.parseFloat(wrapStyles?.paddingTop || "0") || 0;
+      const wrapPaddingBottom = Number.parseFloat(wrapStyles?.paddingBottom || "0") || 0;
+      const availableHeight = Math.max(0, tableWrap.clientHeight - wrapPaddingTop - wrapPaddingBottom);
+      const tableHeight = table.getBoundingClientRect().height;
+      const leftoverHeight = Math.max(0, Math.floor(availableHeight - tableHeight));
+      if (leftoverHeight < 0.5) return;
+      lastRealRow.classList.add(stretchClass);
+      visibleCells.forEach((cell) => {
+        const computed =
+          typeof window !== "undefined" && typeof window.getComputedStyle === "function"
+            ? window.getComputedStyle(cell)
+            : null;
+        const basePaddingBottom = Number.parseFloat(computed?.paddingBottom || "0") || 0;
+        cell.style.paddingBottom = `${basePaddingBottom + leftoverHeight}px`;
+        cell.style.verticalAlign = "top";
+      });
+    });
+  }
+
+  function schedulePdfPreviewTemplate2LastRowStretch(overlay = document.getElementById("pdfPreviewModal")) {
+    if (!overlay) return;
+    cancelPdfPreviewLastRowStretchFrame();
+    cancelPdfPreviewLastRowStretchTimers();
+    const raf =
+      typeof window !== "undefined" && typeof window.requestAnimationFrame === "function"
+        ? window.requestAnimationFrame.bind(window)
+        : (fn) => setTimeout(fn, 16);
+    const runAfterLayout = () => {
+      pdfPreviewLastRowStretchFrame = raf(() => {
+        pdfPreviewLastRowStretchFrame = null;
+        syncPdfPreviewTemplate2LastRowStretch(overlay);
+      });
+    };
+    pdfPreviewLastRowStretchFrame = raf(runAfterLayout);
+    [80, 240, 500, 1000].forEach((delay) => {
+      const timer = setTimeout(() => {
+        pdfPreviewLastRowStretchTimers = pdfPreviewLastRowStretchTimers.filter((item) => item !== timer);
+        syncPdfPreviewTemplate2LastRowStretch(overlay);
+      }, delay);
+      pdfPreviewLastRowStretchTimers.push(timer);
+    });
+    if (typeof document !== "undefined" && typeof document.fonts?.ready?.then === "function") {
+      document.fonts.ready
+        .then(() => {
+          if (document.contains(overlay)) syncPdfPreviewTemplate2LastRowStretch(overlay);
+        })
+        .catch(() => {});
+    }
+  }
+
+  function refreshPdfPreviewTemplate2LastRowStretchObserver(overlay = document.getElementById("pdfPreviewModal")) {
+    if (!overlay || typeof ResizeObserver !== "function") return;
+    const content = overlay.querySelector("#pdfPreviewContent");
+    const root = overlay.querySelector("#pdfRoot");
+    const pages = Array.from(
+      overlay.querySelectorAll(
+        '#pdfPreviewContent .pdf-page[data-template="template2"], #pdfPreviewContent .model-actions-layout__preview[data-template-key="template2"] .pdf-model-preview-page.doc-design1'
+      )
+    );
+    const targets = [overlay, content, root, ...pages].filter(
+      (node, index, list) => !!node && list.indexOf(node) === index
+    );
+    if (!pdfPreviewLastRowStretchObserver) {
+      pdfPreviewLastRowStretchObserver = new ResizeObserver(() => {
+        schedulePdfPreviewTemplate2LastRowStretch(overlay);
+      });
+    }
+    const sameTargets =
+      pdfPreviewLastRowStretchObservedElements.length === targets.length &&
+      pdfPreviewLastRowStretchObservedElements.every((node, index) => node === targets[index]);
+    if (sameTargets) return;
+    pdfPreviewLastRowStretchObserver.disconnect();
+    targets.forEach((node) => pdfPreviewLastRowStretchObserver.observe(node));
+    pdfPreviewLastRowStretchObservedElements = targets;
+  }
 
   function resetLastPreviewState() {
     lastPreviewState = null;
@@ -2323,6 +2540,8 @@ function buildBonEntreePreviewTitle(stateInput) {
     const renderResult = renderInvoiceSnapshotIntoRoot(renderer, lastPreviewState, assets, root);
     const styleEl = overlay.querySelector("#pdfPreviewModalStyle");
     if (styleEl) styleEl.textContent = renderResult.css || "";
+    refreshPdfPreviewTemplate2LastRowStretchObserver(overlay);
+    schedulePdfPreviewTemplate2LastRowStretch(overlay);
   }
 
   function updatePdfPreviewOptionsFromToggles(overlay) {
@@ -2696,6 +2915,12 @@ function buildBonEntreePreviewTitle(stateInput) {
   function closePdfPreviewModal() {
     const overlay = document.getElementById("pdfPreviewModal");
     if (!overlay) return;
+    cancelPdfPreviewLastRowStretchFrame();
+    cancelPdfPreviewLastRowStretchTimers();
+    cancelPdfPreviewScrollReset();
+    clearPdfPreviewTemplate2LastRowStretch(overlay);
+    if (pdfPreviewLastRowStretchObserver) pdfPreviewLastRowStretchObserver.disconnect();
+    pdfPreviewLastRowStretchObservedElements = [];
     overlay.classList.remove("is-open");
     overlay.hidden = true;
     overlay.setAttribute("aria-hidden", "true");
@@ -2767,6 +2992,12 @@ function buildBonEntreePreviewTitle(stateInput) {
     const onToggleChange = () => updatePdfPreviewOptionsFromToggles(overlay);
     showSealInput?.addEventListener("change", onToggleChange);
     showSignatureInput?.addEventListener("change", onToggleChange);
+    if (overlay.dataset.template2LastRowStretchResizeWired !== "1") {
+      overlay.dataset.template2LastRowStretchResizeWired = "1";
+      window.addEventListener("resize", () => {
+        schedulePdfPreviewTemplate2LastRowStretch(document.getElementById("pdfPreviewModal"));
+      });
+    }
 
     return overlay;
   }
@@ -2830,6 +3061,7 @@ function buildBonEntreePreviewTitle(stateInput) {
     overlay.hidden = false;
     overlay.classList.add("is-open");
     overlay.setAttribute("aria-hidden", "false");
+    schedulePdfPreviewModalScrollReset(overlay);
     const exportBtn = overlay.querySelector("#pdfPreviewModalExport");
     if (exportBtn) {
       const docLabel = docTypeLabel(st.meta?.docType);
@@ -2842,8 +3074,9 @@ function buildBonEntreePreviewTitle(stateInput) {
       printBtn.textContent = docLabel ? `Imprimer ${docLabel}` : "Imprimer";
       printBtn.disabled = false;
     }
-    const closeBtn = overlay.querySelector("#pdfPreviewModalClose");
-    closeBtn?.focus();
+    refreshPdfPreviewTemplate2LastRowStretchObserver(overlay);
+    schedulePdfPreviewTemplate2LastRowStretch(overlay);
+    focusPdfPreviewCloseButton(overlay);
   }
 
   async function previewWithholdingDataAsPDF(rawData) {
@@ -2897,13 +3130,13 @@ function buildBonEntreePreviewTitle(stateInput) {
     overlay.hidden = false;
     overlay.classList.add("is-open");
     overlay.setAttribute("aria-hidden", "false");
+    schedulePdfPreviewModalScrollReset(overlay);
     const printBtn = overlay.querySelector("#pdfPreviewModalPrint");
     if (printBtn) {
       printBtn.textContent = "Imprimer le certificat";
       printBtn.disabled = false;
     }
-    const closeBtn = overlay.querySelector("#pdfPreviewModalClose");
-    closeBtn?.focus();
+    focusPdfPreviewCloseButton(overlay);
   }
 
   function previewPdfFileInModal(filePath, options = {}) {
@@ -2939,13 +3172,13 @@ function buildBonEntreePreviewTitle(stateInput) {
     overlay.hidden = false;
     overlay.classList.add("is-open");
     overlay.setAttribute("aria-hidden", "false");
+    schedulePdfPreviewModalScrollReset(overlay);
     const printBtn = overlay.querySelector("#pdfPreviewModalPrint");
     if (printBtn) {
       printBtn.textContent = isWithholding ? "Imprimer le certificat" : "Imprimer le document";
       printBtn.disabled = false;
     }
-    const closeBtn = overlay.querySelector("#pdfPreviewModalClose");
-    closeBtn?.focus();
+    focusPdfPreviewCloseButton(overlay);
   }
 
   function closeXmlPreviewModal() {

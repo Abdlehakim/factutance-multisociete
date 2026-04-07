@@ -1925,6 +1925,10 @@ aspect-ratio: 1 / 1;
   inset: auto;
   background: transparent;
 }
+#pdfPreviewModal .pdf-preview-modal__content,
+#pdfPreviewModal #pdfRoot {
+  overflow-anchor: none;
+}
 body:not(.printing):not(.print-mode):not(.exporting-pdf)
   #pdfPreviewModal
   #pdfPreviewContent

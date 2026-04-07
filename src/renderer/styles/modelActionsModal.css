@@ -1121,6 +1121,7 @@ background: #f3f8ff;
   #modelActionsPreview
   .doc-design1__table-wrap {
   border: 1px solid var(--items-head-bg, var(--primary, #15335e));
+  overflow: hidden;
 }
 
 #modelActionsModal

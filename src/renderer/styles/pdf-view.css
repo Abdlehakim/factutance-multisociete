@@ -715,6 +715,7 @@ body.exporting-pdf .pdf-preview-modal__content .pdf-page {
 
 .pdf-page[data-template="template2"] .tableDiv {
   border: 1px solid var(--items-head-bg, var(--primary, #15335e));
+  overflow: hidden;
 }
 
 .pdf-page[data-template="template2"] .pdf-table,
@@ -746,6 +747,10 @@ body.exporting-pdf .pdf-preview-modal__content .pdf-page {
 .pdf-page[data-template="template2"] .pdf-table tbody tr:last-child,
 .pdf-page[data-template="template2"] .pdf-table tbody tr:last-child td {
   height: auto;
+}
+
+.pdf-page[data-template="template2"] .pdf-table tbody tr.pdf-row--stretched td {
+  vertical-align: top;
 }
 
 .pdf-page[data-template="template2"] .pdf-table thead th {

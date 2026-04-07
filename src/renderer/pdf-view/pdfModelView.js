@@ -1051,6 +1051,7 @@
       const explicitSaleTtc = taxesEnabled ? parseLooseNumber(item.totalTtc) : NaN;
       const explicitPurchaseTtc = taxesEnabled ? parseLooseNumber(item.totalPurchaseTtc) : NaN;
       const row = document.createElement("tr");
+      row.classList.add("doc-design1__row");
       columns.forEach(({ domKey, key }) => {
         const cell = document.createElement("td");
         cell.dataset.col = domKey;

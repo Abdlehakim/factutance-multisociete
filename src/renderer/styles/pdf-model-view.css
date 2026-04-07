@@ -89,6 +89,14 @@ body.print-mode .pdf-preview-modal__actions {
   height: var(--model-preview-a4-height) !important;
 }
 
+body:not(.printing):not(.print-mode):not(.exporting-pdf)
+  #pdfPreviewModal
+  .pdf-model-template
+  .model-actions-layout__preview-stage
+  > .pdf-model-preview-page {
+  margin: 10px auto !important;
+}
+
 body.printing .pdf-model-template .pdf-model-preview-page,
 body.print-mode .pdf-model-template .pdf-model-preview-page,
 body.exporting-pdf .pdf-model-template .pdf-model-preview-page {

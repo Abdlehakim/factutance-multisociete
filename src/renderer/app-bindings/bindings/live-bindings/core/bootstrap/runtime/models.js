@@ -776,24 +776,85 @@
                   });
               });
             };
+            const isPreviewTableNodeVisible = (node) => {
+              if (!node) return false;
+              if (node.hidden) return false;
+              if (String(node.getAttribute("aria-hidden") || "").toLowerCase() === "true") return false;
+              if (node.style.display === "none") return false;
+              if (typeof window !== "undefined" && typeof window.getComputedStyle === "function") {
+                const computed = window.getComputedStyle(node);
+                if (computed?.display === "none") return false;
+              }
+              return true;
+            };
+            const getVisiblePreviewHeaderCells = (table) =>
+              Array.from(table?.querySelectorAll?.("thead th[data-col]") || []).filter(isPreviewTableNodeVisible);
+            const clearPreviewTableLastRowStretch = (table) => {
+              const targetTable = table || previewRoot.querySelector(".doc-design1__table");
+              if (!targetTable) return;
+              targetTable.style.height = "";
+              targetTable.style.minHeight = "";
+              targetTable.querySelectorAll("tbody tr.doc-design1__row--stretched").forEach((row) => {
+                row.classList.remove("doc-design1__row--stretched");
+                row.style.height = "";
+                row.style.minHeight = "";
+                Array.from(row.cells || []).forEach((cell) => {
+                  cell.style.height = "";
+                  cell.style.minHeight = "";
+                  cell.style.paddingBottom = "";
+                  cell.style.verticalAlign = "";
+                });
+              });
+            };
+            const syncPreviewTableLastRowStretch = () => {
+              const previewWrap = previewRoot.closest(".model-actions-layout__preview");
+              const isTemplate2Preview = String(previewWrap?.dataset?.templateKey || "").trim() === "template2";
+              if (!isTemplate2Preview) {
+                clearPreviewTableLastRowStretch();
+                return;
+              }
+              const tableWrap = previewRoot.querySelector(".doc-design1__table-wrap");
+              const table = previewRoot.querySelector(".doc-design1__table");
+              const tbody = table?.tBodies?.[0];
+              clearPreviewTableLastRowStretch(table);
+              if (!tableWrap || !table || !tbody) return;
+              if (!isPreviewTableNodeVisible(tableWrap) || !isPreviewTableNodeVisible(table)) return;
+              const realRows = Array.from(tbody.querySelectorAll("tr.doc-design1__row")).filter(isPreviewTableNodeVisible);
+              const lastRealRow = realRows[realRows.length - 1];
+              if (!lastRealRow) return;
+              const visibleCells = Array.from(lastRealRow.cells || []).filter(isPreviewTableNodeVisible);
+              if (!visibleCells.length) return;
+              const wrapStyles =
+                typeof window !== "undefined" && typeof window.getComputedStyle === "function"
+                  ? window.getComputedStyle(tableWrap)
+                  : null;
+              const wrapPaddingTop = Number.parseFloat(wrapStyles?.paddingTop || "0") || 0;
+              const wrapPaddingBottom = Number.parseFloat(wrapStyles?.paddingBottom || "0") || 0;
+              const availableHeight = Math.max(0, tableWrap.clientHeight - wrapPaddingTop - wrapPaddingBottom);
+              const tableHeight = table.getBoundingClientRect().height;
+              const leftoverHeight = Math.max(0, Math.floor(availableHeight - tableHeight));
+              if (leftoverHeight < 0.5) {
+                return;
+              }
+              lastRealRow.classList.add("doc-design1__row--stretched");
+              visibleCells.forEach((cell) => {
+                const computed =
+                  typeof window !== "undefined" && typeof window.getComputedStyle === "function"
+                    ? window.getComputedStyle(cell)
+                    : null;
+                const basePaddingBottom = Number.parseFloat(computed?.paddingBottom || "0") || 0;
+                cell.style.paddingBottom = `${basePaddingBottom + leftoverHeight}px`;
+                cell.style.verticalAlign = "top";
+              });
+            };
+            helpers.syncModelPreviewLastRowStretch = syncPreviewTableLastRowStretch;
             const syncBeLastVisibleTableColumn = () => {
               const table = previewRoot.querySelector(".doc-design1__table");
               if (!table) return;
               table
                 .querySelectorAll(".doc-design1__table-cell--be-last-visible")
                 .forEach((cell) => cell.classList.remove("doc-design1__table-cell--be-last-visible"));
-              const headerCells = Array.from(table.querySelectorAll("thead th[data-col]"));
-              const visibleHeaderCells = headerCells.filter((cell) => {
-                if (!cell) return false;
-                if (cell.hidden) return false;
-                if (String(cell.getAttribute("aria-hidden") || "").toLowerCase() === "true") return false;
-                if (cell.style.display === "none") return false;
-                if (typeof window !== "undefined" && typeof window.getComputedStyle === "function") {
-                  const computed = window.getComputedStyle(cell);
-                  if (computed?.display === "none") return false;
-                }
-                return true;
-              });
+              const visibleHeaderCells = getVisiblePreviewHeaderCells(table);
               const lastVisibleHeader = visibleHeaderCells[visibleHeaderCells.length - 1];
               const lastVisibleCol = String(lastVisibleHeader?.dataset?.col || "").trim();
               if (!lastVisibleCol) return;
@@ -1517,11 +1578,21 @@
             syncTextFromSource("modelPreviewBsIssuedBy", "modelPdfOptionsBsIssuedBy");
             syncTextFromSource("modelPreviewBsCheckedBy", "modelPdfOptionsBsCheckedBy");
             syncTextFromSource("modelPreviewBsValidatedBy", "modelPdfOptionsBsValidatedBy");
+            syncPreviewTableLastRowStretch();
+            if (typeof requestAnimationFrame === "function") {
+              requestAnimationFrame(() => {
+                syncPreviewTableLastRowStretch();
+              });
+            }
+            if (typeof helpers.refreshModelPreviewLastRowStretchObserver === "function") {
+              helpers.refreshModelPreviewLastRowStretchObserver();
+            }
           };
           helpers.updateModelPreview = updateModelPreview;
           raf = w.requestAnimationFrame?.bind(w) || ((fn) => setTimeout(fn, 16));
           caf = w.cancelAnimationFrame?.bind(w) || clearTimeout;
           modelPreviewUpdateFrame = null;
+          modelPreviewLastRowStretchFrame = null;
           scheduleModelPreviewUpdate = () => {
             if (modelPreviewUpdateFrame) caf(modelPreviewUpdateFrame);
             modelPreviewUpdateFrame = raf(() => {
@@ -1529,6 +1600,40 @@
               updateModelPreview();
             });
           };
+          modelPreviewLastRowStretchObserver = null;
+          modelPreviewLastRowStretchObservedElements = [];
+          scheduleModelPreviewLastRowStretchSync = () => {
+            if (modelPreviewLastRowStretchFrame) caf(modelPreviewLastRowStretchFrame);
+            modelPreviewLastRowStretchFrame = raf(() => {
+              modelPreviewLastRowStretchFrame = null;
+              if (typeof helpers.syncModelPreviewLastRowStretch === "function") {
+                helpers.syncModelPreviewLastRowStretch();
+              }
+            });
+          };
+          refreshModelPreviewLastRowStretchObserver = () => {
+            if (typeof ResizeObserver !== "function") return;
+            const preview = getEl("modelActionsPreview");
+            const previewPanel = modelActionsModal?.querySelector(".model-actions-layout__preview") || null;
+            const previewStage = modelActionsModal?.querySelector(".model-actions-layout__preview-stage") || null;
+            const tableWrap = preview?.querySelector(".doc-design1__table-wrap") || null;
+            const targets = [previewPanel, previewStage, preview, tableWrap].filter(
+              (node, index, list) => !!node && list.indexOf(node) === index
+            );
+            if (!modelPreviewLastRowStretchObserver) {
+              modelPreviewLastRowStretchObserver = new ResizeObserver(() => {
+                scheduleModelPreviewLastRowStretchSync();
+              });
+            }
+            const sameTargets =
+              modelPreviewLastRowStretchObservedElements.length === targets.length &&
+              modelPreviewLastRowStretchObservedElements.every((node, index) => node === targets[index]);
+            if (sameTargets) return;
+            modelPreviewLastRowStretchObserver.disconnect();
+            targets.forEach((node) => modelPreviewLastRowStretchObserver.observe(node));
+            modelPreviewLastRowStretchObservedElements = targets;
+          };
+          helpers.refreshModelPreviewLastRowStretchObserver = refreshModelPreviewLastRowStretchObserver;
 
           liveBindingsContext = (SEM.__liveBindingsContext = SEM.__liveBindingsContext || {});
           liveBindingsContext.ADD_FORM_SCOPE_SELECTOR = ADD_FORM_SCOPE_SELECTOR;
@@ -2060,6 +2165,12 @@
                 modelActionsModal.removeAttribute("hidden");
                 modelActionsModal.setAttribute("aria-hidden", "false");
                 modelActionsModal.classList.add("is-open");
+                if (typeof scheduleModelPreviewUpdate === "function") {
+                  scheduleModelPreviewUpdate();
+                }
+                if (typeof scheduleModelPreviewLastRowStretchSync === "function") {
+                  scheduleModelPreviewLastRowStretchSync();
+                }
                 scheduleModalWhNoteMount();
                 if (!wasOpen) {
                   resetModelStepperFlow();
@@ -2210,6 +2321,11 @@
           setBsRemarksEditorContent(getEl("bsRemarksModal")?.value || "");
           applyModelPreviewScale(readModelPreviewScale(), { setDefault: true });
           updateModelPreview();
+          if (typeof w.addEventListener === "function" && modelActionsModal?.dataset.previewLastRowStretchResizeWired !== "1") {
+            modelActionsModal.dataset.previewLastRowStretchResizeWired = "1";
+            w.addEventListener("resize", scheduleModelPreviewLastRowStretchSync);
+          }
+          refreshModelPreviewLastRowStretchObserver();
 
           toJsonString = (value) => {
             try {

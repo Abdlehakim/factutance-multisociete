@@ -162,7 +162,7 @@
   min-height: 97px;
   display: flex;
   flex-direction: column;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .doc-design1__table {
@@ -197,6 +197,10 @@
 .doc-design1__table tbody tr,
 .doc-design1__table tbody td {
   height: auto;
+}
+
+.doc-design1__table tbody tr.doc-design1__row--stretched td {
+  vertical-align: top;
 }
 
 .doc-design1__table thead th:last-child,
