@@ -493,6 +493,41 @@
     return "";
   }
 
+  function resolvePreviewFodecRate(source, { purchase = false } = {}) {
+    const target = source && typeof source === "object" ? source : {};
+    const objectKey = purchase ? "purchaseFodec" : "fodec";
+    const objectValue = target[objectKey];
+    if (objectValue && typeof objectValue === "object") {
+      const hasConfigValue =
+        Object.prototype.hasOwnProperty.call(objectValue, "enabled") ||
+        Object.prototype.hasOwnProperty.call(objectValue, "rate");
+      if (hasConfigValue) {
+        const rate = toFiniteNumber(objectValue.rate, 0);
+        const enabled = Object.prototype.hasOwnProperty.call(objectValue, "enabled")
+          ? !!objectValue.enabled
+          : Math.abs(rate) > 1e-9;
+        return enabled ? rate : 0;
+      }
+    } else if (objectValue != null && objectValue !== "") {
+      return objectValue;
+    }
+
+    const scalar = pickFirstValue(
+      target,
+      purchase
+        ? ["fodecPurchase", "purchaseFodecRate", "purchase_fodec_rate", "fodecA"]
+        : ["fodecSale", "fodecRate", "fodec_rate", "fodecV"]
+    );
+    if (scalar && typeof scalar === "object") {
+      const rate = toFiniteNumber(scalar.rate, 0);
+      const enabled = Object.prototype.hasOwnProperty.call(scalar, "enabled")
+        ? !!scalar.enabled
+        : Math.abs(rate) > 1e-9;
+      return enabled ? rate : 0;
+    }
+    return scalar;
+  }
+
   function normalizePreviewItem(raw = {}) {
     const source = raw && typeof raw === "object" ? raw : {};
     return {
@@ -531,8 +566,8 @@
         "purchaseRemise",
         "remiseAchat"
       ]),
-      fodecSale: pickFirstValue(source, ["fodecSale", "fodec", "fodecRate", "fodecV"]),
-      fodecPurchase: pickFirstValue(source, ["fodecPurchase", "purchaseFodec", "fodecA"]),
+      fodecSale: resolvePreviewFodecRate(source),
+      fodecPurchase: resolvePreviewFodecRate(source, { purchase: true }),
       totalHt: pickFirstValue(source, ["totalHt", "total_ht", "lineTotalHT", "total"]),
       totalPurchaseHt: pickFirstValue(source, [
         "totalPurchaseHt",
