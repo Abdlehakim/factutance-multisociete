@@ -3412,6 +3412,11 @@
             w.removePaymentHistoryForInvoice(entry.path);
           } catch {}
         }
+        if (docKey === "facture") {
+          try {
+            window.dispatchEvent(new CustomEvent("payment-history-updated"));
+          } catch {}
+        }
         await refreshHistoryFromDisk(docKey, { force: true });
         if (typeof w.recomputeDocumentNumbering === "function") {
           try {

@@ -1069,6 +1069,11 @@
           console.warn("recomputeDocumentNumbering failed", err);
         }
       }
+      if (deletedCount > 0 && state.docType === "facture") {
+        try {
+          window.dispatchEvent(new CustomEvent("payment-history-updated"));
+        } catch {}
+      }
 
       setBusy(false);
 

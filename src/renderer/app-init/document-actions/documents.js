@@ -3662,6 +3662,11 @@
             w.removePaymentHistoryForInvoice(conflict.path);
           } catch {}
         }
+        if (conflict.docType === "facture") {
+          try {
+            window.dispatchEvent(new CustomEvent("payment-history-updated"));
+          } catch {}
+        }
         recomputeTargets.add(conflict.docType);
       }
       if (typeof w.recomputeDocumentNumbering === "function") {

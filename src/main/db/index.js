@@ -7752,17 +7752,118 @@ const saveDocumentWithNumber = ({
   }
 };
 
+const normalizeFactureLedgerDeleteDate = (value) => {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  const parsed = Date.parse(raw);
+  return Number.isFinite(parsed) ? new Date(parsed).toISOString().slice(0, 10) : "";
+};
+
+const deleteClientLedgerRowsForDocument = (db, docRow = {}) => {
+  const docType = normalizeDocType(docRow.doc_type);
+  if (docType !== "facture") return 0;
+  const documentId = String(docRow.id || "").trim();
+  const documentNumber = String(docRow.number || "").trim();
+  if (!documentId && !documentNumber) return 0;
+
+  const docTable = resolveDocTableName(docType);
+  const factureRow = documentId
+    ? db
+        .prepare(
+          `
+          SELECT
+            client_id AS clientId,
+            client_path AS clientPath,
+            meta_date AS metaDate
+          FROM ${docTable}
+          WHERE document_id = ?
+        `
+        )
+        .get(documentId) || {}
+    : {};
+  const clientId = String(
+    factureRow.clientId ||
+      parseClientIdFromPath(String(factureRow.clientPath || "").trim()) ||
+      ""
+  ).trim();
+  const documentDate = normalizeFactureLedgerDeleteDate(factureRow.metaDate || docRow.period || "");
+  const directKeys = new Set(
+    [
+      documentId,
+      documentId ? `${DOCUMENT_PATH_PREFIX}${documentId}` : "",
+      documentId ? `${DOCUMENT_PATH_PREFIX}${docType}/${documentId}` : "",
+      documentNumber ? formatDocumentPath(documentNumber) : ""
+    ]
+      .map((value) => String(value || "").trim())
+      .filter(Boolean)
+  );
+  const invoiceKey = documentNumber && documentDate ? `${documentNumber}__${documentDate}` : "";
+  const sourceAllowed = new Set(["invoice", "invoice_unpaid", "invoice_payment"]);
+  const rows = db
+    .prepare(
+      `
+      SELECT
+        id,
+        client_id AS clientId,
+        created_at AS createdAt,
+        effective_date AS effectiveDate,
+        source,
+        source_id AS sourceId,
+        invoice_path AS invoicePath,
+        invoice_number AS invoiceNumber
+      FROM client_ledger
+      WHERE lower(trim(source)) IN ('invoice', 'invoice_unpaid', 'invoice_payment')
+    `
+    )
+    .all();
+  const targets = rows.filter((row) => {
+    const rowSource = String(row?.source || "").trim().toLowerCase();
+    if (!sourceAllowed.has(rowSource)) return false;
+    const rowClientId = String(row?.clientId || "").trim();
+    if (clientId && rowClientId && rowClientId !== clientId) return false;
+
+    const sourceId = String(row?.sourceId || "").trim();
+    const invoicePath = String(row?.invoicePath || "").trim();
+    const invoiceNumber = String(row?.invoiceNumber || "").trim();
+    if (directKeys.has(sourceId) || directKeys.has(invoicePath)) return true;
+    if (invoiceKey && (sourceId === invoiceKey || invoicePath === invoiceKey)) return true;
+    if (!documentNumber) return false;
+
+    const rowDate = normalizeFactureLedgerDeleteDate(row?.effectiveDate || row?.createdAt || "");
+    const dateMatches = !documentDate || !rowDate || rowDate === documentDate;
+    if ((sourceId === documentNumber || invoicePath === documentNumber) && dateMatches) return true;
+    if (invoiceNumber === documentNumber) {
+      return rowSource === "invoice_payment" || dateMatches;
+    }
+    return false;
+  });
+  if (!targets.length) return 0;
+  const deleteStmt = db.prepare("DELETE FROM client_ledger WHERE id = ?");
+  let removed = 0;
+  const seen = new Set();
+  targets.forEach((row) => {
+    const id = String(row?.id || "").trim();
+    if (!id || seen.has(id)) return;
+    seen.add(id);
+    const result = deleteStmt.run(id);
+    removed += Number(result?.changes || 0);
+  });
+  return removed;
+};
+
 const deleteDocumentByNumber = (rawNumber) => {
   const safeNumber = String(rawNumber || "").trim();
   if (!safeNumber) return { ok: false, error: "Numero requis." };
   const db = initDatabase();
   const runTx = db.transaction(() => {
     const docRow = db
-      .prepare("SELECT id, doc_type FROM documents WHERE number = ?")
+      .prepare("SELECT id, doc_type, period, number FROM documents WHERE number = ?")
       .get(safeNumber);
     if (!docRow?.id) {
-      return { ok: true, missing: true, restoredStock: false };
+      return { ok: true, missing: true, restoredStock: false, ledgerRemoved: 0 };
     }
+    const ledgerRemoved = deleteClientLedgerRowsForDocument(db, docRow);
     const reverseResult = reverseStockDocumentMovement({
       db,
       documentId: docRow.id
@@ -7776,7 +7877,8 @@ const deleteDocumentByNumber = (rawNumber) => {
     return {
       ok: true,
       missing: result.changes === 0,
-      restoredStock: !!reverseResult.restoredStock
+      restoredStock: !!reverseResult.restoredStock,
+      ledgerRemoved
     };
   });
   try {
@@ -7785,7 +7887,8 @@ const deleteDocumentByNumber = (rawNumber) => {
     return {
       ok: false,
       error: String(err?.message || err),
-      restoredStock: false
+      restoredStock: false,
+      ledgerRemoved: 0
     };
   }
 };
@@ -7804,7 +7907,7 @@ const deleteDocumentById = (rawId) => {
   if (!safeId) return { ok: false, error: "Identifiant requis." };
   const db = initDatabase();
   const row = db.prepare("SELECT number FROM documents WHERE id = ?").get(safeId);
-  if (!row?.number) return { ok: true, missing: true };
+  if (!row?.number) return { ok: true, missing: true, ledgerRemoved: 0 };
   return deleteDocumentByNumber(row.number);
 };
 

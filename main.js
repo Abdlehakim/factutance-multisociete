@@ -4632,7 +4632,11 @@ async function deleteInvoiceFile(payload = {}, options = {}) {
       }
       if (deleteResult && !deleteResult.missing) {
         restoredStock = !!deleteResult.restoredStock;
-        return { ok: true, restoredStock };
+        return {
+          ok: true,
+          restoredStock,
+          ledgerRemoved: Number(deleteResult.ledgerRemoved || 0)
+        };
       }
     }
     for (const numberToDelete of numbersToTry) {
@@ -4653,7 +4657,11 @@ async function deleteInvoiceFile(payload = {}, options = {}) {
     if (!deleteResult || deleteResult.missing) {
       return { ok: false, missing: true, error: "Document introuvable.", restoredStock };
     }
-    return { ok: true, restoredStock };
+    return {
+      ok: true,
+      restoredStock,
+      ledgerRemoved: Number(deleteResult.ledgerRemoved || 0)
+    };
   } catch (err) {
     return { ok: false, error: String(err?.message || err) };
   }
