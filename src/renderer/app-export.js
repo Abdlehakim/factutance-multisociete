@@ -580,6 +580,114 @@
     }
   }
 
+  async function syncSavedFactureLedgerFromSnapshot({
+    snapshot,
+    state,
+    metaInfo,
+    historySummary,
+    historyEntry,
+    res,
+    savedNumber
+  } = {}) {
+    if (typeof window.syncFactureLedger !== "function" || !res?.path) return;
+    const docType = String(
+      metaInfo?.docType || snapshot?.meta?.docType || state?.meta?.docType || "facture"
+    )
+      .trim()
+      .toLowerCase();
+    if (docType !== "facture") return;
+    const client = snapshot?.client && typeof snapshot.client === "object" ? snapshot.client : {};
+    const stateClient = state?.client && typeof state.client === "object" ? state.client : {};
+    const clientPath =
+      String(client.__path || "").trim() ||
+      String(client.path || "").trim() ||
+      String(client.clientPath || "").trim() ||
+      String(stateClient.__path || "").trim() ||
+      String(stateClient.path || "").trim() ||
+      String(stateClient.clientPath || "").trim() ||
+      String(window.SEM?.clientFormBaseline?.__path || "").trim();
+    const clientId =
+      String(client.id || "").trim() ||
+      String(client.clientId || "").trim() ||
+      String(stateClient.id || "").trim() ||
+      String(stateClient.clientId || "").trim();
+    if (!clientPath && !clientId) {
+      console.warn("client ledger entry skipped: client path missing");
+      return;
+    }
+    const taxId = String(
+      client.identifiantFiscal ||
+        client.vat ||
+        client.tva ||
+        stateClient.identifiantFiscal ||
+        stateClient.vat ||
+        stateClient.tva ||
+        ""
+    ).trim();
+    const invoiceTotal =
+      historySummary?.totalTTC ??
+      historySummary?.totalHT ??
+      snapshot?.totals?.totalTTC ??
+      snapshot?.totals?.totalHT ??
+      NaN;
+    const status = String(
+      metaInfo?.status ||
+        snapshot?.meta?.status ||
+        state?.meta?.status ||
+        historyEntry?.status ||
+        ""
+    )
+      .trim()
+      .toLowerCase();
+    const isPaidStatus = status === "payee";
+    let paidValue = Number(historySummary?.paid ?? NaN);
+    if ((!Number.isFinite(paidValue) || paidValue <= 0) && isPaidStatus) {
+      const totalValue = Number(invoiceTotal);
+      if (Number.isFinite(totalValue) && totalValue > 0) {
+        paidValue = totalValue;
+      }
+    }
+    const paymentDate =
+      metaInfo?.paymentDate ||
+      snapshot?.meta?.paymentDate ||
+      state?.meta?.paymentDate ||
+      historyEntry?.paymentDate ||
+      metaInfo?.date ||
+      snapshot?.meta?.date ||
+      "";
+    const paymentReference = String(
+      metaInfo?.paymentReference ||
+        metaInfo?.paymentRef ||
+        snapshot?.meta?.paymentReference ||
+        snapshot?.meta?.paymentRef ||
+        state?.meta?.paymentReference ||
+        state?.meta?.paymentRef ||
+        historyEntry?.paymentReference ||
+        historyEntry?.paymentRef ||
+        ""
+    ).trim();
+    await window.syncFactureLedger({
+      clientPath,
+      clientId,
+      taxId,
+      invoicePath: res.path,
+      invoiceNumber: savedNumber,
+      invoiceDate: metaInfo?.date || snapshot?.meta?.date || state?.meta?.date || "",
+      invoiceTotal,
+      status,
+      paymentDate,
+      paidAmount: paidValue,
+      paymentMethod:
+        metaInfo?.paymentMethod ||
+        snapshot?.meta?.paymentMethod ||
+        state?.meta?.paymentMethod ||
+        historyEntry?.paymentMethod ||
+        historyEntry?.mode ||
+        "",
+      paymentReference
+    });
+  }
+
   // Prefer OS viewer (Electron), else open in browser tab
   const openPDF = async (resOrUrl) => {
     if (!resOrUrl) return;
@@ -804,6 +912,7 @@
             }
           }
           const historySummary = captureHistorySummary();
+          let savedHistoryEntry = null;
           if (typeof window.addDocumentHistory === "function") {
             try {
               window.addDocumentHistory({
@@ -823,9 +932,18 @@
                 acompteEnabled: historySummary.acompteEnabled,
                 reglementEnabled: historySummary.reglementEnabled,
                 reglementText: historySummary.reglementText,
+                status: metaInfo?.status,
+                paymentMethod: metaInfo?.paymentMethod,
+                paymentRef: metaInfo?.paymentRef || metaInfo?.paymentReference,
+                paymentReference: metaInfo?.paymentReference || metaInfo?.paymentRef,
+                paymentDate: metaInfo?.paymentDate,
                 hasComment: !!String(metaInfo?.noteInterne || "").trim(),
                 convertedFrom: metaInfo?.convertedFrom
               });
+              if (typeof window.getDocumentHistoryEntry === "function") {
+                const historyDocType = String(metaInfo?.docType || "facture").toLowerCase();
+                savedHistoryEntry = window.getDocumentHistoryEntry(historyDocType, res.path);
+              }
             } catch (historyErr) {
               console.warn("document history update failed", historyErr);
             }
@@ -833,6 +951,19 @@
           if (res?.path && typeof window.updateDocumentHistoryComment === "function") {
             const historyDocType = String(metaInfo?.docType || "facture").toLowerCase();
             window.updateDocumentHistoryComment(historyDocType, res.path, metaInfo?.noteInterne ?? "");
+          }
+          try {
+            await syncSavedFactureLedgerFromSnapshot({
+              snapshot,
+              state: st,
+              metaInfo,
+              historySummary,
+              historyEntry: savedHistoryEntry,
+              res,
+              savedNumber
+            });
+          } catch (ledgerErr) {
+            console.warn("client ledger entry failed", ledgerErr);
           }
           try {
             if (st.meta) {

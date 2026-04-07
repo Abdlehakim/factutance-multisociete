@@ -100,6 +100,7 @@
     };
     const syncInvoiceLedger = async ({
       clientPath,
+      clientId,
       taxId,
       invoicePath,
       invoiceNumber,
@@ -120,8 +121,9 @@
         return false;
       }
       const normalizedClientPath = String(clientPath || "").trim();
+      const normalizedClientId = String(clientId || "").trim();
       const normalizedInvoicePath = String(invoicePath || "").trim();
-      if (!normalizedClientPath || !normalizedInvoicePath) return false;
+      if ((!normalizedClientPath && !normalizedClientId) || !normalizedInvoicePath) return false;
       const normalizedStatus = normalizeFactureStatusValue(status);
       const normalizedTaxId = String(taxId || "").trim();
       const normalizedInvoiceNumber =
@@ -133,7 +135,9 @@
       const normalizedPaymentDate = String(paymentDate || "").trim();
       const normalizedPaymentMethod = String(paymentMethod || "").trim();
       const normalizedPaymentReference = String(paymentReference || "").trim();
-      const ledgerRes = await w.electronAPI.readClientLedger({ path: normalizedClientPath });
+      const ledgerRes = await w.electronAPI.readClientLedger(
+        normalizedClientPath ? { path: normalizedClientPath } : { clientId: normalizedClientId }
+      );
       if (!ledgerRes?.ok) return false;
       const items = Array.isArray(ledgerRes.items) ? ledgerRes.items : [];
       let changed = false;
@@ -217,33 +221,35 @@
         });
         if (matching && rows.length === 1) return;
         if (preserveEntryIds) {
-          if (!rows.length) return;
-          const [primaryRow, ...duplicateRows] = rows;
-          if (duplicateRows.length) {
-            await removeRows(duplicateRows);
+          if (rows.length) {
+            const [primaryRow, ...duplicateRows] = rows;
+            if (duplicateRows.length) {
+              await removeRows(duplicateRows);
+            }
+            const primaryType = normalizeLedgerField(primaryRow?.type);
+            const primaryAmount = normalizeLedgerAmount(primaryRow?.amount);
+            const primaryMode = String(primaryRow?.paymentMode || "").trim();
+            const primaryRef = String(primaryRow?.paymentRef || "").trim();
+            const targetType = normalizeLedgerField(type);
+            const targetMode = String(paymentMode || "").trim();
+            const targetRef = String(paymentRef || "").trim();
+            const canKeepRow =
+              primaryType === targetType &&
+              primaryMode === targetMode &&
+              primaryRef === targetRef;
+            if (canKeepRow && !ledgerAmountsMatch(primaryAmount, normalizedAmount)) {
+              await updateLedgerRowAmount(primaryRow, normalizedAmount);
+            } else if (!canKeepRow && !ledgerAmountsMatch(primaryAmount, normalizedAmount)) {
+              // Preserve row identity for edit saves: update amount only, keep existing row metadata.
+              await updateLedgerRowAmount(primaryRow, normalizedAmount);
+            }
+            return;
           }
-          const primaryType = normalizeLedgerField(primaryRow?.type);
-          const primaryAmount = normalizeLedgerAmount(primaryRow?.amount);
-          const primaryMode = String(primaryRow?.paymentMode || "").trim();
-          const primaryRef = String(primaryRow?.paymentRef || "").trim();
-          const targetType = normalizeLedgerField(type);
-          const targetMode = String(paymentMode || "").trim();
-          const targetRef = String(paymentRef || "").trim();
-          const canKeepRow =
-            primaryType === targetType &&
-            primaryMode === targetMode &&
-            primaryRef === targetRef;
-          if (canKeepRow && !ledgerAmountsMatch(primaryAmount, normalizedAmount)) {
-            await updateLedgerRowAmount(primaryRow, normalizedAmount);
-          } else if (!canKeepRow && !ledgerAmountsMatch(primaryAmount, normalizedAmount)) {
-            // Preserve row identity for edit saves: update amount only, keep existing row metadata.
-            await updateLedgerRowAmount(primaryRow, normalizedAmount);
-          }
-          return;
         }
         await removeRows(rows);
         const addRes = await w.electronAPI.addClientLedgerEntry({
           path: normalizedClientPath,
+          clientId: normalizedClientPath ? "" : normalizedClientId,
           taxId: normalizedTaxId,
           effectiveDate: resolveEffectiveDateForSource(source),
           type,
@@ -257,6 +263,8 @@
         });
         if (addRes?.ok) {
           changed = true;
+        } else if (addRes?.error) {
+          console.warn("client ledger entry failed", addRes.error);
         }
       };
 
@@ -790,6 +798,144 @@
       if (/^[a-z]/i.test(raw)) return raw;
       const prefix = isPurchaseDocType(docType) ? String(docType || "").trim().toLowerCase() : "fa";
       return `${prefix || "fa"}${raw}`;
+    };
+
+    const normalizeClientIdentityText = (value) =>
+      String(value || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim()
+        .toLowerCase();
+    const getClientIdentityPath = (value = {}) =>
+      String(value?.__path || value?.path || value?.clientPath || "").trim();
+    const getClientIdentityId = (value = {}) =>
+      String(value?.id || value?.clientId || "").trim();
+    const getClientIdentityCode = (value = {}, entityType = "client") =>
+      String(
+        entityType === "vendor"
+          ? value?.codeFournisseur || value?.code_fournisseur || value?.codeClient || value?.code_client || value?.code || ""
+          : value?.codeClient || value?.code_client || value?.code || ""
+      ).trim();
+    const getClientIdentityTaxId = (value = {}) =>
+      String(
+        value?.identifiantFiscal ||
+          value?.identifiant_fiscal ||
+          value?.vat ||
+          value?.tva ||
+          value?.cin ||
+          value?.passport ||
+          value?.passeport ||
+          ""
+      ).trim();
+    const getClientIdentityName = (value = {}) => String(value?.name || "").trim();
+    const applyResolvedClientIdentity = (target, identity = {}) => {
+      if (!target || typeof target !== "object") return;
+      const id = String(identity.id || "").trim();
+      const path = String(identity.path || "").trim() || (id ? `sqlite://clients/${id}` : "");
+      if (path) target.__path = path;
+      if (id) {
+        target.id = id;
+        target.clientId = id;
+      }
+    };
+    const resolveSavedClientIdentityForDocument = async ({
+      snapshotClient,
+      stateClient,
+      docType = "facture",
+      preferredScope = null
+    } = {}) => {
+      const normalizedDocType = String(docType || "").trim().toLowerCase();
+      const entityType = isPurchaseDocType(normalizedDocType) ? "vendor" : "client";
+      const candidates = [];
+      const pushCandidate = (candidate) => {
+        if (candidate && typeof candidate === "object") candidates.push(candidate);
+      };
+      pushCandidate(snapshotClient);
+      pushCandidate(stateClient);
+      if (preferredScope) {
+        try {
+          const scopedState =
+            typeof bindingHelpers.getEntityClientStateForScope === "function"
+              ? bindingHelpers.getEntityClientStateForScope(preferredScope)
+              : null;
+          pushCandidate(scopedState);
+        } catch {}
+        try {
+          const scopedSnapshot =
+            typeof SEM.getClientFormSnapshot === "function"
+              ? SEM.getClientFormSnapshot(preferredScope)
+              : null;
+          pushCandidate(scopedSnapshot);
+        } catch {}
+      }
+      pushCandidate(SEM?.clientFormBaseline);
+
+      for (const candidate of candidates) {
+        const path = getClientIdentityPath(candidate);
+        const id = getClientIdentityId(candidate);
+        if (path || id) return { path, id };
+      }
+
+      if (typeof w.electronAPI?.searchClients !== "function") return { path: "", id: "" };
+
+      const mergedClient = candidates.reduce((acc, candidate) => ({ ...acc, ...(candidate || {}) }), {});
+      const code = getClientIdentityCode(mergedClient, entityType);
+      const taxId = getClientIdentityTaxId(mergedClient);
+      const name = getClientIdentityName(mergedClient);
+      const normalizedCode = normalizeClientIdentityText(code);
+      const normalizedTaxId = normalizeClientIdentityText(taxId);
+      const normalizedName = normalizeClientIdentityText(name);
+      const queries = [code, taxId, name].map((value) => String(value || "").trim()).filter(Boolean);
+      const uniqueQueries = queries.filter((value, index, list) => list.indexOf(value) === index);
+
+      for (const query of uniqueQueries) {
+        let res = null;
+        try {
+          res = await w.electronAPI.searchClients({ query, entityType, limit: 20 });
+        } catch {
+          res = null;
+        }
+        const results = Array.isArray(res?.results) ? res.results : [];
+        if (!results.length) continue;
+        const exactMatches = results.filter((entry) => {
+          const payload = entry?.client && typeof entry.client === "object" ? entry.client : entry;
+          const mergedEntry = { ...payload, ...entry };
+          const entryCode = normalizeClientIdentityText(getClientIdentityCode(mergedEntry, entityType));
+          const entryTaxId = normalizeClientIdentityText(getClientIdentityTaxId(mergedEntry));
+          const entryName = normalizeClientIdentityText(getClientIdentityName(mergedEntry));
+          if (normalizedCode && entryCode && entryCode === normalizedCode) return true;
+          if (normalizedTaxId && entryTaxId && entryTaxId === normalizedTaxId) return true;
+          if (!normalizedCode && !normalizedTaxId && normalizedName && entryName === normalizedName) return true;
+          return false;
+        });
+        if (exactMatches.length !== 1) continue;
+        const exact = exactMatches[0];
+        const payload = exact?.client && typeof exact.client === "object" ? exact.client : exact;
+        const mergedEntry = { ...payload, ...exact };
+        const id = getClientIdentityId(mergedEntry);
+        const path = getClientIdentityPath(mergedEntry) || (id ? `sqlite://clients/${id}` : "");
+        if (path || id) return { path, id };
+      }
+      return { path: "", id: "" };
+    };
+    const hydrateSavedClientIdentityForDocument = async ({
+      snapshot,
+      docType = "facture",
+      preferredScope = null
+    } = {}) => {
+      if (!snapshot || typeof snapshot !== "object") return { path: "", id: "" };
+      const st = SEM.state || (SEM.state = {});
+      const client = snapshot.client && typeof snapshot.client === "object" ? snapshot.client : (snapshot.client = {});
+      const stateClient = st.client && typeof st.client === "object" ? st.client : (st.client = {});
+      const identity = await resolveSavedClientIdentityForDocument({
+        snapshotClient: client,
+        stateClient,
+        docType,
+        preferredScope
+      });
+      applyResolvedClientIdentity(client, identity);
+      applyResolvedClientIdentity(stateClient, identity);
+      return identity;
     };
 
     const getInvoiceMeta =
@@ -3833,6 +3979,19 @@
           }
         }
 
+        if (docType === "facture") {
+          const itemsModal = getEl("itemsDocOptionsModal");
+          const clientScope =
+            itemsModal?.querySelector?.("#clientBoxNewDoc") ||
+            (typeof document !== "undefined" ? document.getElementById("clientBoxNewDoc") : null) ||
+            null;
+          await hydrateSavedClientIdentityForDocument({
+            snapshot,
+            docType,
+            preferredScope: clientScope
+          });
+        }
+
         const meta = {
           ...baseMeta,
           docType,
@@ -4033,6 +4192,7 @@
               balanceDueValue = 0;
             }
           }
+          const paymentDate = stateMeta?.paymentDate || baseMeta?.paymentDate || snapshot?.meta?.paymentDate || date;
           const canCheckHistory = typeof w.hasPaymentHistoryForInvoice === "function";
           if (
             Number.isFinite(paidValue) &&
@@ -4043,7 +4203,6 @@
             if (typeof w.hydratePaymentHistory === "function") {
               await w.hydratePaymentHistory({ skipInvoiceSync: true });
             }
-            const paymentDate = stateMeta?.paymentDate || date;
             let paymentAmount =
               historyStatus === "payee" && Number.isFinite(payeePaymentDelta)
                 ? payeePaymentDelta
@@ -4082,9 +4241,18 @@
               const ledgerSummary = historySummary || captureHistorySummary();
               const clientPath =
                 String(snapshot?.client?.__path || "").trim() ||
+                String(snapshot?.client?.path || "").trim() ||
+                String(snapshot?.client?.clientPath || "").trim() ||
                 String(SEM?.state?.client?.__path || "").trim() ||
+                String(SEM?.state?.client?.path || "").trim() ||
+                String(SEM?.state?.client?.clientPath || "").trim() ||
                 String(SEM?.clientFormBaseline?.__path || "").trim();
-              if (clientPath) {
+              const clientId =
+                String(snapshot?.client?.id || "").trim() ||
+                String(snapshot?.client?.clientId || "").trim() ||
+                String(SEM?.state?.client?.id || "").trim() ||
+                String(SEM?.state?.client?.clientId || "").trim();
+              if (clientPath || clientId) {
                 const taxId = String(
                   snapshot?.client?.identifiantFiscal ||
                     snapshot?.client?.vat ||
@@ -4102,6 +4270,7 @@
                 ).trim();
                 await syncInvoiceLedger({
                   clientPath,
+                  clientId,
                   taxId,
                   invoicePath: res.path,
                   invoiceNumber: savedNumber,
@@ -4262,6 +4431,26 @@
         const syncPreviewClientToState = () => {
           const st = SEM.state || (SEM.state = {});
           const client = st.client || (st.client = {});
+          const itemsModal = getEl("itemsDocOptionsModal");
+          const clientScope =
+            itemsModal?.querySelector?.(isVendor ? "#FournisseurBoxNewDoc" : "#clientBoxNewDoc") ||
+            itemsModal?.querySelector?.("#clientBoxNewDoc, #FournisseurBoxNewDoc") ||
+            null;
+          const scopedClientState =
+            clientScope && typeof bindingHelpers.getEntityClientStateForScope === "function"
+              ? bindingHelpers.getEntityClientStateForScope(clientScope)
+              : null;
+          const scopedClientSnapshot =
+            clientScope && typeof SEM.getClientFormSnapshot === "function"
+              ? SEM.getClientFormSnapshot(clientScope)
+              : null;
+          const preservedClientIdentity =
+            [scopedClientState, scopedClientSnapshot, client, SEM?.clientFormBaseline]
+              .map((candidate) => ({
+                path: getClientIdentityPath(candidate),
+                id: getClientIdentityId(candidate)
+              }))
+              .find((candidate) => candidate.path || candidate.id) || { path: "", id: "" };
           const name = readPreviewValue(getEl("itemsClientName"));
           const codeClient = readPreviewValue(getEl("itemsClientCode"));
           const benefit = readPreviewValue(getEl("itemsClientBenefit"));
@@ -4282,8 +4471,8 @@
           client.email = email;
           client.address = address;
           client.__entityType = isVendor ? "vendor" : "client";
+          applyResolvedClientIdentity(client, preservedClientIdentity);
           const setInput = (id, value) => {
-            const itemsModal = getEl("itemsDocOptionsModal");
             const scoped =
               itemsModal && typeof itemsModal.querySelector === "function"
                 ? itemsModal.querySelector(`#${id}`)
@@ -4336,7 +4525,7 @@
           const historyPath = String(previewMeta?.historyPath || "").trim();
           return !!historyPath;
         })();
-        handleDocumentSave({
+        await handleDocumentSave({
           skipClientLedger: false,
           preserveLedgerEntryIds: isItemsModalEditSave
         });

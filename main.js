@@ -2113,7 +2113,12 @@ async function handleLanApiRequest(req, res, url, pathname, requestContext = {})
             type,
             amount,
             source,
-            sourceId
+            sourceId,
+            invoicePath,
+            invoiceNumber,
+            paymentMode,
+            paymentRef,
+            paymentReference
           } = body || {};
           const resolvedId =
             clientId ||
@@ -2132,7 +2137,12 @@ async function handleLanApiRequest(req, res, url, pathname, requestContext = {})
             type,
             amount,
             source,
-            sourceId
+            sourceId,
+            invoicePath,
+            invoiceNumber,
+            paymentMode,
+            paymentRef,
+            paymentReference
           });
           sendLanServerJson(res, 200, { ok: true, entry });
           return;
@@ -3079,7 +3089,12 @@ ipcMain.handle("clients:addLedgerEntry", async (_evt, payload = {}) => {
       type,
       amount,
       source,
-      sourceId
+      sourceId,
+      invoicePath,
+      invoiceNumber,
+      paymentMode,
+      paymentRef,
+      paymentReference
     } = payload || {};
     const resolvedId =
       clientId ||
@@ -3095,7 +3110,12 @@ ipcMain.handle("clients:addLedgerEntry", async (_evt, payload = {}) => {
       type,
       amount,
       source,
-      sourceId
+      sourceId,
+      invoicePath,
+      invoiceNumber,
+      paymentMode,
+      paymentRef,
+      paymentReference
     });
     return { ok: true, entry };
   } catch (e) {
