@@ -424,6 +424,52 @@
     const isHistoryYearDefault = (value) =>
       normalizeHistoryYearValue(value) === getCurrentHistoryYearValue();
     const normalizeFilterText = (value) => String(value || "").trim().toLowerCase();
+    const resolveDocHistoryClientCode = (entry = {}) => {
+      const target = entry && typeof entry === "object" ? entry : {};
+      const meta = target.meta && typeof target.meta === "object" ? target.meta : {};
+      const metaClient = meta.client && typeof meta.client === "object" ? meta.client : {};
+      const client = target.client && typeof target.client === "object" ? target.client : {};
+      const clientSnapshot =
+        target.clientSnapshot && typeof target.clientSnapshot === "object"
+          ? target.clientSnapshot
+          : {};
+      return String(
+        target.codeClient ||
+          target.code_client ||
+          target.clientCode ||
+          meta.clientCode ||
+          meta.codeClient ||
+          meta.client_code ||
+          metaClient.codeClient ||
+          metaClient.code_client ||
+          metaClient.clientCode ||
+          metaClient.client_code ||
+          metaClient.code ||
+          metaClient.codeFournisseur ||
+          metaClient.code_fournisseur ||
+          metaClient.codeTransporteur ||
+          metaClient.code_transporteur ||
+          client.codeClient ||
+          client.code_client ||
+          client.clientCode ||
+          client.client_code ||
+          client.code ||
+          client.codeFournisseur ||
+          client.code_fournisseur ||
+          client.codeTransporteur ||
+          client.code_transporteur ||
+          clientSnapshot.codeClient ||
+          clientSnapshot.code_client ||
+          clientSnapshot.clientCode ||
+          clientSnapshot.client_code ||
+          clientSnapshot.code ||
+          clientSnapshot.codeFournisseur ||
+          clientSnapshot.code_fournisseur ||
+          clientSnapshot.codeTransporteur ||
+          clientSnapshot.code_transporteur ||
+          ""
+      ).trim();
+    };
     const clearDocMetaSearchTimer = () => {
       if (!docMetaSearchState.timer) return;
       clearTimeout(docMetaSearchState.timer);
@@ -531,18 +577,11 @@
         ).trim() || "";
       normalizedEntry.clientName = String(normalizedEntry.clientName || "").trim();
       normalizedEntry.clientAccount = String(normalizedEntry.clientAccount || "").trim();
-      normalizedEntry.codeClient = String(
-        normalizedEntry.codeClient ||
-          normalizedEntry.code_client ||
-          normalizedEntry.clientCode ||
-          entryClient.codeClient ||
-          entryClient.code_client ||
-          entryClient.code ||
-          entryClientSnapshot.codeClient ||
-          entryClientSnapshot.code_client ||
-          entryClientSnapshot.code ||
-          ""
-      ).trim();
+      normalizedEntry.codeClient = resolveDocHistoryClientCode({
+        ...normalizedEntry,
+        client: entryClient,
+        clientSnapshot: entryClientSnapshot
+      });
       normalizedEntry.name = String(normalizedEntry.name || "").trim();
       normalizedEntry.status = String(normalizedEntry.status || "").trim().toLowerCase();
       normalizedEntry.currency = String(normalizedEntry.currency || "").trim();
@@ -667,23 +706,7 @@
       pageSlice.forEach((entry, offset) => {
         const index = startIdx + offset;
         const numberValue = String(entry?.number || "").trim() || "N.R.";
-        const codeClientRaw = String(
-          entry?.codeClient ||
-            entry?.code_client ||
-            entry?.clientCode ||
-            entry?.meta?.clientCode ||
-            entry?.meta?.codeClient ||
-            entry?.meta?.client?.codeClient ||
-            (entry?.client && typeof entry.client === "object"
-              ? entry.client.codeClient || entry.client.code_client || entry.client.code || ""
-              : "") ||
-            (entry?.clientSnapshot && typeof entry.clientSnapshot === "object"
-              ? entry.clientSnapshot.codeClient ||
-                entry.clientSnapshot.code_client ||
-                entry.clientSnapshot.code ||
-                ""
-              : "")
-        ).trim();
+        const codeClientRaw = resolveDocHistoryClientCode(entry);
         const codeClientValue = codeClientRaw || "N.R.";
         const option = document.createElement("div");
         option.className = "client-search__option doc-meta-search__option";
@@ -1246,7 +1269,7 @@
       return {
         label,
         labelWithColon: `${label} :`,
-        filterLabel: isVendor ? "Nom du fournisseur ou identifiant" : "Nom du client ou identifiant",
+        filterLabel: isVendor ? "Nom du fournisseur ou identifiant" : "Nom du client ou identifiant ou code client",
         filterPlaceholder: isVendor
           ? "Rechercher un fournisseur ou une r\u00E9f\u00E9rence"
           : "Rechercher un client ou une r\u00E9f\u00E9rence",
@@ -1949,24 +1972,7 @@
         for (let idx = res.items.length - 1; idx >= 0; idx -= 1) {
           const item = res.items[idx];
           const entryDocType = item?.docType || normalized;
-          const itemClient =
-            item?.client && typeof item.client === "object" ? item.client : {};
-          const itemClientSnapshot =
-            item?.clientSnapshot && typeof item.clientSnapshot === "object"
-              ? item.clientSnapshot
-              : {};
-          const codeClient = String(
-            item?.codeClient ||
-              item?.code_client ||
-              item?.clientCode ||
-              itemClient.codeClient ||
-              itemClient.code_client ||
-              itemClient.code ||
-              itemClientSnapshot.codeClient ||
-              itemClientSnapshot.code_client ||
-              itemClientSnapshot.code ||
-              ""
-          ).trim();
+          const codeClient = resolveDocHistoryClientCode(item);
           w.addDocumentHistory({
             id: item?.id,
             docType: entryDocType,
@@ -3759,19 +3765,21 @@
           if (!matchNumber) return acc;
         }
         if (hasQuery) {
+          const clientCode = resolveDocHistoryClientCode(entry);
           const haystack = [
             entry?.clientName,
             entry?.clientAccount,
+            clientCode,
+            entry?.codeClient,
+            entry?.code_client,
+            entry?.clientCode,
             entry?.label,
             entry?.name,
             entry?.number,
             entry?.docType,
             entry?.path
           ];
-          const match = haystack.some((value) => {
-            if (value === undefined || value === null) return false;
-            return String(value).toLowerCase().includes(query);
-          });
+          const match = haystack.some((value) => normalizeFilterText(value).includes(query));
           if (!match) return acc;
         }
         const normalizedDate = getHistoryEntryIsoDate(entry);
@@ -4065,25 +4073,7 @@
           const documentDateHtml = `<span class="doc-history__document-date">Date: ${safeHtml(documentDateValue || "-")}</span>`;
           const rawClientName = entry?.clientName ? String(entry.clientName).trim() : "";
           const rawClientAccount = entry?.clientAccount ? String(entry.clientAccount).trim() : "";
-          const codeClientRaw = String(
-            entry?.codeClient ||
-              entry?.code_client ||
-              entry?.clientCode ||
-              entry?.meta?.clientCode ||
-              entry?.meta?.codeClient ||
-              entry?.meta?.client?.codeClient ||
-              entry?.meta?.client?.code_client ||
-              (entry?.client && typeof entry.client === "object"
-                ? entry.client.codeClient || entry.client.code_client || entry.client.code || ""
-                : "") ||
-              (entry?.clientSnapshot && typeof entry.clientSnapshot === "object"
-                ? entry.clientSnapshot.codeClient ||
-                  entry.clientSnapshot.code_client ||
-                  entry.clientSnapshot.code ||
-                  ""
-                : "") ||
-              ""
-          ).trim();
+          const codeClientRaw = resolveDocHistoryClientCode(entry);
           const resolvedClientValue = rawClientName || rawClientAccount;
           const clientCopyValue = resolvedClientValue ? resolvedClientValue : "";
           const clientValueText = resolvedClientValue ? truncateClientName(resolvedClientValue) : "";

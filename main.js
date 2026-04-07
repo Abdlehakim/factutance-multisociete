@@ -1171,9 +1171,15 @@ function ensureUniquePath(filePath) {
   return candidate;
 }
 
-function buildHtmlDoc(html, css, baseHref) {
+function buildHtmlDoc(html, css, baseHref, options = {}) {
   const safeBase = typeof baseHref === "string" && baseHref ? String(baseHref) : "";
   const baseTag = safeBase ? `  <base href="${safeBase}">\n` : "";
+  const bodyClass = String(options?.bodyClass || "")
+    .split(/\s+/)
+    .map((part) => part.trim().replace(/[^A-Za-z0-9_-]/g, ""))
+    .filter(Boolean)
+    .join(" ");
+  const bodyClassAttr = bodyClass ? ` class="${bodyClass}"` : "";
   const pdfFontStack =
     '"Segoe UI", "Helvetica Neue", Arial, Helvetica, "Liberation Sans", "Noto Sans", "DejaVu Sans", sans-serif';
   return `<!doctype html>
@@ -1187,13 +1193,13 @@ ${baseTag}  <style>
     html, body { margin:0; padding:0; background:#fff; font-family:${pdfFontStack}; }
   </style>
 </head>
-<body>${html || ""}</body>
+<body${bodyClassAttr}>${html || ""}</body>
 </html>`;
 }
 
-async function renderToPdfBuffer(html, css) {
+async function renderToPdfBuffer(html, css, options = {}) {
   const baseDir = "file://" + path.join(__dirname, "src", "renderer").replace(/\\/g, "/") + "/";
-  const doc = buildHtmlDoc(html, css, baseDir);
+  const doc = buildHtmlDoc(html, css, baseDir, options);
   let win;
   try {
     win = new BrowserWindow({
@@ -1221,7 +1227,9 @@ async function renderToPdfBuffer(html, css) {
 
 async function printHtmlSilent(html, css, printOptions = {}) {
   const baseDir = "file://" + path.join(__dirname, "src", "renderer").replace(/\\/g, "/") + "/";
-  const doc = buildHtmlDoc(html, css, baseDir);
+  const doc = buildHtmlDoc(html, css, baseDir, {
+    bodyClass: printOptions.bodyClass || "printing print-mode"
+  });
   let win;
   try {
     win = new BrowserWindow({
@@ -4718,7 +4726,9 @@ ipcMain.handle("app:pickLogo", async () => {
 ipcMain.handle("export-pdf", async (event, opts = {}) => {
   const { html = "", css = "", meta = {} } = opts || {};
   try {
-    const pdfBuffer = await renderToPdfBuffer(html, css);
+    const pdfBuffer = await renderToPdfBuffer(html, css, {
+      bodyClass: meta.bodyClass || "exporting-pdf"
+    });
     return await savePdfToDisk(pdfBuffer, meta, event.sender);
   } catch (err) {
     console.error("export-pdf error:", err);
@@ -4731,7 +4741,9 @@ ipcMain.handle("export-pdf", async (event, opts = {}) => {
 ipcMain.handle("app:exportPDFFromHTML", async (event, payload) => {
   const { html = "", css = "", meta = {} } = payload || {};
   try {
-    const pdfBuffer = await renderToPdfBuffer(html, css);
+    const pdfBuffer = await renderToPdfBuffer(html, css, {
+      bodyClass: meta.bodyClass || "exporting-pdf"
+    });
     return await savePdfToDisk(pdfBuffer, meta, event.sender);
   } catch (err) {
     console.error("app:exportPDFFromHTML error:", err);

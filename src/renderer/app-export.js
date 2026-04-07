@@ -508,6 +508,41 @@
     return { css };
   }
 
+  const waitForNextFrame = () =>
+    new Promise((resolve) => {
+      const raf =
+        typeof window !== "undefined" && typeof window.requestAnimationFrame === "function"
+          ? window.requestAnimationFrame.bind(window)
+          : (fn) => setTimeout(fn, 16);
+      raf(() => resolve());
+    });
+
+  function capturePdfPreviewModalInvoiceBundle(overlay = document.getElementById("pdfPreviewModal")) {
+    if (!overlay || lastPreviewMode !== "invoice") return null;
+    const root = overlay.querySelector("#pdfRoot");
+    if (!root) return null;
+    const html = String(root.innerHTML || "").trim();
+    if (!html) return null;
+    const styleEl = overlay.querySelector("#pdfPreviewModalStyle");
+    return {
+      html,
+      css: String(styleEl?.textContent || "")
+    };
+  }
+
+  async function buildPdfPreviewModalInvoiceExportBundle(overlay = document.getElementById("pdfPreviewModal")) {
+    if (!overlay || lastPreviewMode !== "invoice") return null;
+    await waitForNextFrame();
+    await waitForNextFrame();
+    if (typeof document !== "undefined" && typeof document.fonts?.ready?.then === "function") {
+      try {
+        await document.fonts.ready;
+      } catch {}
+    }
+    syncPdfPreviewTemplate2LastRowStretch(overlay);
+    return capturePdfPreviewModalInvoiceBundle(overlay);
+  }
+
   function applyTotalsSnapshotToState(stateInput, totalsSnapshot = null) {
     const st = ensureStateDefaults(stateInput || {});
     const totalsResolved = totalsSnapshot || computeTotalsForSnapshot(st, null);
@@ -1429,7 +1464,8 @@
       historyDocType,
       suppressPrompt = false,
       openAfterExport = false,
-      overwritePolicy = null
+      overwritePolicy = null,
+      renderBundleOverride = null
     } = {}
   ) {
     const incomingDocType = normalizeDocTypeKey(stateInput?.meta?.docType || "facture");
@@ -1479,7 +1515,17 @@
     }
     const assets = API?.assets || {};
     const totalsSnapshotResolved = applyTotalsSnapshotToState(st, totalsSnapshot);
-    const renderBundle = buildInvoiceRendererBundle(renderer, st, assets);
+    const renderBundle =
+      renderBundleOverride && typeof renderBundleOverride.html === "string" && renderBundleOverride.html.trim()
+        ? {
+            html: renderBundleOverride.html,
+            css:
+              typeof renderBundleOverride.css === "string" && renderBundleOverride.css
+                ? renderBundleOverride.css
+                : resolveInvoiceRendererCss(renderer, st),
+            templateKey: renderBundleOverride.templateKey
+          }
+        : buildInvoiceRendererBundle(renderer, st, assets);
     const htmlInv = renderBundle.html;
     const cssInv = renderBundle.css;
 
@@ -1508,6 +1554,7 @@
         clientVat,
         silent: true,
         to: "pdf",
+        bodyClass: "exporting-pdf",
         deferOpen: true
       }
     };
@@ -3039,8 +3086,13 @@ function buildBonEntreePreviewTitle(stateInput) {
       await showDialog?.(pdfUnavailable.text, { title: pdfUnavailable.title });
       return;
     }
-    updatePdfPreviewOptionsFromToggles(document.getElementById("pdfPreviewModal"));
-    return await exportStateSnapshot(lastPreviewState, { totalsSnapshot: lastPreviewTotals });
+    const overlay = document.getElementById("pdfPreviewModal");
+    updatePdfPreviewOptionsFromToggles(overlay);
+    const renderBundleOverride = await buildPdfPreviewModalInvoiceExportBundle(overlay);
+    return await exportStateSnapshot(lastPreviewState, {
+      totalsSnapshot: lastPreviewTotals,
+      renderBundleOverride
+    });
   }
 
   function closePdfPreviewModal() {

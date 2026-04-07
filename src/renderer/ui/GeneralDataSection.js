@@ -1298,7 +1298,7 @@ export function renderGeneralDataSection() {
               />
             </label>
             <label class="doc-history-modal__filter">
-              <span>Nom du client ou identifiant</span>
+              <span>Nom du client ou identifiant ou code client</span>
               <input
                 id="docHistoryFilterQuery"
                 type="text"
