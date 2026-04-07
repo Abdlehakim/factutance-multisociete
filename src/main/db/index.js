@@ -1146,6 +1146,174 @@ const cleanupStoredGenericArticleDepotNames = (db) => {
   tx(rows);
 };
 
+const normalizeFactureClientCodeMatchText = (value) =>
+  normalizeTextValue(value)
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+
+const normalizeUsableFactureClientCodeMatchText = (value) => {
+  const normalized = normalizeFactureClientCodeMatchText(value);
+  if (!normalized || normalized === "-" || normalized === "n.r." || normalized === "n/r") return "";
+  return normalized;
+};
+
+const isFactureClientCodeCandidate = (row = {}) =>
+  normalizeClientEntityType(row?.type) === "client" &&
+  !!normalizeClientCodeValue(row?.code_client || "");
+
+const readFactureClientCodeCandidate = (row = {}) =>
+  normalizeClientCodeValue(row?.code_client || "");
+
+const listFactureClientCodeCandidates = (db) => {
+  if (!db || !tableExists(db, "clients")) return [];
+  try {
+    return db
+      .prepare(
+        `
+        SELECT
+          id,
+          type,
+          name,
+          code_client,
+          vat,
+          identifiant_fiscal,
+          cin,
+          passport,
+          legacy_path
+        FROM clients
+        WHERE code_client IS NOT NULL
+          AND TRIM(code_client) <> ''
+      `
+      )
+      .all()
+      .filter(isFactureClientCodeCandidate);
+  } catch {
+    return [];
+  }
+};
+
+const pickUniqueFactureClientCodeCandidate = (candidates = [], predicate) => {
+  if (typeof predicate !== "function") return "";
+  const matches = candidates.filter((row) => predicate(row));
+  if (matches.length !== 1) return "";
+  return readFactureClientCodeCandidate(matches[0]);
+};
+
+const resolveFactureClientCodeFromCurrentClient = (db, factureRow = {}) => {
+  if (!db || !tableExists(db, "clients")) return "";
+  const persistedCode = normalizeClientCodeValue(factureRow?.client_code || "");
+  if (persistedCode) return persistedCode;
+  const clientPath = normalizeTextValue(factureRow?.client_path || "");
+  const clientId =
+    normalizeTextValue(factureRow?.client_id || "") ||
+    normalizeTextValue(parseClientIdFromPath(clientPath) || "");
+
+  if (clientId) {
+    try {
+      const byId = db
+        .prepare(
+          `
+          SELECT id, type, code_client
+          FROM clients
+          WHERE id = ?
+          LIMIT 1
+        `
+        )
+        .get(clientId);
+      if (isFactureClientCodeCandidate(byId)) {
+        return readFactureClientCodeCandidate(byId);
+      }
+    } catch {
+      // Fall through to exact-match safeguards below.
+    }
+  }
+
+  const candidates = listFactureClientCodeCandidates(db);
+  if (!candidates.length) return "";
+
+  if (clientPath) {
+    const byLegacyPath = pickUniqueFactureClientCodeCandidate(
+      candidates,
+      (row) => normalizeTextValue(row?.legacy_path || "") === clientPath
+    );
+    if (byLegacyPath) return byLegacyPath;
+  }
+
+  const exactFields = [
+    ["identifiant_fiscal", factureRow?.client_identifiant_fiscal],
+    ["vat", factureRow?.client_vat],
+    ["cin", factureRow?.client_cin],
+    ["passport", factureRow?.client_passport]
+  ];
+  for (const [field, value] of exactFields) {
+    const normalizedValue = normalizeUsableFactureClientCodeMatchText(value);
+    if (!normalizedValue) continue;
+    const match = pickUniqueFactureClientCodeCandidate(
+      candidates,
+      (row) => normalizeUsableFactureClientCodeMatchText(row?.[field]) === normalizedValue
+    );
+    if (match) return match;
+  }
+
+  const clientName = normalizeUsableFactureClientCodeMatchText(factureRow?.client_name);
+  if (clientName) {
+    const byName = pickUniqueFactureClientCodeCandidate(
+      candidates,
+      (row) => normalizeUsableFactureClientCodeMatchText(row?.name) === clientName
+    );
+    if (byName) return byName;
+  }
+
+  return "";
+};
+
+const backfillFactureClientCodes = (db) => {
+  if (!db || !tableExists(db, "documents_factures") || !tableExists(db, "clients")) return;
+  if (!tableHasColumn(db, "documents_factures", "client_code")) return;
+  try {
+    const rows = db
+      .prepare(
+        `
+        SELECT
+          document_id,
+          client_path,
+          client_id,
+          client_name,
+          client_code,
+          client_vat,
+          client_identifiant_fiscal,
+          client_cin,
+          client_passport
+        FROM documents_factures
+        WHERE client_code IS NULL
+           OR TRIM(client_code) = ''
+      `
+      )
+      .all();
+    if (!rows.length) return;
+    const update = db.prepare(
+      `
+      UPDATE documents_factures
+      SET client_code = ?
+      WHERE document_id = ?
+        AND (client_code IS NULL OR TRIM(client_code) = '')
+    `
+    );
+    const tx = db.transaction((entries = []) => {
+      entries.forEach((row) => {
+        const clientCode = resolveFactureClientCodeFromCurrentClient(db, row);
+        if (!clientCode) return;
+        update.run(clientCode, row.document_id);
+      });
+    });
+    tx(rows);
+  } catch (err) {
+    console.warn("facture client code backfill failed", err);
+  }
+};
+
 const ensureClientTaxesColumnCompatibility = (db) => {
   if (!db || !tableExists(db, "clients")) return false;
   try {
@@ -1177,6 +1345,7 @@ const runLegacyDataMigrations = (db) => {
     migrateLegacyModels(db);
     migrateLegacyAppSettings(db);
     migrateDocumentNumbering(db);
+    backfillFactureClientCodes(db);
     cleanupStoredGenericArticleDepotNames(db);
     runClientBalanceRebuildMigration(db);
     renumberPaymentHistory(db);
@@ -3055,17 +3224,21 @@ const readNumberValue = (value) => {
   return Number.isFinite(num) ? num : undefined;
 };
 
-const buildDocumentPayloadFromRow = (row = {}, items = [], taxRows = []) => {
+const buildDocumentPayloadFromRow = (row = {}, items = [], taxRows = [], options = {}) => {
   const normalizedDocType = normalizeDocType(readTextValue(row.meta_doc_type || row.doc_type));
   const isSupplierDoc = normalizedDocType === "fa" || normalizedDocType === "bc" || normalizedDocType === "be";
-  const persistedClientCode = readTextValue(row.client_code);
+  const persistedClientCode = normalizeClientCodeValue(row.client_code || "");
   const persistedSupplierCode = readTextValue(row.client_code_fournisseur);
+  const fallbackClientCode =
+    !isSupplierDoc && !persistedClientCode
+      ? resolveFactureClientCodeFromCurrentClient(options?.db, row)
+      : "";
   const resolvedSupplierCode = isSupplierDoc
     ? (persistedSupplierCode || persistedClientCode)
     : persistedSupplierCode;
   const resolvedClientCode = isSupplierDoc
     ? (persistedClientCode || resolvedSupplierCode)
-    : persistedClientCode;
+    : (persistedClientCode || fallbackClientCode);
   const company = {
     name: readTextValue(row.company_name),
     type: readTextValue(row.company_type),
@@ -7194,7 +7367,7 @@ const loadDocumentPayloadByDocumentId = (db, { documentId = "", docType = "" } =
     .prepare("SELECT * FROM document_tax_breakdown WHERE document_id = ? ORDER BY kind, position ASC")
     .all(safeDocumentId);
   const items = buildDocumentItemsFromRows(itemsRows, { docType });
-  return buildDocumentPayloadFromRow(dataRow, items, taxRows);
+  return buildDocumentPayloadFromRow(dataRow, items, taxRows, { db });
 };
 
 const adjustArticleStockById = (id, deltaRaw) => {
@@ -8013,6 +8186,9 @@ const getDocumentByNumber = (rawNumber) => {
     )
     .get(safeNumber);
   if (!row) return null;
+  if (normalizeDocType(row.doc_type) === "facture") {
+    backfillFactureClientCodes(db);
+  }
   const docTable = resolveDocTableName(row.doc_type);
   const itemsTable = resolveDocItemsTableName(row.doc_type);
   const dataRow = db.prepare(`SELECT * FROM ${docTable} WHERE document_id = ?`).get(row.id) || {};
@@ -8023,7 +8199,7 @@ const getDocumentByNumber = (rawNumber) => {
     .prepare("SELECT * FROM document_tax_breakdown WHERE document_id = ? ORDER BY kind, position ASC")
     .all(row.id);
   const items = buildDocumentItemsFromRows(itemsRows, { docType: row.doc_type });
-  const data = buildDocumentPayloadFromRow(dataRow, items, taxRows);
+  const data = buildDocumentPayloadFromRow(dataRow, items, taxRows, { db });
   if (row.doc_type && (!data.meta || !data.meta.docType)) {
     if (!data.meta || typeof data.meta !== "object") data.meta = {};
     data.meta.docType = row.doc_type;
@@ -8206,6 +8382,9 @@ const listDocuments = ({ docType, limit, offset } = {}) => {
   const db = initDatabase();
   const params = [];
   const normalizedType = docType ? normalizeDocType(docType) : "";
+  if (!normalizedType || normalizedType === "facture") {
+    backfillFactureClientCodes(db);
+  }
   const whereClause = normalizedType ? "WHERE doc_type = ?" : "";
   if (normalizedType) params.push(normalizedType);
   const countSql = `SELECT COUNT(*) as total FROM documents ${whereClause}`;
@@ -8237,7 +8416,7 @@ const listDocuments = ({ docType, limit, offset } = {}) => {
       .prepare("SELECT * FROM document_tax_breakdown WHERE document_id = ? ORDER BY kind, position ASC")
       .all(row.id);
     const items = buildDocumentItemsFromRows(itemsRows, { docType: row.doc_type });
-    const data = buildDocumentPayloadFromRow(dataRow, items, taxRows);
+    const data = buildDocumentPayloadFromRow(dataRow, items, taxRows, { db });
     if (row.doc_type && (!data.meta || !data.meta.docType)) {
       if (!data.meta || typeof data.meta !== "object") data.meta = {};
       data.meta.docType = row.doc_type;

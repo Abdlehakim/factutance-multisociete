@@ -1328,9 +1328,72 @@
         return global.n2words(value, { lang: "fr" });
       } catch {}
     }
-    const UNITS = ["zero", "un", "deux", "trois", "quatre", "cinq", "six", "sept", "huit", "neuf"];
-    if (value < UNITS.length) return UNITS[value];
-    return String(value);
+    const n = Math.max(0, Math.trunc(Number(value) || 0));
+    const UNITS = [
+      "zero",
+      "un",
+      "deux",
+      "trois",
+      "quatre",
+      "cinq",
+      "six",
+      "sept",
+      "huit",
+      "neuf",
+      "dix",
+      "onze",
+      "douze",
+      "treize",
+      "quatorze",
+      "quinze",
+      "seize"
+    ];
+    const TENS = ["", "dix", "vingt", "trente", "quarante", "cinquante", "soixante"];
+    const two = (x) => {
+      if (x < 17) return UNITS[x];
+      if (x < 20) return `dix-${UNITS[x - 10]}`;
+      if (x < 70) {
+        const t = Math.floor(x / 10);
+        const u = x % 10;
+        if (u === 1 && t !== 8) return `${TENS[t]} et un`;
+        return TENS[t] + (u ? `-${UNITS[u]}` : "");
+      }
+      if (x < 80) return `soixante-${two(x - 60)}`;
+      const u = x - 80;
+      if (u === 0) return "quatre-vingts";
+      return `quatre-vingt-${two(u)}`;
+    };
+    const hundred = (x) => {
+      const h = Math.floor(x / 100);
+      const r = x % 100;
+      const tail = r ? two(r) : "";
+      if (h === 0) return tail;
+      if (h === 1) return `cent${tail ? ` ${tail}` : ""}`;
+      return `${UNITS[h]} cent${tail ? ` ${tail}` : "s"}`;
+    };
+    const chunk = (x, singular, plural) => {
+      if (x === 0) return "";
+      if (singular === "mille") return x === 1 ? "mille" : `${hundred(x)} mille`;
+      return x === 1 ? `un ${singular}` : `${hundred(x)} ${plural}`;
+    };
+    if (n === 0) return UNITS[0];
+    let remainder = n;
+    const billions = Math.floor(remainder / 1e9);
+    remainder %= 1e9;
+    const millions = Math.floor(remainder / 1e6);
+    remainder %= 1e6;
+    const thousands = Math.floor(remainder / 1e3);
+    remainder %= 1e3;
+    return [
+      chunk(billions, "milliard", "milliards"),
+      chunk(millions, "million", "millions"),
+      chunk(thousands, "mille", "mille"),
+      hundred(remainder)
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
   }
 
   function amountInWords(amount, currencyCode) {
