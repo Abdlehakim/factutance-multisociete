@@ -2785,6 +2785,35 @@ function writePdfMetadataFile(targetPath, meta = {}) {
   }
 }
 
+function isPdfFileBusyError(err) {
+  const code = String(err?.code || "").toUpperCase();
+  return code === "EBUSY" || code === "EPERM" || code === "EACCES";
+}
+
+function buildPdfFileBusyResult(targetPath, err) {
+  return {
+    ok: false,
+    reason: "busy",
+    path: targetPath,
+    name: path.basename(targetPath || ""),
+    error:
+      "Impossible de remplacer ce PDF car il est ouvert ou verrouille par une autre application. Fermez le fichier puis reessayez.",
+    code: String(err?.code || "")
+  };
+}
+
+function writePdfBufferToFile(targetPath, pdfBuffer) {
+  try {
+    fs.writeFileSync(targetPath, pdfBuffer);
+    return null;
+  } catch (err) {
+    if (isPdfFileBusyError(err)) {
+      return buildPdfFileBusyResult(targetPath, err);
+    }
+    throw err;
+  }
+}
+
 /* central save routine used by both IPCs */
 async function savePdfToDisk(pdfBuffer, meta = {}, browserEventSender = null) {
   const requestedName =
@@ -2800,7 +2829,8 @@ async function savePdfToDisk(pdfBuffer, meta = {}, browserEventSender = null) {
     if (fs.existsSync(target) && !allowOverwrite) {
       return { ok: false, reason: "exists", path: target, name: path.basename(target) };
     }
-    fs.writeFileSync(target, pdfBuffer);
+    const writeError = writePdfBufferToFile(target, pdfBuffer);
+    if (writeError) return writeError;
     writePdfMetadataFile(target, meta);
     return { ok: true, path: target, name: path.basename(target) };
   }
@@ -2812,7 +2842,8 @@ async function savePdfToDisk(pdfBuffer, meta = {}, browserEventSender = null) {
     filters: [{ name: "PDF", extensions: ["pdf"] }],
   });
   if (canceled || !filePath) return { ok: false, canceled: true };
-  fs.writeFileSync(filePath, pdfBuffer);
+  const writeError = writePdfBufferToFile(filePath, pdfBuffer);
+  if (writeError) return writeError;
   writePdfMetadataFile(filePath, meta);
   return { ok: true, path: filePath, name: path.basename(filePath) };
 }

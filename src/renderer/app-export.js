@@ -2411,6 +2411,7 @@ function buildBonEntreePreviewTitle(stateInput) {
   let pdfPreviewLastRowStretchTimers = [];
   let pdfPreviewScrollResetFrame = null;
   let pdfPreviewScrollResetTimers = [];
+  let pdfPreviewExportInFlight = false;
 
   function cancelPdfPreviewLastRowStretchFrame() {
     if (!pdfPreviewLastRowStretchFrame) return;
@@ -3071,28 +3072,48 @@ function buildBonEntreePreviewTitle(stateInput) {
 
   async function exportPreviewedPDF() {
     if (lastPreviewMode !== "invoice") return;
-    if (!lastPreviewState) {
-      const loadError = getMessage("PDF_DOCUMENT_LOAD_FAILED");
-      await showDialog?.(loadError.text, { title: loadError.title });
-      return;
-    }
-    if (!API?.exportPDFFromHTML) {
-      await exportPreviewedPDFInBrowser();
-      return;
-    }
-    const renderer = await ensureInvoicePdfRendererReady();
-    if (!renderer) {
-      const pdfUnavailable = getMessage("PDF_OPEN_UNAVAILABLE");
-      await showDialog?.(pdfUnavailable.text, { title: pdfUnavailable.title });
-      return;
-    }
+    if (pdfPreviewExportInFlight) return;
     const overlay = document.getElementById("pdfPreviewModal");
-    updatePdfPreviewOptionsFromToggles(overlay);
-    const renderBundleOverride = await buildPdfPreviewModalInvoiceExportBundle(overlay);
-    return await exportStateSnapshot(lastPreviewState, {
-      totalsSnapshot: lastPreviewTotals,
-      renderBundleOverride
-    });
+    const exportBtn = overlay?.querySelector("#pdfPreviewModalExport") || null;
+    const previousLabel = exportBtn?.textContent || "";
+    pdfPreviewExportInFlight = true;
+    if (exportBtn) {
+      exportBtn.disabled = true;
+      exportBtn.setAttribute("aria-busy", "true");
+      exportBtn.textContent = "Exportation...";
+    }
+    try {
+      if (!lastPreviewState) {
+        const loadError = getMessage("PDF_DOCUMENT_LOAD_FAILED");
+        await showDialog?.(loadError.text, { title: loadError.title });
+        return;
+      }
+      if (!API?.exportPDFFromHTML) {
+        await exportPreviewedPDFInBrowser();
+        return;
+      }
+      const renderer = await ensureInvoicePdfRendererReady();
+      if (!renderer) {
+        const pdfUnavailable = getMessage("PDF_OPEN_UNAVAILABLE");
+        await showDialog?.(pdfUnavailable.text, { title: pdfUnavailable.title });
+        return;
+      }
+      updatePdfPreviewOptionsFromToggles(overlay);
+      const renderBundleOverride = await buildPdfPreviewModalInvoiceExportBundle(overlay);
+      return await exportStateSnapshot(lastPreviewState, {
+        totalsSnapshot: lastPreviewTotals,
+        renderBundleOverride
+      });
+    } finally {
+      pdfPreviewExportInFlight = false;
+      const currentOverlay = document.getElementById("pdfPreviewModal");
+      const currentExportBtn = currentOverlay?.querySelector("#pdfPreviewModalExport") || null;
+      if (currentExportBtn) {
+        currentExportBtn.disabled = false;
+        currentExportBtn.removeAttribute("aria-busy");
+        if (previousLabel) currentExportBtn.textContent = previousLabel;
+      }
+    }
   }
 
   function closePdfPreviewModal() {
