@@ -35,7 +35,7 @@
       previousFocus: null,
       listenersBound: false,
       page: 1,
-      pageSize: 20,
+      pageSize: 12,
       totalPages: 1,
       data: [],
       rows: [],
@@ -631,11 +631,26 @@
       }
     };
 
-    const setTotals = (items) => {
+    const resolveFilteredRowTotals = (item, ledgerTotals) => {
+      const ledger = ledgerTotals?.get(item?.id);
+      if (ledger) {
+        return {
+          debit: Number(ledger.debit || 0),
+          credit: Number(ledger.credit || 0)
+        };
+      }
+      return {
+        debit: Number(item?.totalDebit),
+        credit: Number(item?.totalCredit)
+      };
+    };
+
+    const setTotals = (items, ledgerTotals = null) => {
       const totals = (Array.isArray(items) ? items : []).reduce(
         (acc, item) => {
-          const debitValue = Number(item?.totalDebit);
-          const creditValue = Number(item?.totalCredit);
+          const rowTotals = resolveFilteredRowTotals(item, ledgerTotals);
+          const debitValue = Number(rowTotals.debit);
+          const creditValue = Number(rowTotals.credit);
           if (Number.isFinite(debitValue)) acc.debit += debitValue;
           if (Number.isFinite(creditValue)) acc.credit += creditValue;
           return acc;
@@ -708,6 +723,7 @@
       state.totalPages = totalPages;
       const start = (state.page - 1) * state.pageSize;
       const pageItems = filtered.slice(start, start + state.pageSize);
+      setTotals(filtered, ledgerTotals);
       pageItems.forEach((item) => {
         const totals = ledgerTotals.get(item.id) || { debit: 0, credit: 0 };
         item.totalDebit = totals.debit;
@@ -716,7 +732,6 @@
         item.soldValue = soldValue;
         item.soldText = Number.isFinite(soldValue) ? formatBalanceValue(soldValue) : "-";
       });
-      setTotals(pageItems);
       pageItems.forEach((item) => {
         const row = document.createElement("tr");
 
