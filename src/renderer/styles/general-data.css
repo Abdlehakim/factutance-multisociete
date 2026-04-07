@@ -2033,10 +2033,10 @@ body:not(.printing):not(.print-mode):not(.exporting-pdf)
   min-width: 1ch;
 }
 #docHistoryModal .doc-history__converted-source-row {
-  display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
-  align-items: center;
-  gap: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
   width: 100%;
   min-width: 0;
 }
@@ -2045,6 +2045,15 @@ body:not(.printing):not(.print-mode):not(.exporting-pdf)
   align-items: center;
   margin: 0;
   white-space: nowrap;
+}
+#docHistoryModal .doc-history__converted-source-row > .doc-history__converted-number {
+  width: 100%;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: normal;
+  overflow-wrap: normal;
 }
 #docHistoryModal .doc-history__converted-source-row--stack-value {
   display: flex;
