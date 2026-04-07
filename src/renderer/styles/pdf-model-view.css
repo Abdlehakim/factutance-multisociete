@@ -87,6 +87,19 @@ body.print-mode .pdf-preview-modal__actions {
   margin: 0 !important;
   width: var(--model-preview-a4-width) !important;
   height: var(--model-preview-a4-height) !important;
+  page-break-after: always;
+  break-after: page;
+  page-break-inside: avoid;
+  break-inside: avoid-page;
+}
+
+.pdf-model-template .model-actions-layout__preview-stage > .pdf-model-preview-page:last-child {
+  page-break-after: avoid;
+  break-after: avoid-page;
+}
+
+.pdf-model-template .pdf-model-preview-page.doc-design1--continued .doc-design1__table-wrap {
+  margin-top: 0 !important;
 }
 
 body:not(.printing):not(.print-mode):not(.exporting-pdf)

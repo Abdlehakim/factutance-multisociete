@@ -97,6 +97,8 @@
     EUR: { major: "euros", minor: "centimes", minorFactor: 100 },
     USD: { major: "dollars", minor: "cents", minorFactor: 100 }
   };
+  const MODEL_PAGE_ROW_FIT_BUFFER = 4;
+  const MODEL_PAGE_MIN_TABLE_BODY_HEIGHT = 80;
 
   function ensurePdfStylesheet() {
     let link = document.getElementById(PDF_MODEL_CSS_LINK_ID);
@@ -1658,6 +1660,251 @@
     }
   }
 
+  function setPaginationNodeVisibility(node, visible) {
+    if (!node) return;
+    node.hidden = !visible;
+    node.style.display = visible ? "" : "none";
+    node.setAttribute("aria-hidden", visible ? "false" : "true");
+  }
+
+  function applyPaginationPageMode(page, { showTop = true, showBottom = true, showTable = true } = {}) {
+    if (!page) return;
+    if (!showTop) {
+      const head = page.querySelector(".doc-design1__head");
+      const headWrapper =
+        head?.parentElement &&
+        head.parentElement !== page &&
+        head.parentElement.parentElement === page &&
+        head.parentElement.children.length === 1
+          ? head.parentElement
+          : null;
+      setPaginationNodeVisibility(headWrapper || head, false);
+      [
+        ".doc-design1__divider",
+        ".doc-design1__grid",
+        ".doc-design1__be-context",
+        ".doc-design1__bs-context"
+      ].forEach((selector) => {
+        page.querySelectorAll(selector).forEach((node) => setPaginationNodeVisibility(node, false));
+      });
+    }
+    if (!showTable) setPaginationNodeVisibility(page.querySelector(".doc-design1__table-wrap"), false);
+    if (!showBottom) setPaginationNodeVisibility(page.querySelector(".doc-design1__bottom"), false);
+    page.classList.toggle("doc-design1--continued", !showTop);
+    page.classList.toggle("doc-design1--summary-only", !showTable && showBottom);
+  }
+
+  function getPreviewPageTable(page) {
+    const tableWrap = page?.querySelector?.(".doc-design1__table-wrap") || null;
+    const table = tableWrap?.querySelector?.(".doc-design1__table") || null;
+    const thead = table?.querySelector?.("thead") || null;
+    const tbody = table?.querySelector?.("tbody") || null;
+    return { tableWrap, table, thead, tbody };
+  }
+
+  function createPdfModelMeasureShell(templateKey, page) {
+    if (typeof document === "undefined" || !document.body || !page) return null;
+    const shell = document.createElement("div");
+    shell.className = "pdf-model-template";
+    shell.style.position = "absolute";
+    shell.style.visibility = "hidden";
+    shell.style.pointerEvents = "none";
+    shell.style.left = "-10000px";
+    shell.style.top = "0";
+    shell.style.width = "210mm";
+    const previewWrap = document.createElement("div");
+    previewWrap.className = "model-actions-layout__preview";
+    previewWrap.dataset.templateKey = templateKey;
+    const previewScroll = document.createElement("div");
+    previewScroll.className = "model-actions-layout__preview-scroll";
+    const previewStage = document.createElement("div");
+    previewStage.className = "model-actions-layout__preview-stage";
+    previewStage.appendChild(page);
+    previewScroll.appendChild(previewStage);
+    previewWrap.appendChild(previewScroll);
+    shell.appendChild(previewWrap);
+    document.body.appendChild(shell);
+    return shell;
+  }
+
+  function measurePaginationTableLimit(sourcePage, templateKey, options = {}) {
+    const page = sourcePage?.cloneNode?.(true);
+    if (!page) return null;
+    applyPaginationPageMode(page, options);
+    const { tableWrap, thead, tbody } = getPreviewPageTable(page);
+    if (tbody) tbody.innerHTML = "";
+    const shell = createPdfModelMeasureShell(templateKey, page);
+    try {
+      if (!shell || !tableWrap) return null;
+      const tableHeight = tableWrap.getBoundingClientRect().height || tableWrap.offsetHeight || 0;
+      const headerHeight = thead?.getBoundingClientRect?.().height || thead?.offsetHeight || 0;
+      return Math.max(MODEL_PAGE_MIN_TABLE_BODY_HEIGHT, tableHeight - headerHeight - MODEL_PAGE_ROW_FIT_BUFFER);
+    } finally {
+      if (shell?.parentNode) shell.parentNode.removeChild(shell);
+    }
+  }
+
+  function buildPaginationRowUnits(rows = []) {
+    const units = [];
+    let index = 0;
+    while (index < rows.length) {
+      const row = rows[index];
+      if (
+        row?.classList?.contains("doc-design1__source-row") &&
+        rows[index + 1] &&
+        !rows[index + 1].classList?.contains("doc-design1__source-row")
+      ) {
+        units.push([row.cloneNode(true), rows[index + 1].cloneNode(true)]);
+        index += 2;
+        continue;
+      }
+      units.push([row.cloneNode(true)]);
+      index += 1;
+    }
+    return units;
+  }
+
+  function measurePaginationRowUnits(sourcePage, templateKey, units = []) {
+    const page = sourcePage?.cloneNode?.(true);
+    if (!page) return null;
+    applyPaginationPageMode(page, { showTop: false, showBottom: false, showTable: true });
+    const { tbody, tableWrap, table } = getPreviewPageTable(page);
+    if (!tbody) return null;
+    tbody.innerHTML = "";
+    if (tableWrap) {
+      tableWrap.style.flex = "0 0 auto";
+      tableWrap.style.height = "auto";
+      tableWrap.style.minHeight = "0";
+      tableWrap.style.maxHeight = "none";
+      tableWrap.style.overflow = "visible";
+    }
+    if (table) table.style.height = "auto";
+    const shell = createPdfModelMeasureShell(templateKey, page);
+    try {
+      if (!shell) return null;
+      return units.map((unit) => {
+        tbody.replaceChildren();
+        unit.forEach((row) => tbody.appendChild(row.cloneNode(true)));
+        return Array.from(tbody.children).reduce((sum, row) => {
+          const rectHeight = row.getBoundingClientRect?.().height || 0;
+          return sum + (rectHeight || row.offsetHeight || 0);
+        }, 0);
+      });
+    } finally {
+      if (shell?.parentNode) shell.parentNode.removeChild(shell);
+    }
+  }
+
+  function splitRowUnitsByPageHeight(units, unitHeights, firstLimit, otherLimit) {
+    if (!Array.isArray(units) || !units.length) return { chunks: [[]], heights: [0] };
+    const chunks = [];
+    const heights = [];
+    let current = [];
+    let currentHeight = 0;
+    let currentLimit = firstLimit;
+    units.forEach((unit, index) => {
+      const unitHeight = Number.isFinite(unitHeights?.[index]) ? unitHeights[index] : 0;
+      if (current.length && currentHeight + unitHeight > currentLimit) {
+        chunks.push(current);
+        heights.push(currentHeight);
+        current = [];
+        currentHeight = 0;
+        currentLimit = otherLimit;
+      }
+      current.push(...unit.map((row) => row.cloneNode(true)));
+      currentHeight += unitHeight;
+    });
+    if (current.length || !chunks.length) {
+      chunks.push(current);
+      heights.push(currentHeight);
+    }
+    return { chunks, heights };
+  }
+
+  function replaceTableRows(page, rows = []) {
+    const { tbody } = getPreviewPageTable(page);
+    if (!tbody) return;
+    tbody.replaceChildren();
+    rows.forEach((row, index) => {
+      const next = row.cloneNode(true);
+      if (index === 0 && next.classList?.contains("doc-design1__source-row")) {
+        next.classList.remove("doc-design1__source-row--spaced");
+      }
+      tbody.appendChild(next);
+    });
+  }
+
+  function buildPaginatedPreviewPages(page, templateKey, docType) {
+    if (!page || typeof document === "undefined" || !document.body) return [page].filter(Boolean);
+    if (MODEL_DOC_TYPE_STOCK_VALUES.has(docType)) return [page];
+    const { tbody } = getPreviewPageTable(page);
+    const rows = Array.from(tbody?.children || []);
+    if (rows.length <= 1) return [page];
+
+    const firstRowsLimit = measurePaginationTableLimit(page, templateKey, {
+      showTop: true,
+      showBottom: false,
+      showTable: true
+    });
+    const otherRowsLimit = measurePaginationTableLimit(page, templateKey, {
+      showTop: false,
+      showBottom: false,
+      showTable: true
+    });
+    const firstSummaryLimit = measurePaginationTableLimit(page, templateKey, {
+      showTop: true,
+      showBottom: true,
+      showTable: true
+    });
+    const otherSummaryLimit = measurePaginationTableLimit(page, templateKey, {
+      showTop: false,
+      showBottom: true,
+      showTable: true
+    });
+    if (
+      !Number.isFinite(firstRowsLimit) ||
+      !Number.isFinite(otherRowsLimit) ||
+      !Number.isFinite(firstSummaryLimit) ||
+      !Number.isFinite(otherSummaryLimit)
+    ) {
+      return [page];
+    }
+
+    const units = buildPaginationRowUnits(rows);
+    const unitHeights = measurePaginationRowUnits(page, templateKey, units);
+    if (!Array.isArray(unitHeights)) return [page];
+    const { chunks, heights } = splitRowUnitsByPageHeight(units, unitHeights, firstRowsLimit, otherRowsLimit);
+    const lastChunkIndex = chunks.length - 1;
+    const summaryLimit = lastChunkIndex === 0 ? firstSummaryLimit : otherSummaryLimit;
+    const summaryNeedsOwnPage = Number.isFinite(heights[lastChunkIndex]) && heights[lastChunkIndex] > summaryLimit;
+    if (summaryNeedsOwnPage) {
+      chunks.push([]);
+      heights.push(0);
+    }
+    if (chunks.length <= 1 && !summaryNeedsOwnPage) return [page];
+
+    const fullPageTemplate = page.cloneNode(true);
+    return chunks.map((chunkRows, index) => {
+      const nextPage = index === 0 ? page : fullPageTemplate.cloneNode(true);
+      const isFirstPage = index === 0;
+      const isLastPage = index === chunks.length - 1;
+      const isSummaryOnly = isLastPage && chunkRows.length === 0;
+      nextPage.classList.toggle("doc-design1--first-page", isFirstPage);
+      nextPage.classList.toggle("doc-design1--last-page", isLastPage);
+      nextPage.dataset.pageIndex = String(index + 1);
+      nextPage.dataset.pageCount = String(chunks.length);
+      applyPaginationPageMode(nextPage, {
+        showTop: isFirstPage,
+        showBottom: isLastPage,
+        showTable: !isSummaryOnly
+      });
+      if (!isSummaryOnly) replaceTableRows(nextPage, chunkRows);
+      else replaceTableRows(nextPage, []);
+      syncLastVisibleTableColumn(nextPage);
+      return nextPage;
+    });
+  }
+
   function cloneTemplatePreviewPage(templateKey) {
     const candidateIds = [`modelTemplateSource-${templateKey}`, "modelTemplateSource-template1"];
     for (const id of candidateIds) {
@@ -1725,12 +1972,13 @@
     applyBonSortieSections(page, st, visibility, docType, pdfOptions);
     applyInvoiceSummaryAndFooter(page, st, docType, totals, currency, taxesEnabled, pdfOptions);
     applySignatureAndSeal(page, st, docType, pdfOptions);
-    return { page, templateKey };
+    const pages = buildPaginatedPreviewPages(page, templateKey, docType);
+    return { page: pages[0] || page, pages, templateKey };
   }
 
   function buildBundle(state, assets) {
     ensureCssReady();
-    const { page, templateKey } = buildTemplateBoundPage(state, assets);
+    const { page, pages, templateKey } = buildTemplateBoundPage(state, assets);
     const shell = document.createElement("div");
     shell.className = "pdf-model-template";
     const previewWrap = document.createElement("div");
@@ -1740,7 +1988,8 @@
     previewScroll.className = "model-actions-layout__preview-scroll";
     const previewStage = document.createElement("div");
     previewStage.className = "model-actions-layout__preview-stage";
-    previewStage.appendChild(page);
+    const renderedPages = Array.isArray(pages) && pages.length ? pages : [page];
+    renderedPages.filter(Boolean).forEach((renderedPage) => previewStage.appendChild(renderedPage));
     previewScroll.appendChild(previewStage);
     previewWrap.appendChild(previewScroll);
     shell.appendChild(previewWrap);

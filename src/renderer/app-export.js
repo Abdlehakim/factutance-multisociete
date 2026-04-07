@@ -2596,7 +2596,7 @@ function buildBonEntreePreviewTitle(stateInput) {
     document.body.classList.add("exporting-pdf");
     try {
       root.style.display = "block";
-      const pages = Array.from(root.querySelectorAll(".pdf-page"));
+      const pages = Array.from(root.querySelectorAll(".pdf-page, .pdf-model-preview-page"));
       const targets = pages.length ? pages : [root];
       const pdf = new jsPDF({ orientation: "p", unit: "mm", format: "a4" });
       const pageWidth = pdf.internal.pageSize.getWidth();
