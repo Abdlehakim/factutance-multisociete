@@ -2989,21 +2989,20 @@ function buildBonEntreePreviewTitle(stateInput) {
       showDialog?.(loadError.text, { title: loadError.title });
       return;
     }
-    updatePdfPreviewOptionsFromToggles(document.getElementById("pdfPreviewModal"));
-    const renderer = await ensureInvoicePdfRendererReady();
+    const overlay = document.getElementById("pdfPreviewModal");
+    updatePdfPreviewOptionsFromToggles(overlay);
+    const previewBundle = await buildPdfPreviewModalInvoiceExportBundle(overlay);
 
-    if (renderer && typeof API?.printHTML === "function") {
+    if (previewBundle && typeof API?.printHTML === "function") {
       try {
-        const st = lastPreviewState;
-        const assets = API?.assets || {};
-        applyTotalsSnapshotToState(st, lastPreviewTotals);
-        const renderBundle = buildInvoiceRendererBundle(renderer, st, assets);
-        const htmlInv = renderBundle.html;
-        const cssInv = renderBundle.css;
         const res = await API.printHTML({
-          html: htmlInv,
-          css: cssInv,
-          print: { silent: true, printBackground: true }
+          html: previewBundle.html,
+          css: previewBundle.css,
+          print: {
+            silent: true,
+            printBackground: true,
+            bodyClass: "printing print-mode exporting-pdf"
+          }
         });
         if (res?.ok) return;
         console.warn("direct preview print failed", res?.error || res);
@@ -3012,15 +3011,10 @@ function buildBonEntreePreviewTitle(stateInput) {
       }
     }
 
-    const canExportToPdf = !!(API?.exportPDFFromHTML && renderer);
+    const canExportToPdf = !!(API?.exportPDFFromHTML && previewBundle);
     if (canExportToPdf) {
       try {
         const st = lastPreviewState;
-        const assets = API?.assets || {};
-        applyTotalsSnapshotToState(st, lastPreviewTotals);
-        const renderBundle = buildInvoiceRendererBundle(renderer, st, assets);
-        const htmlInv = renderBundle.html;
-        const cssInv = renderBundle.css;
 
         const invRaw = String(st.meta?.number || "").trim();
         const invNum = invRaw ? slugForFile(invRaw) : "";
@@ -3037,8 +3031,8 @@ function buildBonEntreePreviewTitle(stateInput) {
         const clientVat = String(st.client?.vat || "").trim();
 
         const res = await API.exportPDFFromHTML({
-          html: htmlInv,
-          css: cssInv,
+          html: previewBundle.html,
+          css: previewBundle.css,
           meta: {
             number: st.meta?.number,
             docType: st.meta?.docType,
@@ -3048,6 +3042,7 @@ function buildBonEntreePreviewTitle(stateInput) {
             clientVat,
             silent: true,
             to: "pdf",
+            bodyClass: "exporting-pdf",
             forceOverwrite: true
           }
         });
