@@ -1346,6 +1346,7 @@ const runLegacyDataMigrations = (db) => {
     migrateLegacyAppSettings(db);
     migrateDocumentNumbering(db);
     backfillFactureClientCodes(db);
+    cleanupInvalidFactureDebitLedgerRows(db);
     cleanupStoredGenericArticleDepotNames(db);
     runClientBalanceRebuildMigration(db);
     renumberPaymentHistory(db);
@@ -4175,6 +4176,224 @@ const normalizeLedgerDateFilter = (value, boundary = "start") => {
   return raw;
 };
 
+const normalizeLedgerFactureDate = (value) => {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  const parsed = Date.parse(raw);
+  return Number.isFinite(parsed) ? new Date(parsed).toISOString().slice(0, 10) : "";
+};
+
+const normalizeLedgerFactureKey = (value) => String(value || "").trim();
+
+const splitLedgerInvoiceKey = (value) => {
+  const raw = normalizeLedgerFactureKey(value);
+  const match = raw.match(/^(.+)__(\d{4}-\d{2}-\d{2})$/);
+  if (!match) return null;
+  return {
+    number: normalizeLedgerFactureKey(match[1]),
+    date: normalizeLedgerFactureDate(match[2])
+  };
+};
+
+const buildFactureLedgerDocumentIndex = (db) => {
+  const byKey = new Map();
+  const byNumber = new Map();
+  const byNumberDate = new Map();
+  if (!db || !tableExists(db, "documents") || !tableExists(db, "documents_factures")) {
+    return { byKey, byNumber, byNumberDate };
+  }
+  const rows = db
+    .prepare(
+      `
+      SELECT
+        d.id,
+        d.number,
+        d.period,
+        df.client_id AS clientId,
+        df.client_path AS clientPath,
+        df.meta_date AS metaDate,
+        df.totals_total_ttc AS totalTTC
+      FROM documents d
+      INNER JOIN documents_factures df ON df.document_id = d.id
+      WHERE lower(trim(d.doc_type)) = 'facture'
+    `
+    )
+    .all();
+
+  rows.forEach((row) => {
+    const id = normalizeLedgerFactureKey(row?.id);
+    const number = normalizeLedgerFactureKey(row?.number);
+    const date = normalizeLedgerFactureDate(row?.metaDate || row?.period || "");
+    const clientId = normalizeLedgerFactureKey(
+      row?.clientId || parseClientIdFromPath(normalizeLedgerFactureKey(row?.clientPath)) || ""
+    );
+    const doc = {
+      id,
+      number,
+      date,
+      clientId,
+      totalTTC: Number(row?.totalTTC)
+    };
+    const keys = [
+      id,
+      id ? `${DOCUMENT_PATH_PREFIX}${id}` : "",
+      id ? `${DOCUMENT_PATH_PREFIX}facture/${id}` : "",
+      number,
+      number ? formatDocumentPath(number) : "",
+      number && date ? `${number}__${date}` : ""
+    ];
+    keys.forEach((key) => {
+      const normalizedKey = normalizeLedgerFactureKey(key);
+      if (normalizedKey && !byKey.has(normalizedKey)) byKey.set(normalizedKey, doc);
+    });
+    if (number && !byNumber.has(number)) byNumber.set(number, doc);
+    if (number && date) {
+      const invoiceKey = `${number}__${date}`;
+      if (!byNumberDate.has(invoiceKey)) byNumberDate.set(invoiceKey, doc);
+    }
+  });
+
+  return { byKey, byNumber, byNumberDate };
+};
+
+const resolveLedgerFactureDocument = (row, index) => {
+  if (!row || !index) return null;
+  const rowDate = normalizeLedgerFactureDate(row?.effectiveDate || row?.createdAt || "");
+  const rowClientId = normalizeLedgerFactureKey(row?.clientId);
+  const candidates = [
+    row?.sourceId,
+    row?.invoicePath,
+    row?.invoiceNumber
+  ]
+    .map(normalizeLedgerFactureKey)
+    .filter(Boolean);
+
+  const findByValue = (value) => {
+    const direct = index.byKey.get(value);
+    if (direct) return direct;
+    const parsedPathNumber = parseDocumentNumberFromPath(value);
+    if (parsedPathNumber) {
+      const pathDirect = index.byKey.get(parsedPathNumber) || index.byNumber.get(parsedPathNumber);
+      if (pathDirect) return pathDirect;
+    }
+    const invoiceKey = splitLedgerInvoiceKey(value);
+    if (invoiceKey?.number) {
+      const exactKey = invoiceKey.date ? `${invoiceKey.number}__${invoiceKey.date}` : "";
+      if (exactKey && index.byNumberDate.has(exactKey)) return index.byNumberDate.get(exactKey);
+      const byNumber = index.byNumber.get(invoiceKey.number);
+      if (byNumber) return byNumber;
+    }
+    return index.byNumber.get(value) || null;
+  };
+
+  const matchesSafeguards = (doc) => {
+    if (!doc) return false;
+    const dateMatches = !rowDate || !doc.date || rowDate === doc.date;
+    const clientMatches = !rowClientId || !doc.clientId || rowClientId === doc.clientId;
+    return dateMatches && clientMatches;
+  };
+
+  for (const value of candidates) {
+    const doc = findByValue(value);
+    if (matchesSafeguards(doc)) return doc;
+  }
+  for (const value of candidates) {
+    const doc = findByValue(value);
+    if (doc) return doc;
+  }
+  return null;
+};
+
+const cleanupInvalidFactureDebitLedgerRows = (db) => {
+  if (
+    !db ||
+    !tableExists(db, "client_ledger") ||
+    !tableExists(db, "documents") ||
+    !tableExists(db, "documents_factures")
+  ) {
+    return 0;
+  }
+  const index = buildFactureLedgerDocumentIndex(db);
+  const rows = db
+    .prepare(
+      `
+      SELECT
+        id,
+        client_id AS clientId,
+        created_at AS createdAt,
+        effective_date AS effectiveDate,
+        type,
+        amount,
+        source,
+        source_id AS sourceId,
+        invoice_path AS invoicePath,
+        invoice_number AS invoiceNumber
+      FROM client_ledger
+      WHERE lower(trim(type)) = 'debit'
+        AND lower(trim(source)) = 'invoice_unpaid'
+    `
+    )
+    .all();
+
+  const targets = [];
+  const keepByDocument = new Map();
+  rows.forEach((row) => {
+    const doc = resolveLedgerFactureDocument(row, index);
+    const rowId = normalizeLedgerFactureKey(row?.id);
+    if (!rowId) return;
+    if (!doc) {
+      targets.push(rowId);
+      return;
+    }
+    const rowClientId = normalizeLedgerFactureKey(row?.clientId);
+    if (rowClientId && doc.clientId && rowClientId !== doc.clientId) {
+      targets.push(rowId);
+      return;
+    }
+    const groupKey = doc.id || (doc.number && doc.date ? `${doc.number}__${doc.date}` : "");
+    if (!groupKey) return;
+    const amount = Number(row?.amount);
+    const matchesAmount =
+      Number.isFinite(amount) &&
+      Number.isFinite(doc.totalTTC) &&
+      Math.abs(amount - doc.totalTTC) <= 0.0005;
+    const createdAt = Date.parse(String(row?.createdAt || ""));
+    const rank = {
+      id: rowId,
+      matchesAmount,
+      createdAt: Number.isFinite(createdAt) ? createdAt : 0
+    };
+    const existing = keepByDocument.get(groupKey);
+    if (!existing) {
+      keepByDocument.set(groupKey, rank);
+      return;
+    }
+    const shouldReplace =
+      (!existing.matchesAmount && rank.matchesAmount) ||
+      (existing.matchesAmount === rank.matchesAmount && rank.createdAt > existing.createdAt);
+    if (shouldReplace) {
+      targets.push(existing.id);
+      keepByDocument.set(groupKey, rank);
+    } else {
+      targets.push(rank.id);
+    }
+  });
+
+  const uniqueTargets = Array.from(new Set(targets.filter(Boolean)));
+  if (!uniqueTargets.length) return 0;
+  const deleteStmt = db.prepare("DELETE FROM client_ledger WHERE id = ?");
+  const tx = db.transaction((ids) => {
+    let removed = 0;
+    ids.forEach((id) => {
+      const result = deleteStmt.run(id);
+      removed += Number(result?.changes || 0);
+    });
+    return removed;
+  });
+  return tx(uniqueTargets);
+};
+
 const generateLedgerId = () =>
   (crypto.randomUUID && crypto.randomUUID()) ||
   `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
@@ -4236,6 +4455,9 @@ const addClientLedgerEntry = ({
   const entryPaymentMode = normalizeTextValue(paymentMode);
   const entryPaymentRef = normalizeTextValue(paymentRef || paymentReference);
   const db = initDatabase();
+  if (entrySource === "invoice_unpaid" && entryType === "debit") {
+    cleanupInvalidFactureDebitLedgerRows(db);
+  }
   db
     .prepare(
       `
@@ -4290,6 +4512,7 @@ const addClientLedgerEntry = ({
 
 const getClientLedgerEntries = ({ clientId, dateFrom, dateTo } = {}) => {
   const db = initDatabase();
+  cleanupInvalidFactureDebitLedgerRows(db);
   const conditions = [];
   const params = [];
   const normalizedClientId = String(clientId || "").trim();
@@ -7994,7 +8217,7 @@ const deleteClientLedgerRowsForDocument = (db, docRow = {}) => {
     const rowSource = String(row?.source || "").trim().toLowerCase();
     if (!sourceAllowed.has(rowSource)) return false;
     const rowClientId = String(row?.clientId || "").trim();
-    if (clientId && rowClientId && rowClientId !== clientId) return false;
+    const clientMismatch = !!(clientId && rowClientId && rowClientId !== clientId);
 
     const sourceId = String(row?.sourceId || "").trim();
     const invoicePath = String(row?.invoicePath || "").trim();
@@ -8005,6 +8228,7 @@ const deleteClientLedgerRowsForDocument = (db, docRow = {}) => {
 
     const rowDate = normalizeFactureLedgerDeleteDate(row?.effectiveDate || row?.createdAt || "");
     const dateMatches = !documentDate || !rowDate || rowDate === documentDate;
+    if (clientMismatch && !(invoiceNumber === documentNumber && dateMatches)) return false;
     if ((sourceId === documentNumber || invoicePath === documentNumber) && dateMatches) return true;
     if (invoiceNumber === documentNumber) {
       return rowSource === "invoice_payment" || dateMatches;
