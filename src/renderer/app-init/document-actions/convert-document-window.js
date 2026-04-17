@@ -42,6 +42,20 @@
     date: "convertDocumentWindowDate",
     datePicker: "convertDocumentWindowDatePicker",
     datePanel: "convertDocumentWindowDatePanel",
+    beReceptionWrap: "convertDocumentWindowBeReceptionWrap",
+    beDepot: "convertDocumentWindowBeReceptionDepotInput",
+    beDepotMenu: "convertDocumentWindowBeReceptionDepotMenu",
+    beDepotPanel: "convertDocumentWindowBeReceptionDepotPanel",
+    beDepotDisplay: "convertDocumentWindowBeReceptionDepotDisplay",
+    beDestination: "convertDocumentWindowBeReceptionDestinationInput",
+    beDestinationMenu: "convertDocumentWindowBeReceptionDestinationMenu",
+    beDestinationPanel: "convertDocumentWindowBeReceptionDestinationPanel",
+    beDestinationDisplay: "convertDocumentWindowBeReceptionDestinationDisplay",
+    beDate: "convertDocumentWindowBeReceptionDateInput",
+    beDatePanel: "convertDocumentWindowBeReceptionDatePanel",
+    beTime: "convertDocumentWindowBeReceptionTimeInput",
+    beTimePanel: "convertDocumentWindowBeReceptionTimePanel",
+    beSourceRef: "convertDocumentWindowBeReceptionSourceInput",
     paymentWrap: "convertDocumentWindowPaymentWrap",
     paymentMethod: "convertDocumentWindowPaymentMethod",
     paymentMethodLabel: "convertDocumentWindowPaymentMethodLabel",
@@ -170,6 +184,183 @@
         entry?.vendorPath ||
         ""
     ).trim();
+
+  const getTodayDate = () => new Date().toISOString().slice(0, 10);
+  const getBeReceptionApi = () => w.AppInit?.DocConversion?.BonEntreeReception || {};
+  const normalizeBeReceptionText = (value) => String(value ?? "").trim();
+  const normalizeBeReceptionDepotId = (value = "") => {
+    const api = getBeReceptionApi();
+    if (typeof api.normalizeDepotId === "function") return api.normalizeDepotId(value);
+    return String(value || "").trim();
+  };
+  const normalizeBeReceptionLocationId = (value = "") => {
+    const api = getBeReceptionApi();
+    if (typeof api.normalizeLocationId === "function") return api.normalizeLocationId(value);
+    return String(value || "").trim();
+  };
+  const normalizeBeReceptionDestinationIds = (value = []) => {
+    const api = getBeReceptionApi();
+    if (typeof api.normalizeDestinationIds === "function") {
+      return api.normalizeDestinationIds(value);
+    }
+    const source = Array.isArray(value) ? value : String(value || "").split(",");
+    const seen = new Set();
+    return source
+      .map((entry) => normalizeBeReceptionLocationId(entry))
+      .filter((entry) => {
+        if (!entry || seen.has(entry)) return false;
+        seen.add(entry);
+        return true;
+      });
+  };
+  const normalizeBeReceptionDestinationLabels = (value = []) => {
+    const api = getBeReceptionApi();
+    if (typeof api.normalizeDestinationLabels === "function") {
+      return api.normalizeDestinationLabels(value);
+    }
+    const source = Array.isArray(value) ? value : String(value || "").split(",");
+    const seen = new Set();
+    return source
+      .map((entry) => normalizeBeReceptionText(entry))
+      .filter((entry) => {
+        if (!entry || seen.has(entry)) return false;
+        seen.add(entry);
+        return true;
+      });
+  };
+  const formatBeReceptionDestinationText = (labels = []) => {
+    const api = getBeReceptionApi();
+    if (typeof api.formatDestinationText === "function") {
+      return api.formatDestinationText(labels);
+    }
+    return normalizeBeReceptionDestinationLabels(labels).join(", ");
+  };
+  const formatBeReceptionTime = () => {
+    const api = getBeReceptionApi();
+    if (typeof api.formatTime === "function") return api.formatTime();
+    const now = new Date();
+    return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  };
+  const normalizeBeReceptionChoice = (value = {}, options = {}) => {
+    const api = getBeReceptionApi();
+    if (typeof api.normalizeChoice === "function") {
+      return api.normalizeChoice(value, options);
+    }
+    const raw = value && typeof value === "object" ? value : {};
+    const fallbackDate = String(options?.fallbackDate || "").trim();
+    const destinationIds = normalizeBeReceptionDestinationIds(
+      raw.destinationIds || raw.destinationSelection?.ids || raw.destinationId || raw.destinationLocationId || []
+    );
+    const destinationLabels = normalizeBeReceptionDestinationLabels(
+      raw.destinationLabels || raw.destinationSelection?.labels || []
+    );
+    const destination = normalizeBeReceptionText(
+      raw.destination ||
+        raw.destinationLocation ||
+        raw.location ||
+        (destinationLabels.length ? formatBeReceptionDestinationText(destinationLabels) : "")
+    );
+    return {
+      depot: normalizeBeReceptionText(raw.depot || raw.depotName || ""),
+      depotId: normalizeBeReceptionDepotId(raw.depotId || raw.depotDbId || raw.magasinId || ""),
+      destination,
+      destinationId: normalizeBeReceptionLocationId(destinationIds[0] || raw.destinationId || ""),
+      destinationIds,
+      destinationLabels,
+      date: String(raw.date || raw.receptionDate || fallbackDate || "").trim(),
+      time: String(raw.time || raw.receptionTime || formatBeReceptionTime()).trim(),
+      sourceRef: normalizeBeReceptionText(raw.sourceRef || raw.referenceSource || raw.source || ""),
+      sourceSelection: raw.sourceSelection || raw.sourceDocuments || raw.sourceDocs || null,
+      importedSourceKeys: Array.isArray(raw.importedSourceKeys) ? raw.importedSourceKeys.slice() : []
+    };
+  };
+  const createDefaultBeReceptionChoice = ({ entry, sourceDocType, date } = {}) => {
+    const api = getBeReceptionApi();
+    if (typeof api.createDefaultChoice === "function") {
+      return api.createDefaultChoice({ entry, sourceDocType, date });
+    }
+    const number = String(entry?.number || entry?.invNumber || entry?.name || "").trim();
+    const label = labelOfType(sourceDocType || entry?.docType || "");
+    return normalizeBeReceptionChoice(
+      {
+        date,
+        time: formatBeReceptionTime(),
+        sourceRef: number ? `${label} : ${number}` : label
+      },
+      { fallbackDate: date }
+    );
+  };
+  const validateBeReceptionChoice = (value = {}, options = {}) => {
+    const api = getBeReceptionApi();
+    if (typeof api.validateChoice === "function") return api.validateChoice(value, options);
+    const reception = normalizeBeReceptionChoice(value, options);
+    const requireStorageFields = options?.requireStorageFields !== false;
+    if (requireStorageFields) {
+      if (!reception.depotId) return { ok: false, error: "Selectionnez un depot / magasin." };
+      if (!reception.destinationIds.length) {
+        return { ok: false, error: "Selectionnez un emplacement de destination." };
+      }
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(reception.date)) {
+      return { ok: false, error: "Renseignez une date de reception valide." };
+    }
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(reception.time)) {
+      return { ok: false, error: "Renseignez une heure de reception valide au format HH:MM." };
+    }
+    if (!reception.sourceRef) return { ok: false, error: "Renseignez la reference source." };
+    return { ok: true, value: reception };
+  };
+  const fetchBeReceptionDepotRecords = async (options = {}) => {
+    const api = getBeReceptionApi();
+    if (typeof api.fetchDepotRecords === "function") {
+      return api.fetchDepotRecords(options);
+    }
+    return [];
+  };
+  const fetchBeReceptionLocationsForDepot = async (depotId = "") => {
+    const api = getBeReceptionApi();
+    if (typeof api.fetchLocationsForDepot === "function") {
+      return api.fetchLocationsForDepot(depotId);
+    }
+    return [];
+  };
+  const renderBeReceptionSelectField = ({
+    selectId,
+    menuId,
+    panelId,
+    displayId,
+    labelText,
+    placeholder,
+    multiple = false
+  } = {}) => `
+    <label class="items-be-reception-form__field doc-history-modal__filter article-stock-depot-filter">
+      <span>${labelText}</span>
+      <div class="doc-dialog-model-picker__field">
+        <details id="${menuId}" class="field-toggle-menu doc-dialog-model-menu doc-history-model-menu" data-disabled="false">
+          <summary class="btn success field-toggle-trigger" role="button" aria-haspopup="listbox" aria-expanded="false" aria-disabled="false">
+            <span id="${displayId}" class="model-select-display">${placeholder}</span>
+            ${CHEVRON_SVG}
+          </summary>
+          <div id="${panelId}" class="field-toggle-panel model-select-panel doc-history-model-panel" role="listbox"></div>
+        </details>
+        <select id="${selectId}" class="model-select doc-dialog-model-select" aria-hidden="true" tabindex="-1" ${multiple ? "multiple" : ""}>
+          <option value="">${placeholder}</option>
+        </select>
+      </div>
+    </label>
+  `;
+  const renderBeReceptionTimeField = () =>
+    typeof w.BeReceptionTimeField?.render === "function"
+      ? w.BeReceptionTimeField.render({
+          inputId: ID.beTime,
+          panelId: ID.beTimePanel
+        })
+      : `
+        <label class="items-be-reception-form__field">
+          <span>Heure</span>
+          <input id="${ID.beTime}" type="text" inputmode="numeric" placeholder="HH:MM" autocomplete="off">
+        </label>
+      `;
 
   const ensureModal = () => {
     let modal = getEl(ID.modal);
@@ -432,6 +623,76 @@
                   />
                 </label>
               </div>
+              <fieldset id="${ID.beReceptionWrap}" hidden class="items-be-reception-form doc-history-convert__be-reception convert-document-window-modal__be-reception">
+                <legend>Informations de r&eacute;ception</legend>
+                <div class="items-be-reception-form__grid">
+                  ${renderBeReceptionSelectField({
+                    selectId: ID.beDepot,
+                    menuId: ID.beDepotMenu,
+                    panelId: ID.beDepotPanel,
+                    displayId: ID.beDepotDisplay,
+                    labelText: "D&eacute;p&ocirc;t / Magasin",
+                    placeholder: "Selectionner un depot"
+                  })}
+                  ${renderBeReceptionSelectField({
+                    selectId: ID.beDestination,
+                    menuId: ID.beDestinationMenu,
+                    panelId: ID.beDestinationPanel,
+                    displayId: ID.beDestinationDisplay,
+                    labelText: "Emplacement de destination",
+                    placeholder: "Aucun emplacement",
+                    multiple: true
+                  })}
+                  <label class="items-be-reception-form__field">
+                    <span>Date de r&eacute;ception</span>
+                    <div class="swb-date-picker" data-date-picker>
+                      <input
+                        id="${ID.beDate}"
+                        type="text"
+                        inputmode="numeric"
+                        placeholder="AAAA-MM-JJ"
+                        autocomplete="off"
+                        spellcheck="false"
+                        aria-haspopup="dialog"
+                        aria-expanded="false"
+                        role="combobox"
+                        aria-controls="${ID.beDatePanel}"
+                      />
+                      <button
+                        type="button"
+                        class="swb-date-picker__toggle"
+                        data-date-picker-toggle
+                        aria-label="Choisir une date de r&eacute;ception"
+                        aria-haspopup="dialog"
+                        aria-expanded="false"
+                        aria-controls="${ID.beDatePanel}"
+                      >
+                        <svg class="swb-date-picker__toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" focusable="false">
+                          <rect x="3.5" y="5" width="17" height="15" rx="2"></rect>
+                          <path d="M8 3.5v3M16 3.5v3M3.5 10h17" stroke-linecap="round"></path>
+                        </svg>
+                      </button>
+                      <div
+                        id="${ID.beDatePanel}"
+                        class="swb-date-picker__panel"
+                        data-date-picker-panel
+                        hidden
+                        role="dialog"
+                        aria-modal="false"
+                        aria-label="Choisir une date"
+                        tabindex="-1"
+                      ></div>
+                    </div>
+                  </label>
+                  ${renderBeReceptionTimeField()}
+                  <label class="items-be-reception-form__field items-be-reception-form__field--wide items-be-reception-form__field--source" for="${ID.beSourceRef}">
+                    <span>R&eacute;f&eacute;rence source</span>
+                    <div class="items-be-reception-form__input-group items-be-reception-form__input-group--source">
+                      <input id="${ID.beSourceRef}" type="text" placeholder="ex : Facture d'achat / Bon de commande" autocomplete="off" spellcheck="false" />
+                    </div>
+                  </label>
+                </div>
+              </fieldset>
               <p id="${ID.status2}" class="doc-history-modal__status" aria-live="polite"></p>
             </section>
             <div class="convert-document-window-modal__step-actions model-stepper__actions-right">
@@ -488,6 +749,13 @@
       step2BehaviorBound: false,
       lastPaymentMethod: "",
       step2CanConvert: false,
+      beReception: null,
+      beReceptionDateTouched: false,
+      beReceptionBehaviorBound: false,
+      beReceptionDatePickerInstance: null,
+      beReceptionDatePickerBound: false,
+      beReceptionTimeBound: false,
+      beReceptionSyncToken: 0,
       datePickerInstance: null,
       datePickerBound: false,
       restoreFocus: null,
@@ -527,6 +795,13 @@
       e[ID.paymentRef].disabled = state.busy;
       if (e[ID.acomptePaid]) e[ID.acomptePaid].disabled = state.busy;
       if (e[ID.acompteDue]) e[ID.acompteDue].disabled = state.busy;
+      [e[ID.beDate], e[ID.beTime], e[ID.beSourceRef]].forEach((input) => {
+        if (input) input.disabled = state.busy;
+      });
+      [e[ID.beDepot], e[ID.beDestination]].forEach((select) => {
+        if (!select) return;
+        select.disabled = state.busy || select.dataset.unavailable === "true";
+      });
       if (state.busy) {
         setPartyPanelOpen(false);
         setYearMenuOpen(false);
@@ -571,6 +846,7 @@
 
     const getSelectedTargetValue = () => normalize(e[ID.target]?.value || "");
     const isFactureTarget = () => getSelectedTargetValue() === "facture";
+    const isBonEntreeTarget = () => getSelectedTargetValue() === "be";
     const isPartialStatus = () =>
       normalizeFactureStatusValue(e[ID.paymentStatus]?.value || "") === "partiellement-payee";
     const hasValidModelSelectionForTarget = () => {
@@ -611,6 +887,531 @@
       const due = Math.max(0, base - normalizedPaid);
       e[ID.acompteDue].value = formatMoneyValue(due, resolveCurrency());
     };
+    const getBeReceptionFallbackDate = () =>
+      String(e[ID.date]?.value || getTodayDate()).trim() || getTodayDate();
+    const requiresBeReceptionStorageFields = () => normalize(state.source?.docType || "") !== "fa";
+    const getBeReceptionValidationOptions = (fallbackDate = getBeReceptionFallbackDate()) => ({
+      fallbackDate,
+      requireStorageFields: requiresBeReceptionStorageFields()
+    });
+    const getSelectedOptionText = (select) => {
+      if (!(select instanceof HTMLSelectElement)) return "";
+      const selected =
+        (select.selectedOptions && select.selectedOptions.length ? select.selectedOptions[0] : null) ||
+        Array.from(select.options || []).find((option) => option.value === select.value) ||
+        null;
+      return normalizeBeReceptionText(selected?.textContent || "");
+    };
+    const readBeReceptionFormValues = (current = state.beReception) => {
+      const fallbackDate = getBeReceptionFallbackDate();
+      const base = normalizeBeReceptionChoice(current, { fallbackDate });
+      const depotSelect = e[ID.beDepot];
+      const destinationSelect = e[ID.beDestination];
+      const destinationIds = normalizeBeReceptionDestinationIds(
+        Array.from(destinationSelect?.selectedOptions || []).map((option) => option.value)
+      );
+      const destinationLabels = normalizeBeReceptionDestinationLabels(
+        destinationIds
+          .map((id) => {
+            const option = Array.from(destinationSelect?.options || []).find(
+              (entry) => String(entry.value || "").trim() === id
+            );
+            return option?.textContent || "";
+          })
+          .filter(Boolean)
+      );
+      return normalizeBeReceptionChoice(
+        {
+          ...base,
+          depotId: normalizeBeReceptionDepotId(depotSelect?.value || base.depotId || ""),
+          depot: normalizeBeReceptionDepotId(depotSelect?.value || "")
+            ? getSelectedOptionText(depotSelect)
+            : "",
+          destinationId: destinationIds[0] || "",
+          destinationIds,
+          destinationLabels,
+          destination: destinationLabels.length
+            ? formatBeReceptionDestinationText(destinationLabels)
+            : "",
+          date: String(e[ID.beDate]?.value || base.date || fallbackDate).trim(),
+          time: String(e[ID.beTime]?.value || base.time || "").trim(),
+          sourceRef: normalizeBeReceptionText(e[ID.beSourceRef]?.value || base.sourceRef || "")
+        },
+        { fallbackDate }
+      );
+    };
+    const syncBeReceptionStaticInputs = () => {
+      const fallbackDate = getBeReceptionFallbackDate();
+      const reception = normalizeBeReceptionChoice(state.beReception, { fallbackDate });
+      if (e[ID.beDate]) {
+        e[ID.beDate].value = reception.date || fallbackDate;
+        if (state.beReceptionDatePickerInstance) {
+          try {
+            state.beReceptionDatePickerInstance.setValue(e[ID.beDate].value, { silent: true });
+          } catch {}
+        }
+      }
+      if (e[ID.beTime]) e[ID.beTime].value = reception.time || formatBeReceptionTime();
+      if (e[ID.beSourceRef]) e[ID.beSourceRef].value = reception.sourceRef || "";
+    };
+    const resetBeReceptionChoice = (entry = state.step2PrimaryDoc, selectedDocs = []) => {
+      const fallbackDate = getBeReceptionFallbackDate();
+      state.beReceptionDateTouched = false;
+      const docs = Array.isArray(selectedDocs) ? selectedDocs : [];
+      const numbers = docs
+        .map((doc) => String(doc?.number || doc?.display || doc?.name || "").trim())
+        .filter(Boolean);
+      const defaultEntry =
+        docs.length > 1
+          ? {
+              ...(entry || docs[0] || {}),
+              number: numbers.join(", "),
+              name: `${docs.length} document(s)`
+            }
+          : entry || docs[0] || {};
+      let next = createDefaultBeReceptionChoice({
+        entry: defaultEntry,
+        sourceDocType: state.source?.docType || defaultEntry?.docType || "",
+        date: fallbackDate
+      });
+      if (docs.length > 1 && numbers.length) {
+        next = normalizeBeReceptionChoice(
+          {
+            ...next,
+            sourceRef: `${labelOfType(state.source?.docType || "be")} : ${numbers.join(", ")}`
+          },
+          { fallbackDate }
+        );
+      }
+      state.beReception = next;
+      syncBeReceptionStaticInputs();
+    };
+    const closeBeReceptionMenu = (menu) => {
+      if (!(menu instanceof HTMLElement)) return;
+      menu.removeAttribute("open");
+      menu.querySelector("summary.field-toggle-trigger")?.setAttribute("aria-expanded", "false");
+    };
+    const setBeReceptionPickerDisabled = (menu, select, disabled) => {
+      const isDisabled = !!disabled;
+      if (menu instanceof HTMLElement) {
+        menu.dataset.disabled = isDisabled ? "true" : "false";
+        const summary = menu.querySelector("summary.field-toggle-trigger");
+        summary?.setAttribute("aria-disabled", isDisabled ? "true" : "false");
+        if (isDisabled) {
+          closeBeReceptionMenu(menu);
+          if (summary) summary.tabIndex = -1;
+        } else if (summary) {
+          summary.removeAttribute("tabindex");
+        }
+      }
+      if (select instanceof HTMLSelectElement) {
+        select.dataset.unavailable = isDisabled ? "true" : "false";
+        select.disabled = state.busy || isDisabled;
+        select.setAttribute("aria-disabled", state.busy || isDisabled ? "true" : "false");
+      }
+    };
+    const wireBeReceptionMenu = (menu, panel) => {
+      if (!(menu instanceof HTMLElement) || !(panel instanceof HTMLElement) || menu.dataset.convertWindowBeWired === "1") {
+        return;
+      }
+      const summary = menu.querySelector("summary.field-toggle-trigger");
+      summary?.addEventListener("click", (event) => {
+        if (menu.dataset.disabled === "true") return;
+        event.preventDefault();
+        menu.open = !menu.open;
+        summary.setAttribute("aria-expanded", menu.open ? "true" : "false");
+      });
+      menu.addEventListener("keydown", (event) => {
+        if (event.key !== "Escape") return;
+        event.preventDefault();
+        closeBeReceptionMenu(menu);
+        summary?.focus?.();
+      });
+      menu.dataset.convertWindowBeWired = "1";
+    };
+    const setBeReceptionSelectOptions = (
+      select,
+      records = [],
+      { placeholder = "", selectedValue = "", selectedValues = [], valueKey = "id", labelKey = "name" } = {}
+    ) => {
+      if (!(select instanceof HTMLSelectElement)) return [];
+      const isMultiple = !!select.multiple;
+      const selectedSet = new Set(
+        (isMultiple ? selectedValues : [selectedValue])
+          .map((entry) => String(entry || "").trim())
+          .filter(Boolean)
+      );
+      select.replaceChildren();
+      const placeholderOption = document.createElement("option");
+      placeholderOption.value = "";
+      placeholderOption.textContent = placeholder;
+      select.appendChild(placeholderOption);
+      const values = [];
+      records.forEach((record) => {
+        const value = String(record?.[valueKey] || "").trim();
+        const label = normalizeBeReceptionText(record?.[labelKey] || value);
+        if (!value) return;
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = label || value;
+        option.selected = selectedSet.has(value);
+        select.appendChild(option);
+        if (option.selected) values.push(value);
+      });
+      if (!isMultiple) {
+        const resolved = values[0] || "";
+        select.value = resolved;
+        return resolved ? [resolved] : [];
+      }
+      return values;
+    };
+    const renderBeReceptionDepotPanel = (records = [], selectedDepotId = "") => {
+      const select = e[ID.beDepot];
+      const menu = e[ID.beDepotMenu];
+      const panel = e[ID.beDepotPanel];
+      const display = e[ID.beDepotDisplay];
+      if (!(select instanceof HTMLSelectElement) || !(panel instanceof HTMLElement) || !(menu instanceof HTMLElement)) {
+        return { selectedDepotId: "", selectedDepotLabel: "" };
+      }
+      const selectedValues = setBeReceptionSelectOptions(select, records, {
+        placeholder: "Selectionner un depot",
+        selectedValue: normalizeBeReceptionDepotId(selectedDepotId),
+        valueKey: "id",
+        labelKey: "name"
+      });
+      const selectedValue = selectedValues[0] || "";
+      const selectedLabel = getSelectedOptionText(select);
+      if (display) {
+        display.textContent = selectedLabel || "Selectionner un depot";
+        display.dataset.selected = selectedValue ? "true" : "false";
+      }
+      menu.dataset.selected = selectedValue ? "true" : "false";
+      setBeReceptionPickerDisabled(menu, select, !records.length);
+      panel.replaceChildren();
+      if (!records.length) {
+        const empty = document.createElement("p");
+        empty.className = "model-select-empty";
+        empty.textContent = "Aucun depot enregistre";
+        panel.appendChild(empty);
+      } else {
+        records.forEach((record) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "model-select-option";
+          button.dataset.value = record.id;
+          button.setAttribute("role", "option");
+          button.textContent = record.name;
+          const isActive = record.id === selectedValue;
+          button.classList.toggle("is-active", isActive);
+          button.setAttribute("aria-selected", isActive ? "true" : "false");
+          button.addEventListener("click", () => {
+            if (select.disabled) return;
+            select.value = record.id;
+            closeBeReceptionMenu(menu);
+            state.beReception = normalizeBeReceptionChoice(
+              {
+                ...state.beReception,
+                depotId: record.id,
+                depot: record.name,
+                destinationId: "",
+                destinationIds: [],
+                destinationLabels: [],
+                destination: ""
+              },
+              { fallbackDate: getBeReceptionFallbackDate() }
+            );
+            select.dispatchEvent(new Event("change", { bubbles: true }));
+          });
+          panel.appendChild(button);
+        });
+      }
+      wireBeReceptionMenu(menu, panel);
+      return { selectedDepotId: selectedValue, selectedDepotLabel: selectedLabel };
+    };
+    const renderBeReceptionDestinationPanel = (
+      locations = [],
+      { selectedLocationIds = [], depotSelected = false } = {}
+    ) => {
+      const select = e[ID.beDestination];
+      const menu = e[ID.beDestinationMenu];
+      const panel = e[ID.beDestinationPanel];
+      const display = e[ID.beDestinationDisplay];
+      if (!(select instanceof HTMLSelectElement) || !(panel instanceof HTMLElement) || !(menu instanceof HTMLElement)) {
+        return { selectedLocationIds: [], selectedLocationLabels: [] };
+      }
+      const selectedIds = setBeReceptionSelectOptions(select, locations, {
+        placeholder: depotSelected ? "Aucun emplacement" : "Selectionnez d'abord un depot",
+        selectedValues: normalizeBeReceptionDestinationIds(selectedLocationIds),
+        valueKey: "id",
+        labelKey: "code"
+      });
+      const selectedLabels = normalizeBeReceptionDestinationLabels(
+        selectedIds
+          .map((id) => {
+            const option = Array.from(select.options || []).find((entry) => entry.value === id);
+            return option?.textContent || "";
+          })
+          .filter(Boolean)
+      );
+      const displayText = selectedLabels.length
+        ? formatBeReceptionDestinationText(selectedLabels)
+        : depotSelected
+          ? "Aucun emplacement"
+          : "Selectionnez d'abord un depot";
+      if (display) {
+        display.textContent = displayText;
+        display.dataset.selected = selectedIds.length ? "true" : "false";
+      }
+      menu.dataset.selected = selectedIds.length ? "true" : "false";
+      setBeReceptionPickerDisabled(menu, select, !depotSelected || !locations.length);
+      panel.replaceChildren();
+      if (!depotSelected) {
+        const empty = document.createElement("p");
+        empty.className = "model-select-empty";
+        empty.textContent = "Selectionnez d'abord un depot";
+        panel.appendChild(empty);
+      } else if (!locations.length) {
+        const empty = document.createElement("p");
+        empty.className = "model-select-empty";
+        empty.textContent = "Aucun emplacement";
+        panel.appendChild(empty);
+      } else {
+        Array.from(select.options || []).forEach((option) => {
+          if (!option.value) return;
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "model-select-option model-select-option--multiselect stock-location-option";
+          button.dataset.value = option.value;
+          button.setAttribute("role", "option");
+          const checkbox = document.createElement("span");
+          checkbox.className = "stock-location-option__checkbox";
+          checkbox.setAttribute("aria-hidden", "true");
+          const checkIcon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+          checkIcon.classList.add("stock-location-option__check");
+          checkIcon.setAttribute("viewBox", "0 0 20 20");
+          checkIcon.setAttribute("fill", "none");
+          checkIcon.setAttribute("focusable", "false");
+          checkIcon.setAttribute("aria-hidden", "true");
+          const checkPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          checkPath.setAttribute("d", "M5 10.5L8.5 14L15 7.5");
+          checkPath.setAttribute("stroke", "currentColor");
+          checkPath.setAttribute("stroke-width", "2");
+          checkPath.setAttribute("stroke-linecap", "round");
+          checkPath.setAttribute("stroke-linejoin", "round");
+          checkIcon.appendChild(checkPath);
+          checkbox.appendChild(checkIcon);
+          const label = document.createElement("span");
+          label.className = "stock-location-option__label";
+          label.textContent = normalizeBeReceptionText(option.textContent || "");
+          button.append(checkbox, label);
+          const isActive = selectedIds.includes(option.value);
+          button.classList.toggle("is-active", isActive);
+          button.setAttribute("aria-selected", isActive ? "true" : "false");
+          button.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (select.disabled) return;
+            const currentIds = normalizeBeReceptionDestinationIds(
+              Array.from(select.selectedOptions || []).map((entry) => entry.value)
+            );
+            const hasValue = currentIds.includes(option.value);
+            const nextIds = hasValue
+              ? currentIds.filter((entry) => entry !== option.value)
+              : [...currentIds, option.value];
+            Array.from(select.options || []).forEach((entry) => {
+              entry.selected = nextIds.includes(entry.value);
+            });
+            select.dispatchEvent(new Event("change", { bubbles: true }));
+          });
+          panel.appendChild(button);
+        });
+      }
+      wireBeReceptionMenu(menu, panel);
+      return { selectedLocationIds: selectedIds, selectedLocationLabels: selectedLabels };
+    };
+    const syncBeReceptionSelectors = async () => {
+      if (!e[ID.beReceptionWrap]) return false;
+      const syncToken = String((Number(state.beReceptionSyncToken || 0) || 0) + 1);
+      state.beReceptionSyncToken = syncToken;
+      state.beReception = readBeReceptionFormValues(state.beReception);
+      const depots = await fetchBeReceptionDepotRecords();
+      if (state.beReceptionSyncToken !== syncToken) return false;
+      const depotState = renderBeReceptionDepotPanel(depots, state.beReception.depotId);
+      const depotId = normalizeBeReceptionDepotId(depotState.selectedDepotId || "");
+      const depotLabel = normalizeBeReceptionText(depotState.selectedDepotLabel || "");
+      let locations = [];
+      if (depotId) locations = await fetchBeReceptionLocationsForDepot(depotId);
+      if (state.beReceptionSyncToken !== syncToken) return false;
+      const destinationState = renderBeReceptionDestinationPanel(locations, {
+        selectedLocationIds: state.beReception.destinationIds || [],
+        depotSelected: !!depotId
+      });
+      state.beReception = normalizeBeReceptionChoice(
+        {
+          ...state.beReception,
+          depotId,
+          depot: depotId ? depotLabel : "",
+          destinationId: destinationState.selectedLocationIds[0] || "",
+          destinationIds: destinationState.selectedLocationIds,
+          destinationLabels: destinationState.selectedLocationLabels,
+          destination: destinationState.selectedLocationLabels.length
+            ? formatBeReceptionDestinationText(destinationState.selectedLocationLabels)
+            : ""
+        },
+        { fallbackDate: getBeReceptionFallbackDate() }
+      );
+      syncStep2ConfirmState();
+      return true;
+    };
+    const closeBeReceptionTimePanel = () => {
+      const input = e[ID.beTime];
+      const wrapper = input?.closest?.("[data-time-picker]") || null;
+      const toggle = wrapper?.querySelector?.("[data-time-picker-toggle]") || null;
+      const panel = wrapper?.querySelector?.("[data-time-picker-panel]") || null;
+      if (!wrapper || !panel) return;
+      panel.hidden = true;
+      wrapper.classList.remove("is-open");
+      input?.setAttribute("aria-expanded", "false");
+      toggle?.setAttribute("aria-expanded", "false");
+    };
+    const wireBeReceptionTimeInput = () => {
+      const input = e[ID.beTime];
+      const wrapper = input?.closest?.("[data-time-picker]") || null;
+      const toggle = wrapper?.querySelector?.("[data-time-picker-toggle]") || null;
+      const panel = wrapper?.querySelector?.("[data-time-picker-panel]") || null;
+      if (!(input instanceof HTMLInputElement) || !(panel instanceof HTMLElement) || !toggle || state.beReceptionTimeBound) {
+        return;
+      }
+      panel.innerHTML = `
+        <div class="swb-time-picker__footer">
+          <button type="button" class="swb-time-picker__footer-btn" data-convert-window-time-now>Maintenant</button>
+          <button type="button" class="swb-time-picker__footer-btn swb-time-picker__footer-btn--muted" data-convert-window-time-clear>Effacer</button>
+        </div>
+      `;
+      const setOpen = (open) => {
+        panel.hidden = !open;
+        wrapper.classList.toggle("is-open", !!open);
+        input.setAttribute("aria-expanded", open ? "true" : "false");
+        toggle.setAttribute("aria-expanded", open ? "true" : "false");
+      };
+      toggle.addEventListener("click", (event) => {
+        event.preventDefault();
+        setOpen(panel.hidden);
+      });
+      panel.querySelector("[data-convert-window-time-now]")?.addEventListener("click", () => {
+        input.value = formatBeReceptionTime();
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+        setOpen(false);
+      });
+      panel.querySelector("[data-convert-window-time-clear]")?.addEventListener("click", () => {
+        input.value = "";
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+        setOpen(false);
+      });
+      state.beReceptionTimeBound = true;
+    };
+    const syncBeReceptionDateFromDocumentDate = () => {
+      if (state.beReceptionDateTouched) return;
+      const fallbackDate = getBeReceptionFallbackDate();
+      state.beReception = normalizeBeReceptionChoice(
+        { ...state.beReception, date: fallbackDate },
+        { fallbackDate }
+      );
+      if (e[ID.beDate]) {
+        e[ID.beDate].value = fallbackDate;
+        if (state.beReceptionDatePickerInstance) {
+          try {
+            state.beReceptionDatePickerInstance.setValue(fallbackDate, { silent: true });
+          } catch {}
+        }
+      }
+    };
+    const handleDocumentDateChanged = () => {
+      if (isBonEntreeTarget()) syncBeReceptionDateFromDocumentDate();
+      syncStep2ConfirmState();
+    };
+    const updateBeReceptionVisibility = () => {
+      if (!e[ID.beReceptionWrap]) return;
+      const show = isBonEntreeTarget();
+      e[ID.beReceptionWrap].hidden = !show;
+      e[ID.beReceptionWrap].style.display = show ? "" : "none";
+      e[ID.beReceptionWrap].setAttribute("aria-hidden", show ? "false" : "true");
+      if (show && !state.beReception) resetBeReceptionChoice(state.step2PrimaryDoc);
+      if (show) {
+        state.beReception = readBeReceptionFormValues(state.beReception);
+        void syncBeReceptionSelectors();
+      }
+      syncStep2ConfirmState();
+    };
+    const ensureBeReceptionWidgets = () => {
+      if (!e[ID.beReceptionWrap]) return;
+      wireBeReceptionTimeInput();
+      if (!state.beReceptionDatePickerBound && e[ID.beDate]) {
+        if (createDatePicker) {
+          try {
+            const picker = createDatePicker(e[ID.beDate], {
+              allowManualInput: true,
+              onChange(value) {
+                state.beReceptionDateTouched = true;
+                state.beReception = normalizeBeReceptionChoice(
+                  { ...state.beReception, date: value || "" },
+                  { fallbackDate: getBeReceptionFallbackDate() }
+                );
+                syncStep2ConfirmState();
+              }
+            });
+            state.beReceptionDatePickerInstance = picker || null;
+            if (state.beReceptionDatePickerInstance && e[ID.beDate].value) {
+              try {
+                state.beReceptionDatePickerInstance.setValue(e[ID.beDate].value, { silent: true });
+              } catch {}
+            }
+          } catch {
+            state.beReceptionDatePickerInstance = null;
+          }
+        }
+        state.beReceptionDatePickerBound = true;
+      }
+      if (!state.beReceptionBehaviorBound) {
+        e[ID.beDate]?.addEventListener("input", () => {
+          if (state.busy) return;
+          state.beReceptionDateTouched = true;
+          state.beReception = readBeReceptionFormValues(state.beReception);
+          syncStep2ConfirmState();
+        });
+        e[ID.beDate]?.addEventListener("change", () => {
+          if (state.busy) return;
+          state.beReceptionDateTouched = true;
+          state.beReception = readBeReceptionFormValues(state.beReception);
+          syncStep2ConfirmState();
+        });
+        e[ID.beTime]?.addEventListener("input", () => {
+          if (state.busy) return;
+          state.beReception = readBeReceptionFormValues(state.beReception);
+          syncStep2ConfirmState();
+        });
+        e[ID.beTime]?.addEventListener("change", () => {
+          if (state.busy) return;
+          state.beReception = readBeReceptionFormValues(state.beReception);
+          syncStep2ConfirmState();
+        });
+        e[ID.beSourceRef]?.addEventListener("input", () => {
+          if (state.busy) return;
+          state.beReception = readBeReceptionFormValues(state.beReception);
+          syncStep2ConfirmState();
+        });
+        e[ID.beDepot]?.addEventListener("change", () => {
+          if (state.busy) return;
+          void syncBeReceptionSelectors();
+        });
+        e[ID.beDestination]?.addEventListener("change", () => {
+          if (state.busy) return;
+          state.beReception = readBeReceptionFormValues(state.beReception);
+          void syncBeReceptionSelectors();
+        });
+        state.beReceptionBehaviorBound = true;
+      }
+    };
     const syncStep2ConfirmState = () => {
       const hasModel = hasValidModelSelectionForTarget();
       if (!hasModel) {
@@ -624,6 +1425,15 @@
           ? NO_PAYMENT_METHOD_LABEL
           : String(e[ID.paymentMethod]?.value || "").trim();
         state.step2CanConvert = !!(selectedStatus && selectedMethod);
+        syncStepActions();
+        return;
+      }
+      if (isBonEntreeTarget()) {
+        state.beReception = readBeReceptionFormValues(state.beReception);
+        state.step2CanConvert = validateBeReceptionChoice(
+          state.beReception,
+          getBeReceptionValidationOptions()
+        ).ok;
         syncStepActions();
         return;
       }
@@ -870,6 +1680,7 @@
 
     const ensureStep2Widgets = () => {
       syncStep2SelectOptions();
+      ensureBeReceptionWidgets();
       if (!state.step2Menus.model) {
         state.step2Menus.model = bindStep2SelectMenu({
           selectEl: e[ID.model],
@@ -908,7 +1719,7 @@
               allowManualInput: true,
               onChange(value) {
                 if (e[ID.date]) e[ID.date].value = String(value || "");
-                syncStep2ConfirmState();
+                handleDocumentDateChanged();
               }
             });
             state.datePickerInstance = picker || null;
@@ -927,6 +1738,14 @@
         e[ID.model]?.addEventListener("change", () => {
           if (state.busy) return;
           syncStep2ConfirmState();
+        });
+        e[ID.date]?.addEventListener("input", () => {
+          if (state.busy) return;
+          handleDocumentDateChanged();
+        });
+        e[ID.date]?.addEventListener("change", () => {
+          if (state.busy) return;
+          handleDocumentDateChanged();
         });
         e[ID.paymentStatus]?.addEventListener("change", () => {
           if (state.busy) return;
@@ -952,6 +1771,7 @@
         state.step2BehaviorBound = true;
       }
       updatePaymentVisibility();
+      updateBeReceptionVisibility();
       syncStep2ConfirmState();
     };
 
@@ -959,6 +1779,9 @@
       state.step2Menus.model?.close?.();
       state.step2Menus.paymentStatus?.close?.();
       state.step2Menus.paymentMethod?.close?.();
+      closeBeReceptionMenu(e[ID.beDepotMenu]);
+      closeBeReceptionMenu(e[ID.beDestinationMenu]);
+      closeBeReceptionTimePanel();
     };
 
     const setPartyPanelOpen = (open) => {
@@ -1190,6 +2013,7 @@
       renderModelChoices();
       syncTargetPanelUi();
       updatePaymentVisibility();
+      updateBeReceptionVisibility();
     };
 
     const syncYearChoices = () => {
@@ -1586,14 +2410,24 @@
       }
       state.step2CanConvert = false;
       state.lastPaymentMethod = "";
+      state.beReception = null;
+      state.beReceptionDateTouched = false;
+      state.beReceptionSyncToken = 0;
       e[ID.paymentMethod].value = "";
       e[ID.paymentStatus].value = "";
       e[ID.paymentRef].value = "";
+      if (e[ID.beDate]) e[ID.beDate].value = "";
+      if (e[ID.beTime]) e[ID.beTime].value = "";
+      if (e[ID.beSourceRef]) e[ID.beSourceRef].value = "";
       if (e[ID.acomptePaid]) e[ID.acomptePaid].value = "0";
       if (e[ID.acompteDue]) e[ID.acompteDue].value = "";
       if (e[ID.acompteWrap]) {
         e[ID.acompteWrap].hidden = true;
         e[ID.acompteWrap].style.display = "none";
+      }
+      if (e[ID.beReceptionWrap]) {
+        e[ID.beReceptionWrap].hidden = true;
+        e[ID.beReceptionWrap].style.display = "none";
       }
       setStatus1("");
       setStatus2("");
@@ -1660,10 +2494,15 @@
         return;
       }
       const primaryDoc = selectedDocs[0] || null;
+      const sourceNumbers = selectedDocs
+        .map((doc) => String(doc?.number || doc?.display || doc?.name || "").trim())
+        .filter(Boolean);
       const aggregatedDoc =
         selectedDocs.length > 1
           ? {
               ...primaryDoc,
+              number: sourceNumbers.join(", ") || primaryDoc?.number || primaryDoc?.display || "",
+              sourceNumbers,
               totalTTC: selectedDocs.reduce((sum, doc) => {
                 const value = Number(doc?.totalTTC);
                 return Number.isFinite(value) ? sum + value : sum;
@@ -1677,7 +2516,9 @@
                 return Number.isFinite(value) ? sum + value : sum;
               }, 0)
             }
-          : primaryDoc;
+          : primaryDoc
+            ? { ...primaryDoc, sourceNumbers }
+            : primaryDoc;
       state.step2PrimaryDoc = aggregatedDoc;
       setStatus2("");
       e[ID.summary].textContent = "";
@@ -1702,6 +2543,7 @@
           state.datePickerInstance.setValue(e[ID.date].value, { silent: true });
         } catch {}
       }
+      resetBeReceptionChoice(aggregatedDoc, selectedDocs);
       setStatus2("Chargement des options...");
       try {
         ensureStep2Widgets();
@@ -1709,6 +2551,8 @@
         await syncModel();
         setStep(2);
         updatePaymentVisibility();
+        updateBeReceptionVisibility();
+        if (isBonEntreeTarget()) await syncBeReceptionSelectors();
         setStatus2("");
       } catch {
         setStatus2("Impossible de charger les options de conversion.");
@@ -1750,6 +2594,7 @@
         choiceTarget === "facture" && isPartialPaymentStatus
           ? normalizePaidValue(e[ID.acomptePaid]?.value || "")
           : null;
+      let choiceBeReception = null;
       const selectedDocs = resolveSelectedDocsFromStep1();
       if (!selectedDocs.length || !state.source) {
         setStatus2("Documents source invalides.");
@@ -1772,6 +2617,19 @@
           setStatus2("Selectionnez un mode de paiement.");
           return;
         }
+      }
+      if (choiceTarget === "be") {
+        const beValidation = validateBeReceptionChoice(
+          readBeReceptionFormValues(state.beReception),
+          getBeReceptionValidationOptions(choiceDate || getBeReceptionFallbackDate())
+        );
+        if (!beValidation.ok) {
+          setStatus2(beValidation.error || "Informations de reception incompletes.");
+          syncStep2ConfirmState();
+          return;
+        }
+        choiceBeReception = beValidation.value;
+        state.beReception = choiceBeReception;
       }
 
       const convertApi = w.AppInit?.DocConversion;
@@ -1814,7 +2672,8 @@
             paymentMethod: choicePaymentMethod,
             status: choiceTarget === "facture" ? choiceStatus : "",
             paymentReference: choicePaymentReference,
-            paidAmount: choicePaidAmount
+            paidAmount: choicePaidAmount,
+            beReception: choiceTarget === "be" ? choiceBeReception : null
           },
           promptOptions: state.source.promptOptions || {}
         };
@@ -2019,17 +2878,29 @@
       if (e[ID.yearMenu]?.open && !e[ID.yearMenu].contains(evt.target)) {
         setYearMenuOpen(false);
       }
-      [e[ID.modelMenu], e[ID.paymentStatusMenu], e[ID.paymentMethodMenu]].forEach((menuEl) => {
+      [
+        e[ID.modelMenu],
+        e[ID.paymentStatusMenu],
+        e[ID.paymentMethodMenu],
+        e[ID.beDepotMenu],
+        e[ID.beDestinationMenu]
+      ].forEach((menuEl) => {
         if (menuEl?.open && !menuEl.contains(evt.target)) {
           setStep2MenuOpen(menuEl, false);
         }
       });
+      const timeWrapper = e[ID.beTime]?.closest?.("[data-time-picker]");
+      const timePanel = timeWrapper?.querySelector?.("[data-time-picker-panel]");
+      if (timePanel && !timePanel.hidden && timeWrapper && !timeWrapper.contains(evt.target)) {
+        closeBeReceptionTimePanel();
+      }
     }, true);
     e[ID.target]?.addEventListener("change", () => {
       if (state.busy) return;
       renderModelChoices();
       syncTargetPanelUi();
       updatePaymentVisibility();
+      updateBeReceptionVisibility();
       syncStep2ConfirmState();
     });
 

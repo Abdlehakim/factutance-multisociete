@@ -235,9 +235,476 @@
     if (!Number.isFinite(num)) return null;
     return Math.round((num + Number.EPSILON) * 1000) / 1000;
   };
-  const PURCHASE_DOC_TYPES = new Set(["fa", "bc", "be"]);
-  const isPurchaseDocType = (value) =>
-    PURCHASE_DOC_TYPES.has(String(value || "").trim().toLowerCase());
+  const MANUAL_NUMBER_DOC_TYPES = new Set(["fa"]);
+  const isManualNumberDocType = (value) =>
+    MANUAL_NUMBER_DOC_TYPES.has(String(value || "").trim().toLowerCase());
+  const normalizeBeReceptionText = (value = "") =>
+    String(value || "")
+      .replace(/\s+/g, " ")
+      .trim();
+  const normalizeBeReceptionDepotId = (value = "") =>
+    String(value || "")
+      .trim()
+      .replace(/^sqlite:\/\/depots\//i, "");
+  const normalizeBeReceptionLocationId = (value = "") =>
+    String(value || "")
+      .trim()
+      .replace(/^sqlite:\/\/emplacements\//i, "");
+  const normalizeBeReceptionDestinationIds = (value = []) => {
+    const source = Array.isArray(value) ? value : [value];
+    const seen = new Set();
+    return source
+      .map((entry) => normalizeBeReceptionLocationId(entry))
+      .filter((entry) => {
+        if (!entry) return false;
+        const key = entry.toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+  };
+  const normalizeBeReceptionDestinationLabels = (value = []) => {
+    const source = Array.isArray(value)
+      ? value
+      : typeof value === "string"
+        ? value.split(",")
+        : [value];
+    return source.map((entry) => normalizeBeReceptionText(entry)).filter(Boolean);
+  };
+  const formatBeReceptionDestinationText = (labels = []) =>
+    normalizeBeReceptionDestinationLabels(labels).join(", ");
+  const formatBeReceptionTime = (value = new Date()) => {
+    const date = value instanceof Date ? value : new Date(value);
+    const safeDate = Number.isFinite(date.getTime()) ? date : new Date();
+    return `${String(safeDate.getHours()).padStart(2, "0")}:${String(
+      safeDate.getMinutes()
+    ).padStart(2, "0")}`;
+  };
+  const isValidBeReceptionDate = (value) => {
+    const text = String(value || "").trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return false;
+    const parsed = new Date(`${text}T00:00:00`);
+    return Number.isFinite(parsed.getTime());
+  };
+  const isValidBeReceptionTime = (value) =>
+    /^([01]?\d|2[0-3]):[0-5]\d$/.test(String(value || "").trim());
+  const normalizeBeReceptionSourceDocType = (value) => {
+    const raw = String(value || "").trim().toLowerCase();
+    const aliases = {
+      fa: "fa",
+      factureachat: "fa",
+      "facture d'achat": "fa",
+      "facture_achat": "fa",
+      "facture-achat": "fa",
+      bc: "bc",
+      bondecommande: "bc",
+      "bon de commande": "bc",
+      "bon_de_commande": "bc",
+      "bon-de-commande": "bc"
+    };
+    return aliases[raw] || "";
+  };
+  const getBeReceptionSourceDocTypeLabel = (value) => {
+    const normalized = normalizeBeReceptionSourceDocType(value);
+    if (normalized === "fa") return "Facture d'achat";
+    if (normalized === "bc") return "Bon de commande";
+    return "Document";
+  };
+  const normalizeBeReceptionSourceSelection = (value) => {
+    const raw = value && typeof value === "object" ? value : {};
+    const rawSupplier = raw.supplier && typeof raw.supplier === "object" ? raw.supplier : {};
+    const rawItems = Array.isArray(raw.items)
+      ? raw.items
+      : Array.isArray(raw.documents)
+        ? raw.documents
+        : [];
+    const normalizedItems = rawItems
+      .map((entry, index) => {
+        const item = entry && typeof entry === "object" ? entry : {};
+        const id = String(item.id || "").trim();
+        const path = String(item.path || "").trim();
+        const number = String(item.number || "").trim();
+        const date = String(item.date || "").trim();
+        const displayName =
+          String(item.displayName || item.name || number || "").trim() || `Document ${index + 1}`;
+        const docType = normalizeBeReceptionSourceDocType(
+          item.docType || item.type || raw.docType || raw.type || ""
+        );
+        const key =
+          String(item.key || "").trim() ||
+          (id ? `id:${id}` : path ? `path:${path}` : number ? `number:${number}:${index}` : `idx:${index}`);
+        if (!id && !path && !number && !displayName) return null;
+        return {
+          key,
+          id,
+          path,
+          number,
+          date,
+          displayName,
+          docType,
+          clientName: String(item.clientName || "").trim(),
+          clientPath: String(item.clientPath || "").trim()
+        };
+      })
+      .filter(Boolean);
+    const docType = normalizeBeReceptionSourceDocType(
+      raw.docType || raw.type || normalizedItems[0]?.docType || ""
+    );
+    if (!normalizedItems.length || !docType) return null;
+    const supplierPath = String(rawSupplier.path || normalizedItems[0]?.clientPath || "").trim();
+    const supplierName = String(rawSupplier.name || normalizedItems[0]?.clientName || "").trim();
+    const supplierLabel = String(rawSupplier.label || supplierName || "").trim();
+    const supplierIdentifier = String(rawSupplier.identifier || "").trim();
+    return {
+      docType,
+      supplier:
+        supplierPath || supplierName || supplierLabel || supplierIdentifier
+          ? {
+              path: supplierPath,
+              name: supplierName,
+              label: supplierLabel || supplierName,
+              identifier: supplierIdentifier
+            }
+          : null,
+      items: normalizedItems.map((item) => ({
+        ...item,
+        docType: item.docType || docType
+      }))
+    };
+  };
+  const normalizeBeReceptionImportedSourceKeys = (value = [], fallbackSelection = null) => {
+    const fallbackItems = normalizeBeReceptionSourceSelection(fallbackSelection)?.items || [];
+    const hasExplicitValue =
+      value !== undefined &&
+      value !== null &&
+      !(typeof value === "string" && !String(value).trim());
+    const source = Array.isArray(value)
+      ? value
+      : typeof value === "string"
+        ? value.split(",")
+        : [];
+    const seen = new Set();
+    return [...source, ...(!hasExplicitValue ? fallbackItems.map((entry) => entry?.key || "") : [])]
+      .map((entry) => String(entry || "").trim())
+      .filter((entry) => {
+        if (!entry) return false;
+        const key = entry.toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+  };
+  const formatBeReceptionSourceSelectionText = (selection) => {
+    const normalized = normalizeBeReceptionSourceSelection(selection);
+    if (!normalized) return "";
+    const label = getBeReceptionSourceDocTypeLabel(normalized.docType);
+    const refs = normalized.items
+      .map((item) => String(item.number || item.displayName || "").trim())
+      .filter(Boolean);
+    return refs.length ? `${label} : ${refs.join(", ")}` : label;
+  };
+  const buildBeReceptionSourceSelectionFromEntry = (entry, sourceDocType = "") => {
+    const docType = normalizeBeReceptionSourceDocType(sourceDocType || entry?.docType || "");
+    if (!docType) return null;
+    const id = String(entry?.id || "").trim();
+    const path = String(entry?.path || "").trim();
+    const number = String(entry?.number || entry?.invNumber || entry?.name || "").trim();
+    const date = String(entry?.date || "").trim();
+    const displayName = String(entry?.name || number || "").trim() || number || "Document 1";
+    const key = id ? `id:${id}` : path ? `path:${path}` : number ? `number:${number}:0` : "idx:0";
+    return normalizeBeReceptionSourceSelection({
+      docType,
+      supplier:
+        entry?.clientName || entry?.clientPath || entry?.clientAccount
+          ? {
+              path: String(entry?.clientPath || "").trim(),
+              name: String(entry?.clientName || "").trim(),
+              label: String(entry?.clientName || "").trim(),
+              identifier: String(entry?.clientAccount || "").trim()
+            }
+          : null,
+      items: [
+        {
+          key,
+          id,
+          path,
+          number,
+          date,
+          displayName,
+          docType,
+          clientName: String(entry?.clientName || "").trim(),
+          clientPath: String(entry?.clientPath || "").trim()
+        }
+      ]
+    });
+  };
+  const normalizeBeReceptionChoice = (value = {}, { meta = {}, fallbackDate = "" } = {}) => {
+    const raw = value && typeof value === "object" ? value : {};
+    const sourceSelection = normalizeBeReceptionSourceSelection(
+      raw.sourceSelection ?? raw.sourceDocuments ?? raw.sourceDocs ?? meta.beSourceSelection ?? null
+    );
+    const destinationIds = normalizeBeReceptionDestinationIds(
+      raw.destinationIds ??
+        raw.destinationIdList ??
+        raw.destinationSelection?.ids ??
+        raw.destinationSelection ??
+        raw.destinationId ??
+        raw.destinationLocationId ??
+        raw.locationId ??
+        raw.emplacementId ??
+        raw.emplacement_id ??
+        meta.beReceptionDestinationIds ??
+        meta.beReceptionDestinationId ??
+        []
+    );
+    const destinationLabels = normalizeBeReceptionDestinationLabels(
+      raw.destinationLabels ?? raw.destinationLabelList ?? raw.destinationSelection?.labels ?? []
+    );
+    const normalized = {
+      depot: normalizeBeReceptionText(raw.depot ?? raw.depotName ?? meta.beReceptionDepot ?? meta.beDepot ?? ""),
+      depotId: normalizeBeReceptionDepotId(
+        raw.depotId ?? raw.depotDbId ?? raw.magasinId ?? raw.magasin_id ?? meta.beReceptionDepotId ?? ""
+      ),
+      destination: normalizeBeReceptionText(
+        raw.destination ??
+          raw.destinationLocation ??
+          raw.location ??
+          meta.beReceptionDestination ??
+          meta.beDestination ??
+          ""
+      ),
+      destinationId: normalizeBeReceptionLocationId(
+        destinationIds[0] ??
+          raw.destinationId ??
+          raw.destinationLocationId ??
+          raw.locationId ??
+          raw.emplacementId ??
+          raw.emplacement_id ??
+          meta.beReceptionDestinationId ??
+          ""
+      ),
+      destinationIds,
+      destinationLabels,
+      date: String(raw.date ?? raw.receptionDate ?? meta.beReceptionDate ?? fallbackDate ?? "").trim(),
+      time: String(raw.time ?? raw.receptionTime ?? meta.beReceptionTime ?? "").trim(),
+      sourceRef: normalizeBeReceptionText(raw.sourceRef ?? raw.referenceSource ?? raw.source ?? meta.beSourceRef ?? ""),
+      sourceSelection,
+      importedSourceKeys: normalizeBeReceptionImportedSourceKeys(
+        raw.importedSourceKeys ?? raw.sourceImportedKeys ?? raw.importedSources ?? meta.beSourceImportedKeys,
+        sourceSelection
+      )
+    };
+    if (!normalized.sourceRef && sourceSelection) {
+      normalized.sourceRef = formatBeReceptionSourceSelectionText(sourceSelection);
+    }
+    if (normalized.destinationLabels.length && !normalized.destination) {
+      normalized.destination = formatBeReceptionDestinationText(normalized.destinationLabels);
+    }
+    if (normalized.destination && !normalized.destinationLabels.length) {
+      normalized.destinationLabels = normalizeBeReceptionDestinationLabels(normalized.destination);
+    }
+    if (!normalized.date) normalized.date = String(fallbackDate || meta.date || "").trim();
+    if (!normalized.time) normalized.time = formatBeReceptionTime();
+    return normalized;
+  };
+  const createDefaultBeReceptionChoice = ({ entry, sourceDocType, date }) => {
+    const sourceSelection = buildBeReceptionSourceSelectionFromEntry(entry, sourceDocType);
+    return normalizeBeReceptionChoice(
+      {
+        date,
+        time: formatBeReceptionTime(),
+        sourceSelection,
+        sourceRef: sourceSelection ? formatBeReceptionSourceSelectionText(sourceSelection) : ""
+      },
+      { fallbackDate: date }
+    );
+  };
+  const validateBeReceptionChoice = (value = {}, options = {}) => {
+    const reception = normalizeBeReceptionChoice(value, {
+      meta: options?.meta || {},
+      fallbackDate: options?.fallbackDate || ""
+    });
+    const requireStorageFields = options?.requireStorageFields !== false;
+    if (requireStorageFields) {
+      if (!reception.depotId) {
+        return { ok: false, error: "Selectionnez un depot / magasin." };
+      }
+      if (!reception.destinationIds.length) {
+        return { ok: false, error: "Selectionnez un emplacement de destination." };
+      }
+    }
+    if (!isValidBeReceptionDate(reception.date)) {
+      return { ok: false, error: "Renseignez une date de reception valide." };
+    }
+    if (!isValidBeReceptionTime(reception.time)) {
+      return { ok: false, error: "Renseignez une heure de reception valide au format HH:MM." };
+    }
+    if (!reception.sourceRef) {
+      return { ok: false, error: "Renseignez la reference source." };
+    }
+    return { ok: true, value: reception };
+  };
+  const shouldRequireBeReceptionStorageFields = (sourceDocType, targetDocType) => {
+    const source = String(sourceDocType || "").trim().toLowerCase();
+    const target = String(targetDocType || "").trim().toLowerCase();
+    return !(source === "fa" && target === "be");
+  };
+  const applyBeReceptionChoiceToMeta = (metaInput, value, { fallbackDate = "" } = {}) => {
+    const meta = metaInput && typeof metaInput === "object" ? metaInput : {};
+    const reception = normalizeBeReceptionChoice(value, { meta, fallbackDate });
+    meta.beReception = reception;
+    meta.beReceptionDepot = reception.depot;
+    meta.beReceptionDepotId = reception.depotId;
+    meta.beReceptionDestination = reception.destination;
+    meta.beReceptionDestinationId = reception.destinationId;
+    meta.beReceptionDestinationIds = reception.destinationIds.slice();
+    meta.beReceptionDestinationLabels = reception.destinationLabels.slice();
+    meta.beReceptionDate = reception.date;
+    meta.beReceptionTime = reception.time;
+    meta.beSourceRef = reception.sourceRef;
+    meta.beSourceSelection = reception.sourceSelection;
+    meta.beSourceImportedKeys = reception.importedSourceKeys.slice();
+    return reception;
+  };
+  const clearCrossTypeNumberingMetadata = (metaInput, sourceDocType, targetDocType) => {
+    const meta = metaInput && typeof metaInput === "object" ? metaInput : null;
+    const source = String(sourceDocType || "").trim().toLowerCase();
+    const target = String(targetDocType || "").trim().toLowerCase();
+    if (!meta || !source || !target || source === target) return;
+    [
+      "number",
+      "previewNumber",
+      "numberYear",
+      "numberPrefix",
+      "numberFormat",
+      "requestedNumber",
+      "documentNumber",
+      "invoiceNumber",
+      "documentModelName",
+      "docDialogModelName",
+      "modelName",
+      "modelKey"
+    ].forEach((key) => {
+      if (key in meta) delete meta[key];
+    });
+  };
+  const clearCrossTypeNumberingControls = (sourceDocType, targetDocType) => {
+    const source = String(sourceDocType || "").trim().toLowerCase();
+    const target = String(targetDocType || "").trim().toLowerCase();
+    if (!source || !target || source === target) return;
+    ["invNumber", "invNumberSuffix", "invNumberDatePart", "invNumberPrefix"].forEach((id) => {
+      const input = getEl(id);
+      if (input) input.value = "";
+    });
+  };
+  const normalizeBeReceptionDepotRecord = (record = {}, indexHint = -1) => {
+    const source = record && typeof record === "object" ? record : {};
+    const id = normalizeBeReceptionDepotId(
+      source.id || source.value || source.depotId || source.path?.replace?.(/^sqlite:\/\/depots\//i, "") || ""
+    );
+    const fallbackNumber = Number.isFinite(indexHint) && indexHint >= 0 ? indexHint + 1 : null;
+    const fallbackName = Number.isFinite(fallbackNumber) ? `Depot ${fallbackNumber}` : "Depot";
+    const name = normalizeBeReceptionText(source.name || source.label || source.title || fallbackName);
+    if (!id) return null;
+    return {
+      id,
+      name: name || fallbackName,
+      emplacements: Array.isArray(source.emplacements) ? source.emplacements : []
+    };
+  };
+  const normalizeBeReceptionDepotRecords = (records = []) => {
+    const seen = new Set();
+    return (Array.isArray(records) ? records : [])
+      .map((entry, index) => normalizeBeReceptionDepotRecord(entry, index))
+      .filter((entry) => {
+        if (!entry?.id) return false;
+        const key = entry.id.toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+  };
+  const normalizeBeReceptionLocationRecord = (entry = {}, depotIdHint = "") => {
+    const source = entry && typeof entry === "object" ? entry : { code: entry };
+    const id = normalizeBeReceptionLocationId(
+      source.id ||
+        source.value ||
+        source.emplacementId ||
+        source.emplacement_id ||
+        source.path?.replace?.(/^sqlite:\/\/emplacements\//i, "") ||
+        ""
+    );
+    const code = normalizeBeReceptionText(source.code || source.name || source.label || source.value || "");
+    const depotId = normalizeBeReceptionDepotId(source.depotId || source.depot_id || depotIdHint || "");
+    if (!id && !code) return null;
+    return { id: id || code, code: code || id, depotId };
+  };
+  const normalizeBeReceptionLocationRecords = (records = [], depotIdHint = "") => {
+    const seen = new Set();
+    return (Array.isArray(records) ? records : [])
+      .map((entry) => normalizeBeReceptionLocationRecord(entry, depotIdHint))
+      .filter((entry) => {
+        if (!entry?.id) return false;
+        const key = entry.id.toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+  };
+  const fetchBeReceptionDepotRecords = async ({ refresh = false } = {}) => {
+    let records = normalizeBeReceptionDepotRecords(
+      SEM?.stockWindow?.getDepotRecords?.() || SEM?.depotMagasin?.getRecords?.() || []
+    );
+    if ((!records.length || refresh) && typeof SEM?.stockWindow?.refreshDepotRecords === "function") {
+      try {
+        records = normalizeBeReceptionDepotRecords(await SEM.stockWindow.refreshDepotRecords());
+      } catch {}
+    }
+    if ((!records.length || refresh) && typeof w.electronAPI?.listDepots === "function") {
+      try {
+        const response = await w.electronAPI.listDepots();
+        if (response?.ok && Array.isArray(response.results)) {
+          records = normalizeBeReceptionDepotRecords(response.results);
+          if (typeof SEM?.stockWindow?.setDepotRecords === "function") {
+            SEM.stockWindow.setDepotRecords(records);
+          }
+        }
+      } catch {}
+    }
+    return records;
+  };
+  const fetchBeReceptionLocationsForDepot = async (depotId = "") => {
+    const targetDepotId = normalizeBeReceptionDepotId(depotId);
+    if (!targetDepotId) return [];
+    let records = normalizeBeReceptionDepotRecords(
+      SEM?.stockWindow?.getDepotRecords?.() || SEM?.depotMagasin?.getRecords?.() || []
+    );
+    let depotRecord =
+      records.find((entry) => normalizeBeReceptionDepotId(entry?.id || "") === targetDepotId) || null;
+    let locations = normalizeBeReceptionLocationRecords(depotRecord?.emplacements || [], targetDepotId);
+    if (locations.length) return locations;
+    if (typeof w.electronAPI?.listEmplacementsByDepot === "function") {
+      try {
+        const response = await w.electronAPI.listEmplacementsByDepot({ depotId: targetDepotId });
+        if (response?.ok && Array.isArray(response.results)) {
+          locations = normalizeBeReceptionLocationRecords(response.results, targetDepotId);
+          if (locations.length) {
+            const nextRecords = (
+              records.length ? records : [{ id: targetDepotId, name: depotRecord?.name || targetDepotId }]
+            ).map((entry) =>
+              normalizeBeReceptionDepotId(entry?.id || "") === targetDepotId
+                ? { ...entry, emplacements: locations }
+                : entry
+            );
+            if (typeof SEM?.stockWindow?.setDepotRecords === "function") {
+              SEM.stockWindow.setDepotRecords(nextRecords);
+            }
+          }
+        }
+      } catch {}
+    }
+    return locations;
+  };
 
   async function collectModelChoices() {
     const models = [];
@@ -474,6 +941,8 @@
     let selectedFactureStatus = "";
     let lastPaymentMethod = "";
     let selectedPaidAmount = 0;
+    let selectedBeReception = null;
+    let beReceptionDateTouched = false;
     const normalizePaidValue = (value) => {
       const raw = String(value ?? "").trim();
       if (!raw) return 0;
@@ -481,6 +950,9 @@
       return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
     };
     const promptOptions = options && typeof options === "object" ? options : {};
+    const promptSourceDocType = String(
+      promptOptions.sourceDocType || entry?.docType || ""
+    ).trim().toLowerCase();
     const showTwoStepWizard = !!promptOptions.showTwoStepWizard;
     const wizardStep1Label =
       String(promptOptions.wizardStep1Label || "S\u00E9lection du document source").trim() ||
@@ -557,6 +1029,71 @@
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;");
+    const CONVERT_BE_RECEPTION_IDS = {
+      section: "docHistoryBeReceptionBox",
+      depot: "docHistoryBeReceptionDepotInput",
+      depotMenu: "docHistoryBeReceptionDepotMenu",
+      depotPanel: "docHistoryBeReceptionDepotPanel",
+      depotDisplay: "docHistoryBeReceptionDepotDisplay",
+      destination: "docHistoryBeReceptionDestinationInput",
+      destinationMenu: "docHistoryBeReceptionDestinationMenu",
+      destinationPanel: "docHistoryBeReceptionDestinationPanel",
+      destinationDisplay: "docHistoryBeReceptionDestinationDisplay",
+      date: "docHistoryBeReceptionDateInput",
+      datePanel: "docHistoryBeReceptionDatePanel",
+      time: "docHistoryBeReceptionTimeInput",
+      timePanel: "docHistoryBeReceptionTimePanel",
+      sourceRef: "docHistoryBeReceptionSourceInput"
+    };
+    const getSelectedOptionText = (select) => {
+      if (!(select instanceof HTMLSelectElement)) return "";
+      const selected =
+        (select.selectedOptions && select.selectedOptions.length ? select.selectedOptions[0] : null) ||
+        Array.from(select.options || []).find((option) => option.value === select.value) ||
+        null;
+      return normalizeBeReceptionText(selected?.textContent || "");
+    };
+    const readBeReceptionFormValues = (section, current = selectedBeReception) => {
+      const base = normalizeBeReceptionChoice(current, { fallbackDate: selectedDate || today });
+      if (!(section instanceof HTMLElement)) return base;
+      const depotSelect = section.querySelector(`#${CONVERT_BE_RECEPTION_IDS.depot}`);
+      const destinationSelect = section.querySelector(`#${CONVERT_BE_RECEPTION_IDS.destination}`);
+      const dateInput = section.querySelector(`#${CONVERT_BE_RECEPTION_IDS.date}`);
+      const timeInput = section.querySelector(`#${CONVERT_BE_RECEPTION_IDS.time}`);
+      const sourceInput = section.querySelector(`#${CONVERT_BE_RECEPTION_IDS.sourceRef}`);
+      const destinationIds = normalizeBeReceptionDestinationIds(
+        Array.from(destinationSelect?.selectedOptions || []).map((option) => option.value)
+      );
+      const destinationLabels = normalizeBeReceptionDestinationLabels(
+        destinationIds
+          .map((id) => {
+            const option = Array.from(destinationSelect?.options || []).find(
+              (entry) => String(entry.value || "").trim() === id
+            );
+            return option?.textContent || "";
+          })
+          .filter(Boolean)
+      );
+      return normalizeBeReceptionChoice(
+        {
+          ...base,
+          depotId: normalizeBeReceptionDepotId(depotSelect?.value || base.depotId || ""),
+          depot: normalizeBeReceptionDepotId(depotSelect?.value || "")
+            ? getSelectedOptionText(depotSelect)
+            : "",
+          destinationId: destinationIds[0] || "",
+          destinationIds,
+          destinationLabels,
+          destination: destinationLabels.length
+            ? formatBeReceptionDestinationText(destinationLabels)
+            : "",
+          date: String(dateInput?.value || base.date || selectedDate || today).trim(),
+          time: String(timeInput?.value || base.time || "").trim(),
+          sourceRef: normalizeBeReceptionText(sourceInput?.value || base.sourceRef || "")
+        },
+        { fallbackDate: selectedDate || today }
+      );
+    };
     const allowedModelDocTypes = Array.isArray(promptOptions.allowedModelDocTypes)
       ? promptOptions.allowedModelDocTypes
       : [MODEL_DOC_TYPE_ALL, ...normalizedTargetDocTypes];
@@ -566,12 +1103,23 @@
     const cancelText = promptOptions.cancelText || "Annuler";
     const models = await collectModelChoices();
     const today = new Date().toISOString().slice(0, 10);
+    if (!selectedDate) selectedDate = today;
+    const getBeReceptionValidationOptions = (fallbackDate = selectedDate || today) => ({
+      fallbackDate,
+      requireStorageFields: shouldRequireBeReceptionStorageFields(promptSourceDocType, targetDocType)
+    });
+    selectedBeReception = createDefaultBeReceptionChoice({
+      entry,
+      sourceDocType: promptSourceDocType,
+      date: selectedDate
+    });
     let dialogModelSelect = null;
     let dialogDateInput = null;
     let dialogPaymentMethodSelect = null;
     let dialogPaymentStatusSelect = null;
     let dialogPaymentReferenceInput = null;
     let dialogAcomptePaidInput = null;
+    let dialogBeReceptionSection = null;
     let dialogTargetSelect = null;
     let dialogTargetRadios = [];
     const submitHandler = typeof promptOptions.onSubmit === "function" ? promptOptions.onSubmit : null;
@@ -612,6 +1160,9 @@
       if (dialogAcomptePaidInput) {
         selectedPaidAmount = normalizePaidValue(dialogAcomptePaidInput.value);
       }
+      if (dialogBeReceptionSection) {
+        selectedBeReception = readBeReceptionFormValues(dialogBeReceptionSection, selectedBeReception);
+      }
     };
     const buildChoicePayload = () => {
       const normalizedTarget = String(targetDocType || "").trim().toLowerCase();
@@ -630,7 +1181,13 @@
         paymentMethod,
         paymentReference,
         status,
-        paidAmount
+        paidAmount,
+        beReception:
+          normalizedTarget === "be"
+            ? normalizeBeReceptionChoice(selectedBeReception, {
+                fallbackDate: selectedDate || today
+              })
+            : null
       };
     };
     const handleConfirmOk = async () => {
@@ -645,6 +1202,17 @@
         hasStatus: !!draftChoices.status
       });
       setSubmitError("");
+      if (String(draftChoices.target || "").trim().toLowerCase() === "be") {
+        const beValidation = validateBeReceptionChoice(
+          draftChoices.beReception,
+          getBeReceptionValidationOptions(selectedDate || today)
+        );
+        if (!beValidation.ok) {
+          setSubmitError(beValidation.error || "Informations de reception incompletes.");
+          return false;
+        }
+        draftChoices.beReception = beValidation.value;
+      }
       if (!submitHandler) {
         submittedChoices = draftChoices;
         submitResult = true;
@@ -884,6 +1452,8 @@
         let acomptePaidInput = null;
         let acompteDueInput = null;
         let updateAcompteVisibility = () => {};
+        let beReceptionSection = null;
+        let updateBeReceptionVisibility = () => {};
         const normalizeDocTypeValue = (value) => String(value || "").trim().toLowerCase();
         const allowedTargetDocTypes = new Set(
           (normalizedTargetDocTypes.length ? normalizedTargetDocTypes : ["facture"])
@@ -891,6 +1461,7 @@
             .filter(Boolean)
         );
         if (!allowedTargetDocTypes.size) allowedTargetDocTypes.add("facture");
+        const supportsBonEntreeTarget = allowedTargetDocTypes.has("be");
         if (!allowedTargetDocTypes.has(normalizeDocTypeValue(targetDocType))) {
           targetDocType = Array.from(allowedTargetDocTypes)[0] || "facture";
         }
@@ -937,6 +1508,7 @@
         };
         const isPartialStatus = () =>
           normalizeFactureStatusValue(selectedFactureStatus) === "partiellement-payee";
+        const isBonEntreeTarget = () => getSelectedTargetValue() === "be";
         const resolveAcompteBase = () => {
           const totalTTC = Number(entry?.totalTTC);
           if (Number.isFinite(totalTTC)) return totalTTC;
@@ -980,6 +1552,15 @@
               setOkEnabled(hasPayment);
               return;
             }
+            if (isBonEntreeTarget()) {
+              setOkEnabled(
+                validateBeReceptionChoice(
+                  selectedBeReception,
+                  getBeReceptionValidationOptions(selectedDate || today)
+                ).ok
+              );
+              return;
+            }
             setOkEnabled(true);
             return;
           }
@@ -993,6 +1574,15 @@
             setOkEnabled(hasPayment);
             return;
           }
+          if (isBonEntreeTarget()) {
+            setOkEnabled(
+              validateBeReceptionChoice(
+                selectedBeReception,
+                getBeReceptionValidationOptions(selectedDate || today)
+              ).ok
+            );
+            return;
+          }
           setOkEnabled(true);
         };
         const updatePaymentVisibility = () => {
@@ -1001,6 +1591,14 @@
           paymentRow.hidden = !show;
           paymentRow.style.display = show ? "grid" : "none";
           updateAcompteVisibility();
+          updateConfirmState();
+        };
+        updateBeReceptionVisibility = () => {
+          if (!beReceptionSection) return;
+          const show = isBonEntreeTarget();
+          beReceptionSection.hidden = !show;
+          beReceptionSection.style.display = show ? "" : "none";
+          beReceptionSection.setAttribute("aria-hidden", show ? "false" : "true");
           updateConfirmState();
         };
         const updateTargetDocTypeAvailability = () => {
@@ -1014,6 +1612,7 @@
               : Array.from(allowedTargetDocTypes)[0] || fallbackTarget;
             updateConfirmState();
             updatePaymentVisibility();
+            updateBeReceptionVisibility();
             return;
           }
           let firstAllowed = null;
@@ -1053,6 +1652,7 @@
             targetSelect.value = targetDocType;
           }
           updatePaymentVisibility();
+          updateBeReceptionVisibility();
         };
 
         const createMenuGroup = ({
@@ -1207,6 +1807,496 @@
           group.append(label, field);
           setSelection(selectedValue, { closeMenu: false, notify: false });
           return { group, hiddenSelect, setSelection, setDisabled };
+        };
+
+        const closeBeReceptionMenu = (menu) => {
+          if (!(menu instanceof HTMLElement)) return;
+          menu.removeAttribute("open");
+          menu.querySelector("summary.field-toggle-trigger")?.setAttribute("aria-expanded", "false");
+        };
+        const setBeReceptionPickerDisabled = (menu, select, disabled) => {
+          const isDisabled = !!disabled;
+          if (menu instanceof HTMLElement) {
+            menu.dataset.disabled = isDisabled ? "true" : "false";
+            const summary = menu.querySelector("summary.field-toggle-trigger");
+            summary?.setAttribute("aria-disabled", isDisabled ? "true" : "false");
+            if (isDisabled) {
+              closeBeReceptionMenu(menu);
+              if (summary) summary.tabIndex = -1;
+            } else if (summary) {
+              summary.removeAttribute("tabindex");
+            }
+          }
+          if (select instanceof HTMLSelectElement) {
+            select.disabled = isDisabled;
+            select.setAttribute("aria-disabled", isDisabled ? "true" : "false");
+          }
+        };
+        const wireBeReceptionMenu = (menu, panel) => {
+          if (!(menu instanceof HTMLElement) || !(panel instanceof HTMLElement) || menu.dataset.convertBeWired === "1") {
+            return;
+          }
+          const summary = menu.querySelector("summary.field-toggle-trigger");
+          summary?.addEventListener("click", (event) => {
+            if (menu.dataset.disabled === "true") return;
+            event.preventDefault();
+            menu.open = !menu.open;
+            summary.setAttribute("aria-expanded", menu.open ? "true" : "false");
+          });
+          menu.addEventListener("keydown", (event) => {
+            if (event.key !== "Escape") return;
+            event.preventDefault();
+            closeBeReceptionMenu(menu);
+            summary?.focus?.();
+          });
+          document.addEventListener(
+            "click",
+            (event) => {
+              if (!menu.open) return;
+              if (menu.contains(event.target) || panel.contains(event.target)) return;
+              closeBeReceptionMenu(menu);
+            },
+            true
+          );
+          menu.dataset.convertBeWired = "1";
+        };
+        const renderBeReceptionSelectField = ({
+          fieldKey,
+          labelText,
+          menuId,
+          panelId,
+          displayId,
+          placeholder,
+          multiple = false
+        } = {}) => `
+          <label class="items-be-reception-form__field doc-history-modal__filter article-stock-depot-filter">
+            <span>${labelText}</span>
+            <div class="doc-dialog-model-picker__field">
+              <details id="${menuId}" class="field-toggle-menu doc-dialog-model-menu doc-history-model-menu" data-disabled="false">
+                <summary class="btn success field-toggle-trigger" role="button" aria-haspopup="listbox" aria-expanded="false" aria-disabled="false">
+                  <span id="${displayId}" class="model-select-display">${placeholder}</span>
+                  ${CHEVRON_SVG}
+                </summary>
+                <div id="${panelId}" class="field-toggle-panel model-select-panel doc-history-model-panel" role="listbox"></div>
+              </details>
+              <select id="${CONVERT_BE_RECEPTION_IDS[fieldKey]}" class="model-select doc-dialog-model-select" aria-hidden="true" tabindex="-1" ${multiple ? "multiple" : ""}>
+                <option value="">${placeholder}</option>
+              </select>
+            </div>
+          </label>
+        `;
+        const renderBeReceptionTimeField = () =>
+          typeof w.BeReceptionTimeField?.render === "function"
+            ? w.BeReceptionTimeField.render({
+                inputId: CONVERT_BE_RECEPTION_IDS.time,
+                panelId: CONVERT_BE_RECEPTION_IDS.timePanel
+              })
+            : `
+              <label class="items-be-reception-form__field">
+                <span>Heure</span>
+                <input id="${CONVERT_BE_RECEPTION_IDS.time}" type="text" inputmode="numeric" placeholder="HH:MM" autocomplete="off">
+              </label>
+            `;
+        const setBeReceptionSelectOptions = (
+          select,
+          records = [],
+          { placeholder = "", selectedValue = "", selectedValues = [], valueKey = "id", labelKey = "name" } = {}
+        ) => {
+          if (!(select instanceof HTMLSelectElement)) return [];
+          const isMultiple = !!select.multiple;
+          const selectedSet = new Set(
+            (isMultiple ? selectedValues : [selectedValue])
+              .map((entry) => String(entry || "").trim())
+              .filter(Boolean)
+          );
+          select.replaceChildren();
+          const placeholderOption = document.createElement("option");
+          placeholderOption.value = "";
+          placeholderOption.textContent = placeholder;
+          select.appendChild(placeholderOption);
+          const values = [];
+          records.forEach((record) => {
+            const value = String(record?.[valueKey] || "").trim();
+            const label = normalizeBeReceptionText(record?.[labelKey] || value);
+            if (!value) return;
+            const option = document.createElement("option");
+            option.value = value;
+            option.textContent = label || value;
+            option.selected = selectedSet.has(value);
+            select.appendChild(option);
+            if (option.selected) values.push(value);
+          });
+          if (!isMultiple) {
+            const resolved = values[0] || "";
+            select.value = resolved;
+            return resolved ? [resolved] : [];
+          }
+          return values;
+        };
+        const renderBeReceptionDepotPanel = (section, records = [], selectedDepotId = "") => {
+          const select = section?.querySelector?.(`#${CONVERT_BE_RECEPTION_IDS.depot}`);
+          const menu = section?.querySelector?.(`#${CONVERT_BE_RECEPTION_IDS.depotMenu}`);
+          const panel = section?.querySelector?.(`#${CONVERT_BE_RECEPTION_IDS.depotPanel}`);
+          const display = section?.querySelector?.(`#${CONVERT_BE_RECEPTION_IDS.depotDisplay}`);
+          if (!(select instanceof HTMLSelectElement) || !(panel instanceof HTMLElement) || !(menu instanceof HTMLElement)) {
+            return { selectedDepotId: "", selectedDepotLabel: "" };
+          }
+          const selectedValues = setBeReceptionSelectOptions(select, records, {
+            placeholder: "Selectionner un depot",
+            selectedValue: normalizeBeReceptionDepotId(selectedDepotId),
+            valueKey: "id",
+            labelKey: "name"
+          });
+          const selectedValue = selectedValues[0] || "";
+          const selectedLabel = getSelectedOptionText(select);
+          if (display) {
+            display.textContent = selectedLabel || "Selectionner un depot";
+            display.dataset.selected = selectedValue ? "true" : "false";
+          }
+          menu.dataset.selected = selectedValue ? "true" : "false";
+          setBeReceptionPickerDisabled(menu, select, !records.length);
+          panel.replaceChildren();
+          if (!records.length) {
+            const empty = document.createElement("p");
+            empty.className = "model-select-empty";
+            empty.textContent = "Aucun depot enregistre";
+            panel.appendChild(empty);
+          } else {
+            records.forEach((record) => {
+              const button = document.createElement("button");
+              button.type = "button";
+              button.className = "model-select-option";
+              button.dataset.value = record.id;
+              button.setAttribute("role", "option");
+              button.textContent = record.name;
+              const isActive = record.id === selectedValue;
+              button.classList.toggle("is-active", isActive);
+              button.setAttribute("aria-selected", isActive ? "true" : "false");
+              button.addEventListener("click", () => {
+                if (select.disabled) return;
+                select.value = record.id;
+                closeBeReceptionMenu(menu);
+                selectedBeReception = {
+                  ...normalizeBeReceptionChoice(selectedBeReception, { fallbackDate: selectedDate || today }),
+                  depotId: record.id,
+                  depot: record.name,
+                  destinationId: "",
+                  destinationIds: [],
+                  destinationLabels: [],
+                  destination: ""
+                };
+                try {
+                  select.dispatchEvent(new Event("change", { bubbles: true }));
+                } catch {}
+              });
+              panel.appendChild(button);
+            });
+          }
+          wireBeReceptionMenu(menu, panel);
+          return { selectedDepotId: selectedValue, selectedDepotLabel: selectedLabel };
+        };
+        const renderBeReceptionDestinationPanel = (
+          section,
+          locations = [],
+          { selectedLocationIds = [], depotSelected = false } = {}
+        ) => {
+          const select = section?.querySelector?.(`#${CONVERT_BE_RECEPTION_IDS.destination}`);
+          const menu = section?.querySelector?.(`#${CONVERT_BE_RECEPTION_IDS.destinationMenu}`);
+          const panel = section?.querySelector?.(`#${CONVERT_BE_RECEPTION_IDS.destinationPanel}`);
+          const display = section?.querySelector?.(`#${CONVERT_BE_RECEPTION_IDS.destinationDisplay}`);
+          if (!(select instanceof HTMLSelectElement) || !(panel instanceof HTMLElement) || !(menu instanceof HTMLElement)) {
+            return { selectedLocationIds: [], selectedLocationLabels: [] };
+          }
+          const selectedIds = setBeReceptionSelectOptions(select, locations, {
+            placeholder: depotSelected ? "Aucun emplacement" : "Selectionnez d'abord un depot",
+            selectedValues: normalizeBeReceptionDestinationIds(selectedLocationIds),
+            valueKey: "id",
+            labelKey: "code"
+          });
+          const selectedLabels = normalizeBeReceptionDestinationLabels(
+            selectedIds
+              .map((id) => {
+                const option = Array.from(select.options || []).find((entry) => entry.value === id);
+                return option?.textContent || "";
+              })
+              .filter(Boolean)
+          );
+          const displayText = selectedLabels.length
+            ? formatBeReceptionDestinationText(selectedLabels)
+            : depotSelected
+              ? "Aucun emplacement"
+              : "Selectionnez d'abord un depot";
+          if (display) {
+            display.textContent = displayText;
+            display.dataset.selected = selectedIds.length ? "true" : "false";
+          }
+          menu.dataset.selected = selectedIds.length ? "true" : "false";
+          setBeReceptionPickerDisabled(menu, select, !depotSelected || !locations.length);
+          panel.replaceChildren();
+          if (!depotSelected) {
+            const empty = document.createElement("p");
+            empty.className = "model-select-empty";
+            empty.textContent = "Selectionnez d'abord un depot";
+            panel.appendChild(empty);
+          } else if (!locations.length) {
+            const empty = document.createElement("p");
+            empty.className = "model-select-empty";
+            empty.textContent = "Aucun emplacement";
+            panel.appendChild(empty);
+          } else {
+            Array.from(select.options || []).forEach((option) => {
+              if (!option.value) return;
+              const button = document.createElement("button");
+              button.type = "button";
+              button.className = "model-select-option model-select-option--multiselect stock-location-option";
+              button.dataset.value = option.value;
+              button.setAttribute("role", "option");
+              const checkbox = document.createElement("span");
+              checkbox.className = "stock-location-option__checkbox";
+              checkbox.setAttribute("aria-hidden", "true");
+              const checkIcon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+              checkIcon.classList.add("stock-location-option__check");
+              checkIcon.setAttribute("viewBox", "0 0 20 20");
+              checkIcon.setAttribute("fill", "none");
+              checkIcon.setAttribute("focusable", "false");
+              checkIcon.setAttribute("aria-hidden", "true");
+              const checkPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+              checkPath.setAttribute("d", "M5 10.5L8.5 14L15 7.5");
+              checkPath.setAttribute("stroke", "currentColor");
+              checkPath.setAttribute("stroke-width", "2");
+              checkPath.setAttribute("stroke-linecap", "round");
+              checkPath.setAttribute("stroke-linejoin", "round");
+              checkIcon.appendChild(checkPath);
+              checkbox.appendChild(checkIcon);
+              const label = document.createElement("span");
+              label.className = "stock-location-option__label";
+              label.textContent = normalizeBeReceptionText(option.textContent || "");
+              button.append(checkbox, label);
+              const isActive = selectedIds.includes(option.value);
+              button.classList.toggle("is-active", isActive);
+              button.setAttribute("aria-selected", isActive ? "true" : "false");
+              button.addEventListener("click", (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                if (select.disabled) return;
+                const currentIds = normalizeBeReceptionDestinationIds(
+                  Array.from(select.selectedOptions || []).map((entry) => entry.value)
+                );
+                const hasValue = currentIds.includes(option.value);
+                const nextIds = hasValue
+                  ? currentIds.filter((entry) => entry !== option.value)
+                  : [...currentIds, option.value];
+                Array.from(select.options || []).forEach((entry) => {
+                  entry.selected = nextIds.includes(entry.value);
+                });
+                try {
+                  select.dispatchEvent(new Event("change", { bubbles: true }));
+                } catch {}
+              });
+              panel.appendChild(button);
+            });
+          }
+          wireBeReceptionMenu(menu, panel);
+          return { selectedLocationIds: selectedIds, selectedLocationLabels: selectedLabels };
+        };
+        const syncBeReceptionSelectors = async (section) => {
+          if (!(section instanceof HTMLElement)) return false;
+          const syncToken = String((Number(section.dataset.beReceptionSyncToken || "0") || 0) + 1);
+          section.dataset.beReceptionSyncToken = syncToken;
+          selectedBeReception = normalizeBeReceptionChoice(selectedBeReception, {
+            fallbackDate: selectedDate || today
+          });
+          const depots = await fetchBeReceptionDepotRecords();
+          if (section.dataset.beReceptionSyncToken !== syncToken) return false;
+          const depotState = renderBeReceptionDepotPanel(section, depots, selectedBeReception.depotId);
+          const depotId = normalizeBeReceptionDepotId(depotState.selectedDepotId || "");
+          const depotLabel = normalizeBeReceptionText(depotState.selectedDepotLabel || "");
+          let locations = [];
+          if (depotId) locations = await fetchBeReceptionLocationsForDepot(depotId);
+          if (section.dataset.beReceptionSyncToken !== syncToken) return false;
+          const destinationState = renderBeReceptionDestinationPanel(section, locations, {
+            selectedLocationIds: selectedBeReception.destinationIds || [],
+            depotSelected: !!depotId
+          });
+          selectedBeReception = normalizeBeReceptionChoice(
+            {
+              ...selectedBeReception,
+              depotId,
+              depot: depotId ? depotLabel : "",
+              destinationId: destinationState.selectedLocationIds[0] || "",
+              destinationIds: destinationState.selectedLocationIds,
+              destinationLabels: destinationState.selectedLocationLabels,
+              destination: destinationState.selectedLocationLabels.length
+                ? formatBeReceptionDestinationText(destinationState.selectedLocationLabels)
+                : ""
+            },
+            { fallbackDate: selectedDate || today }
+          );
+          updateConfirmState();
+          return true;
+        };
+        const wireBeReceptionTimeInput = (section) => {
+          const input = section?.querySelector?.(`#${CONVERT_BE_RECEPTION_IDS.time}`);
+          const wrapper = input?.closest?.("[data-time-picker]") || null;
+          const toggle = wrapper?.querySelector?.("[data-time-picker-toggle]") || null;
+          const panel = wrapper?.querySelector?.("[data-time-picker-panel]") || null;
+          if (!(input instanceof HTMLInputElement) || !(panel instanceof HTMLElement) || !toggle || input.dataset.convertTimeWired === "1") {
+            return;
+          }
+          panel.innerHTML = `
+            <div class="swb-time-picker__footer">
+              <button type="button" class="swb-time-picker__footer-btn" data-convert-time-now>Maintenant</button>
+              <button type="button" class="swb-time-picker__footer-btn swb-time-picker__footer-btn--muted" data-convert-time-clear>Effacer</button>
+            </div>
+          `;
+          const setOpen = (open) => {
+            panel.hidden = !open;
+            wrapper.classList.toggle("is-open", !!open);
+            input.setAttribute("aria-expanded", open ? "true" : "false");
+            toggle.setAttribute("aria-expanded", open ? "true" : "false");
+          };
+          toggle.addEventListener("click", (event) => {
+            event.preventDefault();
+            setOpen(panel.hidden);
+          });
+          panel.querySelector("[data-convert-time-now]")?.addEventListener("click", () => {
+            input.value = formatBeReceptionTime();
+            input.dispatchEvent(new Event("change", { bubbles: true }));
+            setOpen(false);
+          });
+          panel.querySelector("[data-convert-time-clear]")?.addEventListener("click", () => {
+            input.value = "";
+            input.dispatchEvent(new Event("change", { bubbles: true }));
+            setOpen(false);
+          });
+          document.addEventListener(
+            "click",
+            (event) => {
+              if (wrapper.contains(event.target)) return;
+              setOpen(false);
+            },
+            true
+          );
+          input.dataset.convertTimeWired = "1";
+        };
+        const createBeReceptionSection = () => {
+          const section = document.createElement("fieldset");
+          section.id = CONVERT_BE_RECEPTION_IDS.section;
+          section.className = "section-box items-be-reception-form doc-history-convert__be-reception";
+          section.hidden = true;
+          section.innerHTML = `
+            <legend>Informations de r&eacute;ception</legend>
+            <div class="items-be-reception-form__grid">
+              ${renderBeReceptionSelectField({
+                fieldKey: "depot",
+                labelText: "D&eacute;p&ocirc;t / Magasin",
+                menuId: CONVERT_BE_RECEPTION_IDS.depotMenu,
+                panelId: CONVERT_BE_RECEPTION_IDS.depotPanel,
+                displayId: CONVERT_BE_RECEPTION_IDS.depotDisplay,
+                placeholder: "Selectionner un depot"
+              })}
+              ${renderBeReceptionSelectField({
+                fieldKey: "destination",
+                labelText: "Emplacement de destination",
+                menuId: CONVERT_BE_RECEPTION_IDS.destinationMenu,
+                panelId: CONVERT_BE_RECEPTION_IDS.destinationPanel,
+                displayId: CONVERT_BE_RECEPTION_IDS.destinationDisplay,
+                placeholder: "Aucun emplacement",
+                multiple: true
+              })}
+              <label class="items-be-reception-form__field">
+                <span>Date de r&eacute;ception</span>
+                <div class="swb-date-picker" data-date-picker>
+                  <input id="${CONVERT_BE_RECEPTION_IDS.date}" type="text" inputmode="numeric" placeholder="AAAA-MM-JJ" autocomplete="off" spellcheck="false" aria-haspopup="dialog" aria-expanded="false" role="combobox" aria-controls="${CONVERT_BE_RECEPTION_IDS.datePanel}">
+                  <button type="button" class="swb-date-picker__toggle" data-date-picker-toggle aria-label="Choisir une date de r&eacute;ception" aria-haspopup="dialog" aria-expanded="false" aria-controls="${CONVERT_BE_RECEPTION_IDS.datePanel}">
+                    <svg class="swb-date-picker__toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" focusable="false">
+                      <rect x="3.5" y="5" width="17" height="15" rx="2"></rect>
+                      <path d="M8 3.5v3M16 3.5v3M3.5 10h17" stroke-linecap="round"></path>
+                    </svg>
+                  </button>
+                  <div class="swb-date-picker__panel" data-date-picker-panel hidden role="dialog" aria-modal="false" aria-label="Choisir une date" tabindex="-1" id="${CONVERT_BE_RECEPTION_IDS.datePanel}"></div>
+                </div>
+              </label>
+              ${renderBeReceptionTimeField()}
+              <label class="items-be-reception-form__field items-be-reception-form__field--wide items-be-reception-form__field--source" for="${CONVERT_BE_RECEPTION_IDS.sourceRef}">
+                <span>R&eacute;f&eacute;rence source</span>
+                <div class="items-be-reception-form__input-group items-be-reception-form__input-group--source">
+                  <input id="${CONVERT_BE_RECEPTION_IDS.sourceRef}" type="text" placeholder="ex : Facture d'achat / Bon de commande" autocomplete="off">
+                </div>
+              </label>
+            </div>
+          `;
+          const reception = normalizeBeReceptionChoice(selectedBeReception, {
+            fallbackDate: selectedDate || today
+          });
+          const dateInput = section.querySelector(`#${CONVERT_BE_RECEPTION_IDS.date}`);
+          const timeInput = section.querySelector(`#${CONVERT_BE_RECEPTION_IDS.time}`);
+          const sourceInput = section.querySelector(`#${CONVERT_BE_RECEPTION_IDS.sourceRef}`);
+          if (dateInput) {
+            dateInput.value = reception.date || selectedDate || today;
+            if (createDatePicker) {
+              const picker = createDatePicker(dateInput, {
+                allowManualInput: true,
+                onChange(value) {
+                  beReceptionDateTouched = true;
+                  selectedBeReception = normalizeBeReceptionChoice(
+                    { ...selectedBeReception, date: value || "" },
+                    { fallbackDate: selectedDate || today }
+                  );
+                  updateConfirmState();
+                }
+              });
+              if (picker) picker.setValue(dateInput.value, { silent: true });
+            } else {
+              dateInput.addEventListener("input", () => {
+                beReceptionDateTouched = true;
+                selectedBeReception = normalizeBeReceptionChoice(
+                  { ...selectedBeReception, date: dateInput.value || "" },
+                  { fallbackDate: selectedDate || today }
+                );
+                updateConfirmState();
+              });
+            }
+          }
+          if (timeInput) {
+            timeInput.value = reception.time || formatBeReceptionTime();
+            timeInput.addEventListener("input", () => {
+              selectedBeReception = normalizeBeReceptionChoice(
+                { ...selectedBeReception, time: timeInput.value || "" },
+                { fallbackDate: selectedDate || today }
+              );
+              updateConfirmState();
+            });
+            timeInput.addEventListener("change", () => {
+              selectedBeReception = normalizeBeReceptionChoice(
+                { ...selectedBeReception, time: timeInput.value || "" },
+                { fallbackDate: selectedDate || today }
+              );
+              updateConfirmState();
+            });
+          }
+          if (sourceInput) {
+            sourceInput.value = reception.sourceRef || "";
+            sourceInput.addEventListener("input", () => {
+              selectedBeReception = normalizeBeReceptionChoice(
+                { ...selectedBeReception, sourceRef: sourceInput.value || "" },
+                { fallbackDate: selectedDate || today }
+              );
+              updateConfirmState();
+            });
+          }
+          section
+            .querySelector(`#${CONVERT_BE_RECEPTION_IDS.depot}`)
+            ?.addEventListener("change", () => void syncBeReceptionSelectors(section));
+          section
+            .querySelector(`#${CONVERT_BE_RECEPTION_IDS.destination}`)
+            ?.addEventListener("change", () => {
+              selectedBeReception = readBeReceptionFormValues(section, selectedBeReception);
+              void syncBeReceptionSelectors(section);
+            });
+          wireBeReceptionTimeInput(section);
+          void syncBeReceptionSelectors(section);
+          return section;
         };
 
         let floatingScrollContainers = [];
@@ -1551,6 +2641,7 @@
             if (targetSelect) targetSelect.value = nextValue;
             applyModelFilterForTarget(nextValue);
             updatePaymentVisibility();
+            updateBeReceptionVisibility();
           };
           targetRadios.forEach((radio) => {
             radio.addEventListener("change", () => {
@@ -1631,6 +2722,19 @@
               allowManualInput: true,
               onChange(value) {
                 selectedDate = value || "";
+                if (!beReceptionDateTouched) {
+                  selectedBeReception = normalizeBeReceptionChoice(
+                    { ...selectedBeReception, date: selectedDate },
+                    { fallbackDate: selectedDate || today }
+                  );
+                  const beDateInput = dialogBeReceptionSection?.querySelector?.(
+                    `#${CONVERT_BE_RECEPTION_IDS.date}`
+                  );
+                  if (beDateInput && beDateInput.value !== selectedDate) {
+                    beDateInput.value = selectedDate;
+                  }
+                }
+                updateConfirmState();
               }
             });
             if (picker) picker.setValue(initialDate, { silent: true });
@@ -1638,6 +2742,19 @@
             dateInput.readOnly = false;
             dateInput.addEventListener("input", () => {
               selectedDate = dateInput.value || "";
+              if (!beReceptionDateTouched) {
+                selectedBeReception = normalizeBeReceptionChoice(
+                  { ...selectedBeReception, date: selectedDate },
+                  { fallbackDate: selectedDate || today }
+                );
+                const beDateInput = dialogBeReceptionSection?.querySelector?.(
+                  `#${CONVERT_BE_RECEPTION_IDS.date}`
+                );
+                if (beDateInput && beDateInput.value !== selectedDate) {
+                  beDateInput.value = selectedDate;
+                }
+              }
+              updateConfirmState();
             });
           }
         }
@@ -1764,12 +2881,16 @@
           acompteRow.style.display = show ? "grid" : "none";
           if (show) updateAcompteAmounts(selectedPaidAmount);
         };
+        if (supportsBonEntreeTarget) {
+          beReceptionSection = createBeReceptionSection();
+        }
 
         if (targetGroup) wrapper.appendChild(targetGroup);
         wrapper.appendChild(modelGroup);
         wrapper.appendChild(dateGroup);
         wrapper.appendChild(paymentRow);
         wrapper.appendChild(acompteRow);
+        if (beReceptionSection) wrapper.appendChild(beReceptionSection);
         submitErrorElement = document.createElement("p");
         submitErrorElement.className = "doc-dialog-error";
         submitErrorElement.hidden = true;
@@ -1782,9 +2903,11 @@
         dialogPaymentStatusSelect = paymentStatusSelectEl;
         dialogPaymentReferenceInput = paymentReferenceInputEl;
         dialogAcomptePaidInput = acomptePaidInput;
+        dialogBeReceptionSection = beReceptionSection;
         dialogTargetSelect = targetSelect;
         dialogTargetRadios = targetRadios.slice();
         updatePaymentVisibility();
+        updateBeReceptionVisibility();
       }
     });
     if (!confirmed) return null;
@@ -1844,7 +2967,7 @@
     const meta = st.meta || (st.meta = {});
     const normalizedDocType = String(docType || meta.docType || "facture").toLowerCase();
     meta.docType = normalizedDocType;
-    if (isPurchaseDocType(normalizedDocType)) {
+    if (isManualNumberDocType(normalizedDocType)) {
       const inputNumber = getEl("invNumber")?.value;
       const resolved = String(inputNumber ?? meta.number ?? "").trim();
       if (resolved && meta.number !== resolved) meta.number = resolved;
@@ -1870,6 +2993,13 @@
         if (res?.ok && res.number) {
           meta.number = res.number;
           meta.previewNumber = res.number;
+          if (res.prefix) {
+            meta.numberPrefix = res.prefix;
+            const prefixInput = getEl("invNumberPrefix");
+            if (prefixInput && !String(prefixInput.value || "").trim()) {
+              prefixInput.value = res.prefix;
+            }
+          }
         }
       } catch (err) {
         console.warn("preview number failed", err);
@@ -1886,7 +3016,16 @@
 
   async function saveConvertedDocument(
     docType,
-    { dateOverride, convertedFrom, paymentMethod, paymentReference, historyStatus, paidAmount } = {}
+    {
+      dateOverride,
+      convertedFrom,
+      paymentMethod,
+      paymentReference,
+      historyStatus,
+      paidAmount,
+      beReception,
+      beReceptionRequireStorageFields = true
+    } = {}
   ) {
     const logConvert = (stage, data) => {
       try {
@@ -1895,6 +3034,7 @@
     };
     const normalizedDocType = String(docType || "facture").toLowerCase();
     const isFacture = normalizedDocType === "facture";
+    const isBonEntree = normalizedDocType === "be";
     const normalizedPaymentMethod = String(paymentMethod || "").trim();
     const normalizedPaymentReference = String(paymentReference || "").trim();
     const normalizedStatus = normalizeFactureStatusValue(historyStatus);
@@ -1907,6 +3047,28 @@
     const st = SEM.state || (SEM.state = {});
     const meta = st.meta || (st.meta = {});
     meta.docType = normalizedDocType;
+    const date =
+      (dateOverride || meta.date || getEl("invDate")?.value || new Date().toISOString().slice(0, 10)).slice(0, 10);
+    meta.date = date;
+    let normalizedBeReception = null;
+    if (isBonEntree) {
+      const validation = validateBeReceptionChoice(
+        beReception || meta.beReception || {},
+        {
+          fallbackDate: date,
+          requireStorageFields: beReceptionRequireStorageFields !== false
+        }
+      );
+      if (!validation.ok) {
+        logConvert("be-reception-validation-failed", {
+          error: String(validation.error || "")
+        });
+        return { ok: false, error: validation.error || "Informations de reception incompletes." };
+      }
+      normalizedBeReception = applyBeReceptionChoiceToMeta(meta, validation.value, {
+        fallbackDate: date
+      });
+    }
     const normalizedConvertedFrom = normalizeConvertedFrom(convertedFrom);
     if (normalizedConvertedFrom) {
       meta.convertedFrom = normalizedConvertedFrom;
@@ -1932,9 +3094,6 @@
       assignedNumber: String(assignedNumber || ""),
       sourceNumber: String(convertedFrom?.number || "")
     });
-    const date =
-      (dateOverride || meta.date || getEl("invDate")?.value || new Date().toISOString().slice(0, 10)).slice(0, 10);
-    meta.date = date;
     meta.number = assignedNumber || meta.number || getEl("invNumber")?.value || meta.number || "";
       const normalizedLength =
         typeof normalizeInvoiceNumberLength === "function"
@@ -1975,7 +3134,10 @@
       if ("paymentDate" in meta) delete meta.paymentDate;
       if ("status" in meta) delete meta.status;
     }
-    if (!meta.number && !isPurchaseDocType(normalizedDocType)) {
+    if (isBonEntree && normalizedBeReception) {
+      applyBeReceptionChoiceToMeta(meta, normalizedBeReception, { fallbackDate: date });
+    }
+    if (!meta.number && !isManualNumberDocType(normalizedDocType)) {
       const fallbackPrefix =
         normalizedDocType === "facture"
           ? "Fact"
@@ -2001,6 +3163,9 @@
       if (w.SEM?.readInputs) w.SEM.readInputs();
       else if (typeof w.readInputs === "function") w.readInputs();
     } catch {}
+    if (isBonEntree && normalizedBeReception) {
+      applyBeReceptionChoiceToMeta(meta, normalizedBeReception, { fallbackDate: date });
+    }
     const paidAmountValue = Number(paidAmount);
     if (
       isFacture &&
@@ -2055,6 +3220,9 @@
     snapMeta.numberYear = meta.numberYear;
     snapMeta.historyPath = null;
     snapMeta.historyDocType = normalizedDocType;
+    if (isBonEntree && normalizedBeReception) {
+      applyBeReceptionChoiceToMeta(snapMeta, normalizedBeReception, { fallbackDate: date });
+    }
     if (isFacture) {
       if (resolvedPaymentMethod) snapMeta.paymentMethod = resolvedPaymentMethod;
       else if ("paymentMethod" in snapMeta) delete snapMeta.paymentMethod;
@@ -2521,18 +3689,35 @@
       } catch {
         cloned = raw;
       }
+      const payloadTarget = getInvoiceSourcePayload(cloned) || (cloned && typeof cloned === "object" ? cloned : {});
       const metaTarget =
-        (cloned && typeof cloned === "object" && cloned.data && typeof cloned.data === "object"
-          ? cloned.data.meta
-          : null) ||
-        (cloned && typeof cloned === "object" ? cloned.meta : null) ||
-        (cloned.data && (cloned.data.meta = {})) ||
-        (cloned.meta = {});
+        payloadTarget.meta && typeof payloadTarget.meta === "object"
+          ? payloadTarget.meta
+          : (payloadTarget.meta = {});
       const normalizedTarget = String(choices.target || fallbackTarget || "facture").toLowerCase();
       metaTarget.docType = normalizedTarget || "facture";
       if (choices.date) metaTarget.date = choices.date;
+      clearCrossTypeNumberingMetadata(metaTarget, resolvedSourceDocType, normalizedTarget);
       metaTarget.historyPath = null;
       metaTarget.historyDocType = null;
+      let normalizedBeReception = null;
+      const requireBeReceptionStorageFields = shouldRequireBeReceptionStorageFields(
+        resolvedSourceDocType,
+        normalizedTarget
+      );
+      if (normalizedTarget === "be") {
+        const beValidation = validateBeReceptionChoice(choices.beReception, {
+          meta: metaTarget,
+          fallbackDate: choices.date || metaTarget.date || new Date().toISOString().slice(0, 10),
+          requireStorageFields: requireBeReceptionStorageFields
+        });
+        if (!beValidation.ok) {
+          return { ok: false, error: beValidation.error || "Informations de reception incompletes." };
+        }
+        normalizedBeReception = applyBeReceptionChoiceToMeta(metaTarget, beValidation.value, {
+          fallbackDate: choices.date || metaTarget.date || ""
+        });
+      }
       const clonedPayload = getInvoiceSourcePayload(cloned);
       if (clonedPayload && Array.isArray(clonedPayload.items)) {
         const sourceMeta = resolveConvertedSourceSnapshot(entry, raw, resolvedSourceDocType);
@@ -2562,6 +3747,14 @@
           console.warn("mergeInvoiceDataIntoState failed", err);
         }
       }
+      clearCrossTypeNumberingControls(resolvedSourceDocType, normalizedTarget);
+      if (normalizedTarget === "be" && normalizedBeReception) {
+        const st = SEM.state || (SEM.state = {});
+        const meta = st.meta || (st.meta = {});
+        applyBeReceptionChoiceToMeta(meta, normalizedBeReception, {
+          fallbackDate: choices.date || meta.date || ""
+        });
+      }
       if (typeof w.SEM?.bind === "function") {
         w.__suppressModelApplyOnce = 2;
         w.SEM.bind();
@@ -2587,6 +3780,13 @@
         }
         syncModelSelectionUi(choices.model);
       }
+      if (normalizedTarget === "be" && normalizedBeReception) {
+        const st = SEM.state || (SEM.state = {});
+        const meta = st.meta || (st.meta = {});
+        applyBeReceptionChoiceToMeta(meta, normalizedBeReception, {
+          fallbackDate: choices.date || meta.date || ""
+        });
+      }
       if (typeof w.setDocTypeMenuAllowedDocTypes === "function") {
         w.setDocTypeMenuAllowedDocTypes(null);
       }
@@ -2602,16 +3802,22 @@
         paymentMethod: choices.paymentMethod,
         paymentReference: choices.paymentReference,
         historyStatus: choices.status,
-        paidAmount: choices.paidAmount
+        paidAmount: choices.paidAmount,
+        beReception: normalizedBeReception || choices.beReception,
+        beReceptionRequireStorageFields: requireBeReceptionStorageFields
       });
-      if (!saved) {
+      const failedSave = !saved || (saved && typeof saved === "object" && saved.ok === false);
+      if (failedSave) {
         const label = typeof w.docTypeLabel === "function" ? w.docTypeLabel(targetDocType) : "document";
         const isFeminine = ["facture", "retenue", "avoir"].includes(targetDocType);
         const article = isFeminine ? "la" : "le";
         const fallbackText = `Impossible de cr\u00e9er ${article} ${String(label || "document").toLowerCase()}.`;
         const saveError = getMessage("DOCUMENT_SAVE_FAILED", { fallbackText });
         console.warn("[doc-convert] save failed", { targetDocType, sourcePath: String(entry.path || "") });
-        return { ok: false, error: saveError.text || fallbackText };
+        return {
+          ok: false,
+          error: String(saved?.error || saved?.message || saveError.text || fallbackText)
+        };
       }
       const savedInfo =
         saved && typeof saved === "object"
@@ -2692,6 +3898,7 @@
 
     const promptConfig =
       promptOptions && typeof promptOptions === "object" ? { ...promptOptions } : {};
+    promptConfig.sourceDocType = resolvedSourceDocType;
     promptConfig.onSubmit = performConversion;
     let promptResult = null;
     try {
@@ -2905,6 +4112,20 @@
     });
   }
 
+  const BonEntreeReception = {
+    normalizeChoice: normalizeBeReceptionChoice,
+    createDefaultChoice: createDefaultBeReceptionChoice,
+    validateChoice: validateBeReceptionChoice,
+    fetchDepotRecords: fetchBeReceptionDepotRecords,
+    fetchLocationsForDepot: fetchBeReceptionLocationsForDepot,
+    normalizeDepotId: normalizeBeReceptionDepotId,
+    normalizeLocationId: normalizeBeReceptionLocationId,
+    normalizeDestinationIds: normalizeBeReceptionDestinationIds,
+    normalizeDestinationLabels: normalizeBeReceptionDestinationLabels,
+    formatDestinationText: formatBeReceptionDestinationText,
+    formatTime: formatBeReceptionTime
+  };
+
   AppInit.DocConversion = {
     openMainScreenConversionWizard,
     getMainScreenSourceTypeConfigs,
@@ -2912,6 +4133,7 @@
     convertSourceEntriesWithChoices,
     convertDevisEntry,
     convertBlEntry,
-    convertFactureEntry
+    convertFactureEntry,
+    BonEntreeReception
   };
 })(window);

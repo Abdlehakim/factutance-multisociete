@@ -1801,7 +1801,9 @@
     }
 
     function isManualNumberDocType(docTypeValue) {
-      return isModelPurchaseDocType(docTypeValue);
+      return MODEL_DOC_TYPE_MANUAL_NUMBERING_VALUES.has(
+        String(docTypeValue || "").trim().toLowerCase()
+      );
     }
 
     function getDatePartsForNumber(dateValue, fallbackDate) {

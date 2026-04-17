@@ -392,6 +392,105 @@
     return st;
   }
 
+  const isPdfPreviewTaxesEnabled = (raw) => {
+    const normalized = typeof raw === "string" ? raw.trim().toLowerCase() : raw;
+    if (normalized === false) return false;
+    if (typeof normalized === "string") return !["without", "false", "0"].includes(normalized);
+    return true;
+  };
+
+  const PDF_PREVIEW_ARTICLE_LABEL_KEYS = new Set([
+    "ref",
+    "product",
+    "desc",
+    "qty",
+    "unit",
+    "stockQty",
+    "purchasePrice",
+    "purchaseTva",
+    "purchaseDiscount",
+    "price",
+    "tva",
+    "discount",
+    "fodecSale",
+    "fodecPurchase",
+    "fodec",
+    "fodecRate",
+    "fodecTva",
+    "fodecAmount",
+    "purchaseFodecRate",
+    "purchaseFodecTva",
+    "purchaseFodecAmount",
+    "totalPurchaseHt",
+    "totalPurchaseTtc",
+    "totalHt",
+    "totalTtc"
+  ]);
+
+  function resolvePdfPreviewArticleHeaderFallbacks(taxesEnabled = true) {
+    return {
+      ref: "R\u00e9f.",
+      product: "D\u00e9signation",
+      desc: "Description",
+      qty: "Qt\u00e9",
+      unit: "Unit\u00e9",
+      stockQty: "Stock disponible",
+      purchasePrice: taxesEnabled ? "PU A. HT" : "PU A.",
+      purchaseTva: "TVA A.",
+      purchaseDiscount: "Remise A.",
+      price: taxesEnabled ? "P.U. HT" : "Prix unitaire",
+      tva: "TVA %",
+      discount: "Remise %",
+      fodecSale: "FODEC",
+      fodecPurchase: "FODEC A.",
+      fodec: "FODEC",
+      fodecRate: "Taux %",
+      fodecTva: "TVA %",
+      fodecAmount: "FODEC",
+      purchaseFodecRate: "Taux %",
+      purchaseFodecTva: "TVA %",
+      purchaseFodecAmount: "FODEC A.",
+      totalPurchaseHt: taxesEnabled ? "Total A. HT" : "Total A.",
+      totalPurchaseTtc: taxesEnabled ? "Total A. TTC" : "Total A.",
+      totalHt: "Total HT",
+      totalTtc: "Total TTC"
+    };
+  }
+
+  const normalizePdfPreviewArticleLabel = (value) =>
+    String(value || "").trim();
+
+  function collectLiveItemsArticleHeaderLabels() {
+    const labels = {};
+    if (typeof document === "undefined") return null;
+    const liveItemsTable =
+      document.querySelector("#itemsDocOptionsModal #items") ||
+      document.getElementById("items");
+    const headerCells = liveItemsTable
+      ? Array.from(liveItemsTable.querySelectorAll("thead th[data-article-field-label]"))
+      : [];
+    if (!headerCells.length) return null;
+    headerCells.forEach((cell) => {
+      const key = String(cell?.dataset?.articleFieldLabel || "").trim();
+      if (!PDF_PREVIEW_ARTICLE_LABEL_KEYS.has(key)) return;
+      const label = normalizePdfPreviewArticleLabel(cell.textContent);
+      if (label) labels[key] = label;
+    });
+    return Object.keys(labels).length ? labels : null;
+  }
+
+  function applyPdfPreviewArticleHeaderLabels(stateInput) {
+    if (!stateInput || typeof stateInput !== "object") return stateInput;
+    const meta = stateInput.meta && typeof stateInput.meta === "object"
+      ? stateInput.meta
+      : (stateInput.meta = {});
+    const taxesEnabled = isPdfPreviewTaxesEnabled(meta.taxesEnabled);
+    const fallbacks = resolvePdfPreviewArticleHeaderFallbacks(taxesEnabled);
+    const liveLabels = collectLiveItemsArticleHeaderLabels();
+    meta.articleFieldLabels = liveLabels ? { ...fallbacks, ...liveLabels } : { ...fallbacks };
+    return stateInput;
+  }
+
   async function buildInvoicePdfSnapshot(
     stateInput,
     { strict = null, markPrepared = false } = {}
@@ -2715,6 +2814,7 @@ function buildBonEntreePreviewTitle(stateInput) {
     const renderer = getInvoicePdfRenderer();
     if (!lastPreviewState || !renderer) return;
     const assets = API?.assets || {};
+    applyPdfPreviewArticleHeaderLabels(lastPreviewState);
     applyTotalsSnapshotToState(lastPreviewState, lastPreviewTotals);
     const renderResult = renderInvoiceSnapshotIntoRoot(renderer, lastPreviewState, assets, root);
     const styleEl = overlay.querySelector("#pdfPreviewModalStyle");
@@ -3219,7 +3319,9 @@ function buildBonEntreePreviewTitle(stateInput) {
       await showDialog?.(pdfUnavailable.text, { title: pdfUnavailable.title });
       return;
     }
-    const st = await buildInvoicePdfSnapshot(rawData, { markPrepared: true });
+    const st = applyPdfPreviewArticleHeaderLabels(
+      await buildInvoicePdfSnapshot(rawData, { markPrepared: true })
+    );
     const pdfOptions = ensurePdfPreviewOptions(st.meta) || {};
     const showSeal = resolvePdfPreviewOption(pdfOptions, "showSeal", true);
     const showSignature = resolvePdfPreviewOption(pdfOptions, "showSignature", true);

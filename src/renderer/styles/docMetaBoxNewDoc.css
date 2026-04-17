@@ -1226,6 +1226,7 @@
 }
 
 .items-be-reception-form #beReceptionDestinationPanel,
+.items-be-reception-form #docHistoryBeReceptionDestinationPanel,
 .items-be-reception-form #bsSortieLocationPanel {
   border: 1px solid #a7f3d0;
   border-radius: 8px;
@@ -1237,6 +1238,7 @@
 }
 
 .items-be-reception-form #beReceptionDestinationPanel .stock-location-option,
+.items-be-reception-form #docHistoryBeReceptionDestinationPanel .stock-location-option,
 .items-be-reception-form #bsSortieLocationPanel .stock-location-option {
   display: flex;
   align-items: center;
@@ -1252,12 +1254,14 @@
 }
 
 .items-be-reception-form #beReceptionDestinationPanel .stock-location-option:hover,
+.items-be-reception-form #docHistoryBeReceptionDestinationPanel .stock-location-option:hover,
 .items-be-reception-form #bsSortieLocationPanel .stock-location-option:hover {
   background: #ecfdf5;
   color: #047857;
 }
 
 .items-be-reception-form #beReceptionDestinationPanel .stock-location-option.is-active,
+.items-be-reception-form #docHistoryBeReceptionDestinationPanel .stock-location-option.is-active,
 .items-be-reception-form #bsSortieLocationPanel .stock-location-option.is-active {
   background: #d1fae5;
   color: #047857;
@@ -1265,6 +1269,7 @@
 }
 
 .items-be-reception-form #beReceptionDestinationPanel .stock-location-option__checkbox,
+.items-be-reception-form #docHistoryBeReceptionDestinationPanel .stock-location-option__checkbox,
 .items-be-reception-form #bsSortieLocationPanel .stock-location-option__checkbox {
   width: 16px;
   height: 16px;
@@ -1279,6 +1284,7 @@
 }
 
 .items-be-reception-form #beReceptionDestinationPanel .stock-location-option__check,
+.items-be-reception-form #docHistoryBeReceptionDestinationPanel .stock-location-option__check,
 .items-be-reception-form #bsSortieLocationPanel .stock-location-option__check {
   width: 12px;
   height: 12px;
@@ -1286,17 +1292,20 @@
 }
 
 .items-be-reception-form #beReceptionDestinationPanel .stock-location-option.is-active .stock-location-option__checkbox,
+.items-be-reception-form #docHistoryBeReceptionDestinationPanel .stock-location-option.is-active .stock-location-option__checkbox,
 .items-be-reception-form #bsSortieLocationPanel .stock-location-option.is-active .stock-location-option__checkbox {
   background: #10b981;
   border-color: #10b981;
 }
 
 .items-be-reception-form #beReceptionDestinationPanel .stock-location-option.is-active .stock-location-option__check,
+.items-be-reception-form #docHistoryBeReceptionDestinationPanel .stock-location-option.is-active .stock-location-option__check,
 .items-be-reception-form #bsSortieLocationPanel .stock-location-option.is-active .stock-location-option__check {
   opacity: 1;
 }
 
 .items-be-reception-form #beReceptionDestinationPanel .stock-location-option__label,
+.items-be-reception-form #docHistoryBeReceptionDestinationPanel .stock-location-option__label,
 .items-be-reception-form #bsSortieLocationPanel .stock-location-option__label {
   flex: 1 1 auto;
   min-width: 0;
