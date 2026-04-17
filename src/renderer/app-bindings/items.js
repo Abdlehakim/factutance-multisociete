@@ -1528,7 +1528,7 @@
     const stripped = String(html)
       .replace(/<br\s*\/?>/gi, " ")
       .replace(/<[^>]*>/g, "")
-      .replace(/&nbsp;/gi, " ")
+      .replace(/&nbsp;|\u00a0/gi, " ")
       .trim();
     return stripped.length > 0;
   };

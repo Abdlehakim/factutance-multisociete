@@ -1727,6 +1727,15 @@
       .replace(/<[^>]+>/g, "");
   }
 
+  function hasFormattedNoteText(raw = "") {
+    return stripHtmlAndStyles(raw)
+      .replace(/&nbsp;|&#160;/gi, " ")
+      .replace(/\u00A0/g, " ")
+      .replace(/\u200b/g, "")
+      .trim()
+      .length > 0;
+  }
+
   function sanitizeFooterNoteHtml(raw = "", options = {}) {
     if (raw === undefined || raw === null) return "";
     const input = String(raw);
@@ -1735,7 +1744,8 @@
         ? options.allowedSizes.map((size) => Number(size)).filter((size) => Number.isFinite(size))
         : FOOTER_NOTE_FONT_SIZES;
     if (typeof document === "undefined") {
-      return stripHtmlAndStyles(input);
+      const stripped = stripHtmlAndStyles(input);
+      return hasFormattedNoteText(stripped) ? stripped : "";
     }
     const normalizedHTML = input
       .replace(/\r\n|\r/g, "\n")
@@ -1799,7 +1809,7 @@
     result = result.replace(/(<br>){3,}/g, "<br><br>");
     result = result.replace(/^(<br>)+/, "");
     result = result.replace(/(<br>)+$/, "");
-    return result;
+    return hasFormattedNoteText(result) ? result : "";
   }
 
   function toCleanString(value) {
@@ -1999,10 +2009,13 @@
     const readFooterNoteValue = () => {
       const modalField = getEl("footerNoteModal");
       if (modalField) {
-        return typeof modalField.value === "string" ? modalField.value.trim() : "";
+        if (typeof modalField.value !== "string") return "";
+        const normalized = sanitizeFooterNoteHtml(modalField.value).trim();
+        if (modalField.value !== normalized) modalField.value = normalized;
+        return normalized;
       }
       const fallback = meta?.extras?.pdf?.footerNote;
-      return typeof fallback === "string" ? fallback : "";
+      return typeof fallback === "string" ? sanitizeFooterNoteHtml(fallback).trim() : "";
     };
     const readFooterNoteSize = () => {
       const modalSize = getEl("footerNoteFontSizeModal")?.value;

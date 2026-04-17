@@ -1,10 +1,7 @@
 {
-  "mode": "group",
-  "groupId": "wellcomgroup",
-  "groupName": "WELLCOM GROUP",
-  "companies": [
-    "WELLCOM",
-    "ProDisplay"
-  ],
-  "createdAt": "2026-04-08T15:16:50.550Z"
+  "mode": "single",
+  "groupId": "",
+  "groupName": "",
+  "companies": [],
+  "createdAt": "2026-04-16T11:00:18.629Z"
 }

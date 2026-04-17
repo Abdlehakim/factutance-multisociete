@@ -26,6 +26,28 @@
     if (!parts.length) return;
     if (parts[parts.length - 1] !== "<br>") parts.push("<br>");
   };
+  const normalizeFooterNotePlainText = (value = "") =>
+    String(value ?? "")
+      .replace(/&nbsp;|&#160;/gi, " ")
+      .replace(/&lt;/gi, "<")
+      .replace(/&gt;/gi, ">")
+      .replace(/&amp;/gi, "&")
+      .replace(/&quot;/gi, '"')
+      .replace(/&#39;|&apos;/gi, "'")
+      .replace(/\u00A0/g, " ")
+      .replace(/\u200b/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  const getFooterNoteTextContent = (html = "") => {
+    const source = String(html ?? "").replace(/<br\s*\/?>/gi, "\n");
+    if (typeof document !== "undefined" && typeof document.createElement === "function") {
+      const container = document.createElement("div");
+      container.innerHTML = source;
+      return normalizeFooterNotePlainText(container.textContent || "");
+    }
+    return normalizeFooterNotePlainText(source.replace(/<[^>]*>/g, " "));
+  };
+  const hasFooterNoteTextContent = (html = "") => getFooterNoteTextContent(html).length > 0;
   const WH_NOTE_GROUPS = {
     main: {
       boxId: "whNoteBox",
@@ -108,9 +130,10 @@
   };
   const ensureFooterNoteSizeWrapper = (html = "", size = FOOTER_NOTE_DEFAULT_FONT_SIZE) => {
     const effectiveSize = normalizeFooterNoteFontSize(size) ?? FOOTER_NOTE_DEFAULT_FONT_SIZE;
-    if (!html) return "";
-    if (/data-size-root\s*=\s*"?true"?/i.test(html)) return html;
-    return `<div data-size="${effectiveSize}" data-size-root="true">${html}</div>`;
+    const source = String(html ?? "");
+    if (!hasFooterNoteTextContent(source)) return "";
+    if (/data-size-root\s*=\s*"?true"?/i.test(source)) return source;
+    return `<div data-size="${effectiveSize}" data-size-root="true">${source}</div>`;
   };
   const resolveFooterNoteRootSize = (html = "", fallback = FOOTER_NOTE_DEFAULT_FONT_SIZE) => {
     const fallbackSize = normalizeFooterNoteFontSize(fallback) ?? FOOTER_NOTE_DEFAULT_FONT_SIZE;
@@ -122,6 +145,10 @@
     if (rootSize) return rootSize;
     const firstSize = normalizeFooterNoteFontSize(str.match(/data-size="(\d{1,3})"/i)?.[1]);
     return firstSize ?? fallbackSize;
+  };
+  const normalizeFooterNoteForStorage = (value = "", size = FOOTER_NOTE_DEFAULT_FONT_SIZE) => {
+    const preferredSize = normalizeFooterNoteFontSize(size) ?? FOOTER_NOTE_DEFAULT_FONT_SIZE;
+    return ensureFooterNoteSizeWrapper(normalizeFooterNoteFromEditor(value ?? ""), preferredSize);
   };
 
   const formatSoldClientValue = (value) => {
@@ -1225,12 +1252,13 @@
     result = result.replace(/(<br>){3,}/g, "<br><br>");
     result = result.replace(/^(<br>)+/, "");
     result = result.replace(/(<br>)+$/, "");
-    return result;
+    return hasFooterNoteTextContent(result) ? result : "";
   }
 
   function sanitizeFooterNoteForEditor(raw = "") {
     if (typeof document === "undefined") return String(raw ?? "");
     const normalized = normalizeFooterNoteFromEditor(String(raw ?? ""));
+    if (!normalized) return "";
     const sized = ensureFooterNoteSizeWrapper(normalized, FOOTER_NOTE_DEFAULT_FONT_SIZE);
     return sized.replace(/<(span|div) data-size="(\d{1,3})"([^>]*)>/g, (_match, tag, size, attrs) => {
       const normalizedSize = normalizeFooterNoteFontSize(size) ?? FOOTER_NOTE_DEFAULT_FONT_SIZE;
@@ -1306,7 +1334,7 @@
     if (!editor && !hidden && !sizeSelect) return "";
     const requested = opts.size ?? sizeSelect?.value;
     const preferredSize = normalizeFooterNoteFontSize(requested) ?? FOOTER_NOTE_DEFAULT_FONT_SIZE;
-    const serialized = ensureFooterNoteSizeWrapper(normalizeFooterNoteFromEditor(value || ""), preferredSize);
+    const serialized = normalizeFooterNoteForStorage(value ?? "", preferredSize);
     const rendered = sanitizeFooterNoteForEditor(serialized);
     if (editor) {
       editor.innerHTML = rendered;
@@ -1439,6 +1467,8 @@
     normalizeFooterNoteFontSize,
     ensureFooterNoteSizeWrapper,
     resolveFooterNoteRootSize,
+    hasFooterNoteTextContent,
+    normalizeFooterNoteForStorage,
     normalizeFooterNoteFromEditor,
     sanitizeFooterNoteForEditor,
     updateFooterNotePlaceholder,

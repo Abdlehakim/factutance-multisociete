@@ -197,7 +197,7 @@
     const stripped = String(html)
       .replace(/<br\s*\/?>/gi, " ")
       .replace(/<[^>]*>/g, "")
-      .replace(/&nbsp;/gi, " ")
+      .replace(/&nbsp;|\u00a0/gi, " ")
       .trim();
     return stripped.length > 0;
   };
@@ -1963,8 +1963,9 @@
       meta?.pdf?.footerNoteSize ??
       meta?.footerNoteSize;
     const footerNoteSize = normalizeFooterNoteFontSize(footerNoteSizeRaw);
-    const footerNoteHTML = hasVal(footerNoteRaw)
-      ? `<div class="doc-design1__footer-note-left pdf-footer-note-left" style="font-size:${footerNoteSize}px">${formatFooterNoteHtml(footerNoteRaw)}</div>`
+    const formattedFooterNote = hasVal(footerNoteRaw) ? formatFooterNoteHtml(footerNoteRaw) : "";
+    const footerNoteHTML = hasTextContent(formattedFooterNote)
+      ? `<div class="doc-design1__footer-note-left pdf-footer-note-left" style="font-size:${footerNoteSize}px">${formattedFooterNote}</div>`
       : "";
 
     const amountWordsBlock =

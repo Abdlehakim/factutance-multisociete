@@ -5,6 +5,27 @@
 
   const FOOTER_NOTE_FONT_SIZES = sharedConstants.FOOTER_NOTE_FONT_SIZES || [7, 8, 9];
   const FOOTER_NOTE_DEFAULT_FONT_SIZE = sharedConstants.FOOTER_NOTE_DEFAULT_FONT_SIZE || 8;
+  const normalizeFooterNotePlainText = (value = "") =>
+    String(value ?? "")
+      .replace(/&nbsp;|&#160;/gi, " ")
+      .replace(/&lt;/gi, "<")
+      .replace(/&gt;/gi, ">")
+      .replace(/&amp;/gi, "&")
+      .replace(/&quot;/gi, '"')
+      .replace(/&#39;|&apos;/gi, "'")
+      .replace(/\u00A0/g, " ")
+      .replace(/\u200b/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  const fallbackHasFooterNoteTextContent = (html = "") => {
+    const source = String(html ?? "").replace(/<br\s*\/?>/gi, "\n");
+    if (typeof document !== "undefined" && typeof document.createElement === "function") {
+      const container = document.createElement("div");
+      container.innerHTML = source;
+      return normalizeFooterNotePlainText(container.textContent || "").length > 0;
+    }
+    return normalizeFooterNotePlainText(source.replace(/<[^>]*>/g, " ")).length > 0;
+  };
 
   const normalizeFooterNoteFontSize =
     bindingShared.normalizeFooterNoteFontSize ||
@@ -17,9 +38,10 @@
     bindingShared.ensureFooterNoteSizeWrapper ||
     ((html = "", size = FOOTER_NOTE_DEFAULT_FONT_SIZE) => {
       const effectiveSize = normalizeFooterNoteFontSize(size) ?? FOOTER_NOTE_DEFAULT_FONT_SIZE;
-      if (!html) return "";
-      if (/data-size-root\s*=\s*"?true"?/i.test(html)) return html;
-      return `<div data-size="${effectiveSize}" data-size-root="true">${html}</div>`;
+      const source = String(html ?? "");
+      if (!fallbackHasFooterNoteTextContent(source)) return "";
+      if (/data-size-root\s*=\s*"?true"?/i.test(source)) return source;
+      return `<div data-size="${effectiveSize}" data-size-root="true">${source}</div>`;
     });
   const resolveFooterNoteRootSize =
     bindingShared.resolveFooterNoteRootSize ||
@@ -38,6 +60,17 @@
     bindingShared.normalizeFooterNoteFromEditor || ((value = "") => String(value ?? ""));
   const sanitizeFooterNoteForEditor =
     bindingShared.sanitizeFooterNoteForEditor || ((value = "") => String(value ?? ""));
+  const hasFooterNoteTextContent =
+    bindingShared.hasFooterNoteTextContent || fallbackHasFooterNoteTextContent;
+  const normalizeFooterNoteForStorage =
+    bindingShared.normalizeFooterNoteForStorage ||
+    ((value = "", size = FOOTER_NOTE_DEFAULT_FONT_SIZE) => {
+      const preferredSize = normalizeFooterNoteFontSize(size) ?? FOOTER_NOTE_DEFAULT_FONT_SIZE;
+      const normalized = normalizeFooterNoteFromEditor(value ?? "");
+      return hasFooterNoteTextContent(normalized)
+        ? ensureFooterNoteSizeWrapper(normalized, preferredSize)
+        : "";
+    });
   const updateFooterNotePlaceholder = bindingShared.updateFooterNotePlaceholder || (() => {});
 
   const getNodeById = (id, root) => {
@@ -76,8 +109,8 @@
 
   const formatForPreview = (raw = "", size = FOOTER_NOTE_DEFAULT_FONT_SIZE) => {
     const preferredSize = normalizeFooterNoteFontSize(size) ?? FOOTER_NOTE_DEFAULT_FONT_SIZE;
-    const serialized = ensureFooterNoteSizeWrapper(normalizeFooterNoteFromEditor(raw || ""), preferredSize);
-    return sanitizeFooterNoteForEditor(serialized);
+    const serialized = normalizeFooterNoteForStorage(raw ?? "", preferredSize);
+    return serialized ? sanitizeFooterNoteForEditor(serialized) : "";
   };
 
   const setEditorContent = (config = {}, value = "", opts = {}) => {
@@ -87,7 +120,7 @@
 
     const requestedSize = opts.size ?? refs.sizeSelect?.value;
     const preferredSize = normalizeFooterNoteFontSize(requestedSize) ?? FOOTER_NOTE_DEFAULT_FONT_SIZE;
-    const serialized = ensureFooterNoteSizeWrapper(normalizeFooterNoteFromEditor(value || ""), preferredSize);
+    const serialized = normalizeFooterNoteForStorage(value ?? "", preferredSize);
     const rendered = sanitizeFooterNoteForEditor(serialized);
     const resolvedSize = resolveFooterNoteRootSize(serialized, preferredSize);
 
@@ -120,10 +153,7 @@
 
     const requestedSize =
       normalizeFooterNoteFontSize(refs.sizeSelect?.value) ?? FOOTER_NOTE_DEFAULT_FONT_SIZE;
-    const serialized = ensureFooterNoteSizeWrapper(
-      normalizeFooterNoteFromEditor(activeEditor.innerHTML || ""),
-      requestedSize
-    );
+    const serialized = normalizeFooterNoteForStorage(activeEditor.innerHTML ?? "", requestedSize);
     const resolvedSize = resolveFooterNoteRootSize(serialized, requestedSize);
 
     if (refs.hidden) refs.hidden.value = serialized;
@@ -312,6 +342,8 @@
     formatForPreview,
     setEditorContent,
     syncStateFromEditor,
+    hasTextContent: hasFooterNoteTextContent,
+    normalizeForStorage: normalizeFooterNoteForStorage,
     wireEditor
   };
 })(window);

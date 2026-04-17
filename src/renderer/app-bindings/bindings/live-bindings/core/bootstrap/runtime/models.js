@@ -424,6 +424,16 @@
             }
             return String(raw ?? "");
           };
+          const hasFooterNoteTextContent = (html = "") => {
+            if (typeof footerNoteComponent.hasTextContent === "function") {
+              return footerNoteComponent.hasTextContent(html);
+            }
+            return !!String(html)
+              .replace(/<br\s*\/?>/gi, " ")
+              .replace(/<[^>]*>/g, "")
+              .replace(/&nbsp;|\u00a0/gi, " ")
+              .trim();
+          };
           const MODEL_FOOTER_NOTE_EDITOR_IDS = {
             editorId: "footerNoteEditorModal",
             hiddenId: "footerNoteModal",
@@ -1134,13 +1144,17 @@
             }
             const footerNoteEl = previewRoot.querySelector("#modelPreviewFooterNote");
             if (footerNoteEl) {
-              const footerNoteValue = getEl("footerNoteModal")?.value || ensureNodeDefaultHtml(footerNoteEl);
+              const footerNoteField = getEl("footerNoteModal");
+              const footerNoteValue = typeof footerNoteField?.value === "string" ? footerNoteField.value : "";
               const footerNoteSizeRaw = Number.parseInt(getEl("footerNoteFontSizeModal")?.value, 10);
               const footerNoteSize = [7, 8, 9].includes(footerNoteSizeRaw) ? footerNoteSizeRaw : 8;
               const sanitizedFooterNote = formatFooterNoteForPreview(footerNoteValue, footerNoteSize);
-              const hasFooterNote =
-                !!sanitizedFooterNote.replace(/<[^>]+>/g, "").replace(/&nbsp;|\u00a0/g, " ").trim();
-              footerNoteEl.innerHTML = sanitizedFooterNote;
+              const hasFooterNote = hasFooterNoteTextContent(sanitizedFooterNote);
+              if (!hasFooterNote && footerNoteField && footerNoteField.value !== "") {
+                footerNoteField.value = "";
+              }
+              if (footerNoteEl.dataset) delete footerNoteEl.dataset.default;
+              footerNoteEl.innerHTML = hasFooterNote ? sanitizedFooterNote : "";
               footerNoteEl.style.fontSize = `${footerNoteSize}px`;
               const showFooterNote = hasFooterNote && !isStockMovementPreview;
               footerNoteEl.hidden = !showFooterNote;

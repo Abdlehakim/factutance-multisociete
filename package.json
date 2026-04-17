@@ -72,7 +72,7 @@
       "target": [
         "nsis"
       ],
-      "artifactName": "Facturance v${version} No limits Travels-${arch}.exe",
+      "artifactName": "Facturance v${version} ALI BADREDDINE-${arch}.exe",
       "publisherName": "smartwebify",
       "rfc3161TimeStampServer": "http://timestamp.digicert.com",
       "requestedExecutionLevel": "requireAdministrator"

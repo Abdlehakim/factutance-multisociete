@@ -64,3 +64,4 @@ npm run dist:portable
 
 npm run dev:site
 
+npx electron-rebuild -f -w better-sqlite3
