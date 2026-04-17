@@ -2515,8 +2515,31 @@
             return { enabled, label, rate, tva };
           };
 
+          resolveArticleAddedToastRef = (article = {}) =>
+            String(article?.ref ?? article?.reference ?? article?.code ?? "").trim();
+
+          showArticleAddedToast = async (article = {}) => {
+            const ref = resolveArticleAddedToastRef(article);
+            const successMessage =
+              (typeof getMessage === "function" &&
+                getMessage(ref ? "ARTICLE_ADD_WITH_REF_SUCCESS" : "ARTICLE_ADD_SUCCESS", {
+                  values: { ref },
+                  fallbackText: ref ? "Article ajout\u00e9 : R\u00c9F. {ref}" : "Article ajout\u00e9.",
+                  fallbackTitle: "Succes"
+                })) ||
+              {
+                text: ref ? `Article ajout\u00e9 : R\u00c9F. ${ref}` : "Article ajout\u00e9.",
+                title: "Succes"
+              };
+            if (typeof w.showToast === "function") {
+              w.showToast(successMessage.text, { replace: true });
+            } else if (typeof showDialog === "function") {
+              await showDialog(successMessage.text, { title: successMessage.title });
+            }
+          };
+
           addArticleToItems = (article = {}, options = {}) => {
-            if (!article || !Array.isArray(state().items)) return;
+            if (!article || !Array.isArray(state().items)) return false;
             const toNumber = (value, fallback = 0) => {
               const num = Number(
                 typeof value === "string" ? value.replace(",", ".") : value
@@ -2575,6 +2598,7 @@
             } else {
               SEM.computeTotals?.();
             }
+            return true;
           };
 
           performArticleSearch = async (rawValue, { showResults = true, resultsEl } = {}) => {
@@ -5096,7 +5120,10 @@
                 const idx = Number(addBtn.dataset.articleAdd);
                 const selected = articleSavedModalState.filteredItems[idx];
                 if (!selected) return;
-                addArticleToItems(selected.article || {}, { path: selected.path });
+                const added = addArticleToItems(selected.article || {}, { path: selected.path });
+                if (added && typeof showArticleAddedToast === "function") {
+                  await showArticleAddedToast(selected.article || {});
+                }
                 return;
               }
               const loadBtn = evt.target.closest("[data-article-saved-load]");
@@ -5298,7 +5325,10 @@
               if (isMainscreenScope) {
                 loadArticleRecordIntoForm(selected, { formScope: scope });
               } else {
-                addArticleToItems(selected.article || {}, { path: selected.path });
+                const added = addArticleToItems(selected.article || {}, { path: selected.path });
+                if (added && typeof showArticleAddedToast === "function") {
+                  await showArticleAddedToast(selected.article || {});
+                }
                 clearArticleSearchInputValue(inputEl);
               }
               return;

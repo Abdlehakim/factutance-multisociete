@@ -2240,6 +2240,15 @@
                     requireUnpersistedLinkedArticle: true
                   });
                   if (updated) {
+                    const successMessage = getMessage("ARTICLE_UPDATE_AND_SAVE_SUCCESS", {
+                      fallbackText: "Article mis a jour et enregistre.",
+                      fallbackTitle: "Succes"
+                    });
+                    if (typeof w.showToast === "function") {
+                      w.showToast(successMessage.text);
+                    } else {
+                      await showDialog?.(successMessage.text, { title: successMessage.title });
+                    }
                     setArticleFormPopoverOpen(ctx, false);
                   }
                 } finally {

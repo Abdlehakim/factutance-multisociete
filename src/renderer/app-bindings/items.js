@@ -790,6 +790,15 @@
   let articleUpdateInProgress = !!SEM.articleUpdateInProgress;
   let addFormDirty = false;
   let itemFormMode = "add";
+  let articlePersistenceLookup = {
+    status: "unknown",
+    index: null,
+    fingerprint: "",
+    path: "",
+    article: null
+  };
+  let articlePersistenceLookupToken = 0;
+  let articlePersistenceLookupTimer = null;
 
   const ARTICLE_DB_PATH_PREFIX = "sqlite://articles/";
   const normalizeArticlePathValue = (value) => String(value || "").trim();
@@ -804,15 +813,59 @@
     }
     return "";
   };
+  const resolveArticleIdValue = (item = {}) =>
+    normalizeArticlePathValue(
+      item?.articleId ||
+        item?.article_id ||
+        item?.articleDbId ||
+        item?.article_db_id ||
+        item?.__articleId ||
+        item?.article?.id ||
+        ""
+    );
+  const hasPersistedArticleMetadata = (item = {}) => {
+    if (!item || typeof item !== "object") return false;
+    if (isPersistedArticlePath(item.__articlePath) || isPersistedArticlePath(item.articlePath)) return true;
+    if (resolveArticleIdValue(item)) return true;
+    return !!(
+      item.articlePersisted ||
+      item.__articlePersisted ||
+      item.persistedArticle ||
+      item.persistedSource ||
+      item.article?.persisted ||
+      item.article?.id
+    );
+  };
   const resolveItemArticlePath = (item = {}) => {
     if (!item || typeof item !== "object") return "";
-    return resolveArticlePathValue(
+    const path = resolveArticlePathValue(
       item.__articlePath,
       item.articlePath,
       item.article_path,
       item.__path,
       item.path
     );
+    if (path) return path;
+    const articleId = resolveArticleIdValue(item);
+    return articleId ? `${ARTICLE_DB_PATH_PREFIX}${articleId}` : "";
+  };
+  const normalizeArticleDuplicateKey = (value) =>
+    typeof value === "string" ? value.trim().toLowerCase() : "";
+  const getArticleDuplicateFingerprint = (article = {}) => {
+    const ref = normalizeArticleDuplicateKey(article?.ref);
+    const product = normalizeArticleDuplicateKey(article?.product);
+    return ref ? `ref:${ref}` : product ? `product:${product}` : "";
+  };
+  const getArticleRecordPath = (record = {}) =>
+    resolveArticlePathValue(record?.path, record?.article?.__articlePath, record?.article?.articlePath, record?.article?.path);
+  const articleRecordMatchesDuplicateKey = (record = {}, fingerprint = "") => {
+    const [field, ...rest] = String(fingerprint || "").split(":");
+    const value = rest.join(":");
+    if (!field || !value) return false;
+    const article = record?.article && typeof record.article === "object" ? record.article : record;
+    if (field === "ref") return normalizeArticleDuplicateKey(article?.ref) === value;
+    if (field === "product") return normalizeArticleDuplicateKey(article?.product) === value;
+    return false;
   };
 
   const ARTICLE_FORM_SNAPSHOT_FIELDS = [
@@ -1104,6 +1157,223 @@
   };
   SEM.setArticleFormBaseline = applyArticleFormBaseline;
 
+  const setArticlePersistenceLookupState = (patch = {}) => {
+    articlePersistenceLookup = {
+      ...articlePersistenceLookup,
+      ...patch
+    };
+    updateArticleSaveButtonAvailability();
+  };
+
+  const clearArticlePersistenceLookupState = () => {
+    articlePersistenceLookupToken += 1;
+    if (articlePersistenceLookupTimer) {
+      clearTimeout(articlePersistenceLookupTimer);
+      articlePersistenceLookupTimer = null;
+    }
+    setArticlePersistenceLookupState({
+      status: "unknown",
+      index: null,
+      fingerprint: "",
+      path: "",
+      article: null
+    });
+  };
+
+  const resolvePersistedArticleByDuplicateKey = async (article = {}) => {
+    const fingerprint = getArticleDuplicateFingerprint(article);
+    if (!fingerprint) return { status: "unpersisted", fingerprint, path: "", article: null };
+    if (!w.electronAPI?.searchArticles) return { status: "unknown", fingerprint, path: "", article: null };
+    const [, ...valueParts] = fingerprint.split(":");
+    const query = valueParts.join(":");
+    if (!query) return { status: "unpersisted", fingerprint, path: "", article: null };
+    try {
+      const res = await w.electronAPI.searchArticles({ query, limit: 25 });
+      const results = Array.isArray(res?.results) ? res.results : [];
+      const match = results.find((record) => {
+        const path = getArticleRecordPath(record);
+        return isPersistedArticlePath(path) && articleRecordMatchesDuplicateKey(record, fingerprint);
+      });
+      if (!match) return { status: "unpersisted", fingerprint, path: "", article: null };
+      return {
+        status: "persisted",
+        fingerprint,
+        path: getArticleRecordPath(match),
+        article: match.article && typeof match.article === "object" ? match.article : null,
+        name: match.name || ""
+      };
+    } catch (err) {
+      console.error("items/resolvePersistedArticleByDuplicateKey", err);
+      return { status: "unknown", fingerprint, path: "", article: null };
+    }
+  };
+
+  const applyResolvedArticlePersistence = (result, index, scopeHint = null) => {
+    const safeIndex = Math.trunc(Number(index));
+    if (!Number.isFinite(safeIndex) || safeIndex < 0) return;
+    const items = Array.isArray(state().items) ? state().items : [];
+    const item = items[safeIndex];
+    if (!item) return;
+    if (result?.status !== "persisted" || !isPersistedArticlePath(result.path)) return;
+    item.__articlePath = result.path;
+    item.articlePath = result.path;
+    const popover = typeof document !== "undefined" ? document.getElementById("articleFormPopover") : null;
+    const activeIndex = Number(popover?.dataset?.itemEditIndex);
+    if (!Number.isFinite(activeIndex) || Math.trunc(activeIndex) !== safeIndex) return;
+    SEM.articleEditContext = {
+      path: result.path,
+      name: result.name || item.product || item.ref || "",
+      persisted: true
+    };
+    SEM.setArticleSaveButtonMode?.("update");
+    setArticleSaveLocked(true);
+    setArticleUpdateBusyState(false);
+    applyArticleFormBaseline(result.article || item, { path: result.path, scopeHint });
+    SEM.evaluateArticleDirtyState?.(scopeHint || popover || null, { markDirtyWithoutBaseline: false });
+  };
+
+  const startArticlePersistenceLookupForEdit = (index, article = {}, options = {}) => {
+    const safeIndex = Math.trunc(Number(index));
+    if (!Number.isFinite(safeIndex) || safeIndex < 0) return;
+    const existingPath = resolveItemArticlePath(article);
+    const fingerprint = getArticleDuplicateFingerprint(article);
+    const scopeHint = options?.scopeHint || null;
+    articlePersistenceLookupToken += 1;
+    const token = articlePersistenceLookupToken;
+    if (articlePersistenceLookupTimer) {
+      clearTimeout(articlePersistenceLookupTimer);
+      articlePersistenceLookupTimer = null;
+    }
+    if (isPersistedArticlePath(existingPath)) {
+      setArticlePersistenceLookupState({
+        status: "persisted",
+        index: safeIndex,
+        fingerprint,
+        path: existingPath,
+        article: null
+      });
+      return;
+    }
+    if (!fingerprint) {
+      setArticlePersistenceLookupState({
+        status: "unpersisted",
+        index: safeIndex,
+        fingerprint: "",
+        path: "",
+        article: null
+      });
+      return;
+    }
+    setArticlePersistenceLookupState({
+      status: "checking",
+      index: safeIndex,
+      fingerprint,
+      path: "",
+      article: null
+    });
+    const runLookup = async () => {
+      const result = await resolvePersistedArticleByDuplicateKey(article);
+      if (token !== articlePersistenceLookupToken) return;
+      setArticlePersistenceLookupState({
+        status: result.status,
+        index: safeIndex,
+        fingerprint: result.fingerprint,
+        path: result.path || "",
+        article: result.article || null
+      });
+      if (result.status === "persisted") {
+        applyResolvedArticlePersistence(result, safeIndex, scopeHint);
+      }
+    };
+    if (options?.delay) {
+      articlePersistenceLookupTimer = setTimeout(() => {
+        articlePersistenceLookupTimer = null;
+        runLookup();
+      }, Math.max(0, Number(options.delay) || 0));
+    } else {
+      void runLookup();
+    }
+  };
+
+  const scheduleActiveArticlePersistenceLookup = (scopeHint = null, options = {}) => {
+    const popover = typeof document !== "undefined" ? document.getElementById("articleFormPopover") : null;
+    if (!popover || popover.hidden) return;
+    const mode = String(popover.dataset.articleFormMode || "").toLowerCase();
+    if (mode !== "edit") return;
+    const index = Number(popover.dataset.itemEditIndex);
+    if (!Number.isFinite(index) || index < 0) return;
+    const snapshot = captureArticleFormSnapshot(scopeHint || popover);
+    const existingItem = Array.isArray(state().items) ? state().items[Math.trunc(index)] : null;
+    startArticlePersistenceLookupForEdit(
+      Math.trunc(index),
+      {
+        ...(existingItem && typeof existingItem === "object" ? existingItem : {}),
+        ...snapshot
+      },
+      { scopeHint: scopeHint || popover, delay: options?.delay ?? 250 }
+    );
+  };
+
+  const resolveCombinedArticleSaveEligibility = (popoverHint = null) => {
+    const popover =
+      popoverHint ||
+      (typeof document !== "undefined"
+        ? document.querySelector("#articleFormPopover:not([hidden])") ||
+          document.getElementById("articleFormPopover")
+        : null);
+    const mode = String(popover?.dataset?.articleFormMode || "").toLowerCase();
+    const editIndex = Number(popover?.dataset?.itemEditIndex);
+    const items = Array.isArray(state().items) ? state().items : [];
+    const hasValidIndex = Number.isFinite(editIndex) && editIndex >= 0 && editIndex < items.length;
+    const editItem = hasValidIndex ? items[Math.trunc(editIndex)] : null;
+    const visible = !!popover && mode === "edit" && !!editItem;
+    if (!visible) {
+      return { visible: false, eligible: false, reason: "not_edit_row" };
+    }
+
+    const editItemPath = resolveItemArticlePath(editItem);
+    const linkedPath = normalizeArticlePathValue(SEM.articleEditContext?.path);
+    const currentSnapshot =
+      typeof popover.querySelector === "function" ? captureArticleFormSnapshot(popover) : editItem;
+    const currentFingerprint = getArticleDuplicateFingerprint(currentSnapshot || editItem || {});
+    const lookupMatches =
+      articlePersistenceLookup.index === Math.trunc(editIndex) &&
+      articlePersistenceLookup.fingerprint === currentFingerprint;
+    const lookupStatus = lookupMatches ? articlePersistenceLookup.status : "unknown";
+    const lookupPath = lookupMatches ? articlePersistenceLookup.path : "";
+    const hasPersistedArticleTarget =
+      isPersistedArticlePath(editItemPath) ||
+      isPersistedArticlePath(linkedPath) ||
+      isPersistedArticlePath(lookupPath) ||
+      hasPersistedArticleMetadata(editItem) ||
+      lookupStatus === "persisted";
+    const hasRequiredContent = !!(
+      normalizeArticleDuplicateKey(currentSnapshot?.ref || editItem?.ref) ||
+      normalizeArticleDuplicateKey(currentSnapshot?.product || editItem?.product) ||
+      normalizeArticleDuplicateKey(currentSnapshot?.desc || editItem?.desc)
+    );
+    const eligible =
+      !!editItem &&
+      hasRequiredContent &&
+      !hasPersistedArticleTarget &&
+      lookupStatus === "unpersisted";
+    return {
+      visible,
+      eligible,
+      reason: !hasRequiredContent
+        ? "missing_content"
+        : hasPersistedArticleTarget
+        ? "persisted"
+        : lookupStatus === "unpersisted"
+        ? "eligible"
+        : "lookup_pending",
+      index: Math.trunc(editIndex),
+      fingerprint: currentFingerprint,
+      lookupStatus,
+      path: editItemPath || linkedPath || lookupPath || ""
+    };
+  };
+
   const updateArticleSaveButtonAvailability = () => {
     const hasRowSelection =
       SEM.selectedItemIndex !== null && SEM.selectedItemIndex !== undefined;
@@ -1156,25 +1426,12 @@
     const updateAndSaveBtn = getUpdateAndSaveArticleButton();
     if (updateAndSaveBtn) {
       const updatePopover = updateAndSaveBtn.closest("#articleFormPopover");
-      const mode = updatePopover?.dataset?.articleFormMode || "";
-      const editIndex = Number(updatePopover?.dataset?.itemEditIndex);
-      const items = Array.isArray(state().items) ? state().items : [];
-      const editItem =
-        Number.isFinite(editIndex) && editIndex >= 0 && editIndex < items.length
-          ? items[Math.trunc(editIndex)]
-          : null;
-      const editItemPath = resolveItemArticlePath(editItem);
-      const linkedPath = normalizeArticlePathValue(SEM.articleEditContext?.path);
-      const hasPersistedArticleTarget =
-        isPersistedArticlePath(editItemPath) || isPersistedArticlePath(linkedPath);
-      const hasUnpersistedDocumentEditTarget =
-        !!editItem &&
-        !hasPersistedArticleTarget;
-      const shouldShow = !!updatePopover && mode === "edit" && hasUnpersistedDocumentEditTarget;
-      updateAndSaveBtn.hidden = !shouldShow;
-      updateAndSaveBtn.setAttribute("aria-hidden", shouldShow ? "false" : "true");
-      setDisabledState(updateAndSaveBtn, !shouldShow || isUpdateBusy);
-      updateAndSaveBtn.classList.toggle("is-dirty", shouldShow && dirty && !isUpdateBusy);
+      const eligibility = resolveCombinedArticleSaveEligibility(updatePopover);
+      updateAndSaveBtn.hidden = !eligibility.visible;
+      updateAndSaveBtn.setAttribute("aria-hidden", eligibility.visible ? "false" : "true");
+      updateAndSaveBtn.dataset.combinedSaveEligibility = eligibility.reason || "";
+      setDisabledState(updateAndSaveBtn, !eligibility.visible || !eligibility.eligible || isUpdateBusy);
+      updateAndSaveBtn.classList.toggle("is-dirty", eligibility.visible && eligibility.eligible && dirty && !isUpdateBusy);
     }
     const updateInvoiceBtn = getInvoiceItemUpdateButton();
     if (updateInvoiceBtn) {
@@ -1305,7 +1562,13 @@
       const res = await window.electronAPI.saveArticleAuto({ article: payload, suggestedName });
       if (!res?.ok) {
         await showArticlePersistenceError(res, "ARTICLE_SAVE_FAILED");
-        return { ok: false, error: res?.error || res?.message || "save_failed" };
+        const existingPath = normalizeArticlePathValue(res?.conflict?.path || res?.path || "");
+        return {
+          ok: false,
+          error: res?.error || res?.message || "save_failed",
+          duplicate: res?.code === "duplicate_article",
+          existingPath
+        };
       }
       const resultPath = normalizeArticlePathValue(res.path);
       if (!resultPath || !isPersistedArticlePath(resultPath)) {
@@ -1452,6 +1715,7 @@
   };
 
   SEM.clearArticleEditContext = function clearArticleEditContext() {
+    clearArticlePersistenceLookupState();
     SEM.articleEditContext = null;
     setArticleUpdateBusyState(false);
     applyArticleFormBaseline(null);
@@ -2902,10 +3166,12 @@
     if (path) {
       item.__articlePath = path;
       item.articlePath = path;
+      startArticlePersistenceLookupForEdit(i, item, { scopeHint: popover });
       SEM.enterArticleEditContext?.({ path, name: label });
       SEM.showSavedArticleButtons?.();
     } else {
       SEM.clearArticleEditContext?.();
+      startArticlePersistenceLookupForEdit(i, item, { scopeHint: popover });
       SEM.hideSavedArticleButtons?.();
       const syntheticItemPath = `__invoice_item_${Math.max(0, Math.trunc(Number(i) || 0))}__`;
       SEM.setArticleFormBaseline?.(null, { path: syntheticItemPath });
@@ -3008,12 +3274,39 @@
     let linkedArticleUpdateResult = null;
     let linkedArticleSaveResult = null;
     if (mode === "update" && saveLinkedArticleBeforeDocument) {
+      const popover = typeof document !== "undefined" ? document.getElementById("articleFormPopover") : null;
+      const eligibility = resolveCombinedArticleSaveEligibility(popover);
+      if (!eligibility.eligible) {
+        updateArticleSaveButtonAvailability();
+        return false;
+      }
       const existingLinkedPath = linkedPath || resolveItemArticlePath(existingItem);
       if (requireUnpersistedLinkedArticle && isPersistedArticlePath(existingLinkedPath)) return false;
       linkedArticleSaveResult = await saveLinkedArticleFromForm(item, {
         existingPath: existingLinkedPath,
         requireUnpersisted: requireUnpersistedLinkedArticle
       });
+      if (!linkedArticleSaveResult?.ok && isPersistedArticlePath(linkedArticleSaveResult?.existingPath)) {
+        const existingPath = normalizeArticlePathValue(linkedArticleSaveResult.existingPath);
+        setArticlePersistenceLookupState({
+          status: "persisted",
+          index: resolvedUpdateIndex,
+          fingerprint: getArticleDuplicateFingerprint(item),
+          path: existingPath,
+          article: null
+        });
+        applyResolvedArticlePersistence(
+          {
+            status: "persisted",
+            fingerprint: getArticleDuplicateFingerprint(item),
+            path: existingPath,
+            article: null,
+            name: item.product || item.ref || ""
+          },
+          resolvedUpdateIndex,
+          typeof document !== "undefined" ? document.getElementById("articleFormPopover") : null
+        );
+      }
       if (!linkedArticleSaveResult?.ok && requireLinkedArticleSave) return false;
       const resultPath = normalizeArticlePathValue(linkedArticleSaveResult?.path || "");
       if (resultPath) {
@@ -3994,6 +4287,13 @@
           SEM.evaluateArticleDirtyState(scope, { markDirtyWithoutBaseline });
         } else {
           SEM.markArticleFormDirty?.(true);
+        }
+        if (
+          scope?.id === "articleFormPopover" &&
+          String(scope.dataset?.articleFormMode || "").toLowerCase() === "edit" &&
+          (target.id === "addRef" || target.id === "addProduct")
+        ) {
+          scheduleActiveArticlePersistenceLookup(scope, { delay: 250 });
         }
         SEM.updateAddFormTotals?.();
       };

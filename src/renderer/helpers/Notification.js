@@ -17,9 +17,13 @@
     if (!message) return;
     const duration = Number(opts.duration) || 5000;
     const el = getToastEl();
+    clearTimeout(el.__hideTimer);
+    if (opts.replace === true && el.classList.contains("in")) {
+      el.classList.remove("in");
+      void el.offsetWidth;
+    }
     el.textContent = message;
     el.classList.add("in");
-    clearTimeout(el.__hideTimer);
     el.__hideTimer = setTimeout(() => {
       el.classList.remove("in");
     }, duration);
