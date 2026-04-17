@@ -813,7 +813,12 @@
             if (!inputEl) return;
             inputEl.value = "";
           };
-          resetClientSearchSession = ({ scopeNode = null, inputEl = null, resultsEl = null } = {}) => {
+          resetClientSearchSession = ({
+            scopeNode = null,
+            inputEl = null,
+            resultsEl = null,
+            preserveSearchState = false
+          } = {}) => {
             const resolvedScope =
               scopeNode ||
               resolveClientSearchScope(inputEl, resultsEl) ||
@@ -825,15 +830,71 @@
               inputEl: resolvedInput,
               resultsEl: resolvedResults
             });
-            const activeTimer = searchState?.getTimer?.();
-            if (activeTimer) {
-              clearTimeout(activeTimer);
+            if (!preserveSearchState) {
+              const activeTimer = searchState?.getTimer?.();
+              if (activeTimer) {
+                clearTimeout(activeTimer);
+              }
+              searchState?.setTimer?.(null);
+              searchState?.setData?.([]);
+              searchState?.setPage?.(1);
             }
-            searchState?.setTimer?.(null);
-            searchState?.setData?.([]);
-            searchState?.setPage?.(1);
             clearClientSearchInputValue(resolvedInput);
             hideClientSearchResults(resolvedResults);
+          };
+          resolveClientSearchResultIdentity = (entry = {}) => {
+            const source = entry && typeof entry === "object" ? entry : {};
+            const client = source.client && typeof source.client === "object" ? source.client : {};
+            return {
+              id: String(source.id || source.clientId || client.id || "").trim(),
+              path: String(
+                source.path ||
+                  source.clientPath ||
+                  source.__path ||
+                  client.__path ||
+                  client.path ||
+                  ""
+              ).trim(),
+              entityType: String(
+                source.entityType ||
+                  source.__entityType ||
+                  client.__entityType ||
+                  ""
+              ).trim()
+            };
+          };
+          readClientSearchActionIdentity = (actionEl) => {
+            const option = actionEl?.closest?.(".client-search__option") || null;
+            return {
+              id: String(
+                actionEl?.dataset?.clientSearchId ||
+                  option?.dataset?.clientSearchId ||
+                  ""
+              ).trim(),
+              path: String(
+                actionEl?.dataset?.clientSearchPath ||
+                  option?.dataset?.clientSearchPath ||
+                  ""
+              ).trim(),
+              entityType: String(
+                actionEl?.dataset?.clientSearchEntity ||
+                  option?.dataset?.clientSearchEntity ||
+                  ""
+              ).trim()
+            };
+          };
+          clientSearchIdentitiesMatch = (entry, identity = {}) => {
+            if (!entry || typeof entry !== "object") return false;
+            const current = resolveClientSearchResultIdentity(entry);
+            const targetPath = String(identity.path || "").trim();
+            const targetId = String(identity.id || "").trim();
+            const targetEntityType = String(identity.entityType || "").trim();
+            if (targetPath && current.path) return current.path === targetPath;
+            if (!targetId || !current.id || current.id !== targetId) return false;
+            if (targetEntityType && current.entityType && current.entityType !== targetEntityType) {
+              return false;
+            }
+            return true;
           };
 
           clearArticleSearchInputValue = (inputEl = articleSearchInput) => {
@@ -1108,6 +1169,13 @@
               const option = document.createElement("div");
               option.className = "client-search__option";
               option.dataset.clientIndex = String(actualIndex);
+              const identity =
+                typeof resolveClientSearchResultIdentity === "function"
+                  ? resolveClientSearchResultIdentity(item)
+                  : {};
+              if (identity.path) option.dataset.clientSearchPath = identity.path;
+              if (identity.id) option.dataset.clientSearchId = identity.id;
+              option.dataset.clientSearchEntity = identity.entityType || entityType;
               const actionsHtml = [
                 allowAddAction
                   ? `<button type="button" class="client-search__edit" data-client-edit="${actualIndex}">Ajouter</button>`
@@ -2682,7 +2750,7 @@
             }
             return String(fallback || "").trim().toLowerCase() === "exonore" ? "exonore" : "non_exonore";
           };
-          const ensureClientSearchResultTaxes = (entry = {}) => {
+          ensureClientSearchResultTaxes = (entry = {}) => {
             const source = entry && typeof entry === "object" ? entry : {};
             const nestedClient =
               source.client && typeof source.client === "object" ? source.client : {};
@@ -5503,6 +5571,11 @@
 
           handleClientSearchResultsClick = async (evt, scopeNode, inputEl, resultsEl) => {
             if (!resultsEl) return;
+            const target =
+              typeof Element !== "undefined" && evt.target instanceof Element
+                ? evt.target
+                : evt.target?.parentElement || null;
+            if (!target) return;
             const queryValue = (inputEl?.value || "").trim();
             const resolvedScopeNode = scopeNode || resolveClientSearchScope(inputEl, resultsEl);
             const searchState = getClientSearchStateHandle({
@@ -5526,7 +5599,72 @@
               }
               return normalized;
             };
-            const pagerBtn = evt.target.closest("[data-article-page]");
+            const getNormalizedSearchItemForAction = (index, actionEl) => {
+              const identity =
+                typeof readClientSearchActionIdentity === "function"
+                  ? readClientSearchActionIdentity(actionEl)
+                  : {};
+              const hasIdentity = !!(identity.path || identity.id);
+              const direct = getNormalizedSearchItem(index);
+              if (!hasIdentity) return direct;
+              if (
+                direct &&
+                typeof clientSearchIdentitiesMatch === "function" &&
+                clientSearchIdentitiesMatch(direct, identity)
+              ) {
+                return direct;
+              }
+              const currentItems = getCurrentItems();
+              const matchedIndex =
+                typeof clientSearchIdentitiesMatch === "function"
+                  ? currentItems.findIndex((item) => clientSearchIdentitiesMatch(item, identity))
+                  : -1;
+              return matchedIndex >= 0 ? getNormalizedSearchItem(matchedIndex) : null;
+            };
+            const resolveDbBackedClientSearchItem = async (selected, actionEl) => {
+              const actionIdentity =
+                typeof readClientSearchActionIdentity === "function"
+                  ? readClientSearchActionIdentity(actionEl)
+                  : {};
+              const selectedIdentity =
+                selected && typeof resolveClientSearchResultIdentity === "function"
+                  ? resolveClientSearchResultIdentity(selected)
+                  : {};
+              const selectedClient =
+                selected?.client && typeof selected.client === "object" ? selected.client : {};
+              const path = String(actionIdentity.path || selectedIdentity.path || "").trim();
+              const entityType =
+                actionIdentity.entityType ||
+                selected?.entityType ||
+                selectedIdentity.entityType ||
+                resolveClientEntityType(resolvedScopeNode || resolveClientScopeFromNode(resultsEl));
+              if (path && typeof window.electronAPI?.openClient === "function") {
+                try {
+                  const res = await window.electronAPI.openClient({ path, entityType });
+                  if (res?.ok && res.client && typeof res.client === "object") {
+                    const resolvedPath = String(res.path || path).trim();
+                    return ensureClientSearchResultTaxes({
+                      ...(selected || {}),
+                      id: selected?.id || actionIdentity.id || selectedIdentity.id || "",
+                      name: res.name || selected?.name || res.client.name || "",
+                      entityType,
+                      path: resolvedPath,
+                      clientPath: resolvedPath,
+                      client: {
+                        ...selectedClient,
+                        ...res.client,
+                        __path: resolvedPath,
+                        __entityType: entityType
+                      }
+                    });
+                  }
+                } catch (err) {
+                  console.warn("client search update load failed", err);
+                }
+              }
+              return selected ? ensureClientSearchResultTaxes(selected) : null;
+            };
+            const pagerBtn = target.closest("[data-article-page]");
             if (pagerBtn) {
               const direction = pagerBtn.getAttribute("data-article-page");
               const currentItems = getCurrentItems();
@@ -5542,7 +5680,7 @@
               return;
             }
 
-            const closeBtn = evt.target.closest("[data-article-close]");
+            const closeBtn = target.closest("[data-article-close]");
             if (closeBtn) {
               resetClientSearchSession({
                 scopeNode: resolvedScopeNode,
@@ -5552,7 +5690,7 @@
               return;
             }
 
-            const editBtn = evt.target.closest("[data-client-edit]");
+            const editBtn = target.closest("[data-client-edit]");
             if (editBtn) {
               const idx = Number(editBtn.dataset.clientEdit);
               const selected = getNormalizedSearchItem(idx);
@@ -5569,10 +5707,13 @@
               return;
             }
 
-            const updateBtn = evt.target.closest("[data-client-saved-update]");
+            const updateBtn = target.closest("[data-client-saved-update]");
             if (updateBtn) {
               const idx = Number(updateBtn.dataset.clientSavedUpdate);
-              const selected = getNormalizedSearchItem(idx);
+              const selected = await resolveDbBackedClientSearchItem(
+                getNormalizedSearchItemForAction(idx, updateBtn),
+                updateBtn
+              );
               if (!selected) return;
               resetClientSearchSession({
                 scopeNode: resolvedScopeNode,
@@ -5591,7 +5732,7 @@
               return;
             }
 
-            const deleteBtn = evt.target.closest("[data-client-delete]");
+            const deleteBtn = target.closest("[data-client-delete]");
             if (deleteBtn) {
               const idx = Number(deleteBtn.dataset.clientDelete);
               const currentItems = getCurrentItems();
@@ -5646,7 +5787,7 @@
               return;
             }
 
-            const selectBtn = evt.target.closest("[data-client-select]");
+            const selectBtn = target.closest("[data-client-select]");
             if (!selectBtn) return;
             if (
               resultsEl?.id === "clientSearchResults" ||
@@ -5843,7 +5984,33 @@
 
           if (!SEM._clientSearchDocumentHandler) {
             SEM._clientSearchDocumentHandler = (evt) => {
-              const target = evt.target;
+              const target =
+                typeof Element !== "undefined" && evt.target instanceof Element
+                  ? evt.target
+                  : evt.target?.parentElement || null;
+              if (!target) return;
+              const activeInput = target.closest(
+                "#clientSearch, #fournisseurSearch, #transporteurSearch"
+              );
+              const activeResults = target.closest(
+                "#clientSearchResults, #fournisseurSearchResults, #transporteurSearchResults"
+              );
+              const activeSearchButton = target.closest(
+                "#clientSearchBtn, #fournisseurSearchBtn, #transporteurSearchBtn"
+              );
+              const activeSearchScope =
+                activeInput?.closest?.(CLIENT_SCOPE_SELECTOR) ||
+                activeResults?.closest?.(CLIENT_SCOPE_SELECTOR) ||
+                activeSearchButton?.closest?.(CLIENT_SCOPE_SELECTOR) ||
+                null;
+              const activeSearchBucket =
+                activeInput || activeResults || activeSearchButton
+                  ? resolveClientSearchStateBucket({
+                      scopeNode: activeSearchScope,
+                      inputEl: activeInput,
+                      resultsEl: activeResults
+                    }) || ""
+                  : "";
               const scopes = Array.from(document.querySelectorAll(CLIENT_SCOPE_SELECTOR));
               if (!scopes.length) return;
               scopes.forEach((scope) => {
@@ -5852,10 +6019,15 @@
                 if (!inputEl || !resultsEl) return;
                 if (target === inputEl) return;
                 if (resultsEl.contains(target)) return;
+                if (activeSearchButton && activeSearchScope === scope) return;
                 resetClientSearchSession({
                   scopeNode: scope,
                   inputEl,
-                  resultsEl
+                  resultsEl,
+                  preserveSearchState:
+                    !!activeSearchBucket &&
+                    resolveClientSearchStateBucket({ scopeNode: scope, inputEl, resultsEl }) ===
+                      activeSearchBucket
                 });
               });
             };
