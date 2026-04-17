@@ -2277,6 +2277,8 @@ const normalizeDocumentItem = (item = {}, position = 0, { docType = "" } = {}) =
   const purchaseTva = normalizedPurchaseTva ?? 0;
   const articlePath =
     (typeof source.__articlePath === "string" && source.__articlePath.trim()) ||
+    (typeof source.articlePath === "string" && source.articlePath.trim()) ||
+    (typeof source.article_path === "string" && source.article_path.trim()) ||
     (typeof source.path === "string" && source.path.trim()) ||
     "";
   const sourceDocType = normalizeTextValue(

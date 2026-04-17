@@ -791,6 +791,30 @@
   let addFormDirty = false;
   let itemFormMode = "add";
 
+  const ARTICLE_DB_PATH_PREFIX = "sqlite://articles/";
+  const normalizeArticlePathValue = (value) => String(value || "").trim();
+  const isPersistedArticlePath = (value) => {
+    const path = normalizeArticlePathValue(value);
+    return path.startsWith(ARTICLE_DB_PATH_PREFIX) && path.length > ARTICLE_DB_PATH_PREFIX.length;
+  };
+  const resolveArticlePathValue = (...values) => {
+    for (const value of values) {
+      const path = normalizeArticlePathValue(value);
+      if (path) return path;
+    }
+    return "";
+  };
+  const resolveItemArticlePath = (item = {}) => {
+    if (!item || typeof item !== "object") return "";
+    return resolveArticlePathValue(
+      item.__articlePath,
+      item.articlePath,
+      item.article_path,
+      item.__path,
+      item.path
+    );
+  };
+
   const ARTICLE_FORM_SNAPSHOT_FIELDS = [
     "ref",
     "product",
@@ -917,7 +941,13 @@
         19
       ),
       __path: normalizeArticleSnapshotText(
-        pathHint || article?.__path || article?.__articlePath || SEM.articleEditContext?.path || ""
+        pathHint ||
+          article?.__path ||
+          article?.__articlePath ||
+          article?.articlePath ||
+          article?.path ||
+          SEM.articleEditContext?.path ||
+          ""
       )
     };
   };
@@ -1047,7 +1077,13 @@
 
   const applyArticleFormBaseline = (snapshot = null, options = {}) => {
     const resolvedPath = normalizeArticleSnapshotText(
-      options?.path || snapshot?.__path || snapshot?.__articlePath || SEM.articleEditContext?.path || ""
+      options?.path ||
+        snapshot?.__path ||
+        snapshot?.__articlePath ||
+        snapshot?.articlePath ||
+        snapshot?.path ||
+        SEM.articleEditContext?.path ||
+        ""
     );
     if (!resolvedPath) {
       SEM.articleFormBaseline = null;
@@ -1116,6 +1152,29 @@
         setDisabledState(updateBtn, true);
         updateBtn.classList.remove("is-dirty");
       }
+    }
+    const updateAndSaveBtn = getUpdateAndSaveArticleButton();
+    if (updateAndSaveBtn) {
+      const updatePopover = updateAndSaveBtn.closest("#articleFormPopover");
+      const mode = updatePopover?.dataset?.articleFormMode || "";
+      const editIndex = Number(updatePopover?.dataset?.itemEditIndex);
+      const items = Array.isArray(state().items) ? state().items : [];
+      const editItem =
+        Number.isFinite(editIndex) && editIndex >= 0 && editIndex < items.length
+          ? items[Math.trunc(editIndex)]
+          : null;
+      const editItemPath = resolveItemArticlePath(editItem);
+      const linkedPath = normalizeArticlePathValue(SEM.articleEditContext?.path);
+      const hasPersistedArticleTarget =
+        isPersistedArticlePath(editItemPath) || isPersistedArticlePath(linkedPath);
+      const hasUnpersistedDocumentEditTarget =
+        !!editItem &&
+        !hasPersistedArticleTarget;
+      const shouldShow = !!updatePopover && mode === "edit" && hasUnpersistedDocumentEditTarget;
+      updateAndSaveBtn.hidden = !shouldShow;
+      updateAndSaveBtn.setAttribute("aria-hidden", shouldShow ? "false" : "true");
+      setDisabledState(updateAndSaveBtn, !shouldShow || isUpdateBusy);
+      updateAndSaveBtn.classList.toggle("is-dirty", shouldShow && dirty && !isUpdateBusy);
     }
     const updateInvoiceBtn = getInvoiceItemUpdateButton();
     if (updateInvoiceBtn) {
@@ -1187,28 +1246,129 @@
     updateItemSubmitAvailability();
   };
 
-  const updateLinkedArticleFromForm = async (path, article) => {
-    if (!path || !window.electronAPI?.updateArticle) return;
-    const payload = { ...article };
+  const refreshVisibleArticleDataAfterUpdate = () => {
+    SEM.refreshArticleSearchResults?.();
+    const refreshBtn =
+      typeof document !== "undefined"
+        ? document.querySelector("#articleSavedModal #articleSavedModalRefresh") ||
+          document.getElementById("articleSavedModalRefresh")
+        : null;
+    refreshBtn?.click?.();
+  };
+  const buildArticlePersistencePayload = (article = {}) => {
+    const formSnapshot = captureRawArticleFromForm();
+    const payload = {
+      ...(article && typeof article === "object" ? article : {}),
+      ...(formSnapshot && typeof formSnapshot === "object" ? formSnapshot : {})
+    };
     delete payload.__articlePath;
+    delete payload.articlePath;
+    delete payload.article_path;
+    delete payload.__path;
+    delete payload.path;
+    return payload;
+  };
+  const getArticleDuplicateLabel = (field) => {
+    const labels = w.APP_MESSAGE_DATA?.articleDuplicateFieldLabels || {};
+    return labels[field] || labels.reference || field || "reference";
+  };
+  const showArticlePersistenceError = async (res, fallbackKey = "ARTICLE_SAVE_FAILED") => {
+    if (res?.code === "duplicate_article") {
+      const fieldLabel = getArticleDuplicateLabel(res?.conflict?.field || res?.field || "reference");
+      const duplicate = getMessage("ARTICLE_DUPLICATE_FOUND", { values: { fieldLabel } });
+      await showDialog?.(res?.message || duplicate.text, { title: duplicate.title });
+      return;
+    }
+    const fallback = getMessage(fallbackKey);
+    await showDialog?.(res?.message || res?.error || fallback.text, { title: fallback.title });
+  };
+  const pickArticleSuggestedName = (payload = {}) =>
+    SEM.forms?.pickSuggestedName?.(payload) ||
+    payload.product ||
+    payload.ref ||
+    "article";
+
+  const saveLinkedArticleFromForm = async (article, options = {}) => {
+    const saveOptions = options && typeof options === "object" ? options : {};
+    const existingPath = normalizeArticlePathValue(saveOptions.existingPath || resolveItemArticlePath(article));
+    if (saveOptions.requireUnpersisted === true && isPersistedArticlePath(existingPath)) {
+      return { ok: false, error: "already_persisted" };
+    }
+    if (!window.electronAPI?.saveArticleAuto) {
+      const saveFailed = getMessage("ARTICLE_SAVE_FAILED");
+      await showDialog?.(saveFailed.text, { title: saveFailed.title });
+      return { ok: false, error: "save_unavailable" };
+    }
+    const payload = buildArticlePersistencePayload(article);
     try {
-      const suggestedName =
-        SEM.forms?.pickSuggestedName?.(payload) ||
-        payload.product ||
-        payload.ref ||
-        "article";
-      const res = await window.electronAPI.updateArticle({ path, article: payload, suggestedName });
+      const suggestedName = pickArticleSuggestedName(payload);
+      const res = await window.electronAPI.saveArticleAuto({ article: payload, suggestedName });
       if (!res?.ok) {
-        const updateError = getMessage("ARTICLE_UPDATE_FAILED");
-        await showDialog?.(res?.error || updateError.text, { title: updateError.title });
+        await showArticlePersistenceError(res, "ARTICLE_SAVE_FAILED");
+        return { ok: false, error: res?.error || res?.message || "save_failed" };
+      }
+      const resultPath = normalizeArticlePathValue(res.path);
+      if (!resultPath || !isPersistedArticlePath(resultPath)) {
+        const saveFailed = getMessage("ARTICLE_SAVE_FAILED");
+        await showDialog?.(saveFailed.text, { title: saveFailed.title });
+        return { ok: false, error: "missing_saved_path" };
+      }
+      const entryLabel = String(payload.product || payload.ref || res?.name || "").trim();
+      SEM.enterArticleEditContext?.({ path: resultPath, name: entryLabel });
+      refreshVisibleArticleDataAfterUpdate();
+      SEM.setArticleFormBaseline?.(payload, { path: resultPath });
+      return { ok: true, path: resultPath, article: payload, name: res?.name || suggestedName };
+    } catch (err) {
+      console.error("items/saveLinkedArticleFromForm", err);
+      const saveFailed = getMessage("ARTICLE_SAVE_FAILED");
+      await showDialog?.(saveFailed.text, { title: saveFailed.title });
+      return { ok: false, error: String(err?.message || err) };
+    }
+  };
+
+  const updateLinkedArticleFromForm = async (path, article, options = {}) => {
+    const updateOptions = options && typeof options === "object" ? options : {};
+    const targetPath = normalizeArticlePathValue(path);
+    if (!targetPath) return { ok: false, error: "missing_path" };
+    if (updateOptions.requirePersisted === true && !isPersistedArticlePath(targetPath)) {
+      const notRegistered = getMessage("ARTICLE_NOT_REGISTERED");
+      await showDialog?.(notRegistered.text, { title: notRegistered.title });
+      return { ok: false, error: "not_persisted" };
+    }
+    if (!window.electronAPI?.updateArticle) {
+      const unavailable = getMessage("ARTICLE_UPDATE_UNAVAILABLE");
+      await showDialog?.(unavailable.text, { title: unavailable.title });
+      return { ok: false, error: "update_unavailable" };
+    }
+    const payload = buildArticlePersistencePayload(article);
+    try {
+      const suggestedName = pickArticleSuggestedName(payload);
+      const res = await window.electronAPI.updateArticle({ path: targetPath, article: payload, suggestedName });
+      if (!res?.ok) {
+        await showArticlePersistenceError(res, "ARTICLE_UPDATE_FAILED");
+        return { ok: false, error: res?.error || res?.message || "update_failed" };
       } else {
-        SEM.refreshArticleSearchResults?.();
-        SEM.updateLinkedInvoiceItemsFromArticle?.(path, article);
+        const resultPath = normalizeArticlePathValue(res.path || targetPath);
+        const entryLabel = String(payload.product || payload.ref || res?.name || "").trim();
+        if (resultPath) {
+          SEM.enterArticleEditContext?.({ path: resultPath, name: entryLabel });
+        }
+        if (updateOptions.updateInvoiceItems !== false) {
+          if (resultPath && resultPath !== targetPath) {
+            SEM.updateLinkedInvoiceItemsFromArticle?.(targetPath, payload, { nextPath: resultPath });
+          } else {
+            SEM.updateLinkedInvoiceItemsFromArticle?.(resultPath || targetPath, payload);
+          }
+        }
+        refreshVisibleArticleDataAfterUpdate();
+        SEM.setArticleFormBaseline?.(payload, { path: resultPath || targetPath });
+        return { ok: true, path: resultPath || targetPath, article: payload, name: res?.name || suggestedName };
       }
     } catch (err) {
       console.error("items/updateLinkedArticleFromForm", err);
       const updateError = getMessage("ARTICLE_UPDATE_FAILED");
       await showDialog?.(updateError.text, { title: updateError.title });
+      return { ok: false, error: String(err?.message || err) };
     }
   };
 
@@ -1265,6 +1425,15 @@
     return getEl("btnUpdateInvoiceItem");
   }
 
+  function getUpdateAndSaveArticleButton() {
+    const popover = typeof document !== "undefined" ? document.querySelector("#articleFormPopover:not([hidden])") : null;
+    if (popover) {
+      const btn = popover.querySelector("#btnUpdateAndSaveArticle");
+      if (btn) return btn;
+    }
+    return getEl("btnUpdateAndSaveArticle");
+  }
+
   function ensureArticleSaveLabels(btn) {
     if (!btn) return;
     if (!btn.dataset.labelSave) btn.dataset.labelSave = (btn.textContent || "Enregistrer l'article").trim();
@@ -1291,15 +1460,20 @@
   };
 
   SEM.enterArticleEditContext = function enterArticleEditContext(ctx = {}) {
-    if (!ctx?.path) {
+    const path = normalizeArticlePathValue(ctx?.path);
+    if (!path) {
       SEM.clearArticleEditContext?.();
       return;
     }
-    SEM.articleEditContext = { path: ctx.path, name: ctx.name || "" };
+    SEM.articleEditContext = {
+      path,
+      name: ctx.name || "",
+      persisted: isPersistedArticlePath(path)
+    };
     SEM.setArticleSaveButtonMode?.("update");
     setArticleSaveLocked(true);
     setArticleUpdateBusyState(false);
-    applyArticleFormBaseline(null, { path: ctx.path });
+    applyArticleFormBaseline(null, { path });
     SEM.evaluateArticleDirtyState?.(null, { markDirtyWithoutBaseline: false });
   };
 
@@ -2723,9 +2897,11 @@
     const item = state().items[i] || {};
     SEM.fillAddFormFromItem(item);
     SEM.setSubmitMode("update");
-    const path = item.__articlePath || item.path;
+    const path = resolveItemArticlePath(item);
     const label = item.product || item.ref || "";
     if (path) {
+      item.__articlePath = path;
+      item.articlePath = path;
       SEM.enterArticleEditContext?.({ path, name: label });
       SEM.showSavedArticleButtons?.();
     } else {
@@ -2758,6 +2934,12 @@
   SEM.submitItemForm = async function (options = {}) {
     const submitOptions = options && typeof options === "object" ? options : {};
     const shouldUpdateLinkedArticle = submitOptions.updateLinkedArticle !== false;
+    const updateLinkedArticleBeforeDocument = submitOptions.updateLinkedArticleBeforeDocument === true;
+    const requireLinkedArticleUpdate = submitOptions.requireLinkedArticleUpdate === true;
+    const requirePersistedLinkedArticle = submitOptions.requirePersistedLinkedArticle === true;
+    const saveLinkedArticleBeforeDocument = submitOptions.saveLinkedArticleBeforeDocument === true;
+    const requireLinkedArticleSave = submitOptions.requireLinkedArticleSave === true;
+    const requireUnpersistedLinkedArticle = submitOptions.requireUnpersistedLinkedArticle === true;
     const docType = normalizeDocType(state().meta?.docType || getStr("docType", "facture"));
     const usePurchasePricing = docType === "fa";
     const salesPrice = getNum("addPrice", 0);
@@ -2814,13 +2996,43 @@
       await showDialog(missingItemMessage.text, { title: missingItemMessage.title });
       return false;
     }
-    const linkedPath = String(
-      SEM.articleEditContext?.path ||
-      existingItem?.__articlePath ||
-      existingItem?.path ||
-      ""
-    ).trim();
-    if (linkedPath) item.__articlePath = linkedPath;
+    const linkedPath = resolveArticlePathValue(
+      SEM.articleEditContext?.path,
+      resolveItemArticlePath(existingItem)
+    );
+    if (linkedPath) {
+      item.__articlePath = linkedPath;
+      item.articlePath = linkedPath;
+    }
+
+    let linkedArticleUpdateResult = null;
+    let linkedArticleSaveResult = null;
+    if (mode === "update" && saveLinkedArticleBeforeDocument) {
+      const existingLinkedPath = linkedPath || resolveItemArticlePath(existingItem);
+      if (requireUnpersistedLinkedArticle && isPersistedArticlePath(existingLinkedPath)) return false;
+      linkedArticleSaveResult = await saveLinkedArticleFromForm(item, {
+        existingPath: existingLinkedPath,
+        requireUnpersisted: requireUnpersistedLinkedArticle
+      });
+      if (!linkedArticleSaveResult?.ok && requireLinkedArticleSave) return false;
+      const resultPath = normalizeArticlePathValue(linkedArticleSaveResult?.path || "");
+      if (resultPath) {
+        item.__articlePath = resultPath;
+        item.articlePath = resultPath;
+      }
+    }
+    if (mode === "update" && linkedPath && shouldUpdateLinkedArticle && updateLinkedArticleBeforeDocument) {
+      linkedArticleUpdateResult = await updateLinkedArticleFromForm(linkedPath, item, {
+        requirePersisted: requirePersistedLinkedArticle,
+        updateInvoiceItems: false
+      });
+      if (!linkedArticleUpdateResult?.ok && requireLinkedArticleUpdate) return false;
+      const resultPath = normalizeArticlePathValue(linkedArticleUpdateResult?.path || linkedPath);
+      if (resultPath) {
+        item.__articlePath = resultPath;
+        item.articlePath = resultPath;
+      }
+    }
 
     if (mode === "update" && isValidUpdateIndex) {
       state().items[resolvedUpdateIndex] = item;
@@ -2830,8 +3042,24 @@
     }
 
     SEM.renderItems();
-    if (mode === "update" && linkedPath && shouldUpdateLinkedArticle) {
-      await updateLinkedArticleFromForm(linkedPath, item);
+    const effectiveLinkedPath = resolveItemArticlePath(item) || linkedPath;
+    if (mode === "update" && effectiveLinkedPath && shouldUpdateLinkedArticle && !updateLinkedArticleBeforeDocument) {
+      linkedArticleUpdateResult = await updateLinkedArticleFromForm(effectiveLinkedPath, item, {
+        requirePersisted: requirePersistedLinkedArticle
+      });
+      if (!linkedArticleUpdateResult?.ok && requireLinkedArticleUpdate) return false;
+      if (linkedArticleUpdateResult?.ok) SEM.markArticleFormDirty?.(false);
+    } else if (mode === "update" && effectiveLinkedPath && linkedArticleUpdateResult?.ok) {
+      const updatedPath = normalizeArticlePathValue(linkedArticleUpdateResult.path || effectiveLinkedPath);
+      const originalPath = linkedPath && linkedPath !== updatedPath ? linkedPath : effectiveLinkedPath;
+      SEM.updateLinkedInvoiceItemsFromArticle?.(originalPath, linkedArticleUpdateResult.article || item, {
+        nextPath: updatedPath || originalPath
+      });
+      if (updatedPath && updatedPath !== originalPath) {
+        SEM.updateLinkedInvoiceItemsFromArticle?.(updatedPath, linkedArticleUpdateResult.article || item);
+      }
+      SEM.markArticleFormDirty?.(false);
+    } else if (mode === "update" && linkedArticleSaveResult?.ok) {
       SEM.markArticleFormDirty?.(false);
     }
     SEM.markItemFormDirty?.(false);
@@ -3104,6 +3332,8 @@
     });
     body.querySelectorAll("button.sel").forEach(btn => {
       btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
         const selectedIndex = Number(e.currentTarget.dataset.sel);
         const trigger = e.currentTarget;
         const applySelectionToAddForm = () => {
@@ -3618,21 +3848,24 @@
     };
   }
 
-  function updateLinkedInvoiceItemsFromArticle(path, article = {}) {
-    if (!path) return false;
+  function updateLinkedInvoiceItemsFromArticle(path, article = {}, options = {}) {
+    const matchPath = normalizeArticlePathValue(path);
+    if (!matchPath) return false;
+    const nextPath = normalizeArticlePathValue(options?.nextPath || matchPath);
     const items = state().items;
     if (!Array.isArray(items)) return false;
     const normalized = normalizeArticleForInvoiceItem(article);
     let touched = false;
 
     items.forEach((item = {}) => {
-      const itemPath = item.__articlePath || item.path || "";
-      if (itemPath !== path) return;
+      const itemPath = resolveItemArticlePath(item);
+      if (itemPath !== matchPath) return;
       const previousQty = item.qty;
       const currentFodec = sanitizeLinkedItemFodec(item.fodec);
       const nextFodec = normalized.fodec;
       const currentPurchaseFodec = sanitizeLinkedItemPurchaseFodec(item.purchaseFodec);
       const nextPurchaseFodec = normalized.purchaseFodec;
+      const pathChanged = itemPath !== nextPath;
       const alreadySynced =
         sanitizeLinkedItemText(item.ref) === normalized.ref &&
         sanitizeLinkedItemText(item.product) === normalized.product &&
@@ -3652,8 +3885,12 @@
         currentPurchaseFodec.label === nextPurchaseFodec.label &&
         currentPurchaseFodec.rate === nextPurchaseFodec.rate &&
         currentPurchaseFodec.tva === nextPurchaseFodec.tva;
-      item.__articlePath = path;
-      if (alreadySynced) return;
+      item.__articlePath = nextPath;
+      item.articlePath = nextPath;
+      if (alreadySynced) {
+        if (pathChanged) touched = true;
+        return;
+      }
 
       item.ref = normalized.ref;
       item.product = normalized.product;

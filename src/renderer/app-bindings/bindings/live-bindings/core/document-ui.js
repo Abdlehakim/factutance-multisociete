@@ -1876,6 +1876,7 @@
               const addAndSaveBtn = ctx.popover.querySelector("#btnAddAndSaveArticleFromPopover");
               const newBtn = ctx.popover.querySelector("#btnNewItem");
               const updateBtn = ctx.popover.querySelector("#btnUpdateSavedArticle");
+              const updateAndSaveBtn = ctx.popover.querySelector("#btnUpdateAndSaveArticle");
               const updateInvoiceBtn = ctx.popover.querySelector("#btnUpdateInvoiceItem");
               const rightActionsGroup = ctx.popover.querySelector(".swbDialog__group--right");
               const body = ctx.popover.querySelector(".article-form-modal__body");
@@ -1929,6 +1930,12 @@
                     updateBtn.setAttribute("aria-disabled", updateBtn.disabled ? "true" : "false");
                   }
                 }
+              }
+              if (updateAndSaveBtn) {
+                updateAndSaveBtn.hidden = true;
+                updateAndSaveBtn.disabled = true;
+                updateAndSaveBtn.setAttribute("aria-hidden", "true");
+                updateAndSaveBtn.setAttribute("aria-disabled", "true");
               }
               if (updateInvoiceBtn) {
                 const showInvoiceUpdate = !useQuickAddActions && isEdit && !isViewMode;
@@ -2001,8 +2008,9 @@
               }
             };
 
-            const setArticleFormPopoverOpen = (ctx, open) => {
+            const setArticleFormPopoverOpen = (ctx, open, options = {}) => {
               if (!ctx) return;
+              const openOptions = options && typeof options === "object" ? options : {};
               ctx.popover.classList.toggle("is-open", open);
               ctx.popover.hidden = !open;
               if (open) {
@@ -2041,13 +2049,14 @@
               const articleFormToggles = Array.from(
                 document.querySelectorAll("#articleFormToggleBtn, #articleCreateBtn")
               );
+              const activateToggle = open && openOptions.activateToggle === true;
               if (articleFormToggles.length) {
                 articleFormToggles.forEach((btn) => {
-                  const isActiveToggle = open && ctx.toggle && btn === ctx.toggle;
+                  const isActiveToggle = activateToggle && ctx.toggle && btn === ctx.toggle;
                   btn.setAttribute("aria-expanded", isActiveToggle ? "true" : "false");
                 });
               } else if (ctx.toggle) {
-                ctx.toggle.setAttribute("aria-expanded", open ? "true" : "false");
+                ctx.toggle.setAttribute("aria-expanded", activateToggle ? "true" : "false");
               }
               if (open) {
                 const popoverMode = String(ctx.popover.dataset.articleFormMode || "").toLowerCase();
@@ -2111,6 +2120,7 @@
                 delete ctx.popover.dataset.itemEditIndex;
               }
               setArticlePopoverSelectedRecord(ctx.popover, null);
+              SEM.clearArticleEditContext?.();
               setArticleFormPopoverMode(ctx, "edit");
               setArticleFormPopoverOpen(ctx, true);
               return ctx;
@@ -2127,7 +2137,7 @@
                   setArticlePopoverSelectedRecord(ctx.popover, null);
                   setArticleFormPopoverMode(ctx, "create");
                 }
-                setArticleFormPopoverOpen(ctx, !isOpen);
+                setArticleFormPopoverOpen(ctx, !isOpen, { activateToggle: evt.isTrusted === true });
                 return;
               }
               const createBtn = evt.target?.closest?.("#articleCreateBtn");
@@ -2138,7 +2148,7 @@
                 if (ctx) {
                   setArticlePopoverSelectedRecord(ctx.popover, null);
                   setArticleFormPopoverMode(ctx, "create");
-                  setArticleFormPopoverOpen(ctx, true);
+                  setArticleFormPopoverOpen(ctx, true, { activateToggle: evt.isTrusted === true });
                 }
                 return;
               }
@@ -2198,6 +2208,42 @@
                 const updated = await SEM.submitItemForm({ updateLinkedArticle: false });
                 if (updated) {
                   setArticleFormPopoverOpen(ctx, false);
+                }
+                return;
+              }
+              const updateAndSaveBtn = evt.target?.closest?.("#btnUpdateAndSaveArticle");
+              if (updateAndSaveBtn) {
+                evt.preventDefault();
+                if (updateAndSaveBtn.disabled || updateAndSaveBtn.getAttribute("aria-hidden") === "true") return;
+                const ctx = getArticleFormPopoverContext(updateAndSaveBtn);
+                if (!ctx?.popover || typeof SEM.submitItemForm !== "function") return;
+                if (typeof SEM.setActiveAddFormScope === "function") {
+                  SEM.setActiveAddFormScope(ctx.scope);
+                }
+                const datasetIndex = Number(ctx.popover.dataset.itemEditIndex);
+                if (
+                  (SEM.selectedItemIndex === null || SEM.selectedItemIndex === undefined) &&
+                  Number.isFinite(datasetIndex) &&
+                  datasetIndex >= 0
+                ) {
+                  SEM.selectedItemIndex = Math.trunc(datasetIndex);
+                }
+                if (typeof SEM.setSubmitMode === "function") {
+                  SEM.setSubmitMode("update");
+                }
+                try {
+                  SEM.setArticleUpdateBusyState?.(true, updateAndSaveBtn);
+                  const updated = await SEM.submitItemForm({
+                    updateLinkedArticle: false,
+                    saveLinkedArticleBeforeDocument: true,
+                    requireLinkedArticleSave: true,
+                    requireUnpersistedLinkedArticle: true
+                  });
+                  if (updated) {
+                    setArticleFormPopoverOpen(ctx, false);
+                  }
+                } finally {
+                  SEM.setArticleUpdateBusyState?.(false, updateAndSaveBtn);
                 }
                 return;
               }

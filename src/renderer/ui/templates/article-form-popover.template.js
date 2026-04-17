@@ -501,6 +501,7 @@ export const renderArticleFormPopover = () => `
           <button id="btnAddArticleFromPopover" type="button" class="swbDialog__ok" hidden aria-hidden="true" disabled aria-disabled="true">Ajouter</button>
           <button id="btnAddAndSaveArticleFromPopover" type="button" class="swbDialog__ok" hidden aria-hidden="true" disabled aria-disabled="true">Ajouter et enregistrer l'article</button>
           <button id="btnUpdateSavedArticle" type="button" class="swbDialog__ok" disabled hidden aria-hidden="true">Mettre a jour</button>
+          <button id="btnUpdateAndSaveArticle" type="button" class="swbDialog__ok" disabled hidden aria-hidden="true" aria-disabled="true">Mettre à jour et enregistrer l'article</button>
           <button id="btnUpdateInvoiceItem" type="button" class="swbDialog__ok" disabled hidden aria-hidden="true">Mettre &agrave; jour sur document</button>
           <button id="btnNewItem" type="button" class="swbDialog__ok" disabled>Nouveau</button>
         </div>

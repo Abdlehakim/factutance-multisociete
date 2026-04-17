@@ -700,6 +700,7 @@
             "btnAddArticleFromPopover",
             "btnAddAndSaveArticleFromPopover",
             "btnUpdateSavedArticle",
+            "btnUpdateAndSaveArticle",
             "btnUpdateInvoiceItem",
             "btnNewItem"
           ]);
