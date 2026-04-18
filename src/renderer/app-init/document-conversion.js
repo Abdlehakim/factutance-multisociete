@@ -273,6 +273,10 @@
   };
   const formatBeReceptionDestinationText = (labels = []) =>
     normalizeBeReceptionDestinationLabels(labels).join(", ");
+  const normalizeBsSortieLocationIds = (value = []) => normalizeBeReceptionDestinationIds(value);
+  const normalizeBsSortieLocationLabels = (value = []) => normalizeBeReceptionDestinationLabels(value);
+  const formatBsSortieLocationText = (labels = []) =>
+    normalizeBsSortieLocationLabels(labels).join(", ");
   const formatBeReceptionTime = (value = new Date()) => {
     const date = value instanceof Date ? value : new Date(value);
     const safeDate = Number.isFinite(date.getTime()) ? date : new Date();
@@ -308,6 +312,26 @@
     const normalized = normalizeBeReceptionSourceDocType(value);
     if (normalized === "fa") return "Facture d'achat";
     if (normalized === "bc") return "Bon de commande";
+    return "Document";
+  };
+  const normalizeBsSortieSourceDocType = (value) => {
+    const raw = String(value || "").trim().toLowerCase();
+    const aliases = {
+      facture: "facture",
+      fact: "facture",
+      bl: "bl",
+      bonlivraison: "bl",
+      bondelivraison: "bl",
+      bon_livraison: "bl",
+      "bon-livraison": "bl",
+      "bon de livraison": "bl"
+    };
+    return aliases[raw] || "";
+  };
+  const getBsSortieSourceDocTypeLabel = (value) => {
+    const normalized = normalizeBsSortieSourceDocType(value);
+    if (normalized === "facture") return "Facture";
+    if (normalized === "bl") return "Bon de livraison";
     return "Document";
   };
   const normalizeBeReceptionSourceSelection = (value) => {
@@ -438,6 +462,117 @@
       ]
     });
   };
+  const normalizeBsSortieSourceSelection = (value) => {
+    const raw = value && typeof value === "object" ? value : {};
+    const rawParty = (() => {
+      if (raw.party && typeof raw.party === "object") return raw.party;
+      if (raw.client && typeof raw.client === "object") return raw.client;
+      if (raw.supplier && typeof raw.supplier === "object") return raw.supplier;
+      return {};
+    })();
+    const rawItems = Array.isArray(raw.items)
+      ? raw.items
+      : Array.isArray(raw.documents)
+        ? raw.documents
+        : [];
+    const normalizedItems = rawItems
+      .map((entry, index) => {
+        const item = entry && typeof entry === "object" ? entry : {};
+        const id = String(item.id || "").trim();
+        const path = String(item.path || "").trim();
+        const number = String(item.number || "").trim();
+        const date = String(item.date || "").trim();
+        const displayName =
+          String(item.displayName || item.name || number || "").trim() || `Document ${index + 1}`;
+        const docType = normalizeBsSortieSourceDocType(
+          item.docType || item.type || raw.docType || raw.type || ""
+        );
+        const key =
+          String(item.key || "").trim() ||
+          (id ? `id:${id}` : path ? `path:${path}` : number ? `number:${number}:${index}` : `idx:${index}`);
+        if (!id && !path && !number && !displayName) return null;
+        return {
+          key,
+          id,
+          path,
+          number,
+          date,
+          displayName,
+          docType,
+          clientName: String(item.clientName || "").trim(),
+          clientPath: String(item.clientPath || "").trim()
+        };
+      })
+      .filter(Boolean);
+    const docType = normalizeBsSortieSourceDocType(
+      raw.docType || raw.type || normalizedItems[0]?.docType || ""
+    );
+    if (!normalizedItems.length || !docType) return null;
+    const partyPath = String(rawParty.path || normalizedItems[0]?.clientPath || "").trim();
+    const partyName = String(rawParty.name || normalizedItems[0]?.clientName || "").trim();
+    const partyLabel = String(rawParty.label || partyName || "").trim();
+    const partyIdentifier = String(rawParty.identifier || "").trim();
+    return {
+      docType,
+      party:
+        partyPath || partyName || partyLabel || partyIdentifier
+          ? {
+              path: partyPath,
+              name: partyName,
+              label: partyLabel || partyName,
+              identifier: partyIdentifier
+            }
+          : null,
+      items: normalizedItems.map((item) => ({
+        ...item,
+        docType: item.docType || docType
+      }))
+    };
+  };
+  const formatBsSortieSourceSelectionText = (selection) => {
+    const normalized = normalizeBsSortieSourceSelection(selection);
+    if (!normalized) return "";
+    const label = getBsSortieSourceDocTypeLabel(normalized.docType);
+    const refs = normalized.items
+      .map((item) => String(item.number || item.displayName || "").trim())
+      .filter(Boolean);
+    return refs.length ? `${label} : ${refs.join(", ")}` : label;
+  };
+  const buildBsSortieSourceSelectionFromEntry = (entry, sourceDocType = "") => {
+    const docType = normalizeBsSortieSourceDocType(sourceDocType || entry?.docType || "");
+    if (!docType) return null;
+    const id = String(entry?.id || "").trim();
+    const path = String(entry?.path || "").trim();
+    const number = String(entry?.number || entry?.invNumber || entry?.name || "").trim();
+    const date = String(entry?.date || "").trim();
+    const displayName = String(entry?.name || number || "").trim() || number || "Document 1";
+    const key = id ? `id:${id}` : path ? `path:${path}` : number ? `number:${number}:0` : "idx:0";
+    return normalizeBsSortieSourceSelection({
+      docType,
+      party:
+        entry?.clientName || entry?.clientPath || entry?.clientAccount
+          ? {
+              path: String(entry?.clientPath || "").trim(),
+              name: String(entry?.clientName || "").trim(),
+              label: String(entry?.clientName || "").trim(),
+              identifier: String(entry?.clientAccount || "").trim()
+            }
+          : null,
+      items: [
+        {
+          key,
+          id,
+          path,
+          number,
+          date,
+          displayName,
+          docType,
+          clientName: String(entry?.clientName || "").trim(),
+          clientPath: String(entry?.clientPath || "").trim()
+        }
+      ]
+    });
+  };
   const normalizeBeReceptionChoice = (value = {}, { meta = {}, fallbackDate = "" } = {}) => {
     const raw = value && typeof value === "object" ? value : {};
     const sourceSelection = normalizeBeReceptionSourceSelection(
@@ -507,6 +642,70 @@
     if (!normalized.time) normalized.time = formatBeReceptionTime();
     return normalized;
   };
+  const normalizeBsSortieChoice = (value = {}, { meta = {}, fallbackDate = "" } = {}) => {
+    const raw = value && typeof value === "object" ? value : {};
+    const sourceSelection = normalizeBsSortieSourceSelection(
+      raw.sourceSelection ?? raw.sourceDocuments ?? raw.sourceDocs ?? meta.bsSourceSelection ?? null
+    );
+    const locationIds = normalizeBsSortieLocationIds(
+      raw.locationIds ??
+        raw.locationIdList ??
+        raw.locationSelection?.ids ??
+        raw.locationSelection ??
+        raw.locationId ??
+        raw.destinationId ??
+        raw.emplacementId ??
+        raw.emplacement_id ??
+        meta.bsLocationIds ??
+        meta.bsLocationId ??
+        []
+    );
+    const locationLabels = normalizeBsSortieLocationLabels(
+      raw.locationLabels ?? raw.locationLabelList ?? raw.locationSelection?.labels ?? meta.bsLocationLabels ?? []
+    );
+    const normalized = {
+      depot: normalizeBeReceptionText(raw.depot ?? raw.depotName ?? raw.magasin ?? meta.bsDepot ?? ""),
+      depotId: normalizeBeReceptionDepotId(
+        raw.depotId ?? raw.depotDbId ?? raw.magasinId ?? raw.magasin_id ?? meta.bsDepotId ?? ""
+      ),
+      location: normalizeBeReceptionText(raw.location ?? raw.emplacement ?? raw.destination ?? meta.bsLocation ?? ""),
+      locationId: normalizeBeReceptionLocationId(
+        locationIds[0] ??
+          raw.locationId ??
+          raw.destinationId ??
+          raw.emplacementId ??
+          raw.emplacement_id ??
+          meta.bsLocationId ??
+          ""
+      ),
+      locationIds,
+      locationLabels,
+      sourceDocType: normalizeBsSortieSourceDocType(
+        raw.sourceDocType ?? raw.sourceType ?? sourceSelection?.docType ?? meta.bsSourceDocType ?? ""
+      ),
+      date: String(raw.date ?? raw.sortieDate ?? raw.movementDate ?? meta.bsSortieDate ?? fallbackDate ?? "").trim(),
+      time: String(raw.time ?? raw.sortieTime ?? raw.movementTime ?? meta.bsSortieTime ?? "").trim(),
+      sourceRef: normalizeBeReceptionText(raw.sourceRef ?? raw.referenceSource ?? raw.source ?? meta.bsSourceRef ?? ""),
+      sourceSelection,
+      transporter: normalizeBeReceptionText(raw.transporter ?? raw.transporteur ?? meta.bsTransporter ?? ""),
+      driverName: normalizeBeReceptionText(raw.driverName ?? raw.chauffeur ?? meta.bsDriverName ?? ""),
+      vehiclePlate: normalizeBeReceptionText(raw.vehiclePlate ?? raw.vehicle ?? raw.matriculeVehicule ?? meta.bsVehiclePlate ?? ""),
+      transportMode: normalizeBeReceptionText(raw.transportMode ?? raw.modeTransport ?? meta.bsTransportMode ?? ""),
+      exitReason: normalizeBeReceptionText(raw.exitReason ?? raw.reason ?? raw.motifSortie ?? meta.bsExitReason ?? "")
+    };
+    if (!normalized.sourceRef && sourceSelection) {
+      normalized.sourceRef = formatBsSortieSourceSelectionText(sourceSelection);
+    }
+    if (normalized.locationLabels.length && !normalized.location) {
+      normalized.location = formatBsSortieLocationText(normalized.locationLabels);
+    }
+    if (normalized.location && !normalized.locationLabels.length) {
+      normalized.locationLabels = normalizeBsSortieLocationLabels(normalized.location);
+    }
+    if (!normalized.date) normalized.date = String(fallbackDate || meta.date || "").trim();
+    if (!normalized.time) normalized.time = formatBeReceptionTime();
+    return normalized;
+  };
   const createDefaultBeReceptionChoice = ({ entry, sourceDocType, date }) => {
     const sourceSelection = buildBeReceptionSourceSelectionFromEntry(entry, sourceDocType);
     return normalizeBeReceptionChoice(
@@ -515,6 +714,18 @@
         time: formatBeReceptionTime(),
         sourceSelection,
         sourceRef: sourceSelection ? formatBeReceptionSourceSelectionText(sourceSelection) : ""
+      },
+      { fallbackDate: date }
+    );
+  };
+  const createDefaultBsSortieChoice = ({ entry, sourceDocType, date }) => {
+    const sourceSelection = buildBsSortieSourceSelectionFromEntry(entry, sourceDocType);
+    return normalizeBsSortieChoice(
+      {
+        date,
+        time: formatBeReceptionTime(),
+        sourceSelection,
+        sourceRef: sourceSelection ? formatBsSortieSourceSelectionText(sourceSelection) : ""
       },
       { fallbackDate: date }
     );
@@ -544,6 +755,29 @@
     }
     return { ok: true, value: reception };
   };
+  const validateBsSortieChoice = (value = {}, options = {}) => {
+    const sortie = normalizeBsSortieChoice(value, {
+      meta: options?.meta || {},
+      fallbackDate: options?.fallbackDate || ""
+    });
+    const requireStorageFields = options?.requireStorageFields !== false;
+    if (requireStorageFields && !sortie.depotId) {
+      return { ok: false, error: "Selectionnez un depot / magasin source." };
+    }
+    if (sortie.locationIds.length > 1) {
+      return { ok: false, error: "Selectionnez un seul emplacement source." };
+    }
+    if (!isValidBeReceptionDate(sortie.date)) {
+      return { ok: false, error: "Renseignez une date de sortie valide." };
+    }
+    if (!isValidBeReceptionTime(sortie.time)) {
+      return { ok: false, error: "Renseignez une heure de sortie valide au format HH:MM." };
+    }
+    if (!sortie.sourceRef) {
+      return { ok: false, error: "Renseignez la reference source." };
+    }
+    return { ok: true, value: sortie };
+  };
   const shouldRequireBeReceptionStorageFields = (sourceDocType, targetDocType) => {
     const target = String(targetDocType || "").trim().toLowerCase();
     return target === "be";
@@ -564,6 +798,28 @@
     meta.beSourceSelection = reception.sourceSelection;
     meta.beSourceImportedKeys = reception.importedSourceKeys.slice();
     return reception;
+  };
+  const applyBsSortieChoiceToMeta = (metaInput, value, { fallbackDate = "" } = {}) => {
+    const meta = metaInput && typeof metaInput === "object" ? metaInput : {};
+    const sortie = normalizeBsSortieChoice(value, { meta, fallbackDate });
+    meta.bsSortie = sortie;
+    meta.bsDepot = sortie.depot;
+    meta.bsDepotId = sortie.depotId;
+    meta.bsLocation = sortie.location;
+    meta.bsLocationId = sortie.locationId;
+    meta.bsLocationIds = sortie.locationIds.slice();
+    meta.bsLocationLabels = sortie.locationLabels.slice();
+    meta.bsSourceDocType = sortie.sourceDocType;
+    meta.bsSourceSelection = sortie.sourceSelection;
+    meta.bsSortieDate = sortie.date;
+    meta.bsSortieTime = sortie.time;
+    meta.bsSourceRef = sortie.sourceRef;
+    meta.bsTransporter = sortie.transporter;
+    meta.bsDriverName = sortie.driverName;
+    meta.bsVehiclePlate = sortie.vehiclePlate;
+    meta.bsTransportMode = sortie.transportMode;
+    meta.bsExitReason = sortie.exitReason;
+    return sortie;
   };
   const clearCrossTypeNumberingMetadata = (metaInput, sourceDocType, targetDocType) => {
     const meta = metaInput && typeof metaInput === "object" ? metaInput : null;
@@ -778,10 +1034,10 @@
       partyType: "client",
       promptOptions: {
         titleText: "Convertir la facture",
-        targetDocTypes: ["avoir"],
+        targetDocTypes: ["avoir", "bs"],
         defaultTarget: "avoir",
         showTargetChoice: true,
-        allowedModelDocTypes: ["avoir"]
+        allowedModelDocTypes: ["avoir", "bs"]
       }
     },
     {
@@ -941,7 +1197,9 @@
     let lastPaymentMethod = "";
     let selectedPaidAmount = 0;
     let selectedBeReception = null;
+    let selectedBsSortie = null;
     let beReceptionDateTouched = false;
+    let bsSortieDateTouched = false;
     const normalizePaidValue = (value) => {
       const raw = String(value ?? "").trim();
       if (!raw) return 0;
@@ -1044,6 +1302,28 @@
       timePanel: "docHistoryBeReceptionTimePanel",
       sourceRef: "docHistoryBeReceptionSourceInput"
     };
+    const CONVERT_BS_SORTIE_IDS = {
+      section: "docHistoryBsSortieBox",
+      depot: "docHistoryBsSortieDepotInput",
+      depotMenu: "docHistoryBsSortieDepotMenu",
+      depotPanel: "docHistoryBsSortieDepotPanel",
+      depotDisplay: "docHistoryBsSortieDepotDisplay",
+      location: "docHistoryBsSortieLocationInput",
+      locationMenu: "docHistoryBsSortieLocationMenu",
+      locationPanel: "docHistoryBsSortieLocationPanel",
+      locationDisplay: "docHistoryBsSortieLocationDisplay",
+      date: "docHistoryBsSortieDateInput",
+      datePanel: "docHistoryBsSortieDatePanel",
+      time: "docHistoryBsSortieTimeInput",
+      timePanel: "docHistoryBsSortieTimePanel",
+      sourceRef: "docHistoryBsSortieSourceInput",
+      transportSection: "docHistoryBsTransportBox",
+      transporter: "docHistoryBsTransporterInput",
+      driverName: "docHistoryBsDriverNameInput",
+      vehiclePlate: "docHistoryBsVehiclePlateInput",
+      transportMode: "docHistoryBsTransportModeInput",
+      exitReason: "docHistoryBsExitReasonInput"
+    };
     const getSelectedOptionText = (select) => {
       if (!(select instanceof HTMLSelectElement)) return "";
       const selected =
@@ -1093,6 +1373,76 @@
         { fallbackDate: selectedDate || today }
       );
     };
+    const readBsSortieFormValues = (section, current = selectedBsSortie) => {
+      const base = normalizeBsSortieChoice(current, { fallbackDate: selectedDate || today });
+      if (!(section instanceof HTMLElement)) return base;
+      const depotSelect = section.querySelector(`#${CONVERT_BS_SORTIE_IDS.depot}`);
+      const locationSelect = section.querySelector(`#${CONVERT_BS_SORTIE_IDS.location}`);
+      const dateInput = section.querySelector(`#${CONVERT_BS_SORTIE_IDS.date}`);
+      const timeInput = section.querySelector(`#${CONVERT_BS_SORTIE_IDS.time}`);
+      const sourceInput = section.querySelector(`#${CONVERT_BS_SORTIE_IDS.sourceRef}`);
+      const transportSection =
+        dialogBsTransportSection ||
+        document.getElementById(CONVERT_BS_SORTIE_IDS.transportSection) ||
+        null;
+      const locationIds = normalizeBsSortieLocationIds(
+        Array.from(locationSelect?.selectedOptions || []).map((option) => option.value)
+      );
+      const locationLabels = normalizeBsSortieLocationLabels(
+        locationIds
+          .map((id) => {
+            const option = Array.from(locationSelect?.options || []).find(
+              (entry) => String(entry.value || "").trim() === id
+            );
+            return option?.textContent || "";
+          })
+          .filter(Boolean)
+      );
+      return normalizeBsSortieChoice(
+        {
+          ...base,
+          depotId: normalizeBeReceptionDepotId(depotSelect?.value || base.depotId || ""),
+          depot: normalizeBeReceptionDepotId(depotSelect?.value || "")
+            ? getSelectedOptionText(depotSelect)
+            : "",
+          locationId: locationIds[0] || "",
+          locationIds,
+          locationLabels,
+          location: locationLabels.length
+            ? formatBsSortieLocationText(locationLabels)
+            : "",
+          date: String(dateInput?.value || base.date || selectedDate || today).trim(),
+          time: String(timeInput?.value || base.time || "").trim(),
+          sourceRef: normalizeBeReceptionText(sourceInput?.value || base.sourceRef || ""),
+          transporter: normalizeBeReceptionText(
+            transportSection?.querySelector?.(`#${CONVERT_BS_SORTIE_IDS.transporter}`)?.value ||
+              base.transporter ||
+              ""
+          ),
+          driverName: normalizeBeReceptionText(
+            transportSection?.querySelector?.(`#${CONVERT_BS_SORTIE_IDS.driverName}`)?.value ||
+              base.driverName ||
+              ""
+          ),
+          vehiclePlate: normalizeBeReceptionText(
+            transportSection?.querySelector?.(`#${CONVERT_BS_SORTIE_IDS.vehiclePlate}`)?.value ||
+              base.vehiclePlate ||
+              ""
+          ),
+          transportMode: normalizeBeReceptionText(
+            transportSection?.querySelector?.(`#${CONVERT_BS_SORTIE_IDS.transportMode}`)?.value ||
+              base.transportMode ||
+              ""
+          ),
+          exitReason: normalizeBeReceptionText(
+            transportSection?.querySelector?.(`#${CONVERT_BS_SORTIE_IDS.exitReason}`)?.value ||
+              base.exitReason ||
+              ""
+          )
+        },
+        { fallbackDate: selectedDate || today }
+      );
+    };
     const allowedModelDocTypes = Array.isArray(promptOptions.allowedModelDocTypes)
       ? promptOptions.allowedModelDocTypes
       : [MODEL_DOC_TYPE_ALL, ...normalizedTargetDocTypes];
@@ -1107,7 +1457,16 @@
       fallbackDate,
       requireStorageFields: shouldRequireBeReceptionStorageFields(promptSourceDocType, targetDocType)
     });
+    const getBsSortieValidationOptions = (fallbackDate = selectedDate || today) => ({
+      fallbackDate,
+      requireStorageFields: String(targetDocType || "").trim().toLowerCase() === "bs"
+    });
     selectedBeReception = createDefaultBeReceptionChoice({
+      entry,
+      sourceDocType: promptSourceDocType,
+      date: selectedDate
+    });
+    selectedBsSortie = createDefaultBsSortieChoice({
       entry,
       sourceDocType: promptSourceDocType,
       date: selectedDate
@@ -1119,6 +1478,8 @@
     let dialogPaymentReferenceInput = null;
     let dialogAcomptePaidInput = null;
     let dialogBeReceptionSection = null;
+    let dialogBsSortieSection = null;
+    let dialogBsTransportSection = null;
     let dialogTargetSelect = null;
     let dialogTargetRadios = [];
     const submitHandler = typeof promptOptions.onSubmit === "function" ? promptOptions.onSubmit : null;
@@ -1162,6 +1523,9 @@
       if (dialogBeReceptionSection) {
         selectedBeReception = readBeReceptionFormValues(dialogBeReceptionSection, selectedBeReception);
       }
+      if (dialogBsSortieSection) {
+        selectedBsSortie = readBsSortieFormValues(dialogBsSortieSection, selectedBsSortie);
+      }
     };
     const buildChoicePayload = () => {
       const normalizedTarget = String(targetDocType || "").trim().toLowerCase();
@@ -1184,6 +1548,12 @@
         beReception:
           normalizedTarget === "be"
             ? normalizeBeReceptionChoice(selectedBeReception, {
+                fallbackDate: selectedDate || today
+              })
+            : null,
+        bsSortie:
+          normalizedTarget === "bs"
+            ? normalizeBsSortieChoice(selectedBsSortie, {
                 fallbackDate: selectedDate || today
               })
             : null
@@ -1211,6 +1581,17 @@
           return false;
         }
         draftChoices.beReception = beValidation.value;
+      }
+      if (String(draftChoices.target || "").trim().toLowerCase() === "bs") {
+        const bsValidation = validateBsSortieChoice(
+          draftChoices.bsSortie,
+          getBsSortieValidationOptions(selectedDate || today)
+        );
+        if (!bsValidation.ok) {
+          setSubmitError(bsValidation.error || "Informations de sortie incompletes.");
+          return false;
+        }
+        draftChoices.bsSortie = bsValidation.value;
       }
       if (!submitHandler) {
         submittedChoices = draftChoices;
@@ -1453,6 +1834,9 @@
         let updateAcompteVisibility = () => {};
         let beReceptionSection = null;
         let updateBeReceptionVisibility = () => {};
+        let bsSortieSection = null;
+        let bsTransportSection = null;
+        let updateBsSortieVisibility = () => {};
         const normalizeDocTypeValue = (value) => String(value || "").trim().toLowerCase();
         const allowedTargetDocTypes = new Set(
           (normalizedTargetDocTypes.length ? normalizedTargetDocTypes : ["facture"])
@@ -1461,6 +1845,7 @@
         );
         if (!allowedTargetDocTypes.size) allowedTargetDocTypes.add("facture");
         const supportsBonEntreeTarget = allowedTargetDocTypes.has("be");
+        const supportsBonSortieTarget = allowedTargetDocTypes.has("bs");
         if (!allowedTargetDocTypes.has(normalizeDocTypeValue(targetDocType))) {
           targetDocType = Array.from(allowedTargetDocTypes)[0] || "facture";
         }
@@ -1508,6 +1893,7 @@
         const isPartialStatus = () =>
           normalizeFactureStatusValue(selectedFactureStatus) === "partiellement-payee";
         const isBonEntreeTarget = () => getSelectedTargetValue() === "be";
+        const isBonSortieTarget = () => getSelectedTargetValue() === "bs";
         const resolveAcompteBase = () => {
           const totalTTC = Number(entry?.totalTTC);
           if (Number.isFinite(totalTTC)) return totalTTC;
@@ -1560,6 +1946,15 @@
               );
               return;
             }
+            if (isBonSortieTarget()) {
+              setOkEnabled(
+                validateBsSortieChoice(
+                  selectedBsSortie,
+                  getBsSortieValidationOptions(selectedDate || today)
+                ).ok
+              );
+              return;
+            }
             setOkEnabled(true);
             return;
           }
@@ -1582,6 +1977,15 @@
             );
             return;
           }
+          if (isBonSortieTarget()) {
+            setOkEnabled(
+              validateBsSortieChoice(
+                selectedBsSortie,
+                getBsSortieValidationOptions(selectedDate || today)
+              ).ok
+            );
+            return;
+          }
           setOkEnabled(true);
         };
         const updatePaymentVisibility = () => {
@@ -1590,6 +1994,19 @@
           paymentRow.hidden = !show;
           paymentRow.style.display = show ? "grid" : "none";
           updateAcompteVisibility();
+          updateConfirmState();
+        };
+        updateBsSortieVisibility = () => {
+          if (!bsSortieSection) return;
+          const show = isBonSortieTarget();
+          bsSortieSection.hidden = !show;
+          bsSortieSection.style.display = show ? "" : "none";
+          bsSortieSection.setAttribute("aria-hidden", show ? "false" : "true");
+          if (bsTransportSection) {
+            bsTransportSection.hidden = !show;
+            bsTransportSection.style.display = show ? "" : "none";
+            bsTransportSection.setAttribute("aria-hidden", show ? "false" : "true");
+          }
           updateConfirmState();
         };
         updateBeReceptionVisibility = () => {
@@ -1612,6 +2029,7 @@
             updateConfirmState();
             updatePaymentVisibility();
             updateBeReceptionVisibility();
+            updateBsSortieVisibility();
             return;
           }
           let firstAllowed = null;
@@ -1652,6 +2070,7 @@
           }
           updatePaymentVisibility();
           updateBeReceptionVisibility();
+          updateBsSortieVisibility();
         };
 
         const createMenuGroup = ({
@@ -1896,6 +2315,43 @@
                 <input id="${CONVERT_BE_RECEPTION_IDS.time}" type="text" inputmode="numeric" placeholder="HH:MM" autocomplete="off">
               </label>
             `;
+        const renderBsSortieSelectField = ({
+          fieldKey,
+          labelText,
+          menuId,
+          panelId,
+          displayId,
+          placeholder,
+          multiple = false
+        } = {}) => `
+          <label class="items-be-reception-form__field doc-history-modal__filter article-stock-depot-filter">
+            <span>${labelText}</span>
+            <div class="doc-dialog-model-picker__field">
+              <details id="${menuId}" class="field-toggle-menu doc-dialog-model-menu doc-history-model-menu" data-disabled="false">
+                <summary class="btn success field-toggle-trigger" role="button" aria-haspopup="listbox" aria-expanded="false" aria-disabled="false">
+                  <span id="${displayId}" class="model-select-display">${placeholder}</span>
+                  ${CHEVRON_SVG}
+                </summary>
+                <div id="${panelId}" class="field-toggle-panel model-select-panel doc-history-model-panel" role="listbox"></div>
+              </details>
+              <select id="${CONVERT_BS_SORTIE_IDS[fieldKey]}" class="model-select doc-dialog-model-select" aria-hidden="true" tabindex="-1" ${multiple ? "multiple" : ""}>
+                <option value="">${placeholder}</option>
+              </select>
+            </div>
+          </label>
+        `;
+        const renderBsSortieTimeField = () =>
+          typeof w.BeReceptionTimeField?.render === "function"
+            ? w.BeReceptionTimeField.render({
+                inputId: CONVERT_BS_SORTIE_IDS.time,
+                panelId: CONVERT_BS_SORTIE_IDS.timePanel
+              })
+            : `
+              <label class="items-be-reception-form__field">
+                <span>Heure</span>
+                <input id="${CONVERT_BS_SORTIE_IDS.time}" type="text" inputmode="numeric" placeholder="HH:MM" autocomplete="off">
+              </label>
+            `;
         const setBeReceptionSelectOptions = (
           select,
           records = [],
@@ -2134,8 +2590,256 @@
           updateConfirmState();
           return true;
         };
+        const renderBsSortieDepotPanel = (section, records = [], selectedDepotId = "") => {
+          const select = section?.querySelector?.(`#${CONVERT_BS_SORTIE_IDS.depot}`);
+          const menu = section?.querySelector?.(`#${CONVERT_BS_SORTIE_IDS.depotMenu}`);
+          const panel = section?.querySelector?.(`#${CONVERT_BS_SORTIE_IDS.depotPanel}`);
+          const display = section?.querySelector?.(`#${CONVERT_BS_SORTIE_IDS.depotDisplay}`);
+          if (!(select instanceof HTMLSelectElement) || !(panel instanceof HTMLElement) || !(menu instanceof HTMLElement)) {
+            return { selectedDepotId: "", selectedDepotLabel: "" };
+          }
+          const selectedValues = setBeReceptionSelectOptions(select, records, {
+            placeholder: "Selectionner un depot",
+            selectedValue: normalizeBeReceptionDepotId(selectedDepotId),
+            valueKey: "id",
+            labelKey: "name"
+          });
+          const selectedValue = selectedValues[0] || "";
+          const selectedLabel = getSelectedOptionText(select);
+          if (display) {
+            display.textContent = selectedLabel || "Selectionner un depot";
+            display.dataset.selected = selectedValue ? "true" : "false";
+          }
+          menu.dataset.selected = selectedValue ? "true" : "false";
+          setBeReceptionPickerDisabled(menu, select, !records.length);
+          panel.replaceChildren();
+          if (!records.length) {
+            const empty = document.createElement("p");
+            empty.className = "model-select-empty";
+            empty.textContent = "Aucun depot enregistre";
+            panel.appendChild(empty);
+          } else {
+            records.forEach((record) => {
+              const button = document.createElement("button");
+              button.type = "button";
+              button.className = "model-select-option";
+              button.dataset.value = record.id;
+              button.setAttribute("role", "option");
+              button.textContent = record.name;
+              const isActive = record.id === selectedValue;
+              button.classList.toggle("is-active", isActive);
+              button.setAttribute("aria-selected", isActive ? "true" : "false");
+              button.addEventListener("click", () => {
+                if (select.disabled) return;
+                select.value = record.id;
+                closeBeReceptionMenu(menu);
+                selectedBsSortie = {
+                  ...normalizeBsSortieChoice(selectedBsSortie, { fallbackDate: selectedDate || today }),
+                  depotId: record.id,
+                  depot: record.name,
+                  locationId: "",
+                  locationIds: [],
+                  locationLabels: [],
+                  location: ""
+                };
+                try {
+                  select.dispatchEvent(new Event("change", { bubbles: true }));
+                } catch {}
+              });
+              panel.appendChild(button);
+            });
+          }
+          wireBeReceptionMenu(menu, panel);
+          return { selectedDepotId: selectedValue, selectedDepotLabel: selectedLabel };
+        };
+        const renderBsSortieLocationPanel = (
+          section,
+          locations = [],
+          { selectedLocationIds = [], depotSelected = false } = {}
+        ) => {
+          const select = section?.querySelector?.(`#${CONVERT_BS_SORTIE_IDS.location}`);
+          const menu = section?.querySelector?.(`#${CONVERT_BS_SORTIE_IDS.locationMenu}`);
+          const panel = section?.querySelector?.(`#${CONVERT_BS_SORTIE_IDS.locationPanel}`);
+          const display = section?.querySelector?.(`#${CONVERT_BS_SORTIE_IDS.locationDisplay}`);
+          if (!(select instanceof HTMLSelectElement) || !(panel instanceof HTMLElement) || !(menu instanceof HTMLElement)) {
+            return { selectedLocationIds: [], selectedLocationLabels: [] };
+          }
+          const selectedIds = setBeReceptionSelectOptions(select, locations, {
+            placeholder: depotSelected ? "Aucun emplacement" : "Selectionnez d'abord un depot",
+            selectedValues: normalizeBsSortieLocationIds(selectedLocationIds),
+            valueKey: "id",
+            labelKey: "code"
+          });
+          const selectedLabels = normalizeBsSortieLocationLabels(
+            selectedIds
+              .map((id) => {
+                const option = Array.from(select.options || []).find((entry) => entry.value === id);
+                return option?.textContent || "";
+              })
+              .filter(Boolean)
+          );
+          const displayText = selectedLabels.length
+            ? selectedLabels.length > 1
+              ? `${selectedLabels.length} emplacements`
+              : formatBsSortieLocationText(selectedLabels)
+            : depotSelected
+              ? "Aucun emplacement"
+              : "Selectionnez d'abord un depot";
+          if (display) {
+            display.textContent = displayText;
+            display.dataset.selected = selectedIds.length ? "true" : "false";
+          }
+          menu.dataset.selected = selectedIds.length ? "true" : "false";
+          setBeReceptionPickerDisabled(menu, select, !depotSelected || !locations.length);
+          panel.replaceChildren();
+          if (!depotSelected) {
+            const empty = document.createElement("p");
+            empty.className = "model-select-empty";
+            empty.textContent = "Selectionnez d'abord un depot";
+            panel.appendChild(empty);
+          } else if (!locations.length) {
+            const empty = document.createElement("p");
+            empty.className = "model-select-empty";
+            empty.textContent = "Aucun emplacement";
+            panel.appendChild(empty);
+          } else {
+            Array.from(select.options || []).forEach((option) => {
+              if (!option.value) return;
+              const button = document.createElement("button");
+              button.type = "button";
+              button.className = "model-select-option model-select-option--multiselect stock-location-option";
+              button.dataset.value = option.value;
+              button.setAttribute("role", "option");
+              const checkbox = document.createElement("span");
+              checkbox.className = "stock-location-option__checkbox";
+              checkbox.setAttribute("aria-hidden", "true");
+              const checkIcon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+              checkIcon.classList.add("stock-location-option__check");
+              checkIcon.setAttribute("viewBox", "0 0 20 20");
+              checkIcon.setAttribute("fill", "none");
+              checkIcon.setAttribute("focusable", "false");
+              checkIcon.setAttribute("aria-hidden", "true");
+              const checkPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+              checkPath.setAttribute("d", "M5 10.5L8.5 14L15 7.5");
+              checkPath.setAttribute("stroke", "currentColor");
+              checkPath.setAttribute("stroke-width", "2");
+              checkPath.setAttribute("stroke-linecap", "round");
+              checkPath.setAttribute("stroke-linejoin", "round");
+              checkIcon.appendChild(checkPath);
+              checkbox.appendChild(checkIcon);
+              const label = document.createElement("span");
+              label.className = "stock-location-option__label";
+              label.textContent = normalizeBeReceptionText(option.textContent || "");
+              button.append(checkbox, label);
+              const isActive = selectedIds.includes(option.value);
+              button.classList.toggle("is-active", isActive);
+              button.setAttribute("aria-selected", isActive ? "true" : "false");
+              button.addEventListener("click", (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                if (select.disabled) return;
+                const currentIds = normalizeBsSortieLocationIds(
+                  Array.from(select.selectedOptions || []).map((entry) => entry.value)
+                );
+                const hasValue = currentIds.includes(option.value);
+                const nextIds = hasValue
+                  ? currentIds.filter((entry) => entry !== option.value)
+                  : [...currentIds, option.value];
+                Array.from(select.options || []).forEach((entry) => {
+                  entry.selected = nextIds.includes(entry.value);
+                });
+                try {
+                  select.dispatchEvent(new Event("change", { bubbles: true }));
+                } catch {}
+              });
+              panel.appendChild(button);
+            });
+          }
+          wireBeReceptionMenu(menu, panel);
+          return { selectedLocationIds: selectedIds, selectedLocationLabels: selectedLabels };
+        };
+        const syncBsSortieSelectors = async (section) => {
+          if (!(section instanceof HTMLElement)) return false;
+          const syncToken = String((Number(section.dataset.bsSortieSyncToken || "0") || 0) + 1);
+          section.dataset.bsSortieSyncToken = syncToken;
+          selectedBsSortie = normalizeBsSortieChoice(selectedBsSortie, {
+            fallbackDate: selectedDate || today
+          });
+          const depots = await fetchBeReceptionDepotRecords();
+          if (section.dataset.bsSortieSyncToken !== syncToken) return false;
+          const depotState = renderBsSortieDepotPanel(section, depots, selectedBsSortie.depotId);
+          const depotId = normalizeBeReceptionDepotId(depotState.selectedDepotId || "");
+          const depotLabel = normalizeBeReceptionText(depotState.selectedDepotLabel || "");
+          let locations = [];
+          if (depotId) locations = await fetchBeReceptionLocationsForDepot(depotId);
+          if (section.dataset.bsSortieSyncToken !== syncToken) return false;
+          const locationState = renderBsSortieLocationPanel(section, locations, {
+            selectedLocationIds: selectedBsSortie.locationIds || [],
+            depotSelected: !!depotId
+          });
+          selectedBsSortie = normalizeBsSortieChoice(
+            {
+              ...selectedBsSortie,
+              depotId,
+              depot: depotId ? depotLabel : "",
+              locationId: locationState.selectedLocationIds[0] || "",
+              locationIds: locationState.selectedLocationIds,
+              locationLabels: locationState.selectedLocationLabels,
+              location: locationState.selectedLocationLabels.length
+                ? formatBsSortieLocationText(locationState.selectedLocationLabels)
+                : ""
+            },
+            { fallbackDate: selectedDate || today }
+          );
+          updateConfirmState();
+          return true;
+        };
         const wireBeReceptionTimeInput = (section) => {
           const input = section?.querySelector?.(`#${CONVERT_BE_RECEPTION_IDS.time}`);
+          const wrapper = input?.closest?.("[data-time-picker]") || null;
+          const toggle = wrapper?.querySelector?.("[data-time-picker-toggle]") || null;
+          const panel = wrapper?.querySelector?.("[data-time-picker-panel]") || null;
+          if (!(input instanceof HTMLInputElement) || !(panel instanceof HTMLElement) || !toggle || input.dataset.convertTimeWired === "1") {
+            return;
+          }
+          panel.innerHTML = `
+            <div class="swb-time-picker__footer">
+              <button type="button" class="swb-time-picker__footer-btn" data-convert-time-now>Maintenant</button>
+              <button type="button" class="swb-time-picker__footer-btn swb-time-picker__footer-btn--muted" data-convert-time-clear>Effacer</button>
+            </div>
+          `;
+          const setOpen = (open) => {
+            panel.hidden = !open;
+            wrapper.classList.toggle("is-open", !!open);
+            input.setAttribute("aria-expanded", open ? "true" : "false");
+            toggle.setAttribute("aria-expanded", open ? "true" : "false");
+          };
+          toggle.addEventListener("click", (event) => {
+            event.preventDefault();
+            setOpen(panel.hidden);
+          });
+          panel.querySelector("[data-convert-time-now]")?.addEventListener("click", () => {
+            input.value = formatBeReceptionTime();
+            input.dispatchEvent(new Event("change", { bubbles: true }));
+            setOpen(false);
+          });
+          panel.querySelector("[data-convert-time-clear]")?.addEventListener("click", () => {
+            input.value = "";
+            input.dispatchEvent(new Event("change", { bubbles: true }));
+            setOpen(false);
+          });
+          document.addEventListener(
+            "click",
+            (event) => {
+              if (wrapper.contains(event.target)) return;
+              setOpen(false);
+            },
+            true
+          );
+          input.dataset.convertTimeWired = "1";
+        };
+        const wireBsSortieTimeInput = (section) => {
+          const input = section?.querySelector?.(`#${CONVERT_BS_SORTIE_IDS.time}`);
           const wrapper = input?.closest?.("[data-time-picker]") || null;
           const toggle = wrapper?.querySelector?.("[data-time-picker-toggle]") || null;
           const panel = wrapper?.querySelector?.("[data-time-picker-panel]") || null;
@@ -2295,6 +2999,193 @@
             });
           wireBeReceptionTimeInput(section);
           void syncBeReceptionSelectors(section);
+          return section;
+        };
+        const createBsSortieSection = () => {
+          const section = document.createElement("fieldset");
+          section.id = CONVERT_BS_SORTIE_IDS.section;
+          section.className = "section-box items-be-reception-form doc-history-convert__be-reception";
+          section.hidden = true;
+          section.innerHTML = `
+            <legend>Informations de sortie</legend>
+            <div class="items-be-reception-form__grid">
+              ${renderBsSortieSelectField({
+                fieldKey: "depot",
+                labelText: "D&eacute;p&ocirc;t / Magasin source",
+                menuId: CONVERT_BS_SORTIE_IDS.depotMenu,
+                panelId: CONVERT_BS_SORTIE_IDS.depotPanel,
+                displayId: CONVERT_BS_SORTIE_IDS.depotDisplay,
+                placeholder: "Selectionner un depot"
+              })}
+              ${renderBsSortieSelectField({
+                fieldKey: "location",
+                labelText: "Emplacement source",
+                menuId: CONVERT_BS_SORTIE_IDS.locationMenu,
+                panelId: CONVERT_BS_SORTIE_IDS.locationPanel,
+                displayId: CONVERT_BS_SORTIE_IDS.locationDisplay,
+                placeholder: "Aucun emplacement",
+                multiple: true
+              })}
+              <label class="items-be-reception-form__field">
+                <span>Date de sortie</span>
+                <div class="swb-date-picker" data-date-picker>
+                  <input id="${CONVERT_BS_SORTIE_IDS.date}" type="text" inputmode="numeric" placeholder="AAAA-MM-JJ" autocomplete="off" spellcheck="false" aria-haspopup="dialog" aria-expanded="false" role="combobox" aria-controls="${CONVERT_BS_SORTIE_IDS.datePanel}">
+                  <button type="button" class="swb-date-picker__toggle" data-date-picker-toggle aria-label="Choisir une date de sortie" aria-haspopup="dialog" aria-expanded="false" aria-controls="${CONVERT_BS_SORTIE_IDS.datePanel}">
+                    <svg class="swb-date-picker__toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" focusable="false">
+                      <rect x="3.5" y="5" width="17" height="15" rx="2"></rect>
+                      <path d="M8 3.5v3M16 3.5v3M3.5 10h17" stroke-linecap="round"></path>
+                    </svg>
+                  </button>
+                  <div class="swb-date-picker__panel" data-date-picker-panel hidden role="dialog" aria-modal="false" aria-label="Choisir une date" tabindex="-1" id="${CONVERT_BS_SORTIE_IDS.datePanel}"></div>
+                </div>
+              </label>
+              ${renderBsSortieTimeField()}
+              <label class="items-be-reception-form__field items-be-reception-form__field--wide items-be-reception-form__field--source" for="${CONVERT_BS_SORTIE_IDS.sourceRef}">
+                <span>R&eacute;f&eacute;rence source</span>
+                <div class="items-be-reception-form__input-group items-be-reception-form__input-group--source">
+                  <input id="${CONVERT_BS_SORTIE_IDS.sourceRef}" type="text" placeholder="ex : Facture" autocomplete="off">
+                </div>
+              </label>
+            </div>
+          `;
+          const sortie = normalizeBsSortieChoice(selectedBsSortie, {
+            fallbackDate: selectedDate || today
+          });
+          const dateInput = section.querySelector(`#${CONVERT_BS_SORTIE_IDS.date}`);
+          const timeInput = section.querySelector(`#${CONVERT_BS_SORTIE_IDS.time}`);
+          const sourceInput = section.querySelector(`#${CONVERT_BS_SORTIE_IDS.sourceRef}`);
+          if (dateInput) {
+            dateInput.value = sortie.date || selectedDate || today;
+            if (createDatePicker) {
+              const picker = createDatePicker(dateInput, {
+                allowManualInput: true,
+                onChange(value) {
+                  bsSortieDateTouched = true;
+                  selectedBsSortie = normalizeBsSortieChoice(
+                    { ...selectedBsSortie, date: value || "" },
+                    { fallbackDate: selectedDate || today }
+                  );
+                  updateConfirmState();
+                }
+              });
+              if (picker) picker.setValue(dateInput.value, { silent: true });
+            } else {
+              dateInput.addEventListener("input", () => {
+                bsSortieDateTouched = true;
+                selectedBsSortie = normalizeBsSortieChoice(
+                  { ...selectedBsSortie, date: dateInput.value || "" },
+                  { fallbackDate: selectedDate || today }
+                );
+                updateConfirmState();
+              });
+            }
+          }
+          if (timeInput) {
+            timeInput.value = sortie.time || formatBeReceptionTime();
+            timeInput.addEventListener("input", () => {
+              selectedBsSortie = normalizeBsSortieChoice(
+                { ...selectedBsSortie, time: timeInput.value || "" },
+                { fallbackDate: selectedDate || today }
+              );
+              updateConfirmState();
+            });
+            timeInput.addEventListener("change", () => {
+              selectedBsSortie = normalizeBsSortieChoice(
+                { ...selectedBsSortie, time: timeInput.value || "" },
+                { fallbackDate: selectedDate || today }
+              );
+              updateConfirmState();
+            });
+          }
+          if (sourceInput) {
+            sourceInput.value = sortie.sourceRef || "";
+            sourceInput.addEventListener("input", () => {
+              selectedBsSortie = normalizeBsSortieChoice(
+                { ...selectedBsSortie, sourceRef: sourceInput.value || "" },
+                { fallbackDate: selectedDate || today }
+              );
+              updateConfirmState();
+            });
+          }
+          section
+            .querySelector(`#${CONVERT_BS_SORTIE_IDS.depot}`)
+            ?.addEventListener("change", () => void syncBsSortieSelectors(section));
+          section
+            .querySelector(`#${CONVERT_BS_SORTIE_IDS.location}`)
+            ?.addEventListener("change", () => {
+              selectedBsSortie = readBsSortieFormValues(section, selectedBsSortie);
+              void syncBsSortieSelectors(section);
+            });
+          wireBsSortieTimeInput(section);
+          void syncBsSortieSelectors(section);
+          return section;
+        };
+        const createBsTransportSection = () => {
+          const section = document.createElement("fieldset");
+          section.id = CONVERT_BS_SORTIE_IDS.transportSection;
+          section.className = "section-box items-be-reception-form doc-history-convert__be-reception";
+          section.hidden = true;
+          section.innerHTML = `
+            <legend>Transport / exp&eacute;dition</legend>
+            <div class="items-be-reception-form__grid items-be-reception-form__grid--transport">
+              <label class="items-be-reception-form__field" for="${CONVERT_BS_SORTIE_IDS.transporter}">
+                <span>Transporteur</span>
+                <input id="${CONVERT_BS_SORTIE_IDS.transporter}" type="text" placeholder="Nom du transporteur" autocomplete="off">
+              </label>
+              <label class="items-be-reception-form__field" for="${CONVERT_BS_SORTIE_IDS.driverName}">
+                <span>Chauffeur</span>
+                <input id="${CONVERT_BS_SORTIE_IDS.driverName}" type="text" placeholder="Nom du chauffeur" autocomplete="off">
+              </label>
+              <label class="items-be-reception-form__field" for="${CONVERT_BS_SORTIE_IDS.vehiclePlate}">
+                <span>Matricule v&eacute;hicule</span>
+                <input id="${CONVERT_BS_SORTIE_IDS.vehiclePlate}" type="text" placeholder="Matricule du vehicule" autocomplete="off">
+              </label>
+              <label class="items-be-reception-form__field" for="${CONVERT_BS_SORTIE_IDS.transportMode}">
+                <span>Mode de transport</span>
+                <input id="${CONVERT_BS_SORTIE_IDS.transportMode}" type="text" placeholder="Camion, utilitaire, etc." autocomplete="off">
+              </label>
+              <label class="items-be-reception-form__field items-be-reception-form__field--wide" for="${CONVERT_BS_SORTIE_IDS.exitReason}">
+                <span>Motif de sortie</span>
+                <input id="${CONVERT_BS_SORTIE_IDS.exitReason}" type="text" placeholder="Motif / commentaire de sortie" autocomplete="off">
+              </label>
+            </div>
+          `;
+          const sortie = normalizeBsSortieChoice(selectedBsSortie, {
+            fallbackDate: selectedDate || today
+          });
+          const valuesById = {
+            [CONVERT_BS_SORTIE_IDS.transporter]: sortie.transporter || "",
+            [CONVERT_BS_SORTIE_IDS.driverName]: sortie.driverName || "",
+            [CONVERT_BS_SORTIE_IDS.vehiclePlate]: sortie.vehiclePlate || "",
+            [CONVERT_BS_SORTIE_IDS.transportMode]: sortie.transportMode || "",
+            [CONVERT_BS_SORTIE_IDS.exitReason]: sortie.exitReason || ""
+          };
+          Object.entries(valuesById).forEach(([id, value]) => {
+            const input = section.querySelector(`#${id}`);
+            if (input) input.value = value;
+          });
+          [
+            ["transporter", CONVERT_BS_SORTIE_IDS.transporter],
+            ["driverName", CONVERT_BS_SORTIE_IDS.driverName],
+            ["vehiclePlate", CONVERT_BS_SORTIE_IDS.vehiclePlate],
+            ["transportMode", CONVERT_BS_SORTIE_IDS.transportMode],
+            ["exitReason", CONVERT_BS_SORTIE_IDS.exitReason]
+          ].forEach(([key, id]) => {
+            const input = section.querySelector(`#${id}`);
+            if (!input) return;
+            const syncValue = () => {
+              selectedBsSortie = normalizeBsSortieChoice(
+                {
+                  ...selectedBsSortie,
+                  [key]: input.value || ""
+                },
+                { fallbackDate: selectedDate || today }
+              );
+              updateConfirmState();
+            };
+            input.addEventListener("input", syncValue);
+            input.addEventListener("change", syncValue);
+          });
           return section;
         };
 
@@ -2641,6 +3532,7 @@
             applyModelFilterForTarget(nextValue);
             updatePaymentVisibility();
             updateBeReceptionVisibility();
+            updateBsSortieVisibility();
           };
           targetRadios.forEach((radio) => {
             radio.addEventListener("change", () => {
@@ -2733,6 +3625,18 @@
                     beDateInput.value = selectedDate;
                   }
                 }
+                if (!bsSortieDateTouched) {
+                  selectedBsSortie = normalizeBsSortieChoice(
+                    { ...selectedBsSortie, date: selectedDate },
+                    { fallbackDate: selectedDate || today }
+                  );
+                  const bsDateInput = dialogBsSortieSection?.querySelector?.(
+                    `#${CONVERT_BS_SORTIE_IDS.date}`
+                  );
+                  if (bsDateInput && bsDateInput.value !== selectedDate) {
+                    bsDateInput.value = selectedDate;
+                  }
+                }
                 updateConfirmState();
               }
             });
@@ -2751,6 +3655,18 @@
                 );
                 if (beDateInput && beDateInput.value !== selectedDate) {
                   beDateInput.value = selectedDate;
+                }
+              }
+              if (!bsSortieDateTouched) {
+                selectedBsSortie = normalizeBsSortieChoice(
+                  { ...selectedBsSortie, date: selectedDate },
+                  { fallbackDate: selectedDate || today }
+                );
+                const bsDateInput = dialogBsSortieSection?.querySelector?.(
+                  `#${CONVERT_BS_SORTIE_IDS.date}`
+                );
+                if (bsDateInput && bsDateInput.value !== selectedDate) {
+                  bsDateInput.value = selectedDate;
                 }
               }
               updateConfirmState();
@@ -2883,6 +3799,10 @@
         if (supportsBonEntreeTarget) {
           beReceptionSection = createBeReceptionSection();
         }
+        if (supportsBonSortieTarget) {
+          bsSortieSection = createBsSortieSection();
+          bsTransportSection = createBsTransportSection();
+        }
 
         if (targetGroup) wrapper.appendChild(targetGroup);
         wrapper.appendChild(modelGroup);
@@ -2890,6 +3810,8 @@
         wrapper.appendChild(paymentRow);
         wrapper.appendChild(acompteRow);
         if (beReceptionSection) wrapper.appendChild(beReceptionSection);
+        if (bsSortieSection) wrapper.appendChild(bsSortieSection);
+        if (bsTransportSection) wrapper.appendChild(bsTransportSection);
         submitErrorElement = document.createElement("p");
         submitErrorElement.className = "doc-dialog-error";
         submitErrorElement.hidden = true;
@@ -2903,10 +3825,13 @@
         dialogPaymentReferenceInput = paymentReferenceInputEl;
         dialogAcomptePaidInput = acomptePaidInput;
         dialogBeReceptionSection = beReceptionSection;
+        dialogBsSortieSection = bsSortieSection;
+        dialogBsTransportSection = bsTransportSection;
         dialogTargetSelect = targetSelect;
         dialogTargetRadios = targetRadios.slice();
         updatePaymentVisibility();
         updateBeReceptionVisibility();
+        updateBsSortieVisibility();
       }
     });
     if (!confirmed) return null;
@@ -3023,7 +3948,9 @@
       historyStatus,
       paidAmount,
       beReception,
-      beReceptionRequireStorageFields = true
+      beReceptionRequireStorageFields = true,
+      bsSortie,
+      bsSortieRequireStorageFields = true
     } = {}
   ) {
     const logConvert = (stage, data) => {
@@ -3034,6 +3961,7 @@
     const normalizedDocType = String(docType || "facture").toLowerCase();
     const isFacture = normalizedDocType === "facture";
     const isBonEntree = normalizedDocType === "be";
+    const isBonSortie = normalizedDocType === "bs";
     const normalizedPaymentMethod = String(paymentMethod || "").trim();
     const normalizedPaymentReference = String(paymentReference || "").trim();
     const normalizedStatus = normalizeFactureStatusValue(historyStatus);
@@ -3050,6 +3978,7 @@
       (dateOverride || meta.date || getEl("invDate")?.value || new Date().toISOString().slice(0, 10)).slice(0, 10);
     meta.date = date;
     let normalizedBeReception = null;
+    let normalizedBsSortie = null;
     if (isBonEntree) {
       const validation = validateBeReceptionChoice(
         beReception || meta.beReception || {},
@@ -3065,6 +3994,24 @@
         return { ok: false, error: validation.error || "Informations de reception incompletes." };
       }
       normalizedBeReception = applyBeReceptionChoiceToMeta(meta, validation.value, {
+        fallbackDate: date
+      });
+    }
+    if (isBonSortie) {
+      const validation = validateBsSortieChoice(
+        bsSortie || meta.bsSortie || {},
+        {
+          fallbackDate: date,
+          requireStorageFields: bsSortieRequireStorageFields !== false
+        }
+      );
+      if (!validation.ok) {
+        logConvert("bs-sortie-validation-failed", {
+          error: String(validation.error || "")
+        });
+        return { ok: false, error: validation.error || "Informations de sortie incompletes." };
+      }
+      normalizedBsSortie = applyBsSortieChoiceToMeta(meta, validation.value, {
         fallbackDate: date
       });
     }
@@ -3136,6 +4083,9 @@
     if (isBonEntree && normalizedBeReception) {
       applyBeReceptionChoiceToMeta(meta, normalizedBeReception, { fallbackDate: date });
     }
+    if (isBonSortie && normalizedBsSortie) {
+      applyBsSortieChoiceToMeta(meta, normalizedBsSortie, { fallbackDate: date });
+    }
     if (!meta.number && !isManualNumberDocType(normalizedDocType)) {
       const fallbackPrefix =
         normalizedDocType === "facture"
@@ -3164,6 +4114,9 @@
     } catch {}
     if (isBonEntree && normalizedBeReception) {
       applyBeReceptionChoiceToMeta(meta, normalizedBeReception, { fallbackDate: date });
+    }
+    if (isBonSortie && normalizedBsSortie) {
+      applyBsSortieChoiceToMeta(meta, normalizedBsSortie, { fallbackDate: date });
     }
     const paidAmountValue = Number(paidAmount);
     if (
@@ -3221,6 +4174,9 @@
     snapMeta.historyDocType = normalizedDocType;
     if (isBonEntree && normalizedBeReception) {
       applyBeReceptionChoiceToMeta(snapMeta, normalizedBeReception, { fallbackDate: date });
+    }
+    if (isBonSortie && normalizedBsSortie) {
+      applyBsSortieChoiceToMeta(snapMeta, normalizedBsSortie, { fallbackDate: date });
     }
     if (isFacture) {
       if (resolvedPaymentMethod) snapMeta.paymentMethod = resolvedPaymentMethod;
@@ -3718,6 +4674,7 @@
       metaTarget.historyPath = null;
       metaTarget.historyDocType = null;
       let normalizedBeReception = null;
+      let normalizedBsSortie = null;
       const requireBeReceptionStorageFields = shouldRequireBeReceptionStorageFields(
         resolvedSourceDocType,
         normalizedTarget
@@ -3732,6 +4689,20 @@
           return { ok: false, error: beValidation.error || "Informations de reception incompletes." };
         }
         normalizedBeReception = applyBeReceptionChoiceToMeta(metaTarget, beValidation.value, {
+          fallbackDate: choices.date || metaTarget.date || ""
+        });
+      }
+      const requireBsSortieStorageFields = normalizedTarget === "bs";
+      if (normalizedTarget === "bs") {
+        const bsValidation = validateBsSortieChoice(choices.bsSortie, {
+          meta: metaTarget,
+          fallbackDate: choices.date || metaTarget.date || new Date().toISOString().slice(0, 10),
+          requireStorageFields: requireBsSortieStorageFields
+        });
+        if (!bsValidation.ok) {
+          return { ok: false, error: bsValidation.error || "Informations de sortie incompletes." };
+        }
+        normalizedBsSortie = applyBsSortieChoiceToMeta(metaTarget, bsValidation.value, {
           fallbackDate: choices.date || metaTarget.date || ""
         });
       }
@@ -3772,6 +4743,13 @@
           fallbackDate: choices.date || meta.date || ""
         });
       }
+      if (normalizedTarget === "bs" && normalizedBsSortie) {
+        const st = SEM.state || (SEM.state = {});
+        const meta = st.meta || (st.meta = {});
+        applyBsSortieChoiceToMeta(meta, normalizedBsSortie, {
+          fallbackDate: choices.date || meta.date || ""
+        });
+      }
       if (typeof w.SEM?.bind === "function") {
         w.__suppressModelApplyOnce = 2;
         w.SEM.bind();
@@ -3804,6 +4782,13 @@
           fallbackDate: choices.date || meta.date || ""
         });
       }
+      if (normalizedTarget === "bs" && normalizedBsSortie) {
+        const st = SEM.state || (SEM.state = {});
+        const meta = st.meta || (st.meta = {});
+        applyBsSortieChoiceToMeta(meta, normalizedBsSortie, {
+          fallbackDate: choices.date || meta.date || ""
+        });
+      }
       if (typeof w.setDocTypeMenuAllowedDocTypes === "function") {
         w.setDocTypeMenuAllowedDocTypes(null);
       }
@@ -3821,7 +4806,9 @@
         historyStatus: choices.status,
         paidAmount: choices.paidAmount,
         beReception: normalizedBeReception || choices.beReception,
-        beReceptionRequireStorageFields: requireBeReceptionStorageFields
+        beReceptionRequireStorageFields: requireBeReceptionStorageFields,
+        bsSortie: normalizedBsSortie || choices.bsSortie,
+        bsSortieRequireStorageFields: requireBsSortieStorageFields
       });
       const failedSave = !saved || (saved && typeof saved === "object" && saved.ok === false);
       if (failedSave) {
@@ -4126,11 +5113,11 @@
       onClose,
       sourceDocType: "facture",
       promptOptions: {
-        titleText: "Convertir le devis",
-        targetDocTypes: ["avoir"],
+        titleText: "Convertir la facture",
+        targetDocTypes: ["avoir", "bs"],
         defaultTarget: "avoir",
         showTargetChoice: true,
-        allowedModelDocTypes: ["avoir"]
+        allowedModelDocTypes: ["avoir", "bs"]
       }
     });
   }
@@ -4148,6 +5135,19 @@
     formatDestinationText: formatBeReceptionDestinationText,
     formatTime: formatBeReceptionTime
   };
+  const BonSortieSortie = {
+    normalizeChoice: normalizeBsSortieChoice,
+    createDefaultChoice: createDefaultBsSortieChoice,
+    validateChoice: validateBsSortieChoice,
+    fetchDepotRecords: fetchBeReceptionDepotRecords,
+    fetchLocationsForDepot: fetchBeReceptionLocationsForDepot,
+    normalizeDepotId: normalizeBeReceptionDepotId,
+    normalizeLocationId: normalizeBeReceptionLocationId,
+    normalizeLocationIds: normalizeBsSortieLocationIds,
+    normalizeLocationLabels: normalizeBsSortieLocationLabels,
+    formatLocationText: formatBsSortieLocationText,
+    formatTime: formatBeReceptionTime
+  };
 
   AppInit.DocConversion = {
     openMainScreenConversionWizard,
@@ -4157,6 +5157,8 @@
     convertDevisEntry,
     convertBlEntry,
     convertFactureEntry,
-    BonEntreeReception
+    BonEntreeReception,
+    BonSortieSortie,
+    BonSortie: BonSortieSortie
   };
 })(window);

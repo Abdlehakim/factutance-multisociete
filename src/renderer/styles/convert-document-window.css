@@ -3,7 +3,7 @@
 }
 
 #convertDocumentWindowModal .convert-document-window-modal__panel {
-  width: min(980px, calc(100vw - 32px));
+  width: min(1220px, calc(100vw - 32px));
   display: flex;
   flex-direction: column;
   max-height: calc(100vh - 10px);
@@ -413,7 +413,7 @@
   display: none !important;
 }
 
-#convertDocumentWindowModal #convertDocumentWindowBeReceptionWrap {
+#convertDocumentWindowModal .convert-document-window-modal__stock-form {
   grid-column: 1 / -1;
   min-inline-size: 0;
   margin: 2px 0 0;
@@ -425,7 +425,11 @@
   display: block;
 }
 
-#convertDocumentWindowModal #convertDocumentWindowBeReceptionWrap > legend {
+#convertDocumentWindowModal .convert-document-window-modal__stock-form + .convert-document-window-modal__stock-form {
+  margin-top: 4px;
+}
+
+#convertDocumentWindowModal .convert-document-window-modal__stock-form > legend {
   margin: 0 0 8px;
   padding: 0;
   border: 0;
@@ -438,7 +442,7 @@
   text-transform: none;
 }
 
-#convertDocumentWindowModal #convertDocumentWindowBeReceptionWrap[hidden] {
+#convertDocumentWindowModal .convert-document-window-modal__stock-form[hidden] {
   display: none !important;
 }
 
@@ -460,35 +464,36 @@
   min-height: 42px;
 }
 
-#convertDocumentWindowModal #convertDocumentWindowBeReceptionWrap .items-be-reception-form__grid {
+#convertDocumentWindowModal .convert-document-window-modal__stock-form .items-be-reception-form__grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
   margin: 0;
   align-items: start;
 }
 
-#convertDocumentWindowModal #convertDocumentWindowBeReceptionWrap .items-be-reception-form__field {
+#convertDocumentWindowModal .convert-document-window-modal__stock-form .items-be-reception-form__field {
   gap: 6px;
   min-width: 0;
   color: #15335e;
   font-size: 12px;
 }
 
-#convertDocumentWindowModal #convertDocumentWindowBeReceptionWrap .items-be-reception-form__field--wide {
+#convertDocumentWindowModal .convert-document-window-modal__stock-form .items-be-reception-form__field--wide {
   grid-column: span 2;
 }
 
-#convertDocumentWindowModal #convertDocumentWindowBeReceptionWrap .items-be-reception-form__field > span {
+#convertDocumentWindowModal .convert-document-window-modal__stock-form .items-be-reception-form__field > span {
   color: #0f172a;
   font-size: 13px;
   font-weight: 600;
   line-height: 1.2;
 }
 
-#convertDocumentWindowModal #convertDocumentWindowBeReceptionWrap .field-toggle-trigger,
-#convertDocumentWindowModal #convertDocumentWindowBeReceptionWrap .swb-time-picker,
-#convertDocumentWindowModal #convertDocumentWindowBeReceptionWrap .swb-date-picker input,
-#convertDocumentWindowModal #convertDocumentWindowBeReceptionWrap .items-be-reception-form__input-group input {
+#convertDocumentWindowModal .convert-document-window-modal__stock-form .field-toggle-trigger,
+#convertDocumentWindowModal .convert-document-window-modal__stock-form .swb-time-picker,
+#convertDocumentWindowModal .convert-document-window-modal__stock-form .swb-date-picker input,
+#convertDocumentWindowModal .convert-document-window-modal__stock-form .items-be-reception-form__input-group input,
+#convertDocumentWindowModal .convert-document-window-modal__stock-form .items-be-reception-form__field > input[type="text"] {
   min-height: 42px;
   border: 1px solid #caddff;
   border-radius: 4px;
@@ -497,60 +502,63 @@
   font-size: 12px;
   font-weight: 400;
   box-shadow: none;
+  box-sizing: border-box;
 }
 
-#convertDocumentWindowModal #convertDocumentWindowBeReceptionWrap .field-toggle-trigger {
+#convertDocumentWindowModal .convert-document-window-modal__stock-form .field-toggle-trigger {
   padding: 10px 12px;
 }
 
-#convertDocumentWindowModal #convertDocumentWindowBeReceptionWrap .field-toggle-trigger:hover {
+#convertDocumentWindowModal .convert-document-window-modal__stock-form .field-toggle-trigger:hover {
   color: #000;
   background: #ffffff;
   border-color: #caddff;
 }
 
-#convertDocumentWindowModal #convertDocumentWindowBeReceptionWrap .field-toggle-menu:focus-within .field-toggle-trigger,
-#convertDocumentWindowModal #convertDocumentWindowBeReceptionWrap .swb-time-picker:focus-within,
-#convertDocumentWindowModal #convertDocumentWindowBeReceptionWrap .swb-date-picker input:focus,
-#convertDocumentWindowModal #convertDocumentWindowBeReceptionWrap .items-be-reception-form__input-group input:focus {
+#convertDocumentWindowModal .convert-document-window-modal__stock-form .field-toggle-menu:focus-within .field-toggle-trigger,
+#convertDocumentWindowModal .convert-document-window-modal__stock-form .swb-time-picker:focus-within,
+#convertDocumentWindowModal .convert-document-window-modal__stock-form .swb-date-picker input:focus,
+#convertDocumentWindowModal .convert-document-window-modal__stock-form .items-be-reception-form__input-group input:focus,
+#convertDocumentWindowModal .convert-document-window-modal__stock-form .items-be-reception-form__field > input[type="text"]:focus {
   outline: none;
   border-color: #15335e;
   box-shadow: 0 0 0 2px rgba(21, 51, 94, 0.18);
 }
 
-#convertDocumentWindowModal #convertDocumentWindowBeReceptionWrap .field-toggle-menu[data-selected="true"] .field-toggle-trigger {
+#convertDocumentWindowModal .convert-document-window-modal__stock-form .field-toggle-menu[data-selected="true"] .field-toggle-trigger {
   border-color: #9eb8e8;
 }
 
-#convertDocumentWindowModal #convertDocumentWindowBeReceptionWrap .field-toggle-menu[data-disabled="true"] .field-toggle-trigger {
+#convertDocumentWindowModal .convert-document-window-modal__stock-form .field-toggle-menu[data-disabled="true"] .field-toggle-trigger {
   opacity: 0.65;
   cursor: not-allowed;
 }
 
-#convertDocumentWindowModal #convertDocumentWindowBeReceptionWrap .model-select-display {
+#convertDocumentWindowModal .convert-document-window-modal__stock-form .model-select-display {
   font-size: 12px;
   font-weight: 400;
   color: #0f172a;
 }
 
-#convertDocumentWindowModal #convertDocumentWindowBeReceptionWrap .field-toggle-trigger .chevron {
+#convertDocumentWindowModal .convert-document-window-modal__stock-form .field-toggle-trigger .chevron {
   width: 18px;
   height: 18px;
   margin-left: auto;
 }
 
-#convertDocumentWindowModal #convertDocumentWindowBeReceptionWrap .swb-date-picker {
+#convertDocumentWindowModal .convert-document-window-modal__stock-form .swb-date-picker {
   gap: 6px;
 }
 
-#convertDocumentWindowModal #convertDocumentWindowBeReceptionWrap .swb-date-picker input,
-#convertDocumentWindowModal #convertDocumentWindowBeReceptionWrap .items-be-reception-form__input-group input {
+#convertDocumentWindowModal .convert-document-window-modal__stock-form .swb-date-picker input,
+#convertDocumentWindowModal .convert-document-window-modal__stock-form .items-be-reception-form__input-group input,
+#convertDocumentWindowModal .convert-document-window-modal__stock-form .items-be-reception-form__field > input[type="text"] {
   width: 100%;
   padding: 6px 8px;
 }
 
-#convertDocumentWindowModal #convertDocumentWindowBeReceptionWrap .swb-date-picker__toggle,
-#convertDocumentWindowModal #convertDocumentWindowBeReceptionWrap .swb-time-picker__toggle {
+#convertDocumentWindowModal .convert-document-window-modal__stock-form .swb-date-picker__toggle,
+#convertDocumentWindowModal .convert-document-window-modal__stock-form .swb-time-picker__toggle {
   width: 42px;
   min-width: 42px;
   height: 42px;
@@ -560,14 +568,14 @@
   color: #0b1220;
 }
 
-#convertDocumentWindowModal #convertDocumentWindowBeReceptionWrap .swb-time-picker {
+#convertDocumentWindowModal .convert-document-window-modal__stock-form .swb-time-picker {
   padding: 0;
   display: flex;
   align-items: center;
   gap: 0;
 }
 
-#convertDocumentWindowModal #convertDocumentWindowBeReceptionWrap .swb-time-picker input {
+#convertDocumentWindowModal .convert-document-window-modal__stock-form .swb-time-picker input {
   height: 40px;
   min-height: 40px;
   border: 0;
@@ -578,23 +586,66 @@
   box-shadow: none;
 }
 
-#convertDocumentWindowModal #convertDocumentWindowBeReceptionWrap .swb-time-picker__toggle {
+#convertDocumentWindowModal .convert-document-window-modal__stock-form .swb-time-picker__toggle {
   border-top: 0;
   border-right: 0;
   border-bottom: 0;
   border-radius: 0 4px 4px 0;
 }
 
-#convertDocumentWindowModal #convertDocumentWindowBeReceptionWrap .swb-date-picker__toggle:hover,
-#convertDocumentWindowModal #convertDocumentWindowBeReceptionWrap .swb-date-picker.is-open .swb-date-picker__toggle,
-#convertDocumentWindowModal #convertDocumentWindowBeReceptionWrap .swb-time-picker__toggle:hover,
-#convertDocumentWindowModal #convertDocumentWindowBeReceptionWrap .swb-time-picker.is-open .swb-time-picker__toggle {
+#convertDocumentWindowModal .convert-document-window-modal__stock-form .swb-date-picker__toggle:hover,
+#convertDocumentWindowModal .convert-document-window-modal__stock-form .swb-date-picker.is-open .swb-date-picker__toggle,
+#convertDocumentWindowModal .convert-document-window-modal__stock-form .swb-time-picker__toggle:hover,
+#convertDocumentWindowModal .convert-document-window-modal__stock-form .swb-time-picker.is-open .swb-time-picker__toggle {
   border-color: #15335e;
   background: #eef4ff;
   color: #0f2d5c;
 }
 
-#convertDocumentWindowModal #convertDocumentWindowBeReceptionDestinationPanel {
+#convertDocumentWindowModal .convert-document-window-modal__stock-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  min-height: 30px;
+  margin: -30px 0 6px;
+}
+
+#convertDocumentWindowModal .convert-document-window-modal__stock-form--transport .items-be-reception-form__grid {
+  margin-top: 0;
+}
+
+#convertDocumentWindowModal .convert-document-window-modal__stock-form-picker.client-search__saved {
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  border-color: #caddff;
+  background: #ffffff;
+  color: #15335e;
+  box-shadow: none;
+  transform: none;
+}
+
+#convertDocumentWindowModal .convert-document-window-modal__stock-form-picker.client-search__saved:hover,
+#convertDocumentWindowModal .convert-document-window-modal__stock-form-picker.client-search__saved:focus-visible {
+  border-color: #9eb8e8;
+  background: #eef4ff;
+  color: #15335e;
+  box-shadow: none;
+  outline: none;
+}
+
+#convertDocumentWindowModal .convert-document-window-modal__stock-form-picker.client-search__saved:active {
+  transform: none;
+}
+
+#convertDocumentWindowModal .convert-document-window-modal__stock-form-picker.client-search__saved svg {
+  width: 18px;
+  height: 18px;
+}
+
+#convertDocumentWindowModal #convertDocumentWindowBeReceptionDestinationPanel,
+#convertDocumentWindowModal #convertDocumentWindowBsSortieLocationPanel {
   border: 1px solid #cbd5e1;
   border-radius: 4px;
   background: #ffffff;
@@ -604,7 +655,8 @@
   padding: 4px;
 }
 
-#convertDocumentWindowModal #convertDocumentWindowBeReceptionDestinationPanel .stock-location-option {
+#convertDocumentWindowModal #convertDocumentWindowBeReceptionDestinationPanel .stock-location-option,
+#convertDocumentWindowModal #convertDocumentWindowBsSortieLocationPanel .stock-location-option {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -620,18 +672,21 @@
   font-weight: 400;
 }
 
-#convertDocumentWindowModal #convertDocumentWindowBeReceptionDestinationPanel .stock-location-option:hover {
+#convertDocumentWindowModal #convertDocumentWindowBeReceptionDestinationPanel .stock-location-option:hover,
+#convertDocumentWindowModal #convertDocumentWindowBsSortieLocationPanel .stock-location-option:hover {
   background: #f7f9ff;
   color: #15335e;
 }
 
-#convertDocumentWindowModal #convertDocumentWindowBeReceptionDestinationPanel .stock-location-option.is-active {
+#convertDocumentWindowModal #convertDocumentWindowBeReceptionDestinationPanel .stock-location-option.is-active,
+#convertDocumentWindowModal #convertDocumentWindowBsSortieLocationPanel .stock-location-option.is-active {
   background: #eaf0fb;
   color: #15335e;
   font-weight: 600;
 }
 
-#convertDocumentWindowModal #convertDocumentWindowBeReceptionDestinationPanel .stock-location-option__checkbox {
+#convertDocumentWindowModal #convertDocumentWindowBeReceptionDestinationPanel .stock-location-option__checkbox,
+#convertDocumentWindowModal #convertDocumentWindowBsSortieLocationPanel .stock-location-option__checkbox {
   width: 16px;
   height: 16px;
   flex: 0 0 16px;
@@ -644,7 +699,8 @@
   color: #ffffff;
 }
 
-#convertDocumentWindowModal #convertDocumentWindowBeReceptionDestinationPanel .stock-location-option__check {
+#convertDocumentWindowModal #convertDocumentWindowBeReceptionDestinationPanel .stock-location-option__check,
+#convertDocumentWindowModal #convertDocumentWindowBsSortieLocationPanel .stock-location-option__check {
   width: 12px;
   height: 12px;
   opacity: 0;
@@ -652,6 +708,10 @@
 
 #convertDocumentWindowModal
   #convertDocumentWindowBeReceptionDestinationPanel
+  .stock-location-option.is-active
+  .stock-location-option__checkbox,
+#convertDocumentWindowModal
+  #convertDocumentWindowBsSortieLocationPanel
   .stock-location-option.is-active
   .stock-location-option__checkbox {
   background: #15335e;
@@ -661,11 +721,16 @@
 #convertDocumentWindowModal
   #convertDocumentWindowBeReceptionDestinationPanel
   .stock-location-option.is-active
+  .stock-location-option__check,
+#convertDocumentWindowModal
+  #convertDocumentWindowBsSortieLocationPanel
+  .stock-location-option.is-active
   .stock-location-option__check {
   opacity: 1;
 }
 
-#convertDocumentWindowModal #convertDocumentWindowBeReceptionDestinationPanel .stock-location-option__label {
+#convertDocumentWindowModal #convertDocumentWindowBeReceptionDestinationPanel .stock-location-option__label,
+#convertDocumentWindowModal #convertDocumentWindowBsSortieLocationPanel .stock-location-option__label {
   flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
@@ -737,10 +802,6 @@
   border-color: #e2e8f0;
 }
 
-#convertDocumentWindowModal .convert-document-window-modal__actions {
-  align-items: center;
-}
-
 #convertDocumentWindowModal .convert-document-window-modal__grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -773,11 +834,11 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  #convertDocumentWindowModal #convertDocumentWindowBeReceptionWrap .items-be-reception-form__grid {
+  #convertDocumentWindowModal .convert-document-window-modal__stock-form .items-be-reception-form__grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  #convertDocumentWindowModal #convertDocumentWindowBeReceptionWrap .items-be-reception-form__field--wide {
+  #convertDocumentWindowModal .convert-document-window-modal__stock-form .items-be-reception-form__field--wide {
     grid-column: 1 / -1;
   }
 }
@@ -831,7 +892,7 @@
     grid-template-columns: 1fr;
   }
 
-  #convertDocumentWindowModal #convertDocumentWindowBeReceptionWrap .items-be-reception-form__grid {
+  #convertDocumentWindowModal .convert-document-window-modal__stock-form .items-be-reception-form__grid {
     grid-template-columns: 1fr;
   }
 }

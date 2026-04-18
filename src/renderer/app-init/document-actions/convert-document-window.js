@@ -56,6 +56,27 @@
     beTime: "convertDocumentWindowBeReceptionTimeInput",
     beTimePanel: "convertDocumentWindowBeReceptionTimePanel",
     beSourceRef: "convertDocumentWindowBeReceptionSourceInput",
+    bsSortieWrap: "convertDocumentWindowBsSortieWrap",
+    bsDepot: "convertDocumentWindowBsSortieDepotInput",
+    bsDepotMenu: "convertDocumentWindowBsSortieDepotMenu",
+    bsDepotPanel: "convertDocumentWindowBsSortieDepotPanel",
+    bsDepotDisplay: "convertDocumentWindowBsSortieDepotDisplay",
+    bsLocation: "convertDocumentWindowBsSortieLocationInput",
+    bsLocationMenu: "convertDocumentWindowBsSortieLocationMenu",
+    bsLocationPanel: "convertDocumentWindowBsSortieLocationPanel",
+    bsLocationDisplay: "convertDocumentWindowBsSortieLocationDisplay",
+    bsDate: "convertDocumentWindowBsSortieDateInput",
+    bsDatePanel: "convertDocumentWindowBsSortieDatePanel",
+    bsTime: "convertDocumentWindowBsSortieTimeInput",
+    bsTimePanel: "convertDocumentWindowBsSortieTimePanel",
+    bsSourceRef: "convertDocumentWindowBsSortieSourceInput",
+    bsTransportWrap: "convertDocumentWindowBsTransportWrap",
+    bsTransportSavedList: "bsTransporteurSavedListBtn",
+    bsTransporter: "convertDocumentWindowBsTransporterInput",
+    bsDriverName: "convertDocumentWindowBsDriverNameInput",
+    bsVehiclePlate: "convertDocumentWindowBsVehiclePlateInput",
+    bsTransportMode: "convertDocumentWindowBsTransportModeInput",
+    bsExitReason: "convertDocumentWindowBsExitReasonInput",
     paymentWrap: "convertDocumentWindowPaymentWrap",
     paymentMethod: "convertDocumentWindowPaymentMethod",
     paymentMethodLabel: "convertDocumentWindowPaymentMethodLabel",
@@ -73,7 +94,6 @@
     acompteDue: "convertDocumentWindowAcompteDue",
     status2: "convertDocumentWindowStatus2",
     close: "convertDocumentWindowClose",
-    cancel: "convertDocumentWindowCancel",
     back: "convertDocumentWindowBack",
     next: "convertDocumentWindowNext",
     confirm: "convertDocumentWindowConfirm"
@@ -91,7 +111,7 @@
       docType: "facture",
       label: "Facture",
       partyType: "client",
-      targets: ["avoir"],
+      targets: ["avoir", "bs"],
       defaultTarget: "avoir"
     },
     {
@@ -324,6 +344,123 @@
     }
     return [];
   };
+  const getBsSortieApi = () =>
+    w.AppInit?.DocConversion?.BonSortieSortie || w.AppInit?.DocConversion?.BonSortie || {};
+  const normalizeBsSortieDepotId = (value = "") => {
+    const api = getBsSortieApi();
+    if (typeof api.normalizeDepotId === "function") return api.normalizeDepotId(value);
+    return normalizeBeReceptionDepotId(value);
+  };
+  const normalizeBsSortieLocationId = (value = "") => {
+    const api = getBsSortieApi();
+    if (typeof api.normalizeLocationId === "function") return api.normalizeLocationId(value);
+    return normalizeBeReceptionLocationId(value);
+  };
+  const normalizeBsSortieLocationIds = (value = []) => {
+    const api = getBsSortieApi();
+    if (typeof api.normalizeLocationIds === "function") return api.normalizeLocationIds(value);
+    const source = Array.isArray(value) ? value : String(value || "").split(",");
+    const seen = new Set();
+    return source
+      .map((entry) => normalizeBsSortieLocationId(entry))
+      .filter((entry) => {
+        if (!entry || seen.has(entry)) return false;
+        seen.add(entry);
+        return true;
+      });
+  };
+  const normalizeBsSortieLocationLabels = (value = []) => {
+    const api = getBsSortieApi();
+    if (typeof api.normalizeLocationLabels === "function") return api.normalizeLocationLabels(value);
+    return normalizeBeReceptionDestinationLabels(value);
+  };
+  const formatBsSortieLocationText = (labels = []) => {
+    const api = getBsSortieApi();
+    if (typeof api.formatLocationText === "function") return api.formatLocationText(labels);
+    return normalizeBsSortieLocationLabels(labels).join(", ");
+  };
+  const formatBsSortieTime = () => {
+    const api = getBsSortieApi();
+    if (typeof api.formatTime === "function") return api.formatTime();
+    return formatBeReceptionTime();
+  };
+  const normalizeBsSortieChoice = (value = {}, options = {}) => {
+    const api = getBsSortieApi();
+    if (typeof api.normalizeChoice === "function") return api.normalizeChoice(value, options);
+    const raw = value && typeof value === "object" ? value : {};
+    const fallbackDate = String(options?.fallbackDate || "").trim();
+    const locationIds = normalizeBsSortieLocationIds(
+      raw.locationIds || raw.locationSelection?.ids || raw.locationId || raw.emplacementId || []
+    );
+    const locationLabels = normalizeBsSortieLocationLabels(
+      raw.locationLabels || raw.locationSelection?.labels || []
+    );
+    return {
+      depot: normalizeBeReceptionText(raw.depot || raw.depotName || raw.magasin || ""),
+      depotId: normalizeBsSortieDepotId(raw.depotId || raw.depotDbId || raw.magasinId || ""),
+      location: normalizeBeReceptionText(
+        raw.location ||
+          raw.emplacement ||
+          (locationLabels.length ? formatBsSortieLocationText(locationLabels) : "")
+      ),
+      locationId: normalizeBsSortieLocationId(locationIds[0] || raw.locationId || ""),
+      locationIds,
+      locationLabels,
+      sourceDocType: normalize(raw.sourceDocType || raw.sourceType || ""),
+      date: String(raw.date || raw.sortieDate || fallbackDate || "").trim(),
+      time: String(raw.time || raw.sortieTime || formatBsSortieTime()).trim(),
+      sourceRef: normalizeBeReceptionText(raw.sourceRef || raw.referenceSource || raw.source || ""),
+      sourceSelection: raw.sourceSelection || raw.sourceDocuments || raw.sourceDocs || null,
+      transporter: normalizeBeReceptionText(raw.transporter || raw.transporteur || ""),
+      driverName: normalizeBeReceptionText(raw.driverName || raw.chauffeur || ""),
+      vehiclePlate: normalizeBeReceptionText(raw.vehiclePlate || raw.vehicle || raw.matriculeVehicule || ""),
+      transportMode: normalizeBeReceptionText(raw.transportMode || raw.modeTransport || ""),
+      exitReason: normalizeBeReceptionText(raw.exitReason || raw.reason || raw.motifSortie || "")
+    };
+  };
+  const createDefaultBsSortieChoice = ({ entry, sourceDocType, date } = {}) => {
+    const api = getBsSortieApi();
+    if (typeof api.createDefaultChoice === "function") {
+      return api.createDefaultChoice({ entry, sourceDocType, date });
+    }
+    const number = String(entry?.number || entry?.invNumber || entry?.name || "").trim();
+    const label = labelOfType(sourceDocType || entry?.docType || "");
+    return normalizeBsSortieChoice(
+      {
+        date,
+        time: formatBsSortieTime(),
+        sourceRef: number ? `${label} : ${number}` : label,
+        sourceDocType
+      },
+      { fallbackDate: date }
+    );
+  };
+  const validateBsSortieChoice = (value = {}, options = {}) => {
+    const api = getBsSortieApi();
+    if (typeof api.validateChoice === "function") return api.validateChoice(value, options);
+    const sortie = normalizeBsSortieChoice(value, options);
+    const requireStorageFields = options?.requireStorageFields !== false;
+    if (requireStorageFields && !sortie.depotId) return { ok: false, error: "Selectionnez un depot / magasin source." };
+    if (sortie.locationIds.length > 1) return { ok: false, error: "Selectionnez un seul emplacement source." };
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(sortie.date)) {
+      return { ok: false, error: "Renseignez une date de sortie valide." };
+    }
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(sortie.time)) {
+      return { ok: false, error: "Renseignez une heure de sortie valide au format HH:MM." };
+    }
+    if (!sortie.sourceRef) return { ok: false, error: "Renseignez la reference source." };
+    return { ok: true, value: sortie };
+  };
+  const fetchBsSortieDepotRecords = async (options = {}) => {
+    const api = getBsSortieApi();
+    if (typeof api.fetchDepotRecords === "function") return api.fetchDepotRecords(options);
+    return fetchBeReceptionDepotRecords(options);
+  };
+  const fetchBsSortieLocationsForDepot = async (depotId = "") => {
+    const api = getBsSortieApi();
+    if (typeof api.fetchLocationsForDepot === "function") return api.fetchLocationsForDepot(depotId);
+    return fetchBeReceptionLocationsForDepot(depotId);
+  };
   const renderBeReceptionSelectField = ({
     selectId,
     menuId,
@@ -359,6 +496,18 @@
         <label class="items-be-reception-form__field">
           <span>Heure</span>
           <input id="${ID.beTime}" type="text" inputmode="numeric" placeholder="HH:MM" autocomplete="off">
+        </label>
+      `;
+  const renderBsSortieTimeField = () =>
+    typeof w.BeReceptionTimeField?.render === "function"
+      ? w.BeReceptionTimeField.render({
+          inputId: ID.bsTime,
+          panelId: ID.bsTimePanel
+        })
+      : `
+        <label class="items-be-reception-form__field">
+          <span>Heure</span>
+          <input id="${ID.bsTime}" type="text" inputmode="numeric" placeholder="HH:MM" autocomplete="off">
         </label>
       `;
 
@@ -623,7 +772,7 @@
                   />
                 </label>
               </div>
-              <fieldset id="${ID.beReceptionWrap}" hidden class="items-be-reception-form doc-history-convert__be-reception convert-document-window-modal__be-reception">
+              <fieldset id="${ID.beReceptionWrap}" hidden class="items-be-reception-form doc-history-convert__be-reception convert-document-window-modal__be-reception convert-document-window-modal__stock-form">
                 <legend>Informations de r&eacute;ception</legend>
                 <div class="items-be-reception-form__grid">
                   ${renderBeReceptionSelectField({
@@ -693,17 +842,126 @@
                   </label>
                 </div>
               </fieldset>
+              <fieldset id="${ID.bsSortieWrap}" hidden class="items-be-reception-form doc-history-convert__be-reception convert-document-window-modal__be-reception convert-document-window-modal__stock-form">
+                <legend>Informations de sortie</legend>
+                <div class="items-be-reception-form__grid">
+                  ${renderBeReceptionSelectField({
+                    selectId: ID.bsDepot,
+                    menuId: ID.bsDepotMenu,
+                    panelId: ID.bsDepotPanel,
+                    displayId: ID.bsDepotDisplay,
+                    labelText: "D&eacute;p&ocirc;t / Magasin source",
+                    placeholder: "Selectionner un depot"
+                  })}
+                  ${renderBeReceptionSelectField({
+                    selectId: ID.bsLocation,
+                    menuId: ID.bsLocationMenu,
+                    panelId: ID.bsLocationPanel,
+                    displayId: ID.bsLocationDisplay,
+                    labelText: "Emplacement source",
+                    placeholder: "Aucun emplacement",
+                    multiple: true
+                  })}
+                  <label class="items-be-reception-form__field">
+                    <span>Date de sortie</span>
+                    <div class="swb-date-picker" data-date-picker>
+                      <input
+                        id="${ID.bsDate}"
+                        type="text"
+                        inputmode="numeric"
+                        placeholder="AAAA-MM-JJ"
+                        autocomplete="off"
+                        spellcheck="false"
+                        aria-haspopup="dialog"
+                        aria-expanded="false"
+                        role="combobox"
+                        aria-controls="${ID.bsDatePanel}"
+                      />
+                      <button
+                        type="button"
+                        class="swb-date-picker__toggle"
+                        data-date-picker-toggle
+                        aria-label="Choisir une date de sortie"
+                        aria-haspopup="dialog"
+                        aria-expanded="false"
+                        aria-controls="${ID.bsDatePanel}"
+                      >
+                        <svg class="swb-date-picker__toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" focusable="false">
+                          <rect x="3.5" y="5" width="17" height="15" rx="2"></rect>
+                          <path d="M8 3.5v3M16 3.5v3M3.5 10h17" stroke-linecap="round"></path>
+                        </svg>
+                      </button>
+                      <div
+                        id="${ID.bsDatePanel}"
+                        class="swb-date-picker__panel"
+                        data-date-picker-panel
+                        hidden
+                        role="dialog"
+                        aria-modal="false"
+                        aria-label="Choisir une date"
+                        tabindex="-1"
+                      ></div>
+                    </div>
+                  </label>
+                  ${renderBsSortieTimeField()}
+                  <label class="items-be-reception-form__field items-be-reception-form__field--wide items-be-reception-form__field--source" for="${ID.bsSourceRef}">
+                    <span>R&eacute;f&eacute;rence source</span>
+                    <div class="items-be-reception-form__input-group items-be-reception-form__input-group--source">
+                      <input id="${ID.bsSourceRef}" type="text" placeholder="ex : Facture" autocomplete="off" spellcheck="false" />
+                    </div>
+                  </label>
+                </div>
+              </fieldset>
+              <fieldset id="${ID.bsTransportWrap}" hidden class="items-be-reception-form doc-history-convert__be-reception convert-document-window-modal__be-reception convert-document-window-modal__stock-form convert-document-window-modal__stock-form--transport">
+                <legend>Transport / exp&eacute;dition</legend>
+                <div class="items-be-reception-form__section-actions convert-document-window-modal__stock-form-actions" aria-label="Actions transport">
+                  <button
+                    id="${ID.bsTransportSavedList}"
+                    type="button"
+                    class="client-search__saved items-be-reception-form__picker-btn convert-document-window-modal__stock-form-picker"
+                    aria-label="Afficher les transporteurs enregistres"
+                    data-bs-transport-saved-open="true"
+                    title="Afficher les transporteurs enregistres"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
+                      <circle cx="5" cy="6" r="1.5"></circle>
+                      <circle cx="5" cy="12" r="1.5"></circle>
+                      <circle cx="5" cy="18" r="1.5"></circle>
+                      <line x1="9" y1="6" x2="20" y2="6" stroke-linecap="round"></line>
+                      <line x1="9" y1="12" x2="20" y2="12" stroke-linecap="round"></line>
+                      <line x1="9" y1="18" x2="20" y2="18" stroke-linecap="round"></line>
+                    </svg>
+                  </button>
+                </div>
+                <div class="items-be-reception-form__grid items-be-reception-form__grid--transport">
+                  <label class="items-be-reception-form__field" for="${ID.bsTransporter}">
+                    <span>Transporteur</span>
+                    <input id="${ID.bsTransporter}" type="text" placeholder="Nom du transporteur" autocomplete="off" spellcheck="false" />
+                  </label>
+                  <label class="items-be-reception-form__field" for="${ID.bsDriverName}">
+                    <span>Chauffeur</span>
+                    <input id="${ID.bsDriverName}" type="text" placeholder="Nom du chauffeur" autocomplete="off" spellcheck="false" />
+                  </label>
+                  <label class="items-be-reception-form__field" for="${ID.bsVehiclePlate}">
+                    <span>Matricule v&eacute;hicule</span>
+                    <input id="${ID.bsVehiclePlate}" type="text" placeholder="Matricule du vehicule" autocomplete="off" spellcheck="false" />
+                  </label>
+                  <label class="items-be-reception-form__field" for="${ID.bsTransportMode}">
+                    <span>Mode de transport</span>
+                    <input id="${ID.bsTransportMode}" type="text" placeholder="Camion, utilitaire, etc." autocomplete="off" spellcheck="false" />
+                  </label>
+                  <label class="items-be-reception-form__field items-be-reception-form__field--wide" for="${ID.bsExitReason}">
+                    <span>Motif de sortie</span>
+                    <input id="${ID.bsExitReason}" type="text" placeholder="Motif / commentaire de sortie" autocomplete="off" spellcheck="false" />
+                  </label>
+                </div>
+              </fieldset>
               <p id="${ID.status2}" class="doc-history-modal__status" aria-live="polite"></p>
             </section>
             <div class="convert-document-window-modal__step-actions model-stepper__actions-right">
               <button id="${ID.back}" type="button" class="btn ghost tiny model-stepper__nav model-stepper__nav--prev better-style">Etape precedente</button>
               <button id="${ID.next}" type="button" class="btn success tiny model-stepper__nav model-stepper__nav--next better-style">Etape suivante</button>
               <button id="${ID.confirm}" type="button" class="btn success tiny model-stepper__nav model-stepper__nav--next better-style">Convertir</button>
-            </div>
-          </div>
-          <div class="client-saved-modal__actions be-source-document-picker-modal__actions convert-document-window-modal__actions">
-            <div class="client-search__actions client-saved-modal__actions-left">
-              <button id="${ID.cancel}" type="button" class="btn btn-close client-search__close">Fermer</button>
             </div>
           </div>
         </div>
@@ -756,6 +1014,16 @@
       beReceptionDatePickerBound: false,
       beReceptionTimeBound: false,
       beReceptionSyncToken: 0,
+      bsSortie: null,
+      bsSortieDateTouched: false,
+      bsSortieBehaviorBound: false,
+      bsSortieDatePickerInstance: null,
+      bsSortieDatePickerBound: false,
+      bsSortieTimeBound: false,
+      bsSortieSyncToken: 0,
+      bsTransporteurBridgeInstalled: false,
+      bsTransporteurApplyBridge: null,
+      bsTransporteurPreviousApply: null,
       datePickerInstance: null,
       datePickerBound: false,
       restoreFocus: null,
@@ -774,7 +1042,6 @@
       state.busy = !!busy;
       modal.setAttribute("aria-busy", state.busy ? "true" : "false");
       e[ID.close].disabled = state.busy;
-      e[ID.cancel].disabled = state.busy;
       e[ID.back].disabled = state.busy;
       e[ID.next].disabled = state.busy;
       e[ID.confirm].disabled = state.busy;
@@ -847,6 +1114,7 @@
     const getSelectedTargetValue = () => normalize(e[ID.target]?.value || "");
     const isFactureTarget = () => getSelectedTargetValue() === "facture";
     const isBonEntreeTarget = () => getSelectedTargetValue() === "be";
+    const isBonSortieTarget = () => getSelectedTargetValue() === "bs";
     const isPartialStatus = () =>
       normalizeFactureStatusValue(e[ID.paymentStatus]?.value || "") === "partiellement-payee";
     const hasValidModelSelectionForTarget = () => {
@@ -940,6 +1208,52 @@
         { fallbackDate }
       );
     };
+    const getBsSortieFallbackDate = () =>
+      String(e[ID.date]?.value || getTodayDate()).trim() || getTodayDate();
+    const getBsSortieValidationOptions = (fallbackDate = getBsSortieFallbackDate()) => ({
+      fallbackDate,
+      requireStorageFields: isBonSortieTarget()
+    });
+    const readBsSortieFormValues = (current = state.bsSortie) => {
+      const fallbackDate = getBsSortieFallbackDate();
+      const base = normalizeBsSortieChoice(current, { fallbackDate });
+      const depotSelect = e[ID.bsDepot];
+      const locationSelect = e[ID.bsLocation];
+      const locationIds = normalizeBsSortieLocationIds(
+        Array.from(locationSelect?.selectedOptions || []).map((option) => option.value)
+      );
+      const locationLabels = normalizeBsSortieLocationLabels(
+        locationIds
+          .map((id) => {
+            const option = Array.from(locationSelect?.options || []).find(
+              (entry) => String(entry.value || "").trim() === id
+            );
+            return option?.textContent || "";
+          })
+          .filter(Boolean)
+      );
+      const depotId = normalizeBsSortieDepotId(depotSelect?.value || base.depotId || "");
+      return normalizeBsSortieChoice(
+        {
+          ...base,
+          depotId,
+          depot: depotId ? getSelectedOptionText(depotSelect) : "",
+          locationId: locationIds[0] || "",
+          locationIds,
+          locationLabels,
+          location: locationLabels.length ? formatBsSortieLocationText(locationLabels) : "",
+          date: String(e[ID.bsDate]?.value || base.date || fallbackDate).trim(),
+          time: String(e[ID.bsTime]?.value || base.time || "").trim(),
+          sourceRef: normalizeBeReceptionText(e[ID.bsSourceRef]?.value || base.sourceRef || ""),
+          transporter: normalizeBeReceptionText(e[ID.bsTransporter]?.value || base.transporter || ""),
+          driverName: normalizeBeReceptionText(e[ID.bsDriverName]?.value || base.driverName || ""),
+          vehiclePlate: normalizeBeReceptionText(e[ID.bsVehiclePlate]?.value || base.vehiclePlate || ""),
+          transportMode: normalizeBeReceptionText(e[ID.bsTransportMode]?.value || base.transportMode || ""),
+          exitReason: normalizeBeReceptionText(e[ID.bsExitReason]?.value || base.exitReason || "")
+        },
+        { fallbackDate }
+      );
+    };
     const syncBeReceptionStaticInputs = () => {
       const fallbackDate = getBeReceptionFallbackDate();
       const reception = normalizeBeReceptionChoice(state.beReception, { fallbackDate });
@@ -985,6 +1299,168 @@
       }
       state.beReception = next;
       syncBeReceptionStaticInputs();
+    };
+    const syncBsSortieStaticInputs = () => {
+      const fallbackDate = getBsSortieFallbackDate();
+      const sortie = normalizeBsSortieChoice(state.bsSortie, { fallbackDate });
+      if (e[ID.bsDate]) {
+        e[ID.bsDate].value = sortie.date || fallbackDate;
+        if (state.bsSortieDatePickerInstance) {
+          try {
+            state.bsSortieDatePickerInstance.setValue(e[ID.bsDate].value, { silent: true });
+          } catch {}
+        }
+      }
+      if (e[ID.bsTime]) e[ID.bsTime].value = sortie.time || formatBsSortieTime();
+      if (e[ID.bsSourceRef]) e[ID.bsSourceRef].value = sortie.sourceRef || "";
+      if (e[ID.bsTransporter]) e[ID.bsTransporter].value = sortie.transporter || "";
+      if (e[ID.bsDriverName]) e[ID.bsDriverName].value = sortie.driverName || "";
+      if (e[ID.bsVehiclePlate]) e[ID.bsVehiclePlate].value = sortie.vehiclePlate || "";
+      if (e[ID.bsTransportMode]) e[ID.bsTransportMode].value = sortie.transportMode || "";
+      if (e[ID.bsExitReason]) e[ID.bsExitReason].value = sortie.exitReason || "";
+    };
+    const resetBsSortieChoice = (entry = state.step2PrimaryDoc, selectedDocs = []) => {
+      const fallbackDate = getBsSortieFallbackDate();
+      state.bsSortieDateTouched = false;
+      const docs = Array.isArray(selectedDocs) ? selectedDocs : [];
+      const numbers = docs
+        .map((doc) => String(doc?.number || doc?.display || doc?.name || "").trim())
+        .filter(Boolean);
+      const defaultEntry =
+        docs.length > 1
+          ? {
+              ...(entry || docs[0] || {}),
+              number: numbers.join(", "),
+              name: `${docs.length} document(s)`
+            }
+          : entry || docs[0] || {};
+      let next = createDefaultBsSortieChoice({
+        entry: defaultEntry,
+        sourceDocType: state.source?.docType || defaultEntry?.docType || "",
+        date: fallbackDate
+      });
+      if (docs.length > 1 && numbers.length) {
+        next = normalizeBsSortieChoice(
+          {
+            ...next,
+            sourceRef: `${labelOfType(state.source?.docType || "facture")} : ${numbers.join(", ")}`
+          },
+          { fallbackDate }
+        );
+      }
+      state.bsSortie = next;
+      syncBsSortieStaticInputs();
+    };
+    const normalizeBsTransporteurSnapshot = (payload = null, selected = null) => {
+      const raw = payload && typeof payload === "object" ? payload : {};
+      const selectedRaw = selected && typeof selected === "object" ? selected : {};
+      const client = raw.client && typeof raw.client === "object"
+        ? raw.client
+        : selectedRaw.client && typeof selectedRaw.client === "object"
+          ? selectedRaw.client
+          : {};
+      const read = (...values) => {
+        for (const value of values) {
+          const normalized = normalizeBeReceptionText(value || "");
+          if (normalized) return normalized;
+        }
+        return "";
+      };
+      return {
+        transporter: read(raw.name, raw.transporteur, raw.label, selectedRaw.name, selectedRaw.label, client.name, client.transporteur, client.label),
+        driverName: read(
+          raw.driverName,
+          raw.driver,
+          raw.chauffeur,
+          raw.benefit,
+          selectedRaw.driverName,
+          selectedRaw.driver,
+          selectedRaw.chauffeur,
+          selectedRaw.benefit,
+          client.driverName,
+          client.driver,
+          client.chauffeur,
+          client.benefit
+        ),
+        vehiclePlate: read(
+          raw.vehiclePlate,
+          raw.vehicle,
+          raw.vehicule,
+          raw.matriculeVehicule,
+          raw.matriculeVehicle,
+          raw.account,
+          selectedRaw.vehiclePlate,
+          selectedRaw.vehicle,
+          selectedRaw.vehicule,
+          selectedRaw.matriculeVehicule,
+          selectedRaw.matriculeVehicle,
+          selectedRaw.account,
+          client.vehiclePlate,
+          client.vehicle,
+          client.vehicule,
+          client.matriculeVehicule,
+          client.matriculeVehicle,
+          client.account
+        ),
+        transportMode: read(
+          raw.transportMode,
+          raw.modeTransport,
+          raw.modeDeTransport,
+          raw.transport,
+          raw.stegRef,
+          selectedRaw.transportMode,
+          selectedRaw.modeTransport,
+          selectedRaw.modeDeTransport,
+          selectedRaw.transport,
+          selectedRaw.stegRef,
+          client.transportMode,
+          client.modeTransport,
+          client.modeDeTransport,
+          client.transport,
+          client.stegRef
+        )
+      };
+    };
+    const installBsTransporteurSelectionBridge = () => {
+      const sem = w.SEM || null;
+      if (!sem || state.bsTransporteurBridgeInstalled) return;
+      const bridge = (payload = null, selected = null) => {
+        const snapshot = normalizeBsTransporteurSnapshot(payload, selected);
+        if (!snapshot.transporter && !snapshot.driverName && !snapshot.vehiclePlate && !snapshot.transportMode) {
+          return false;
+        }
+        state.bsSortie = normalizeBsSortieChoice(
+          {
+            ...state.bsSortie,
+            transporter: snapshot.transporter,
+            driverName: snapshot.driverName,
+            vehiclePlate: snapshot.vehiclePlate,
+            transportMode: snapshot.transportMode
+          },
+          { fallbackDate: getBsSortieFallbackDate() }
+        );
+        syncBsSortieStaticInputs();
+        syncStep2ConfirmState();
+        return true;
+      };
+      state.bsTransporteurPreviousApply = sem.applyTransporteurSavedSelectionToBonSortie;
+      state.bsTransporteurApplyBridge = bridge;
+      sem.applyTransporteurSavedSelectionToBonSortie = bridge;
+      state.bsTransporteurBridgeInstalled = true;
+    };
+    const restoreBsTransporteurSelectionBridge = () => {
+      const sem = w.SEM || null;
+      if (!sem || !state.bsTransporteurBridgeInstalled) return;
+      if (sem.applyTransporteurSavedSelectionToBonSortie === state.bsTransporteurApplyBridge) {
+        if (typeof state.bsTransporteurPreviousApply === "function") {
+          sem.applyTransporteurSavedSelectionToBonSortie = state.bsTransporteurPreviousApply;
+        } else {
+          delete sem.applyTransporteurSavedSelectionToBonSortie;
+        }
+      }
+      state.bsTransporteurBridgeInstalled = false;
+      state.bsTransporteurApplyBridge = null;
+      state.bsTransporteurPreviousApply = null;
     };
     const closeBeReceptionMenu = (menu) => {
       if (!(menu instanceof HTMLElement)) return;
@@ -1263,8 +1739,219 @@
       syncStep2ConfirmState();
       return true;
     };
+    const renderBsSortieDepotPanel = (records = [], selectedDepotId = "") => {
+      const select = e[ID.bsDepot];
+      const menu = e[ID.bsDepotMenu];
+      const panel = e[ID.bsDepotPanel];
+      const display = e[ID.bsDepotDisplay];
+      if (!(select instanceof HTMLSelectElement) || !(panel instanceof HTMLElement) || !(menu instanceof HTMLElement)) {
+        return { selectedDepotId: "", selectedDepotLabel: "" };
+      }
+      const selectedValues = setBeReceptionSelectOptions(select, records, {
+        placeholder: "Selectionner un depot",
+        selectedValue: normalizeBsSortieDepotId(selectedDepotId),
+        valueKey: "id",
+        labelKey: "name"
+      });
+      const selectedValue = selectedValues[0] || "";
+      const selectedLabel = getSelectedOptionText(select);
+      if (display) {
+        display.textContent = selectedLabel || "Selectionner un depot";
+        display.dataset.selected = selectedValue ? "true" : "false";
+      }
+      menu.dataset.selected = selectedValue ? "true" : "false";
+      setBeReceptionPickerDisabled(menu, select, !records.length);
+      panel.replaceChildren();
+      if (!records.length) {
+        const empty = document.createElement("p");
+        empty.className = "model-select-empty";
+        empty.textContent = "Aucun depot enregistre";
+        panel.appendChild(empty);
+      } else {
+        records.forEach((record) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "model-select-option";
+          button.dataset.value = record.id;
+          button.setAttribute("role", "option");
+          button.textContent = record.name;
+          const isActive = record.id === selectedValue;
+          button.classList.toggle("is-active", isActive);
+          button.setAttribute("aria-selected", isActive ? "true" : "false");
+          button.addEventListener("click", () => {
+            if (select.disabled) return;
+            select.value = record.id;
+            closeBeReceptionMenu(menu);
+            state.bsSortie = normalizeBsSortieChoice(
+              {
+                ...state.bsSortie,
+                depotId: record.id,
+                depot: record.name,
+                locationId: "",
+                locationIds: [],
+                locationLabels: [],
+                location: ""
+              },
+              { fallbackDate: getBsSortieFallbackDate() }
+            );
+            select.dispatchEvent(new Event("change", { bubbles: true }));
+          });
+          panel.appendChild(button);
+        });
+      }
+      wireBeReceptionMenu(menu, panel);
+      return { selectedDepotId: selectedValue, selectedDepotLabel: selectedLabel };
+    };
+    const renderBsSortieLocationPanel = (
+      locations = [],
+      { selectedLocationIds = [], depotSelected = false } = {}
+    ) => {
+      const select = e[ID.bsLocation];
+      const menu = e[ID.bsLocationMenu];
+      const panel = e[ID.bsLocationPanel];
+      const display = e[ID.bsLocationDisplay];
+      if (!(select instanceof HTMLSelectElement) || !(panel instanceof HTMLElement) || !(menu instanceof HTMLElement)) {
+        return { selectedLocationIds: [], selectedLocationLabels: [] };
+      }
+      const selectedIds = setBeReceptionSelectOptions(select, locations, {
+        placeholder: depotSelected ? "Aucun emplacement" : "Selectionnez d'abord un depot",
+        selectedValues: normalizeBsSortieLocationIds(selectedLocationIds),
+        valueKey: "id",
+        labelKey: "code"
+      });
+      const selectedLabels = normalizeBsSortieLocationLabels(
+        selectedIds
+          .map((id) => {
+            const option = Array.from(select.options || []).find((entry) => entry.value === id);
+            return option?.textContent || "";
+          })
+          .filter(Boolean)
+      );
+      const displayText = selectedLabels.length
+        ? selectedLabels.length > 1
+          ? `${selectedLabels.length} emplacements`
+          : formatBsSortieLocationText(selectedLabels)
+        : depotSelected
+          ? "Aucun emplacement"
+          : "Selectionnez d'abord un depot";
+      if (display) {
+        display.textContent = displayText;
+        display.dataset.selected = selectedIds.length ? "true" : "false";
+      }
+      menu.dataset.selected = selectedIds.length ? "true" : "false";
+      setBeReceptionPickerDisabled(menu, select, !depotSelected || !locations.length);
+      panel.replaceChildren();
+      if (!depotSelected) {
+        const empty = document.createElement("p");
+        empty.className = "model-select-empty";
+        empty.textContent = "Selectionnez d'abord un depot";
+        panel.appendChild(empty);
+      } else if (!locations.length) {
+        const empty = document.createElement("p");
+        empty.className = "model-select-empty";
+        empty.textContent = "Aucun emplacement";
+        panel.appendChild(empty);
+      } else {
+        Array.from(select.options || []).forEach((option) => {
+          if (!option.value) return;
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "model-select-option model-select-option--multiselect stock-location-option";
+          button.dataset.value = option.value;
+          button.setAttribute("role", "option");
+          const checkbox = document.createElement("span");
+          checkbox.className = "stock-location-option__checkbox";
+          checkbox.setAttribute("aria-hidden", "true");
+          const checkIcon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+          checkIcon.classList.add("stock-location-option__check");
+          checkIcon.setAttribute("viewBox", "0 0 20 20");
+          checkIcon.setAttribute("fill", "none");
+          checkIcon.setAttribute("focusable", "false");
+          checkIcon.setAttribute("aria-hidden", "true");
+          const checkPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          checkPath.setAttribute("d", "M5 10.5L8.5 14L15 7.5");
+          checkPath.setAttribute("stroke", "currentColor");
+          checkPath.setAttribute("stroke-width", "2");
+          checkPath.setAttribute("stroke-linecap", "round");
+          checkPath.setAttribute("stroke-linejoin", "round");
+          checkIcon.appendChild(checkPath);
+          checkbox.appendChild(checkIcon);
+          const label = document.createElement("span");
+          label.className = "stock-location-option__label";
+          label.textContent = normalizeBeReceptionText(option.textContent || "");
+          button.append(checkbox, label);
+          const isActive = selectedIds.includes(option.value);
+          button.classList.toggle("is-active", isActive);
+          button.setAttribute("aria-selected", isActive ? "true" : "false");
+          button.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (select.disabled) return;
+            const currentIds = normalizeBsSortieLocationIds(
+              Array.from(select.selectedOptions || []).map((entry) => entry.value)
+            );
+            const hasValue = currentIds.includes(option.value);
+            const nextIds = hasValue
+              ? currentIds.filter((entry) => entry !== option.value)
+              : [...currentIds, option.value];
+            Array.from(select.options || []).forEach((entry) => {
+              entry.selected = nextIds.includes(entry.value);
+            });
+            select.dispatchEvent(new Event("change", { bubbles: true }));
+          });
+          panel.appendChild(button);
+        });
+      }
+      wireBeReceptionMenu(menu, panel);
+      return { selectedLocationIds: selectedIds, selectedLocationLabels: selectedLabels };
+    };
+    const syncBsSortieSelectors = async () => {
+      if (!e[ID.bsSortieWrap]) return false;
+      const syncToken = String((Number(state.bsSortieSyncToken || 0) || 0) + 1);
+      state.bsSortieSyncToken = syncToken;
+      state.bsSortie = readBsSortieFormValues(state.bsSortie);
+      const depots = await fetchBsSortieDepotRecords();
+      if (state.bsSortieSyncToken !== syncToken) return false;
+      const depotState = renderBsSortieDepotPanel(depots, state.bsSortie.depotId);
+      const depotId = normalizeBsSortieDepotId(depotState.selectedDepotId || "");
+      const depotLabel = normalizeBeReceptionText(depotState.selectedDepotLabel || "");
+      let locations = [];
+      if (depotId) locations = await fetchBsSortieLocationsForDepot(depotId);
+      if (state.bsSortieSyncToken !== syncToken) return false;
+      const locationState = renderBsSortieLocationPanel(locations, {
+        selectedLocationIds: state.bsSortie.locationIds || [],
+        depotSelected: !!depotId
+      });
+      state.bsSortie = normalizeBsSortieChoice(
+        {
+          ...state.bsSortie,
+          depotId,
+          depot: depotId ? depotLabel : "",
+          locationId: locationState.selectedLocationIds[0] || "",
+          locationIds: locationState.selectedLocationIds,
+          locationLabels: locationState.selectedLocationLabels,
+          location: locationState.selectedLocationLabels.length
+            ? formatBsSortieLocationText(locationState.selectedLocationLabels)
+            : ""
+        },
+        { fallbackDate: getBsSortieFallbackDate() }
+      );
+      syncStep2ConfirmState();
+      return true;
+    };
     const closeBeReceptionTimePanel = () => {
       const input = e[ID.beTime];
+      const wrapper = input?.closest?.("[data-time-picker]") || null;
+      const toggle = wrapper?.querySelector?.("[data-time-picker-toggle]") || null;
+      const panel = wrapper?.querySelector?.("[data-time-picker-panel]") || null;
+      if (!wrapper || !panel) return;
+      panel.hidden = true;
+      wrapper.classList.remove("is-open");
+      input?.setAttribute("aria-expanded", "false");
+      toggle?.setAttribute("aria-expanded", "false");
+    };
+    const closeBsSortieTimePanel = () => {
+      const input = e[ID.bsTime];
       const wrapper = input?.closest?.("[data-time-picker]") || null;
       const toggle = wrapper?.querySelector?.("[data-time-picker-toggle]") || null;
       const panel = wrapper?.querySelector?.("[data-time-picker-panel]") || null;
@@ -1310,6 +1997,42 @@
       });
       state.beReceptionTimeBound = true;
     };
+    const wireBsSortieTimeInput = () => {
+      const input = e[ID.bsTime];
+      const wrapper = input?.closest?.("[data-time-picker]") || null;
+      const toggle = wrapper?.querySelector?.("[data-time-picker-toggle]") || null;
+      const panel = wrapper?.querySelector?.("[data-time-picker-panel]") || null;
+      if (!(input instanceof HTMLInputElement) || !(panel instanceof HTMLElement) || !toggle || state.bsSortieTimeBound) {
+        return;
+      }
+      panel.innerHTML = `
+        <div class="swb-time-picker__footer">
+          <button type="button" class="swb-time-picker__footer-btn" data-convert-window-time-now>Maintenant</button>
+          <button type="button" class="swb-time-picker__footer-btn swb-time-picker__footer-btn--muted" data-convert-window-time-clear>Effacer</button>
+        </div>
+      `;
+      const setOpen = (open) => {
+        panel.hidden = !open;
+        wrapper.classList.toggle("is-open", !!open);
+        input.setAttribute("aria-expanded", open ? "true" : "false");
+        toggle.setAttribute("aria-expanded", open ? "true" : "false");
+      };
+      toggle.addEventListener("click", (event) => {
+        event.preventDefault();
+        setOpen(panel.hidden);
+      });
+      panel.querySelector("[data-convert-window-time-now]")?.addEventListener("click", () => {
+        input.value = formatBsSortieTime();
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+        setOpen(false);
+      });
+      panel.querySelector("[data-convert-window-time-clear]")?.addEventListener("click", () => {
+        input.value = "";
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+        setOpen(false);
+      });
+      state.bsSortieTimeBound = true;
+    };
     const syncBeReceptionDateFromDocumentDate = () => {
       if (state.beReceptionDateTouched) return;
       const fallbackDate = getBeReceptionFallbackDate();
@@ -1326,8 +2049,25 @@
         }
       }
     };
+    const syncBsSortieDateFromDocumentDate = () => {
+      if (state.bsSortieDateTouched) return;
+      const fallbackDate = getBsSortieFallbackDate();
+      state.bsSortie = normalizeBsSortieChoice(
+        { ...state.bsSortie, date: fallbackDate },
+        { fallbackDate }
+      );
+      if (e[ID.bsDate]) {
+        e[ID.bsDate].value = fallbackDate;
+        if (state.bsSortieDatePickerInstance) {
+          try {
+            state.bsSortieDatePickerInstance.setValue(fallbackDate, { silent: true });
+          } catch {}
+        }
+      }
+    };
     const handleDocumentDateChanged = () => {
       if (isBonEntreeTarget()) syncBeReceptionDateFromDocumentDate();
+      if (isBonSortieTarget()) syncBsSortieDateFromDocumentDate();
       syncStep2ConfirmState();
     };
     const updateBeReceptionVisibility = () => {
@@ -1340,6 +2080,24 @@
       if (show) {
         state.beReception = readBeReceptionFormValues(state.beReception);
         void syncBeReceptionSelectors();
+      }
+      syncStep2ConfirmState();
+    };
+    const updateBsSortieVisibility = () => {
+      if (!e[ID.bsSortieWrap]) return;
+      const show = isBonSortieTarget();
+      e[ID.bsSortieWrap].hidden = !show;
+      e[ID.bsSortieWrap].style.display = show ? "" : "none";
+      e[ID.bsSortieWrap].setAttribute("aria-hidden", show ? "false" : "true");
+      if (e[ID.bsTransportWrap]) {
+        e[ID.bsTransportWrap].hidden = !show;
+        e[ID.bsTransportWrap].style.display = show ? "" : "none";
+        e[ID.bsTransportWrap].setAttribute("aria-hidden", show ? "false" : "true");
+      }
+      if (show && !state.bsSortie) resetBsSortieChoice(state.step2PrimaryDoc);
+      if (show) {
+        state.bsSortie = readBsSortieFormValues(state.bsSortie);
+        void syncBsSortieSelectors();
       }
       syncStep2ConfirmState();
     };
@@ -1412,6 +2170,93 @@
         state.beReceptionBehaviorBound = true;
       }
     };
+    const ensureBsSortieWidgets = () => {
+      if (!e[ID.bsSortieWrap]) return;
+      wireBsSortieTimeInput();
+      if (!state.bsSortieDatePickerBound && e[ID.bsDate]) {
+        if (createDatePicker) {
+          try {
+            const picker = createDatePicker(e[ID.bsDate], {
+              allowManualInput: true,
+              onChange(value) {
+                state.bsSortieDateTouched = true;
+                state.bsSortie = normalizeBsSortieChoice(
+                  { ...state.bsSortie, date: value || "" },
+                  { fallbackDate: getBsSortieFallbackDate() }
+                );
+                syncStep2ConfirmState();
+              }
+            });
+            state.bsSortieDatePickerInstance = picker || null;
+            if (state.bsSortieDatePickerInstance && e[ID.bsDate].value) {
+              try {
+                state.bsSortieDatePickerInstance.setValue(e[ID.bsDate].value, { silent: true });
+              } catch {}
+            }
+          } catch {
+            state.bsSortieDatePickerInstance = null;
+          }
+        }
+        state.bsSortieDatePickerBound = true;
+      }
+      if (!state.bsSortieBehaviorBound) {
+        e[ID.bsDate]?.addEventListener("input", () => {
+          if (state.busy) return;
+          state.bsSortieDateTouched = true;
+          state.bsSortie = readBsSortieFormValues(state.bsSortie);
+          syncStep2ConfirmState();
+        });
+        e[ID.bsDate]?.addEventListener("change", () => {
+          if (state.busy) return;
+          state.bsSortieDateTouched = true;
+          state.bsSortie = readBsSortieFormValues(state.bsSortie);
+          syncStep2ConfirmState();
+        });
+        e[ID.bsTime]?.addEventListener("input", () => {
+          if (state.busy) return;
+          state.bsSortie = readBsSortieFormValues(state.bsSortie);
+          syncStep2ConfirmState();
+        });
+        e[ID.bsTime]?.addEventListener("change", () => {
+          if (state.busy) return;
+          state.bsSortie = readBsSortieFormValues(state.bsSortie);
+          syncStep2ConfirmState();
+        });
+        e[ID.bsSourceRef]?.addEventListener("input", () => {
+          if (state.busy) return;
+          state.bsSortie = readBsSortieFormValues(state.bsSortie);
+          syncStep2ConfirmState();
+        });
+        [
+          ID.bsTransporter,
+          ID.bsDriverName,
+          ID.bsVehiclePlate,
+          ID.bsTransportMode,
+          ID.bsExitReason
+        ].forEach((fieldId) => {
+          e[fieldId]?.addEventListener("input", () => {
+            if (state.busy) return;
+            state.bsSortie = readBsSortieFormValues(state.bsSortie);
+            syncStep2ConfirmState();
+          });
+          e[fieldId]?.addEventListener("change", () => {
+            if (state.busy) return;
+            state.bsSortie = readBsSortieFormValues(state.bsSortie);
+            syncStep2ConfirmState();
+          });
+        });
+        e[ID.bsDepot]?.addEventListener("change", () => {
+          if (state.busy) return;
+          void syncBsSortieSelectors();
+        });
+        e[ID.bsLocation]?.addEventListener("change", () => {
+          if (state.busy) return;
+          state.bsSortie = readBsSortieFormValues(state.bsSortie);
+          void syncBsSortieSelectors();
+        });
+        state.bsSortieBehaviorBound = true;
+      }
+    };
     const syncStep2ConfirmState = () => {
       const hasModel = hasValidModelSelectionForTarget();
       if (!hasModel) {
@@ -1433,6 +2278,15 @@
         state.step2CanConvert = validateBeReceptionChoice(
           state.beReception,
           getBeReceptionValidationOptions()
+        ).ok;
+        syncStepActions();
+        return;
+      }
+      if (isBonSortieTarget()) {
+        state.bsSortie = readBsSortieFormValues(state.bsSortie);
+        state.step2CanConvert = validateBsSortieChoice(
+          state.bsSortie,
+          getBsSortieValidationOptions()
         ).ok;
         syncStepActions();
         return;
@@ -1681,6 +2535,7 @@
     const ensureStep2Widgets = () => {
       syncStep2SelectOptions();
       ensureBeReceptionWidgets();
+      ensureBsSortieWidgets();
       if (!state.step2Menus.model) {
         state.step2Menus.model = bindStep2SelectMenu({
           selectEl: e[ID.model],
@@ -1772,6 +2627,7 @@
       }
       updatePaymentVisibility();
       updateBeReceptionVisibility();
+      updateBsSortieVisibility();
       syncStep2ConfirmState();
     };
 
@@ -1781,7 +2637,10 @@
       state.step2Menus.paymentMethod?.close?.();
       closeBeReceptionMenu(e[ID.beDepotMenu]);
       closeBeReceptionMenu(e[ID.beDestinationMenu]);
+      closeBeReceptionMenu(e[ID.bsDepotMenu]);
+      closeBeReceptionMenu(e[ID.bsLocationMenu]);
       closeBeReceptionTimePanel();
+      closeBsSortieTimePanel();
     };
 
     const setPartyPanelOpen = (open) => {
@@ -2014,6 +2873,7 @@
       syncTargetPanelUi();
       updatePaymentVisibility();
       updateBeReceptionVisibility();
+      updateBsSortieVisibility();
     };
 
     const syncYearChoices = () => {
@@ -2413,12 +3273,23 @@
       state.beReception = null;
       state.beReceptionDateTouched = false;
       state.beReceptionSyncToken = 0;
+      state.bsSortie = null;
+      state.bsSortieDateTouched = false;
+      state.bsSortieSyncToken = 0;
       e[ID.paymentMethod].value = "";
       e[ID.paymentStatus].value = "";
       e[ID.paymentRef].value = "";
       if (e[ID.beDate]) e[ID.beDate].value = "";
       if (e[ID.beTime]) e[ID.beTime].value = "";
       if (e[ID.beSourceRef]) e[ID.beSourceRef].value = "";
+      if (e[ID.bsDate]) e[ID.bsDate].value = "";
+      if (e[ID.bsTime]) e[ID.bsTime].value = "";
+      if (e[ID.bsSourceRef]) e[ID.bsSourceRef].value = "";
+      if (e[ID.bsTransporter]) e[ID.bsTransporter].value = "";
+      if (e[ID.bsDriverName]) e[ID.bsDriverName].value = "";
+      if (e[ID.bsVehiclePlate]) e[ID.bsVehiclePlate].value = "";
+      if (e[ID.bsTransportMode]) e[ID.bsTransportMode].value = "";
+      if (e[ID.bsExitReason]) e[ID.bsExitReason].value = "";
       if (e[ID.acomptePaid]) e[ID.acomptePaid].value = "0";
       if (e[ID.acompteDue]) e[ID.acompteDue].value = "";
       if (e[ID.acompteWrap]) {
@@ -2428,6 +3299,14 @@
       if (e[ID.beReceptionWrap]) {
         e[ID.beReceptionWrap].hidden = true;
         e[ID.beReceptionWrap].style.display = "none";
+      }
+      if (e[ID.bsSortieWrap]) {
+        e[ID.bsSortieWrap].hidden = true;
+        e[ID.bsSortieWrap].style.display = "none";
+      }
+      if (e[ID.bsTransportWrap]) {
+        e[ID.bsTransportWrap].hidden = true;
+        e[ID.bsTransportWrap].style.display = "none";
       }
       setStatus1("");
       setStatus2("");
@@ -2446,6 +3325,7 @@
       setPartyPanelOpen(false);
       setYearMenuOpen(false);
       closeStep2Menus();
+      restoreBsTransporteurSelectionBridge();
       setOpen(false);
       setStatus1("");
       setStatus2("");
@@ -2469,6 +3349,7 @@
             ? document.activeElement
             : null;
       state.pendingSourceDocType = pickedSource.docType;
+      installBsTransporteurSelectionBridge();
       setOpen(true);
       setBusy(false);
       await reset();
@@ -2544,6 +3425,7 @@
         } catch {}
       }
       resetBeReceptionChoice(aggregatedDoc, selectedDocs);
+      resetBsSortieChoice(aggregatedDoc, selectedDocs);
       setStatus2("Chargement des options...");
       try {
         ensureStep2Widgets();
@@ -2552,7 +3434,9 @@
         setStep(2);
         updatePaymentVisibility();
         updateBeReceptionVisibility();
+        updateBsSortieVisibility();
         if (isBonEntreeTarget()) await syncBeReceptionSelectors();
+        if (isBonSortieTarget()) await syncBsSortieSelectors();
         setStatus2("");
       } catch {
         setStatus2("Impossible de charger les options de conversion.");
@@ -2563,7 +3447,6 @@
     };
 
     e[ID.close]?.addEventListener("click", close);
-    e[ID.cancel]?.addEventListener("click", close);
     e[ID.back]?.addEventListener("click", () => {
       if (state.busy) return;
       setStep(1);
@@ -2595,6 +3478,7 @@
           ? normalizePaidValue(e[ID.acomptePaid]?.value || "")
           : null;
       let choiceBeReception = null;
+      let choiceBsSortie = null;
       const selectedDocs = resolveSelectedDocsFromStep1();
       if (!selectedDocs.length || !state.source) {
         setStatus2("Documents source invalides.");
@@ -2630,6 +3514,19 @@
         }
         choiceBeReception = beValidation.value;
         state.beReception = choiceBeReception;
+      }
+      if (choiceTarget === "bs") {
+        const bsValidation = validateBsSortieChoice(
+          readBsSortieFormValues(state.bsSortie),
+          getBsSortieValidationOptions(choiceDate || getBsSortieFallbackDate())
+        );
+        if (!bsValidation.ok) {
+          setStatus2(bsValidation.error || "Informations de sortie incompletes.");
+          syncStep2ConfirmState();
+          return;
+        }
+        choiceBsSortie = bsValidation.value;
+        state.bsSortie = choiceBsSortie;
       }
 
       const convertApi = w.AppInit?.DocConversion;
@@ -2673,7 +3570,8 @@
             status: choiceTarget === "facture" ? choiceStatus : "",
             paymentReference: choicePaymentReference,
             paidAmount: choicePaidAmount,
-            beReception: choiceTarget === "be" ? choiceBeReception : null
+            beReception: choiceTarget === "be" ? choiceBeReception : null,
+            bsSortie: choiceTarget === "bs" ? choiceBsSortie : null
           },
           promptOptions: state.source.promptOptions || {}
         };
@@ -2701,14 +3599,6 @@
       } finally {
         setBusy(false);
       }
-    });
-    modal.addEventListener("click", (evt) => {
-      if (evt.target === modal) close();
-    });
-    document.addEventListener("keydown", (evt) => {
-      if (!state.open || evt.key !== "Escape") return;
-      evt.preventDefault();
-      close();
     });
     e[ID.party]?.addEventListener("change", (evt) => {
       if (state.busy) return;
@@ -2889,7 +3779,9 @@
         e[ID.paymentStatusMenu],
         e[ID.paymentMethodMenu],
         e[ID.beDepotMenu],
-        e[ID.beDestinationMenu]
+        e[ID.beDestinationMenu],
+        e[ID.bsDepotMenu],
+        e[ID.bsLocationMenu]
       ].forEach((menuEl) => {
         if (menuEl?.open && !menuEl.contains(evt.target)) {
           setStep2MenuOpen(menuEl, false);
@@ -2900,6 +3792,11 @@
       if (timePanel && !timePanel.hidden && timeWrapper && !timeWrapper.contains(evt.target)) {
         closeBeReceptionTimePanel();
       }
+      const bsTimeWrapper = e[ID.bsTime]?.closest?.("[data-time-picker]");
+      const bsTimePanel = bsTimeWrapper?.querySelector?.("[data-time-picker-panel]");
+      if (bsTimePanel && !bsTimePanel.hidden && bsTimeWrapper && !bsTimeWrapper.contains(evt.target)) {
+        closeBsSortieTimePanel();
+      }
     }, true);
     e[ID.target]?.addEventListener("change", () => {
       if (state.busy) return;
@@ -2907,6 +3804,7 @@
       syncTargetPanelUi();
       updatePaymentVisibility();
       updateBeReceptionVisibility();
+      updateBsSortieVisibility();
       syncStep2ConfirmState();
     });
 

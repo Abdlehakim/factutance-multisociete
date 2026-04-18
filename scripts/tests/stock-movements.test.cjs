@@ -384,6 +384,135 @@ test("BS create decreases stock", (t) => {
   });
 });
 
+test("Converted Facture to BS with depot applies stock exit", (t) => {
+  withTempDatabase(t, () => {
+    const fixture = createFixture();
+    const beRes = saveDocument({
+      docType: "be",
+      payload: buildStockPayload({
+        docType: "be",
+        articlePath: fixture.articlePath,
+        qty: 8,
+        depotId: fixture.depotId,
+        emplacementId: fixture.locationOneId,
+        emplacementLabel: fixture.locationOneLabel
+      })
+    });
+    assert.equal(beRes.ok, true);
+
+    const payload = buildStockPayload({
+      docType: "bs",
+      articlePath: fixture.articlePath,
+      qty: 3,
+      depotId: fixture.depotId,
+      emplacementId: fixture.locationOneId,
+      emplacementLabel: fixture.locationOneLabel
+    });
+    payload.meta.convertedFrom = {
+      docType: "facture",
+      type: "facture",
+      number: "Fact_20260329-1"
+    };
+    payload.meta.bsSortie = {
+      ...(payload.meta.bsSortie || {}),
+      date: "2026-03-29",
+      time: "09:00",
+      sourceRef: "Facture : Fact_20260329-1",
+      sourceDocType: "facture"
+    };
+
+    const bsRes = saveDocument({
+      docType: "bs",
+      payload
+    });
+
+    assert.equal(bsRes.ok, true);
+    assert.equal(bsRes.stockAdjusted, true);
+    const article = getArticleSnapshot(fixture.articleId);
+    assert.equal(Number(article.stockQty), 5);
+    assert.equal(Number(getDepotStock(article, fixture.depotId)), 5);
+  });
+});
+
+test("Converted Facture to BS without source depot is rejected", (t) => {
+  withTempDatabase(t, () => {
+    const fixture = createFixture();
+    const payload = buildStockPayload({
+      docType: "bs",
+      articlePath: fixture.articlePath,
+      qty: 2,
+      depotId: "",
+      emplacementId: "",
+      emplacementLabel: ""
+    });
+    payload.meta.convertedFrom = {
+      docType: "facture",
+      type: "facture",
+      number: "Fact_20260329-1"
+    };
+    payload.meta.bsSortie = {
+      ...(payload.meta.bsSortie || {}),
+      date: "2026-03-29",
+      time: "09:00",
+      sourceRef: "Facture : Fact_20260329-1",
+      sourceDocType: "facture"
+    };
+
+    const res = saveDocument({
+      docType: "bs",
+      payload
+    });
+
+    assert.equal(res.ok, false);
+    assert.match(String(res.error || ""), /depot source requis/i);
+    const article = getArticleSnapshot(fixture.articleId);
+    assert.equal(Number(article.stockQty), 0);
+    assert.equal(Number(getDepotStock(article, fixture.depotId)), 0);
+  });
+});
+
+test("Converted Facture to BS propagates insufficient stock failure", (t) => {
+  withTempDatabase(t, () => {
+    const fixture = createFixture({
+      allowNegative: false,
+      blockInsufficient: true
+    });
+    const payload = buildStockPayload({
+      docType: "bs",
+      articlePath: fixture.articlePath,
+      qty: 1,
+      depotId: fixture.depotId,
+      emplacementId: fixture.locationOneId,
+      emplacementLabel: fixture.locationOneLabel
+    });
+    payload.meta.convertedFrom = {
+      docType: "facture",
+      type: "facture",
+      number: "Fact_20260329-1"
+    };
+    payload.meta.bsSortie = {
+      ...(payload.meta.bsSortie || {}),
+      date: "2026-03-29",
+      time: "09:00",
+      sourceRef: "Facture : Fact_20260329-1",
+      sourceDocType: "facture"
+    };
+
+    const res = saveDocument({
+      docType: "bs",
+      payload
+    });
+
+    assert.equal(res.ok, false);
+    assert.equal(res.reason, "insufficient_stock");
+    assert.match(String(res.error || ""), /Stock insuffisant/i);
+    assert.match(String(res.error || ""), /ART-STK-1/i);
+    const article = getArticleSnapshot(fixture.articleId);
+    assert.equal(Number(article.stockQty), 0);
+    assert.equal(Number(getDepotStock(article, fixture.depotId)), 0);
+  });
+});
+
 test("BS blocked when insufficient and negative stock is not allowed", (t) => {
   withTempDatabase(t, () => {
     const fixture = createFixture({
