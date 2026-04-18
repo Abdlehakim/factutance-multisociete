@@ -889,7 +889,7 @@
     };
     const getBeReceptionFallbackDate = () =>
       String(e[ID.date]?.value || getTodayDate()).trim() || getTodayDate();
-    const requiresBeReceptionStorageFields = () => normalize(state.source?.docType || "") !== "fa";
+    const requiresBeReceptionStorageFields = () => isBonEntreeTarget();
     const getBeReceptionValidationOptions = (fallbackDate = getBeReceptionFallbackDate()) => ({
       fallbackDate,
       requireStorageFields: requiresBeReceptionStorageFields()

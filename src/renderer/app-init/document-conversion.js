@@ -545,9 +545,8 @@
     return { ok: true, value: reception };
   };
   const shouldRequireBeReceptionStorageFields = (sourceDocType, targetDocType) => {
-    const source = String(sourceDocType || "").trim().toLowerCase();
     const target = String(targetDocType || "").trim().toLowerCase();
-    return !(source === "fa" && target === "be");
+    return target === "be";
   };
   const applyBeReceptionChoiceToMeta = (metaInput, value, { fallbackDate = "" } = {}) => {
     const meta = metaInput && typeof metaInput === "object" ? metaInput : {};

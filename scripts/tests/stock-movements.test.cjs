@@ -256,7 +256,43 @@ test("BE create increases stock", (t) => {
   });
 });
 
-test("Converted FA to BE without depot saves without stock sync", (t) => {
+test("Converted FA to BE with depot applies stock", (t) => {
+  withTempDatabase(t, () => {
+    const fixture = createFixture();
+    const payload = buildStockPayload({
+      docType: "be",
+      articlePath: fixture.articlePath,
+      qty: 4,
+      depotId: fixture.depotId,
+      emplacementId: fixture.locationOneId,
+      emplacementLabel: fixture.locationOneLabel
+    });
+    payload.meta.convertedFrom = {
+      docType: "fa",
+      type: "fa",
+      number: "FA_20260329-1"
+    };
+    payload.meta.beReception = {
+      ...(payload.meta.beReception || {}),
+      date: "2026-03-29",
+      time: "09:00",
+      sourceRef: "Facture d'achat : FA_20260329-1"
+    };
+
+    const res = saveDocument({
+      docType: "be",
+      payload
+    });
+
+    assert.equal(res.ok, true);
+    assert.equal(res.stockAdjusted, true);
+    const article = getArticleSnapshot(fixture.articleId);
+    assert.equal(Number(article.stockQty), 4);
+    assert.equal(Number(getDepotStock(article, fixture.depotId)), 4);
+  });
+});
+
+test("Converted FA to BE without depot is rejected", (t) => {
   withTempDatabase(t, () => {
     const fixture = createFixture();
     const payload = buildStockPayload({
@@ -284,8 +320,8 @@ test("Converted FA to BE without depot saves without stock sync", (t) => {
       payload
     });
 
-    assert.equal(res.ok, true);
-    assert.equal(res.stockAdjusted, false);
+    assert.equal(res.ok, false);
+    assert.match(String(res.error || ""), /depot de destination requis/i);
     const article = getArticleSnapshot(fixture.articleId);
     assert.equal(Number(article.stockQty), 0);
     assert.equal(Number(getDepotStock(article, fixture.depotId)), 0);
