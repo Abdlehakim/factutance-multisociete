@@ -2677,18 +2677,24 @@
           },
           promptOptions: state.source.promptOptions || {}
         };
-        const ok =
+        const result =
           conversionEntries.length > 1
             ? await convertApi.convertSourceEntriesWithChoices(conversionEntries, conversionOptions)
             : await convertApi.convertSourceEntryWithChoices(conversionEntries[0], conversionOptions);
+        const failedWithDetails = result && typeof result === "object" && result.ok === false;
+        const ok = !failedWithDetails && result !== false;
         if (ok) {
           close(true);
           return;
         }
+        const detailedError = failedWithDetails
+          ? String(result.error || result.message || "").trim()
+          : "";
         setStatus2(
-          conversionEntries.length > 1
-            ? "Impossible de convertir les documents selectionnes."
-            : "Impossible de convertir le document."
+          detailedError ||
+            (conversionEntries.length > 1
+              ? "Impossible de convertir les documents selectionnes."
+              : "Impossible de convertir le document.")
         );
       } catch (err) {
         setStatus2(String(err?.message || "Impossible de convertir les documents."));

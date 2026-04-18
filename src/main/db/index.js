@@ -6599,6 +6599,28 @@ const isStockMovementDocType = (docType = "") =>
 const isStockMovementActiveStatus = (status) =>
   normalizeDocumentStatus(status) !== "brouillon";
 
+const normalizeOptionalStockMovementDocType = (value = "") => {
+  const raw = String(value || "").trim();
+  return raw ? normalizeDocType(raw) : "";
+};
+
+const resolveStockMovementConvertedFromDocType = (payload = {}) => {
+  const wrapper = payload && typeof payload === "object" ? payload : {};
+  const target =
+    wrapper.data && typeof wrapper.data === "object"
+      ? wrapper.data
+      : wrapper;
+  const meta = target.meta && typeof target.meta === "object" ? target.meta : {};
+  const wrapperMeta = wrapper.meta && typeof wrapper.meta === "object" ? wrapper.meta : {};
+  const converted = normalizeConvertedFromPayload(
+    meta.convertedFrom || target.convertedFrom || wrapperMeta.convertedFrom || wrapper.convertedFrom
+  );
+  return normalizeOptionalStockMovementDocType(converted?.docType || converted?.type || "");
+};
+
+const canSkipMissingDepotForStockMovement = ({ documentType = "", payload = {} } = {}) =>
+  normalizeDocType(documentType) === "be" && resolveStockMovementConvertedFromDocType(payload) === "fa";
+
 const normalizeStockMovementKeyPart = (value = "") => normalizeTextValue(value).toLowerCase();
 
 const normalizeStockMovementIdValue = (value = "") => normalizeTextValue(value);
@@ -6898,6 +6920,17 @@ const buildStockDocumentMovementPlan = ({
   const movementMeta = resolveStockMovementMeta(db, normalizedDocType, row);
   if (!movementMeta.depotId) {
     if (normalizedDocType === "be") {
+      if (canSkipMissingDepotForStockMovement({ documentType: normalizedDocType, payload })) {
+        return {
+          docType: normalizedDocType,
+          documentId: normalizeTextValue(documentId),
+          documentNumber: normalizeTextValue(documentNumber),
+          lines: [],
+          batchHash: null,
+          skipped: true,
+          skipReason: "converted_fa_be_missing_depot"
+        };
+      }
       throw new Error("Bon d'entree: depot de destination requis.");
     }
     throw new Error("Bon de sortie: depot source requis.");

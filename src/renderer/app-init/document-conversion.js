@@ -3407,6 +3407,20 @@
       }
     };
 
+    const buildSaveFailureResult = (res, fallbackText = "Enregistrement impossible.") => {
+      const errorText = String(res?.error || res?.message || fallbackText).trim() || fallbackText;
+      const failure = {
+        ok: false,
+        error: errorText
+      };
+      const reason = String(res?.reason || "").trim();
+      if (reason) failure.reason = reason;
+      if (res?.details && typeof res.details === "object") {
+        failure.details = res.details;
+      }
+      return failure;
+    };
+
     if (w.electronAPI?.saveInvoiceJSON) {
       try {
         logConvert("save-call-start", {
@@ -3524,13 +3538,15 @@
           reason: String(res?.reason || ""),
           error: String(res?.error || "")
         });
-        return false;
+        return buildSaveFailureResult(res);
       } catch (err) {
         console.error("convert devis save failed", err);
         logConvert("save-call-exception", {
           message: String(err?.message || err || "")
         });
-        return false;
+        return buildSaveFailureResult({
+          error: String(err?.message || err || "")
+        });
       }
     }
 
@@ -3554,7 +3570,9 @@
         };
       } catch (err) {
         console.error("convert devis fallback save failed", err);
-        return false;
+        return buildSaveFailureResult({
+          error: String(err?.message || err || "")
+        });
       }
     }
 
@@ -3814,10 +3832,16 @@
         const fallbackText = `Impossible de cr\u00e9er ${article} ${String(label || "document").toLowerCase()}.`;
         const saveError = getMessage("DOCUMENT_SAVE_FAILED", { fallbackText });
         console.warn("[doc-convert] save failed", { targetDocType, sourcePath: String(entry.path || "") });
-        return {
+        const failureResult = {
           ok: false,
           error: String(saved?.error || saved?.message || saveError.text || fallbackText)
         };
+        const reason = String(saved?.reason || "").trim();
+        if (reason) failureResult.reason = reason;
+        if (saved?.details && typeof saved.details === "object") {
+          failureResult.details = saved.details;
+        }
+        return failureResult;
       }
       const savedInfo =
         saved && typeof saved === "object"
@@ -3891,7 +3915,7 @@
     if (directChoices && typeof directChoices === "object") {
       const directSubmit = await performConversion(directChoices);
       if (directSubmit && typeof directSubmit === "object") {
-        return directSubmit.ok !== false;
+        return directSubmit;
       }
       return directSubmit !== false;
     }
@@ -3924,7 +3948,7 @@
     }
     const fallbackSubmit = await performConversion(promptResult?.choices || promptResult);
     if (fallbackSubmit && typeof fallbackSubmit === "object") {
-      return fallbackSubmit.ok !== false;
+      return fallbackSubmit;
     }
     return fallbackSubmit !== false;
   }

@@ -48,6 +48,11 @@ function withTempDatabase(t, fn) {
   try {
     result = fn({ workspaceRoot, companyDir });
   } catch (err) {
+    if (isNativeSqliteUnavailableError(err)) {
+      cleanup();
+      t.skip("better-sqlite3 is not built for this Node runtime; run under Electron ABI.");
+      return;
+    }
     cleanup();
     throw err;
   }
@@ -248,6 +253,65 @@ test("BE create increases stock", (t) => {
     const article = getArticleSnapshot(fixture.articleId);
     assert.equal(Number(article.stockQty), 5);
     assert.equal(Number(getDepotStock(article, fixture.depotId)), 5);
+  });
+});
+
+test("Converted FA to BE without depot saves without stock sync", (t) => {
+  withTempDatabase(t, () => {
+    const fixture = createFixture();
+    const payload = buildStockPayload({
+      docType: "be",
+      articlePath: fixture.articlePath,
+      qty: 4,
+      depotId: "",
+      emplacementId: "",
+      emplacementLabel: ""
+    });
+    payload.meta.convertedFrom = {
+      docType: "fa",
+      type: "fa",
+      number: "FA_20260329-1"
+    };
+    payload.meta.beReception = {
+      ...(payload.meta.beReception || {}),
+      date: "2026-03-29",
+      time: "09:00",
+      sourceRef: "Facture d'achat : FA_20260329-1"
+    };
+
+    const res = saveDocument({
+      docType: "be",
+      payload
+    });
+
+    assert.equal(res.ok, true);
+    assert.equal(res.stockAdjusted, false);
+    const article = getArticleSnapshot(fixture.articleId);
+    assert.equal(Number(article.stockQty), 0);
+    assert.equal(Number(getDepotStock(article, fixture.depotId)), 0);
+  });
+});
+
+test("Non-converted BE without depot is still rejected", (t) => {
+  withTempDatabase(t, () => {
+    const fixture = createFixture();
+    const res = saveDocument({
+      docType: "be",
+      payload: buildStockPayload({
+        docType: "be",
+        articlePath: fixture.articlePath,
+        qty: 4,
+        depotId: "",
+        emplacementId: "",
+        emplacementLabel: ""
+      })
+    });
+
+    assert.equal(res.ok, false);
+    assert.match(String(res.error || ""), /depot de destination requis/i);
+    const article = getArticleSnapshot(fixture.articleId);
+    assert.equal(Number(article.stockQty), 0);
+    assert.equal(Number(getDepotStock(article, fixture.depotId)), 0);
   });
 });
 
