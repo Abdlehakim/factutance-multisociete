@@ -1449,6 +1449,7 @@
     }
 
     const tvaRows = Array.isArray(totals?.tvaBreakdown) ? totals.tvaBreakdown : [];
+    const fodecEnabled = !!extras?.fodecEnabled;
     const fodecLabel = String(extras?.fodecLabel || "FODEC").trim() || "FODEC";
     const baseFodecRows = Array.isArray(extras?.fodecBreakdown) ? extras.fodecBreakdown : [];
     const normalizedFodecRows = [];
@@ -1495,7 +1496,7 @@
     });
 
     if (
-      extras?.fodecEnabled &&
+      fodecEnabled &&
       !normalizedFodecRows.length &&
       Number.isFinite(fallbackFodecAmount) &&
       Math.abs(fallbackFodecAmount) > 1e-9
@@ -1517,6 +1518,7 @@
     }
 
     const aggregatedFodecRows = (() => {
+      if (!fodecEnabled) return [];
       const map = new Map();
       normalizedFodecRows.forEach((row) => {
         const rate = toFiniteNumber(row?.rate, 0);
@@ -1586,24 +1588,17 @@
     const metaExtras = state?.meta?.extras && typeof state.meta.extras === "object" ? state.meta.extras : {};
     const isPurchaseDoc = MODEL_DOC_TYPE_PURCHASE_VALUES.has(docType);
     const taxSummary = buildInvoiceTaxSummary(totals, currency, taxesEnabled);
+    const showTaxPanel = taxesEnabled && taxSummary.hasAnyRow;
 
     const tvaPanel = page.querySelector("[data-tax-panel]");
-    setNodeVisibility(tvaPanel, taxesEnabled);
+    setNodeVisibility(tvaPanel, showTaxPanel);
     const tvaBody = page.querySelector(".doc-design1__tva-table tbody");
     if (tvaBody) {
-      if (!taxesEnabled) {
+      if (!showTaxPanel) {
         tvaBody.innerHTML = "";
       } else {
-        const rows = taxSummary.hasAnyRow
-          ? taxSummary.rowsHtml
-          : `
-            <tr>
-              <td>TVA 0%</td>
-              <td class="right">${fmtMoney(0, currency)}</td>
-              <td class="right">${fmtMoney(0, currency)}</td>
-            </tr>`;
         tvaBody.innerHTML = `
-          ${rows}
+          ${taxSummary.rowsHtml}
           <tr class="doc-design1__tva-total">
             <th colspan="2">Total</th>
             <th class="right">${fmtMoney(taxSummary.totalAmount, currency)}</th>
@@ -1666,7 +1661,7 @@
       value: fmtMoney(extras?.stampTT ?? extras?.stampHT, currency)
     });
     setMiniSummaryRow("taxes", {
-      visible: taxesEnabled,
+      visible: showTaxPanel,
       label: "Total Taxes",
       value: fmtMoney(taxSummary.totalAmount, currency)
     });

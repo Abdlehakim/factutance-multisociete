@@ -1978,35 +1978,32 @@
 
     const breakdownEntries = Array.from(tvaBreakdownMap.values());
     const hasBreakdownEntries = breakdownEntries.length > 0;
-    const includeTvaBreakdown = taxesEnabled && (type === "facture" || type === "fa" || type === "devis" || type === "bl");
+    const includeTvaBreakdown =
+      taxesEnabled &&
+      hasBreakdownEntries &&
+      (type === "facture" || type === "fa" || type === "devis" || type === "bl");
     let tvaBreakdownHTML = "";
     if (includeTvaBreakdown) {
-      const sortedEntries = hasBreakdownEntries
-        ? breakdownEntries.sort((a, b) => {
-            if (a.type !== b.type) return a.type === "fodec" ? -1 : 1;
-            const ra = Number.isFinite(a.rate) ? a.rate : Number.POSITIVE_INFINITY;
-            const rb = Number.isFinite(b.rate) ? b.rate : Number.POSITIVE_INFINITY;
-            if (ra !== rb) return ra - rb;
-            return (a.label || "").localeCompare(b.label || "");
-          })
-        : [];
+      const sortedEntries = breakdownEntries.sort((a, b) => {
+        if (a.type !== b.type) return a.type === "fodec" ? -1 : 1;
+        const ra = Number.isFinite(a.rate) ? a.rate : Number.POSITIVE_INFINITY;
+        const rb = Number.isFinite(b.rate) ? b.rate : Number.POSITIVE_INFINITY;
+        if (ra !== rb) return ra - rb;
+        return (a.label || "").localeCompare(b.label || "");
+      });
       const totalAmount = sortedEntries.reduce((sum, entry) => sum + entry.amount, 0);
-      const rowsHTML = hasBreakdownEntries
-        ? sortedEntries.map((entry) => {
-            const rowClass = entry.type === "fodec" ? " class=\"tva-breakdown__fodec\"" : "";
-            return `<tr${rowClass}>
-              <td>${esc(entry.label)}</td>
-              <td class="right">${fmtMoney(entry.base, cur)}</td>
-              <td class="right">${fmtMoney(entry.amount, cur)}</td>
-            </tr>`;
-          }).join("")
-        : `<tr class="tva-breakdown__empty"><td colspan="3">Aucune taxe \u00E0 afficher</td></tr>`;
-      const totalRow = hasBreakdownEntries
-        ? `<tr class="tva-breakdown__total">
+      const rowsHTML = sortedEntries.map((entry) => {
+        const rowClass = entry.type === "fodec" ? " class=\"tva-breakdown__fodec\"" : "";
+        return `<tr${rowClass}>
+          <td>${esc(entry.label)}</td>
+          <td class="right">${fmtMoney(entry.base, cur)}</td>
+          <td class="right">${fmtMoney(entry.amount, cur)}</td>
+        </tr>`;
+      }).join("");
+      const totalRow = `<tr class="tva-breakdown__total">
           <th colspan="2">Total</th>
           <th class="right">${fmtMoney(totalAmount, cur)}</th>
-        </tr>`
-        : "";
+        </tr>`;
       tvaBreakdownHTML = `
         <div class="tva-breakdown" id="tvaBreakdownCard">
           <table id="tvaBreakdown" class="tva-breakdown__table">

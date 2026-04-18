@@ -460,8 +460,39 @@
   const normalizePdfPreviewArticleLabel = (value) =>
     String(value || "").trim();
 
-  function collectLiveItemsArticleHeaderLabels() {
+  const PDF_PREVIEW_DOM_COL_LABEL_KEYS = {
+    ttc: "totalTtc"
+  };
+
+  function collectArticleHeaderLabelsFromCells(headerCells = []) {
     const labels = {};
+    headerCells.forEach((cell) => {
+      const explicitKey = String(cell?.dataset?.articleFieldLabel || "").trim();
+      const colKey = String(cell?.dataset?.col || "").trim();
+      const key = explicitKey || PDF_PREVIEW_DOM_COL_LABEL_KEYS[colKey] || colKey;
+      if (!PDF_PREVIEW_ARTICLE_LABEL_KEYS.has(key)) return;
+      const label = normalizePdfPreviewArticleLabel(cell.textContent);
+      if (label) labels[key] = label;
+    });
+    return Object.keys(labels).length ? labels : null;
+  }
+
+  function collectPdfPreviewModalArticleHeaderLabels(overlay = null) {
+    const targetOverlay = overlay || (
+      typeof document !== "undefined" ? document.getElementById("pdfPreviewModal") : null
+    );
+    if (!targetOverlay || lastPreviewMode !== "invoice") return null;
+    const root = targetOverlay.querySelector("#pdfRoot");
+    if (!root) return null;
+    const headerCells = Array.from(root.querySelectorAll([
+      "thead th[data-article-field-label]",
+      ".doc-design1__table thead th[data-col]",
+      ".pdf-table thead th[data-col]"
+    ].join(", ")));
+    return collectArticleHeaderLabelsFromCells(headerCells);
+  }
+
+  function collectLiveItemsArticleHeaderLabels() {
     if (typeof document === "undefined") return null;
     const liveItemsTable =
       document.querySelector("#itemsDocOptionsModal #items") ||
@@ -470,24 +501,31 @@
       ? Array.from(liveItemsTable.querySelectorAll("thead th[data-article-field-label]"))
       : [];
     if (!headerCells.length) return null;
-    headerCells.forEach((cell) => {
-      const key = String(cell?.dataset?.articleFieldLabel || "").trim();
-      if (!PDF_PREVIEW_ARTICLE_LABEL_KEYS.has(key)) return;
-      const label = normalizePdfPreviewArticleLabel(cell.textContent);
-      if (label) labels[key] = label;
-    });
-    return Object.keys(labels).length ? labels : null;
+    return collectArticleHeaderLabelsFromCells(headerCells);
   }
 
-  function applyPdfPreviewArticleHeaderLabels(stateInput) {
+  function collectResolvedArticleHeaderLabels({ preferPreview = false, overlay = null } = {}) {
+    const first = preferPreview
+      ? collectPdfPreviewModalArticleHeaderLabels(overlay)
+      : collectLiveItemsArticleHeaderLabels();
+    if (first) return first;
+    return preferPreview
+      ? collectLiveItemsArticleHeaderLabels()
+      : collectPdfPreviewModalArticleHeaderLabels(overlay);
+  }
+
+  function applyPdfPreviewArticleHeaderLabels(stateInput, options = {}) {
     if (!stateInput || typeof stateInput !== "object") return stateInput;
     const meta = stateInput.meta && typeof stateInput.meta === "object"
       ? stateInput.meta
       : (stateInput.meta = {});
     const taxesEnabled = isPdfPreviewTaxesEnabled(meta.taxesEnabled);
     const fallbacks = resolvePdfPreviewArticleHeaderFallbacks(taxesEnabled);
-    const liveLabels = collectLiveItemsArticleHeaderLabels();
-    meta.articleFieldLabels = liveLabels ? { ...fallbacks, ...liveLabels } : { ...fallbacks };
+    const liveLabels = collectResolvedArticleHeaderLabels(options);
+    const resolvedLabels = liveLabels ? { ...fallbacks, ...liveLabels } : { ...fallbacks };
+    if (resolvedLabels.fodecSale) resolvedLabels.fodecAmount = resolvedLabels.fodecSale;
+    if (resolvedLabels.fodecPurchase) resolvedLabels.purchaseFodecAmount = resolvedLabels.fodecPurchase;
+    meta.articleFieldLabels = resolvedLabels;
     return stateInput;
   }
 
@@ -1578,7 +1616,10 @@
         overwritePolicy
       });
     }
-    const st = await buildInvoicePdfSnapshot(stateInput);
+    const st = applyPdfPreviewArticleHeaderLabels(
+      await buildInvoicePdfSnapshot(stateInput),
+      { preferPreview: true }
+    );
     const docTypeKey = (String(st.meta?.docType || "").trim().toLowerCase()) || "facture";
     const resolvedHistoryPath = historyPath || st.meta?.historyPath || "";
     const resolvedHistoryDocType =
@@ -2310,7 +2351,10 @@ function buildBonEntreePreviewTitle(stateInput) {
     if (window.SEM?.computeTotals) window.SEM.computeTotals(); else if (typeof computeTotals === "function") computeTotals();
     syncActiveInvoiceHistoryStatus();
 
-    const st = await buildInvoicePdfSnapshot(window.SEM?.state || window.state || {});
+    const st = applyPdfPreviewArticleHeaderLabels(
+      await buildInvoicePdfSnapshot(window.SEM?.state || window.state || {}),
+      { preferPreview: true }
+    );
     if (normalizeDocTypeKey(st?.meta?.docType || "facture") === "be") {
       await printBonEntreeState(st);
       return;
