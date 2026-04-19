@@ -56,6 +56,7 @@
     beTime: "convertDocumentWindowBeReceptionTimeInput",
     beTimePanel: "convertDocumentWindowBeReceptionTimePanel",
     beSourceRef: "convertDocumentWindowBeReceptionSourceInput",
+    bsSectionsWrap: "convertDocumentWindowBsSectionsWrap",
     bsSortieWrap: "convertDocumentWindowBsSortieWrap",
     bsDepot: "convertDocumentWindowBsSortieDepotInput",
     bsDepotMenu: "convertDocumentWindowBsSortieDepotMenu",
@@ -644,7 +645,7 @@
             <section id="${ID.step2}" hidden>
               <p id="${ID.summary}" class="doc-history-modal__status" hidden></p>
               <div class="doc-history-convert-form convert-document-window-modal__options-form">
-                <label class="doc-history-convert__field doc-type-field">
+                <div class="doc-history-convert__field doc-type-field">
                   <span class="model-save-dot">Convertir vers:</span>
                   <div class="doc-type-field__controls">
                     <div
@@ -655,7 +656,7 @@
                     ></div>
                     <select id="${ID.target}" class="doc-type-select doc-history-convert__select" aria-hidden="true" tabindex="-1"></select>
                   </div>
-                </label>
+                </div>
                 <div class="doc-history-convert__field">
                   <label id="${ID.modelLabel}" class="doc-history-convert__label doc-dialog-model-picker__label" for="${ID.model}">Modele</label>
                   <div class="doc-dialog-model-picker__field">
@@ -842,120 +843,122 @@
                   </label>
                 </div>
               </fieldset>
-              <fieldset id="${ID.bsSortieWrap}" hidden class="items-be-reception-form doc-history-convert__be-reception convert-document-window-modal__be-reception convert-document-window-modal__stock-form">
-                <legend>Informations de sortie</legend>
-                <div class="items-be-reception-form__grid">
-                  ${renderBeReceptionSelectField({
-                    selectId: ID.bsDepot,
-                    menuId: ID.bsDepotMenu,
-                    panelId: ID.bsDepotPanel,
-                    displayId: ID.bsDepotDisplay,
-                    labelText: "D&eacute;p&ocirc;t / Magasin source",
-                    placeholder: "Selectionner un depot"
-                  })}
-                  ${renderBeReceptionSelectField({
-                    selectId: ID.bsLocation,
-                    menuId: ID.bsLocationMenu,
-                    panelId: ID.bsLocationPanel,
-                    displayId: ID.bsLocationDisplay,
-                    labelText: "Emplacement source",
-                    placeholder: "Aucun emplacement",
-                    multiple: true
-                  })}
-                  <label class="items-be-reception-form__field">
-                    <span>Date de sortie</span>
-                    <div class="swb-date-picker" data-date-picker>
-                      <input
-                        id="${ID.bsDate}"
-                        type="text"
-                        inputmode="numeric"
-                        placeholder="AAAA-MM-JJ"
-                        autocomplete="off"
-                        spellcheck="false"
-                        aria-haspopup="dialog"
-                        aria-expanded="false"
-                        role="combobox"
-                        aria-controls="${ID.bsDatePanel}"
-                      />
-                      <button
-                        type="button"
-                        class="swb-date-picker__toggle"
-                        data-date-picker-toggle
-                        aria-label="Choisir une date de sortie"
-                        aria-haspopup="dialog"
-                        aria-expanded="false"
-                        aria-controls="${ID.bsDatePanel}"
-                      >
-                        <svg class="swb-date-picker__toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" focusable="false">
-                          <rect x="3.5" y="5" width="17" height="15" rx="2"></rect>
-                          <path d="M8 3.5v3M16 3.5v3M3.5 10h17" stroke-linecap="round"></path>
-                        </svg>
-                      </button>
-                      <div
-                        id="${ID.bsDatePanel}"
-                        class="swb-date-picker__panel"
-                        data-date-picker-panel
-                        hidden
-                        role="dialog"
-                        aria-modal="false"
-                        aria-label="Choisir une date"
-                        tabindex="-1"
-                      ></div>
-                    </div>
-                  </label>
-                  ${renderBsSortieTimeField()}
-                  <label class="items-be-reception-form__field items-be-reception-form__field--wide items-be-reception-form__field--source" for="${ID.bsSourceRef}">
-                    <span>R&eacute;f&eacute;rence source</span>
-                    <div class="items-be-reception-form__input-group items-be-reception-form__input-group--source">
-                      <input id="${ID.bsSourceRef}" type="text" placeholder="ex : Facture" autocomplete="off" spellcheck="false" />
-                    </div>
-                  </label>
-                </div>
-              </fieldset>
-              <fieldset id="${ID.bsTransportWrap}" hidden class="items-be-reception-form doc-history-convert__be-reception convert-document-window-modal__be-reception convert-document-window-modal__stock-form convert-document-window-modal__stock-form--transport">
-                <legend>Transport / exp&eacute;dition</legend>
-                <div class="items-be-reception-form__section-actions convert-document-window-modal__stock-form-actions" aria-label="Actions transport">
-                  <button
-                    id="${ID.bsTransportSavedList}"
-                    type="button"
-                    class="client-search__saved items-be-reception-form__picker-btn convert-document-window-modal__stock-form-picker"
-                    aria-label="Afficher les transporteurs enregistres"
-                    data-bs-transport-saved-open="true"
-                    title="Afficher les transporteurs enregistres"
-                  >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
-                      <circle cx="5" cy="6" r="1.5"></circle>
-                      <circle cx="5" cy="12" r="1.5"></circle>
-                      <circle cx="5" cy="18" r="1.5"></circle>
-                      <line x1="9" y1="6" x2="20" y2="6" stroke-linecap="round"></line>
-                      <line x1="9" y1="12" x2="20" y2="12" stroke-linecap="round"></line>
-                      <line x1="9" y1="18" x2="20" y2="18" stroke-linecap="round"></line>
-                    </svg>
-                  </button>
-                </div>
-                <div class="items-be-reception-form__grid items-be-reception-form__grid--transport">
-                  <label class="items-be-reception-form__field" for="${ID.bsTransporter}">
-                    <span>Transporteur</span>
-                    <input id="${ID.bsTransporter}" type="text" placeholder="Nom du transporteur" autocomplete="off" spellcheck="false" />
-                  </label>
-                  <label class="items-be-reception-form__field" for="${ID.bsDriverName}">
-                    <span>Chauffeur</span>
-                    <input id="${ID.bsDriverName}" type="text" placeholder="Nom du chauffeur" autocomplete="off" spellcheck="false" />
-                  </label>
-                  <label class="items-be-reception-form__field" for="${ID.bsVehiclePlate}">
-                    <span>Matricule v&eacute;hicule</span>
-                    <input id="${ID.bsVehiclePlate}" type="text" placeholder="Matricule du vehicule" autocomplete="off" spellcheck="false" />
-                  </label>
-                  <label class="items-be-reception-form__field" for="${ID.bsTransportMode}">
-                    <span>Mode de transport</span>
-                    <input id="${ID.bsTransportMode}" type="text" placeholder="Camion, utilitaire, etc." autocomplete="off" spellcheck="false" />
-                  </label>
-                  <label class="items-be-reception-form__field items-be-reception-form__field--wide" for="${ID.bsExitReason}">
-                    <span>Motif de sortie</span>
-                    <input id="${ID.bsExitReason}" type="text" placeholder="Motif / commentaire de sortie" autocomplete="off" spellcheck="false" />
-                  </label>
-                </div>
-              </fieldset>
+              <div id="${ID.bsSectionsWrap}" hidden class="convert-document-window-modal__bs-sections" aria-hidden="true">
+                <fieldset id="${ID.bsSortieWrap}" hidden class="items-be-reception-form doc-history-convert__be-reception convert-document-window-modal__be-reception convert-document-window-modal__stock-form">
+                  <legend>Informations de sortie</legend>
+                  <div class="items-be-reception-form__grid">
+                    ${renderBeReceptionSelectField({
+                      selectId: ID.bsDepot,
+                      menuId: ID.bsDepotMenu,
+                      panelId: ID.bsDepotPanel,
+                      displayId: ID.bsDepotDisplay,
+                      labelText: "D&eacute;p&ocirc;t / Magasin source",
+                      placeholder: "Selectionner un depot"
+                    })}
+                    ${renderBeReceptionSelectField({
+                      selectId: ID.bsLocation,
+                      menuId: ID.bsLocationMenu,
+                      panelId: ID.bsLocationPanel,
+                      displayId: ID.bsLocationDisplay,
+                      labelText: "Emplacement source",
+                      placeholder: "Aucun emplacement",
+                      multiple: true
+                    })}
+                    <label class="items-be-reception-form__field">
+                      <span>Date de sortie</span>
+                      <div class="swb-date-picker" data-date-picker>
+                        <input
+                          id="${ID.bsDate}"
+                          type="text"
+                          inputmode="numeric"
+                          placeholder="AAAA-MM-JJ"
+                          autocomplete="off"
+                          spellcheck="false"
+                          aria-haspopup="dialog"
+                          aria-expanded="false"
+                          role="combobox"
+                          aria-controls="${ID.bsDatePanel}"
+                        />
+                        <button
+                          type="button"
+                          class="swb-date-picker__toggle"
+                          data-date-picker-toggle
+                          aria-label="Choisir une date de sortie"
+                          aria-haspopup="dialog"
+                          aria-expanded="false"
+                          aria-controls="${ID.bsDatePanel}"
+                        >
+                          <svg class="swb-date-picker__toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" focusable="false">
+                            <rect x="3.5" y="5" width="17" height="15" rx="2"></rect>
+                            <path d="M8 3.5v3M16 3.5v3M3.5 10h17" stroke-linecap="round"></path>
+                          </svg>
+                        </button>
+                        <div
+                          id="${ID.bsDatePanel}"
+                          class="swb-date-picker__panel"
+                          data-date-picker-panel
+                          hidden
+                          role="dialog"
+                          aria-modal="false"
+                          aria-label="Choisir une date"
+                          tabindex="-1"
+                        ></div>
+                      </div>
+                    </label>
+                    ${renderBsSortieTimeField()}
+                    <label class="items-be-reception-form__field items-be-reception-form__field--wide items-be-reception-form__field--source" for="${ID.bsSourceRef}">
+                      <span>R&eacute;f&eacute;rence source</span>
+                      <div class="items-be-reception-form__input-group items-be-reception-form__input-group--source">
+                        <input id="${ID.bsSourceRef}" type="text" placeholder="ex : Facture" autocomplete="off" spellcheck="false" />
+                      </div>
+                    </label>
+                  </div>
+                </fieldset>
+                <fieldset id="${ID.bsTransportWrap}" hidden class="items-be-reception-form doc-history-convert__be-reception convert-document-window-modal__be-reception convert-document-window-modal__stock-form convert-document-window-modal__stock-form--transport">
+                  <legend>Transport / exp&eacute;dition</legend>
+                  <div class="items-be-reception-form__section-actions convert-document-window-modal__stock-form-actions" aria-label="Actions transport">
+                    <button
+                      id="${ID.bsTransportSavedList}"
+                      type="button"
+                      class="client-search__saved items-be-reception-form__picker-btn convert-document-window-modal__stock-form-picker"
+                      aria-label="Afficher les transporteurs enregistres"
+                      data-bs-transport-saved-open="true"
+                      title="Afficher les transporteurs enregistres"
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
+                        <circle cx="5" cy="6" r="1.5"></circle>
+                        <circle cx="5" cy="12" r="1.5"></circle>
+                        <circle cx="5" cy="18" r="1.5"></circle>
+                        <line x1="9" y1="6" x2="20" y2="6" stroke-linecap="round"></line>
+                        <line x1="9" y1="12" x2="20" y2="12" stroke-linecap="round"></line>
+                        <line x1="9" y1="18" x2="20" y2="18" stroke-linecap="round"></line>
+                      </svg>
+                    </button>
+                  </div>
+                  <div class="items-be-reception-form__grid items-be-reception-form__grid--transport">
+                    <label class="items-be-reception-form__field" for="${ID.bsTransporter}">
+                      <span>Transporteur</span>
+                      <input id="${ID.bsTransporter}" type="text" placeholder="Nom du transporteur" autocomplete="off" spellcheck="false" />
+                    </label>
+                    <label class="items-be-reception-form__field" for="${ID.bsDriverName}">
+                      <span>Chauffeur</span>
+                      <input id="${ID.bsDriverName}" type="text" placeholder="Nom du chauffeur" autocomplete="off" spellcheck="false" />
+                    </label>
+                    <label class="items-be-reception-form__field" for="${ID.bsVehiclePlate}">
+                      <span>Matricule v&eacute;hicule</span>
+                      <input id="${ID.bsVehiclePlate}" type="text" placeholder="Matricule du vehicule" autocomplete="off" spellcheck="false" />
+                    </label>
+                    <label class="items-be-reception-form__field" for="${ID.bsTransportMode}">
+                      <span>Mode de transport</span>
+                      <input id="${ID.bsTransportMode}" type="text" placeholder="Camion, utilitaire, etc." autocomplete="off" spellcheck="false" />
+                    </label>
+                    <label class="items-be-reception-form__field items-be-reception-form__field--wide" for="${ID.bsExitReason}">
+                      <span>Motif de sortie</span>
+                      <input id="${ID.bsExitReason}" type="text" placeholder="Motif / commentaire de sortie" autocomplete="off" spellcheck="false" />
+                    </label>
+                  </div>
+                </fieldset>
+              </div>
               <p id="${ID.status2}" class="doc-history-modal__status" aria-live="polite"></p>
             </section>
             <div class="convert-document-window-modal__step-actions model-stepper__actions-right">
@@ -1265,7 +1268,14 @@
           } catch {}
         }
       }
-      if (e[ID.beTime]) e[ID.beTime].value = reception.time || formatBeReceptionTime();
+      if (e[ID.beTime]) {
+        const timeValue = reception.time || formatBeReceptionTime();
+        if (e[ID.beTime].__swbTimePickerController?.setValue) {
+          e[ID.beTime].__swbTimePickerController.setValue(timeValue, { silent: true });
+        } else {
+          e[ID.beTime].value = timeValue;
+        }
+      }
       if (e[ID.beSourceRef]) e[ID.beSourceRef].value = reception.sourceRef || "";
     };
     const resetBeReceptionChoice = (entry = state.step2PrimaryDoc, selectedDocs = []) => {
@@ -1311,7 +1321,14 @@
           } catch {}
         }
       }
-      if (e[ID.bsTime]) e[ID.bsTime].value = sortie.time || formatBsSortieTime();
+      if (e[ID.bsTime]) {
+        const timeValue = sortie.time || formatBsSortieTime();
+        if (e[ID.bsTime].__swbTimePickerController?.setValue) {
+          e[ID.bsTime].__swbTimePickerController.setValue(timeValue, { silent: true });
+        } else {
+          e[ID.bsTime].value = timeValue;
+        }
+      }
       if (e[ID.bsSourceRef]) e[ID.bsSourceRef].value = sortie.sourceRef || "";
       if (e[ID.bsTransporter]) e[ID.bsTransporter].value = sortie.transporter || "";
       if (e[ID.bsDriverName]) e[ID.bsDriverName].value = sortie.driverName || "";
@@ -1939,99 +1956,455 @@
       syncStep2ConfirmState();
       return true;
     };
-    const closeBeReceptionTimePanel = () => {
-      const input = e[ID.beTime];
-      const wrapper = input?.closest?.("[data-time-picker]") || null;
-      const toggle = wrapper?.querySelector?.("[data-time-picker-toggle]") || null;
-      const panel = wrapper?.querySelector?.("[data-time-picker-panel]") || null;
-      if (!wrapper || !panel) return;
-      panel.hidden = true;
-      wrapper.classList.remove("is-open");
-      input?.setAttribute("aria-expanded", "false");
-      toggle?.setAttribute("aria-expanded", "false");
+    const parseConvertWindowTime = (value = "") => {
+      const match = String(value || "").trim().match(/^(\d{1,2}):(\d{2})$/);
+      if (!match) return null;
+      const hour = Number(match[1]);
+      const minute = Number(match[2]);
+      if (!Number.isInteger(hour) || !Number.isInteger(minute)) return null;
+      if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+      return { hour, minute };
     };
-    const closeBsSortieTimePanel = () => {
-      const input = e[ID.bsTime];
-      const wrapper = input?.closest?.("[data-time-picker]") || null;
+    const formatConvertWindowTimeParts = (hour, minute) =>
+      `${String(Math.max(0, Math.min(23, Number(hour) || 0))).padStart(2, "0")}:${String(
+        Math.max(0, Math.min(59, Number(minute) || 0))
+      ).padStart(2, "0")}`;
+    const ensureConvertWindowTimePicker = (
+      input,
+      {
+        panelId = "",
+        titleText = "Heure",
+        getNowValue = formatBeReceptionTime
+      } = {}
+    ) => {
+      if (!(input instanceof HTMLInputElement)) return null;
+      if (input.__swbTimePickerController) return input.__swbTimePickerController;
+      const wrapper =
+        input.closest("[data-time-picker]") || input.parentElement?.closest("[data-time-picker]");
       const toggle = wrapper?.querySelector?.("[data-time-picker-toggle]") || null;
       const panel = wrapper?.querySelector?.("[data-time-picker-panel]") || null;
-      if (!wrapper || !panel) return;
+      if (!(wrapper instanceof HTMLElement) || !(toggle instanceof HTMLElement) || !(panel instanceof HTMLElement)) {
+        return null;
+      }
+
+      input.type = "text";
+      input.readOnly = true;
+      input.autocomplete = "off";
+      input.spellcheck = false;
+      input.inputMode = "numeric";
+      input.setAttribute("aria-haspopup", "dialog");
+      input.setAttribute("aria-expanded", "false");
+      input.setAttribute("role", "combobox");
+      toggle.setAttribute("aria-haspopup", "dialog");
+      toggle.setAttribute("aria-expanded", "false");
       panel.hidden = true;
-      wrapper.classList.remove("is-open");
-      input?.setAttribute("aria-expanded", "false");
-      toggle?.setAttribute("aria-expanded", "false");
+      panel.setAttribute("role", "dialog");
+      panel.setAttribute("aria-modal", "false");
+      panel.setAttribute("aria-label", "Choisir une heure");
+      panel.tabIndex = -1;
+      if (!panel.id) panel.id = panelId;
+      input.setAttribute("aria-controls", panel.id);
+      toggle.setAttribute("aria-controls", panel.id);
+
+      const header = document.createElement("div");
+      header.className = "swb-time-picker__header";
+      const title = document.createElement("div");
+      title.className = "swb-time-picker__title";
+      title.textContent = String(titleText || "Heure");
+      const currentValue = document.createElement("div");
+      currentValue.className = "swb-time-picker__current";
+      currentValue.setAttribute("aria-live", "polite");
+      header.append(title, currentValue);
+
+      const body = document.createElement("div");
+      body.className = "swb-time-picker__body";
+      const stepperRow = document.createElement("div");
+      stepperRow.className = "swb-time-picker__stepper-row";
+      const createStepper = (key, labelText) => {
+        const root = document.createElement("section");
+        root.className = "swb-time-picker__stepper";
+        root.dataset.timePart = key;
+        const label = document.createElement("div");
+        label.className = "swb-time-picker__stepper-label";
+        label.textContent = labelText;
+        const controls = document.createElement("div");
+        controls.className = "swb-time-picker__stepper-controls";
+        const decrementBtn = document.createElement("button");
+        decrementBtn.type = "button";
+        decrementBtn.className = "swb-time-picker__stepper-control";
+        decrementBtn.setAttribute("aria-label", `${labelText} moins`);
+        decrementBtn.textContent = "-";
+        const value = document.createElement("input");
+        value.className = "swb-time-picker__stepper-value";
+        value.type = "text";
+        value.inputMode = "numeric";
+        value.autocomplete = "off";
+        value.spellcheck = false;
+        value.maxLength = 2;
+        value.setAttribute("aria-label", labelText);
+        const incrementBtn = document.createElement("button");
+        incrementBtn.type = "button";
+        incrementBtn.className = "swb-time-picker__stepper-control";
+        incrementBtn.setAttribute("aria-label", `${labelText} plus`);
+        incrementBtn.textContent = "+";
+        controls.append(decrementBtn, value, incrementBtn);
+        root.append(label, controls);
+        return { root, decrementBtn, incrementBtn, value };
+      };
+      const hourStepper = createStepper("hour", "Heure");
+      const minuteStepper = createStepper("minute", "Minute");
+      stepperRow.append(hourStepper.root, minuteStepper.root);
+      body.append(stepperRow);
+
+      const footer = document.createElement("div");
+      footer.className = "swb-time-picker__footer";
+      const nowBtn = document.createElement("button");
+      nowBtn.type = "button";
+      nowBtn.className = "swb-time-picker__footer-btn";
+      nowBtn.textContent = "Maintenant";
+      const clearBtn = document.createElement("button");
+      clearBtn.type = "button";
+      clearBtn.className = "swb-time-picker__footer-btn swb-time-picker__footer-btn--muted";
+      clearBtn.textContent = "Effacer";
+      footer.append(nowBtn, clearBtn);
+
+      panel.innerHTML = "";
+      panel.append(header, body, footer);
+
+      const panelPlaceholder = document.createComment("swb-time-picker__panel-placeholder");
+      if (panel.parentNode) {
+        try {
+          panel.parentNode.insertBefore(panelPlaceholder, panel);
+        } catch {}
+      }
+
+      let detachRelayout = null;
+      let panelPortaled = false;
+      let isOpen = false;
+      let selectedTime = parseConvertWindowTime(input.value);
+      if (!selectedTime && input.value) input.value = "";
+
+      const emitInputAndChange = () => {
+        try {
+          input.dispatchEvent(new Event("input", { bubbles: true }));
+        } catch {}
+        try {
+          input.dispatchEvent(new Event("change", { bubbles: true }));
+        } catch {}
+      };
+      const relayoutFloatingPanel = () => {
+        const gap = 6;
+        const gutter = 12;
+        const wrapperRect = wrapper.getBoundingClientRect();
+        const width = Math.min(420, Math.max(wrapperRect.width, 340));
+        let left = Math.min(
+          Math.max(wrapperRect.left, gutter),
+          Math.max(gutter, window.innerWidth - width - gutter)
+        );
+        let top = wrapperRect.bottom + gap;
+        const panelHeight = panel.offsetHeight || 0;
+        if (panelHeight) {
+          const overflowBottom = top + panelHeight + gutter - window.innerHeight;
+          if (overflowBottom > 0) {
+            const flippedTop = wrapperRect.top - panelHeight - gap;
+            top =
+              flippedTop >= gutter
+                ? flippedTop
+                : Math.max(gutter, window.innerHeight - panelHeight - gutter);
+          }
+        }
+        panel.style.left = `${Math.round(left)}px`;
+        panel.style.top = `${Math.round(top)}px`;
+        panel.style.width = `${Math.round(width)}px`;
+        panel.style.minWidth = `${Math.round(width)}px`;
+        panel.style.maxWidth = "420px";
+        panel.style.zIndex = "100030";
+      };
+      const detachPanelListeners = () => {
+        if (detachRelayout) {
+          detachRelayout();
+          detachRelayout = null;
+        }
+      };
+      const restorePanel = () => {
+        detachPanelListeners();
+        panel.classList.remove("is-floating");
+        panel.style.position = "";
+        panel.style.left = "";
+        panel.style.top = "";
+        panel.style.width = "";
+        panel.style.minWidth = "";
+        panel.style.maxWidth = "";
+        panel.style.zIndex = "";
+        if (panelPlaceholder.parentNode && panel.parentNode !== panelPlaceholder.parentNode) {
+          try {
+            panelPlaceholder.parentNode.insertBefore(panel, panelPlaceholder);
+          } catch {}
+        }
+        panelPortaled = false;
+      };
+      const portalPanelToBody = () => {
+        if (panelPortaled) {
+          relayoutFloatingPanel();
+          return;
+        }
+        if (panel.parentNode !== document.body) {
+          try {
+            document.body.appendChild(panel);
+          } catch {}
+        }
+        panel.classList.add("is-floating");
+        panel.style.position = "fixed";
+        const handleRelayout = () => relayoutFloatingPanel();
+        relayoutFloatingPanel();
+        window.addEventListener("resize", handleRelayout);
+        window.addEventListener("scroll", handleRelayout, true);
+        detachRelayout = () => {
+          window.removeEventListener("resize", handleRelayout);
+          window.removeEventListener("scroll", handleRelayout, true);
+        };
+        panelPortaled = true;
+      };
+      const setSelectedTime = (parts, { silent = false } = {}) => {
+        if (!parts) {
+          selectedTime = null;
+          input.value = "";
+        } else {
+          selectedTime = {
+            hour: Math.max(0, Math.min(23, Number(parts.hour) || 0)),
+            minute: Math.max(0, Math.min(59, Number(parts.minute) || 0))
+          };
+          input.value = formatConvertWindowTimeParts(selectedTime.hour, selectedTime.minute);
+        }
+        renderTimePanel();
+        if (!silent) emitInputAndChange();
+      };
+      const getWorkingTime = () => {
+        const active = selectedTime || parseConvertWindowTime(input.value);
+        if (active) return { hour: active.hour, minute: active.minute };
+        const now = new Date();
+        return { hour: now.getHours(), minute: now.getMinutes() };
+      };
+      const clampStepperPartValue = (part, rawValue) => {
+        const digits = String(rawValue || "")
+          .replace(/\D+/g, "")
+          .slice(0, 2);
+        if (!digits) return { raw: "", numeric: null };
+        const max = part === "hour" ? 23 : 59;
+        const numeric = Math.max(0, Math.min(max, Number(digits)));
+        return { raw: String(numeric), numeric };
+      };
+      const updateCurrentValueSummary = () => {
+        const active = selectedTime || parseConvertWindowTime(input.value);
+        currentValue.textContent = active
+          ? formatConvertWindowTimeParts(active.hour, active.minute)
+          : "Choisir une heure";
+      };
+      const adjustSelectedTime = (part, delta) => {
+        const base = getWorkingTime();
+        let nextHour = base.hour;
+        let nextMinute = base.minute;
+        if (part === "hour") {
+          nextHour = (base.hour + delta + 24) % 24;
+        } else {
+          nextMinute = (base.minute + delta + 60) % 60;
+        }
+        setSelectedTime({ hour: nextHour, minute: nextMinute });
+      };
+      const commitStepperValue = (part, rawValue, { emit = true, finalize = false } = {}) => {
+        const targetField = part === "hour" ? hourStepper.value : minuteStepper.value;
+        const normalized = clampStepperPartValue(part, rawValue);
+        if (targetField.value !== normalized.raw) targetField.value = normalized.raw;
+        if (normalized.numeric === null) {
+          if (finalize) renderTimePanel();
+          else updateCurrentValueSummary();
+          return;
+        }
+        const base = getWorkingTime();
+        const next = {
+          hour: part === "hour" ? normalized.numeric : base.hour,
+          minute: part === "minute" ? normalized.numeric : base.minute
+        };
+        selectedTime = next;
+        input.value = formatConvertWindowTimeParts(next.hour, next.minute);
+        if (finalize) renderTimePanel();
+        else updateCurrentValueSummary();
+        if (emit) emitInputAndChange();
+      };
+      const handleStepperKeydown = (part, evt) => {
+        if (evt.ctrlKey || evt.metaKey || evt.altKey) return;
+        if (evt.key === "ArrowUp") {
+          evt.preventDefault();
+          adjustSelectedTime(part, part === "hour" ? 1 : 5);
+          return;
+        }
+        if (evt.key === "ArrowDown") {
+          evt.preventDefault();
+          adjustSelectedTime(part, part === "hour" ? -1 : -5);
+          return;
+        }
+        const allowedKeys = new Set([
+          "Backspace",
+          "Delete",
+          "Tab",
+          "Enter",
+          "Escape",
+          "ArrowLeft",
+          "ArrowRight",
+          "Home",
+          "End"
+        ]);
+        if (allowedKeys.has(evt.key) || /^\d$/.test(evt.key)) return;
+        evt.preventDefault();
+      };
+      const renderTimePanel = () => {
+        const active = selectedTime || parseConvertWindowTime(input.value);
+        const display = active || getWorkingTime();
+        updateCurrentValueSummary();
+        hourStepper.value.value = String(display.hour).padStart(2, "0");
+        minuteStepper.value.value = String(display.minute).padStart(2, "0");
+      };
+      const closePanel = () => {
+        if (!isOpen) return;
+        isOpen = false;
+        wrapper.classList.remove("is-open");
+        restorePanel();
+        panel.hidden = true;
+        input.setAttribute("aria-expanded", "false");
+        toggle.setAttribute("aria-expanded", "false");
+        document.removeEventListener("click", outsideClick);
+        document.removeEventListener("keydown", handleKeydown, true);
+      };
+      const openPanel = () => {
+        if (input.disabled || isOpen) return;
+        isOpen = true;
+        wrapper.classList.add("is-open");
+        panel.hidden = false;
+        input.setAttribute("aria-expanded", "true");
+        toggle.setAttribute("aria-expanded", "true");
+        renderTimePanel();
+        portalPanelToBody();
+        document.addEventListener("click", outsideClick);
+        document.addEventListener("keydown", handleKeydown, true);
+        requestAnimationFrame(() => {
+          try {
+            panel.focus();
+          } catch {}
+        });
+      };
+      const outsideClick = (evt) => {
+        if (!isOpen) return;
+        if (wrapper.contains(evt.target) || panel.contains(evt.target)) return;
+        closePanel();
+      };
+      const handleKeydown = (evt) => {
+        if (!isOpen) return;
+        if (evt.key === "Escape") {
+          evt.preventDefault();
+          closePanel();
+          try {
+            toggle.focus();
+          } catch {}
+        }
+      };
+
+      nowBtn.addEventListener("click", () => {
+        const fallback = new Date();
+        const now = parseConvertWindowTime(typeof getNowValue === "function" ? getNowValue() : "") || {
+          hour: fallback.getHours(),
+          minute: fallback.getMinutes()
+        };
+        setSelectedTime(now);
+        closePanel();
+      });
+      hourStepper.decrementBtn.addEventListener("click", () => adjustSelectedTime("hour", -1));
+      hourStepper.incrementBtn.addEventListener("click", () => adjustSelectedTime("hour", 1));
+      minuteStepper.decrementBtn.addEventListener("click", () => adjustSelectedTime("minute", -5));
+      minuteStepper.incrementBtn.addEventListener("click", () => adjustSelectedTime("minute", 5));
+      [
+        ["hour", hourStepper.value],
+        ["minute", minuteStepper.value]
+      ].forEach(([part, field]) => {
+        field.addEventListener("keydown", (evt) => handleStepperKeydown(part, evt));
+        field.addEventListener("input", () =>
+          commitStepperValue(part, field.value, { emit: true, finalize: false })
+        );
+        field.addEventListener("blur", () =>
+          commitStepperValue(part, field.value, { emit: false, finalize: true })
+        );
+        field.addEventListener("focus", () => {
+          try {
+            field.select();
+          } catch {}
+        });
+      });
+      clearBtn.addEventListener("click", () => {
+        setSelectedTime(null);
+        closePanel();
+      });
+      toggle.addEventListener("click", (evt) => {
+        evt.preventDefault();
+        if (isOpen) closePanel();
+        else openPanel();
+      });
+      input.addEventListener("click", () => openPanel());
+      input.addEventListener("keydown", (evt) => {
+        if (evt.key === "Enter" || evt.key === " " || evt.key === "ArrowDown") {
+          evt.preventDefault();
+          openPanel();
+        }
+        if (evt.key === "Escape") {
+          evt.preventDefault();
+          closePanel();
+        }
+      });
+
+      const controller = {
+        setValue(value, { silent = true } = {}) {
+          const next = parseConvertWindowTime(value);
+          setSelectedTime(next, { silent });
+        },
+        close: () => closePanel(),
+        open: () => openPanel()
+      };
+
+      input.__swbTimePickerController = controller;
+      renderTimePanel();
+      return controller;
     };
-    const wireBeReceptionTimeInput = () => {
-      const input = e[ID.beTime];
-      const wrapper = input?.closest?.("[data-time-picker]") || null;
-      const toggle = wrapper?.querySelector?.("[data-time-picker-toggle]") || null;
-      const panel = wrapper?.querySelector?.("[data-time-picker-panel]") || null;
-      if (!(input instanceof HTMLInputElement) || !(panel instanceof HTMLElement) || !toggle || state.beReceptionTimeBound) {
+    const closeConvertWindowTimePanel = (input) => {
+      if (input?.__swbTimePickerController?.close) {
+        input.__swbTimePickerController.close();
         return;
       }
-      panel.innerHTML = `
-        <div class="swb-time-picker__footer">
-          <button type="button" class="swb-time-picker__footer-btn" data-convert-window-time-now>Maintenant</button>
-          <button type="button" class="swb-time-picker__footer-btn swb-time-picker__footer-btn--muted" data-convert-window-time-clear>Effacer</button>
-        </div>
-      `;
-      const setOpen = (open) => {
-        panel.hidden = !open;
-        wrapper.classList.toggle("is-open", !!open);
-        input.setAttribute("aria-expanded", open ? "true" : "false");
-        toggle.setAttribute("aria-expanded", open ? "true" : "false");
-      };
-      toggle.addEventListener("click", (event) => {
-        event.preventDefault();
-        setOpen(panel.hidden);
+      const wrapper = input?.closest?.("[data-time-picker]") || null;
+      const toggle = wrapper?.querySelector?.("[data-time-picker-toggle]") || null;
+      const panel = wrapper?.querySelector?.("[data-time-picker-panel]") || null;
+      if (!wrapper || !panel) return;
+      panel.hidden = true;
+      wrapper.classList.remove("is-open");
+      input?.setAttribute("aria-expanded", "false");
+      toggle?.setAttribute("aria-expanded", "false");
+    };
+    const closeBeReceptionTimePanel = () => closeConvertWindowTimePanel(e[ID.beTime]);
+    const closeBsSortieTimePanel = () => closeConvertWindowTimePanel(e[ID.bsTime]);
+    const wireBeReceptionTimeInput = () => {
+      if (state.beReceptionTimeBound) return;
+      const controller = ensureConvertWindowTimePicker(e[ID.beTime], {
+        panelId: ID.beTimePanel,
+        titleText: "Heure de reception",
+        getNowValue: formatBeReceptionTime
       });
-      panel.querySelector("[data-convert-window-time-now]")?.addEventListener("click", () => {
-        input.value = formatBeReceptionTime();
-        input.dispatchEvent(new Event("change", { bubbles: true }));
-        setOpen(false);
-      });
-      panel.querySelector("[data-convert-window-time-clear]")?.addEventListener("click", () => {
-        input.value = "";
-        input.dispatchEvent(new Event("change", { bubbles: true }));
-        setOpen(false);
-      });
-      state.beReceptionTimeBound = true;
+      state.beReceptionTimeBound = !!controller;
     };
     const wireBsSortieTimeInput = () => {
-      const input = e[ID.bsTime];
-      const wrapper = input?.closest?.("[data-time-picker]") || null;
-      const toggle = wrapper?.querySelector?.("[data-time-picker-toggle]") || null;
-      const panel = wrapper?.querySelector?.("[data-time-picker-panel]") || null;
-      if (!(input instanceof HTMLInputElement) || !(panel instanceof HTMLElement) || !toggle || state.bsSortieTimeBound) {
-        return;
-      }
-      panel.innerHTML = `
-        <div class="swb-time-picker__footer">
-          <button type="button" class="swb-time-picker__footer-btn" data-convert-window-time-now>Maintenant</button>
-          <button type="button" class="swb-time-picker__footer-btn swb-time-picker__footer-btn--muted" data-convert-window-time-clear>Effacer</button>
-        </div>
-      `;
-      const setOpen = (open) => {
-        panel.hidden = !open;
-        wrapper.classList.toggle("is-open", !!open);
-        input.setAttribute("aria-expanded", open ? "true" : "false");
-        toggle.setAttribute("aria-expanded", open ? "true" : "false");
-      };
-      toggle.addEventListener("click", (event) => {
-        event.preventDefault();
-        setOpen(panel.hidden);
+      if (state.bsSortieTimeBound) return;
+      const controller = ensureConvertWindowTimePicker(e[ID.bsTime], {
+        panelId: ID.bsTimePanel,
+        titleText: "Heure de sortie",
+        getNowValue: formatBsSortieTime
       });
-      panel.querySelector("[data-convert-window-time-now]")?.addEventListener("click", () => {
-        input.value = formatBsSortieTime();
-        input.dispatchEvent(new Event("change", { bubbles: true }));
-        setOpen(false);
-      });
-      panel.querySelector("[data-convert-window-time-clear]")?.addEventListener("click", () => {
-        input.value = "";
-        input.dispatchEvent(new Event("change", { bubbles: true }));
-        setOpen(false);
-      });
-      state.bsSortieTimeBound = true;
+      state.bsSortieTimeBound = !!controller;
     };
     const syncBeReceptionDateFromDocumentDate = () => {
       if (state.beReceptionDateTouched) return;
@@ -2086,6 +2459,11 @@
     const updateBsSortieVisibility = () => {
       if (!e[ID.bsSortieWrap]) return;
       const show = isBonSortieTarget();
+      if (e[ID.bsSectionsWrap]) {
+        e[ID.bsSectionsWrap].hidden = !show;
+        e[ID.bsSectionsWrap].style.display = show ? "" : "none";
+        e[ID.bsSectionsWrap].setAttribute("aria-hidden", show ? "false" : "true");
+      }
       e[ID.bsSortieWrap].hidden = !show;
       e[ID.bsSortieWrap].style.display = show ? "" : "none";
       e[ID.bsSortieWrap].setAttribute("aria-hidden", show ? "false" : "true");
@@ -2859,16 +3237,24 @@
 
     const syncTarget = () => {
       const targets = Array.isArray(state.source?.targets) ? state.source.targets : [];
+      const previousTarget = normalize(e[ID.target].value);
+      const targetValues = [];
       e[ID.target].innerHTML = "";
       targets.forEach((targetType) => {
+        const value = normalize(targetType);
+        if (!value) return;
+        targetValues.push(value);
         const option = document.createElement("option");
-        option.value = targetType;
-        option.textContent = labelOfType(targetType);
+        option.value = value;
+        option.textContent = labelOfType(value);
         e[ID.target].appendChild(option);
       });
-      const preferred = state.source?.defaultTarget;
-      e[ID.target].value =
-        preferred && targets.includes(preferred) ? preferred : targets[0] || "";
+      const preferred = normalize(state.source?.defaultTarget);
+      e[ID.target].value = targetValues.includes(previousTarget)
+        ? previousTarget
+        : targetValues.includes(preferred)
+          ? preferred
+          : targetValues[0] || "";
       renderModelChoices();
       syncTargetPanelUi();
       updatePaymentVisibility();
@@ -3299,6 +3685,10 @@
       if (e[ID.beReceptionWrap]) {
         e[ID.beReceptionWrap].hidden = true;
         e[ID.beReceptionWrap].style.display = "none";
+      }
+      if (e[ID.bsSectionsWrap]) {
+        e[ID.bsSectionsWrap].hidden = true;
+        e[ID.bsSectionsWrap].style.display = "none";
       }
       if (e[ID.bsSortieWrap]) {
         e[ID.bsSortieWrap].hidden = true;
