@@ -680,6 +680,72 @@
     return capturePdfPreviewModalInvoiceBundle(overlay);
   }
 
+  function invoiceExportBundleNeedsTableStretch(bundle) {
+    const html = String(bundle?.html || "");
+    if (!html) return false;
+    return (
+      html.includes('data-template-key="template2"') ||
+      html.includes("data-template-key='template2'") ||
+      html.includes('data-template="template2"') ||
+      html.includes("data-template='template2'")
+    );
+  }
+
+  async function prepareInvoiceRenderBundleForExport(bundle) {
+    if (!invoiceExportBundleNeedsTableStretch(bundle)) return bundle;
+    if (typeof document === "undefined" || !document.body) return bundle;
+
+    const html = String(bundle?.html || "").trim();
+    if (!html) return bundle;
+
+    const css = String(bundle?.css || "");
+    const overlay = document.createElement("div");
+    overlay.className = "pdf-preview-modal__export-measure";
+    overlay.style.position = "absolute";
+    overlay.style.left = "-10000px";
+    overlay.style.top = "0";
+    overlay.style.width = "210mm";
+    overlay.style.visibility = "hidden";
+    overlay.style.pointerEvents = "none";
+    overlay.style.background = "#fff";
+    overlay.innerHTML = `
+      <style id="pdfPreviewModalStyle"></style>
+      <div id="pdfPreviewContent" class="pdf-preview-modal__content pdf-preview-surface">
+        <div id="pdfRoot" class="pdf-preview-root"></div>
+      </div>
+    `;
+
+    const styleEl = overlay.querySelector("#pdfPreviewModalStyle");
+    const root = overlay.querySelector("#pdfRoot");
+    if (styleEl) styleEl.textContent = css;
+    if (root) root.innerHTML = html;
+
+    document.body.appendChild(overlay);
+    try {
+      await waitForNextFrame();
+      await waitForNextFrame();
+      if (typeof document.fonts?.ready?.then === "function") {
+        try {
+          await document.fonts.ready;
+        } catch {}
+      }
+      syncPdfPreviewTemplate2LastRowStretch(overlay);
+      await waitForNextFrame();
+      const stretchedHtml = String(root?.innerHTML || "").trim();
+      if (!stretchedHtml) return bundle;
+      return {
+        ...bundle,
+        html: stretchedHtml,
+        css
+      };
+    } catch (err) {
+      console.warn("prepareInvoiceRenderBundleForExport failed", err);
+      return bundle;
+    } finally {
+      if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    }
+  }
+
   function applyTotalsSnapshotToState(stateInput, totalsSnapshot = null) {
     const st = ensureStateDefaults(stateInput || {});
     const totalsResolved = totalsSnapshot || computeTotalsForSnapshot(st, null);
@@ -1655,7 +1721,7 @@
     }
     const assets = API?.assets || {};
     const totalsSnapshotResolved = applyTotalsSnapshotToState(st, totalsSnapshot);
-    const renderBundle =
+    let renderBundle =
       renderBundleOverride && typeof renderBundleOverride.html === "string" && renderBundleOverride.html.trim()
         ? {
             html: renderBundleOverride.html,
@@ -1666,6 +1732,7 @@
             templateKey: renderBundleOverride.templateKey
           }
         : buildInvoiceRendererBundle(renderer, st, assets);
+    renderBundle = await prepareInvoiceRenderBundleForExport(renderBundle);
     const htmlInv = renderBundle.html;
     const cssInv = renderBundle.css;
 
